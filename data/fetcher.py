@@ -22,8 +22,8 @@ def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
 
 
 def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFrame:
-    end = datetime.today()
-    start = end - timedelta(days=days)
+    end = datetime.today() + timedelta(days=1)   # yfinance end exclusive, KST 자정 이슈 방지
+    start = end - timedelta(days=days + 1)
     if market.startswith('KR'):
         suffix = '.KS' if 'KOSPI' in market else '.KQ'
         df = _download(ticker + suffix, start, end)
@@ -51,8 +51,8 @@ def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
 
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
-    end = datetime.today()
-    start = end - timedelta(days=days)
+    end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
+    start = end - timedelta(days=days + 1)
     return _download(ticker, start, end)
 
 
@@ -112,3 +112,22 @@ def parse_tradingview_csv(uploaded_file) -> pd.DataFrame:
     # KRX:005930 → 005930
     df['Ticker'] = df['Ticker'].astype(str).str.split(':').str[-1]
     return df
+
+
+def parse_ticker_txt(content: str) -> list:
+    """
+    TradingView 와치리스트 TXT 파싱.
+    포맷: KRX:229200,KRX:KOSDAQ,###그룹명,KRX:200470,...
+    - ###로 시작하는 그룹 라벨 제거
+    - KRX: 접두사 제거
+    - 숫자로 시작하는 것만 유효 티커로 취급 (지수·이름 제외)
+    """
+    tickers = []
+    for part in content.replace('\n', ',').split(','):
+        part = part.strip()
+        if not part or part.startswith('###'):
+            continue
+        ticker = part.split(':')[-1].strip()
+        if ticker:
+            tickers.append(ticker)
+    return tickers
