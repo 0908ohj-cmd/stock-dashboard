@@ -70,11 +70,27 @@ def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
     return df[needed].dropna()
 
 
+def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
+    """한국 지수 마지막 행 Close NaN → fast_info.last_price로 채움."""
+    if df.empty or not pd.isna(df['Close'].iloc[-1]):
+        return df
+    try:
+        last_price = yf.Ticker(yf_ticker).fast_info.last_price
+        if last_price and last_price > 0:
+            df.loc[df.index[-1], 'Close'] = float(last_price)
+    except Exception:
+        pass
+    return df
+
+
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
-    return _download(ticker, start, end).dropna()
+    df = _download(ticker, start, end)
+    if name in ('KOSPI', 'KOSDAQ'):
+        df = _patch_kr_index_today(df, ticker)
+    return df.dropna(subset=['Close'])
 
 
 def get_stock_name(ticker: str, market: str = 'US') -> str:
