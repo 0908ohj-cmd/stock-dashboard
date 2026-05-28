@@ -18,7 +18,27 @@ def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     needed = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in df.columns]
-    return df[needed].dropna()
+    return df[needed]   # dropna는 호출부에서 처리
+
+
+def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """yfinance 마지막 행 Close가 NaN이면 pykrx로 채움 (자정 이후 당일 데이터 공백 대응)."""
+    if df.empty or not pd.isna(df['Close'].iloc[-1]):
+        return df
+    last_date = df.index[-1]
+    try:
+        from pykrx import stock as pykrx_stock
+        date_str = last_date.strftime('%Y%m%d')
+        pk = pykrx_stock.get_market_ohlcv_by_date(date_str, date_str, ticker)
+        if not pk.empty:
+            df.loc[last_date, 'Open']   = float(pk['시가'].iloc[0])
+            df.loc[last_date, 'High']   = float(pk['고가'].iloc[0])
+            df.loc[last_date, 'Low']    = float(pk['저가'].iloc[0])
+            df.loc[last_date, 'Close']  = float(pk['종가'].iloc[0])
+            df.loc[last_date, 'Volume'] = float(pk['거래량'].iloc[0])
+    except Exception:
+        pass
+    return df
 
 
 def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFrame:
@@ -29,8 +49,9 @@ def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFram
         df = _download(ticker + suffix, start, end)
         if df.empty and 'KOSPI' in market:
             df = _download(ticker + '.KQ', start, end)
-        return df
-    return _download(ticker, start, end)
+        df = _patch_kr_today(df, ticker)
+        return df.dropna(subset=['Close'])
+    return _download(ticker, start, end).dropna()
 
 
 def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
@@ -53,7 +74,7 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
-    return _download(ticker, start, end)
+    return _download(ticker, start, end).dropna()
 
 
 def get_stock_name(ticker: str, market: str = 'US') -> str:
