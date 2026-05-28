@@ -8,7 +8,7 @@ from data.sector import get_sectors
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
-CASE_ORDER = {'Case1': 0, 'Case2': 1, '대기중': 2, '하방이탈': 3, '기준봉없음': 4}
+CASE_ORDER = {'Case1': 0, 'Case2': 1, '대기중': 2, '중간선이탈': 3, '하방이탈': 4, '기준봉없음': 5}
 
 KO_LOCALE = {
     'searchOoo': '검색...', 'selectAll': '(모두 선택)',
@@ -142,5 +142,5 @@ def render_10ema_tab(tickers: list, market: str, label: str):
 
     candidates = [r for r in rows if r['케이스'] in ('Case1', 'Case2')]
     if candidates:
-        names = [f"**{r['Ticker']}** ({r['케이스']})" for r in candidates]
+        names = [f"**{r['Ticker']}** {r['종목명']} ({r['케이스']})" for r in candidates]
         st.success('⭐ 매수 대기: ' + ', '.join(names))

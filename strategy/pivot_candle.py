@@ -113,7 +113,7 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'기준봉없음' | '하방이탈' | '대기중' | 'Case1' | 'Case2'"""
+    """'기준봉없음' | '하방이탈' | '중간선이탈' | '대기중' | 'Case1' | 'Case2'"""
     if pivot is None:
         return '기준봉없음'
 
@@ -122,6 +122,10 @@ def classify_case(
 
     if current_close < pivot['low']:
         return '하방이탈'
+
+    # 중간선 이탈: 기준봉 저가 위지만 중간선 아래 → 셋업 약화
+    if current_close < pivot['midline']:
+        return '중간선이탈'
 
     days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
 
