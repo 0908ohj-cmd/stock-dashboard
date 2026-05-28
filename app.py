@@ -1,13 +1,21 @@
+import pathlib
 import streamlit as st
-import pandas as pd
-from data.fetcher import (
-    parse_tradingview_csv, fetch_daily, fetch_intraday,
-    fetch_index_daily, fetch_intraday_for_date, fetch_index_intraday_for_date,
-)
+from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_daily, fetch_intraday, fetch_index_daily
 from ui.index_panel import render_index_panel
-from ui.watchlist import render_watchlist, _get_market_status_cached, _fetch_index_cached
-from ui.charts import daily_chart
-from ui.intraday_overlay import calc_intraday_strength, intraday_overlay_chart
+from ui.watchlist import render_watchlist_tab, _fetch_index_cached
+from ui.watchlist_10ema import render_10ema_tab
+from ui.charts import daily_chart, intraday_chart
+
+SAVED_DIR = pathlib.Path(__file__).parent / 'data' / 'saved'
+SAVED_DIR.mkdir(exist_ok=True)
+
+SAVED_PATHS = {
+    'KR_KOSPI':  SAVED_DIR / 'kospi.tickers',
+    'KR_KOSDAQ': SAVED_DIR / 'kosdaq.tickers',
+    'US':        SAVED_DIR / 'us.tickers',
+    '10EMA_KR':  SAVED_DIR / '10ema_kr.tickers',
+    '10EMA_US':  SAVED_DIR / '10ema_us.tickers',
+}
 
 st.set_page_config(
     page_title='Stock Watchlist',
@@ -29,11 +37,15 @@ with st.sidebar:
     st.divider()
 
     st.markdown('**🇰🇷 한국 주식**')
-    kospi_file  = st.file_uploader('KOSPI 스크리너 CSV', type='csv', key='kospi_csv')
-    kosdaq_file = st.file_uploader('KOSDAQ 스크리너 CSV', type='csv', key='kosdaq_csv')
+    kospi_file  = st.file_uploader('KOSPI (CSV 또는 TXT)', type=['csv', 'txt'], key='kospi_csv')
+    kosdaq_file = st.file_uploader('KOSDAQ (CSV 또는 TXT)', type=['csv', 'txt'], key='kosdaq_csv')
     st.divider()
     st.markdown('**🇺🇸 미국 주식**')
-    us_file = st.file_uploader('US 스크리너 CSV', type='csv', key='us_csv')
+    us_file = st.file_uploader('US (CSV 또는 TXT)', type=['csv', 'txt'], key='us_csv')
+    st.divider()
+    st.markdown('**📈 10EMA 강세장**')
+    ema10_kr_file = st.file_uploader('10EMA 국장 (CSV 또는 TXT)', type=['csv', 'txt'], key='10ema_kr')
+    ema10_us_file = st.file_uploader('10EMA 미장 (CSV 또는 TXT)', type=['csv', 'txt'], key='10ema_us')
     st.divider()
     if st.button('🔄 새로고침', use_container_width=True):
         st.cache_data.clear()
@@ -42,85 +54,81 @@ with st.sidebar:
 
 # ── 종목 파싱 ─────────────────────────────────────────────
 kr_kospi, kr_kosdaq, us_tickers = [], [], []
+ema10_kr_tickers, ema10_us_tickers = [], []
 
 for uploaded, key, name in [
-    (kospi_file,  'KR_KOSPI',  'KOSPI'),
-    (kosdaq_file, 'KR_KOSDAQ', 'KOSDAQ'),
-    (us_file,     'US',        'US'),
+    (kospi_file,     'KR_KOSPI',  'KOSPI'),
+    (kosdaq_file,    'KR_KOSDAQ', 'KOSDAQ'),
+    (us_file,        'US',        'US'),
+    (ema10_kr_file,  '10EMA_KR',  '10EMA 국장'),
+    (ema10_us_file,  '10EMA_US',  '10EMA 미장'),
 ]:
+    saved_path = SAVED_PATHS[key]
+
     if uploaded:
         try:
-            df = parse_tradingview_csv(uploaded)
-            tickers = df['Ticker'].dropna().astype(str).tolist()
-            if key == 'KR_KOSPI':    kr_kospi   = tickers
-            elif key == 'KR_KOSDAQ': kr_kosdaq  = tickers
-            else:                    us_tickers = tickers
-            st.sidebar.success(f'{name} {len(tickers)}개 로드됨')
+            import io
+            raw = uploaded.read()
+            fname = uploaded.name
+            if fname.endswith('.txt'):
+                tickers_parsed = parse_ticker_txt(raw.decode('utf-8', errors='ignore'))
+            else:
+                df = parse_tradingview_csv(io.BytesIO(raw))
+                tickers_parsed = df['Ticker'].dropna().astype(str).tolist()
+            # 티커 목록만 저장 (형식 무관하게 통일)
+            saved_path.write_text('\n'.join(tickers_parsed), encoding='utf-8')
         except Exception as e:
-            st.sidebar.error(f'CSV 오류: {e}')
+            st.sidebar.error(f'파일 오류: {e}')
+
+    if saved_path.exists():
+        try:
+            tickers = [t for t in saved_path.read_text(encoding='utf-8').splitlines() if t.strip()]
+            if key == 'KR_KOSPI':       kr_kospi         = tickers
+            elif key == 'KR_KOSDAQ':   kr_kosdaq        = tickers
+            elif key == 'US':          us_tickers       = tickers
+            elif key == '10EMA_KR':    ema10_kr_tickers = tickers
+            else:                      ema10_us_tickers = tickers
+            label = f'{name} {len(tickers)}개' + ('' if uploaded else ' (저장됨)')
+            st.sidebar.success(label)
+        except Exception as e:
+            st.sidebar.error(f'파일 오류: {e}')
 
 # ── 지수 패널 ─────────────────────────────────────────────
 render_index_panel()
 st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
-render_watchlist(kr_kospi, kr_kosdaq, us_tickers)
+st.subheader('와치리스트')
+tab_kospi, tab_kosdaq, tab_10ema_kr, tab_us, tab_10ema_us = st.tabs([
+    '🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '📈 10EMA 국장', '🇺🇸 나스닥', '📈 10EMA 미장'
+])
+with tab_kospi:
+    render_watchlist_tab(kr_kospi, 'KR_KOSPI', 'KOSPI')
+with tab_kosdaq:
+    render_watchlist_tab(kr_kosdaq, 'KR_KOSDAQ', 'KOSDAQ')
+with tab_10ema_kr:
+    render_10ema_tab(ema10_kr_tickers, 'KR_KOSPI', '10EMA 국장')
+with tab_us:
+    render_watchlist_tab(us_tickers, 'US', '나스닥')
+with tab_10ema_us:
+    render_10ema_tab(ema10_us_tickers, 'US', '10EMA 미장')
 
-# ── 종목 상세 ─────────────────────────────────────────────
+# ── 종목 일봉 차트 ────────────────────────────────────────
 if st.session_state.get('selected_ticker'):
-    ticker   = st.session_state['selected_ticker']
-    market   = st.session_state.get('selected_market', 'US')
-    jjin_str = st.session_state.get('selected_jjin_date')
-
+    ticker     = st.session_state['selected_ticker']
+    market     = st.session_state.get('selected_market', 'US')
     index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
+
     st.divider()
-    st.subheader(f'📊 {ticker} 상세')
-
     col1, col2 = st.columns(2)
-
     with col1:
         with st.spinner('일봉 로드 중...'):
             df_daily = fetch_daily(ticker, market=market)
             idx_df   = _fetch_index_cached(index_name)
         if not df_daily.empty:
             st.plotly_chart(daily_chart(df_daily, ticker, index_df=idx_df), use_container_width=True)
-
     with col2:
-        if jjin_str:
-            jjin_date = pd.Timestamp(jjin_str)
-            st.markdown(f'**찐반등 날 5분봉 비교** ({jjin_date.date()})')
-            with st.spinner('5분봉 로드 중...'):
-                stock_5m = fetch_intraday_for_date(ticker, jjin_date, market=market)
-                index_5m = fetch_index_intraday_for_date(index_name, jjin_date)
-
-            if not stock_5m.empty and not index_5m.empty:
-                strength = calc_intraday_strength(stock_5m, index_5m)
-                fig = intraday_overlay_chart(stock_5m, index_5m, ticker, index_name)
-                st.plotly_chart(fig, use_container_width=True)
-
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric('지수고점 후 초과상승', f"{strength.get('excess_after_peak_pct', 0):+.2f}%")
-                m2.metric(
-                    '고점갱신',
-                    f"종목 {strength.get('stock_high_updates', 0)}회",
-                    f"지수 {strength.get('index_high_updates', 0)}회",
-                )
-                m3.metric(
-                    '저점이탈',
-                    f"종목 {strength.get('stock_low_breaks', 0)}회",
-                    f"지수 {strength.get('index_low_breaks', 0)}회",
-                    delta_color='inverse',
-                )
-                m4.metric(
-                    '종가/고점',
-                    f"종목 {strength.get('stock_close_ratio', 0):.1f}%",
-                    f"지수 {strength.get('index_close_ratio', 0):.1f}%",
-                )
-            else:
-                st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
-        else:
-            with st.spinner('5분봉 로드 중...'):
-                df_5m = fetch_intraday(ticker, market=market)
-            if not df_5m.empty:
-                from ui.charts import intraday_chart
-                st.plotly_chart(intraday_chart(df_5m, ticker), use_container_width=True)
+        with st.spinner('5분봉 로드 중...'):
+            df_5m = fetch_intraday(ticker, market=market)
+        if not df_5m.empty:
+            st.plotly_chart(intraday_chart(df_5m, ticker), use_container_width=True)
