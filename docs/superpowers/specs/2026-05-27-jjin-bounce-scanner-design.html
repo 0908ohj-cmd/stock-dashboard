@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>찐반등 스캐너 설계 문서</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      font-size: 1.8rem;
+      color: #ffffff;
+      border-bottom: 2px solid #ef5350;
+      padding-bottom: 12px;
+      margin-bottom: 8px;
+    }
+    .meta { color: #888; font-size: 0.85rem; margin-bottom: 32px; }
+
+    h2 {
+      font-size: 1.2rem;
+      color: #ef5350;
+      margin: 40px 0 16px;
+      padding-left: 12px;
+      border-left: 3px solid #ef5350;
+    }
+    h3 {
+      font-size: 1rem;
+      color: #ffb74d;
+      margin: 24px 0 10px;
+    }
+
+    p { margin-bottom: 12px; color: #ccc; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.88rem;
+    }
+    th {
+      background: #1e2230;
+      color: #ef5350;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 2px solid #333;
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #1e2230;
+      color: #ccc;
+    }
+    tr:hover td { background: #1a1f2e; }
+
+    pre, code {
+      font-family: 'Consolas', 'Fira Code', monospace;
+    }
+    pre {
+      background: #1e2230;
+      border: 1px solid #2a2f40;
+      border-radius: 6px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-size: 0.82rem;
+      color: #a8d8a8;
+      margin: 12px 0;
+    }
+    code {
+      background: #1e2230;
+      color: #ffb74d;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    .badge-new { background: #1b4332; color: #52b788; }
+    .badge-edit { background: #2c2c0f; color: #ffd60a; }
+    .badge-keep { background: #1a1a2e; color: #888; }
+
+    .status-card {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      margin: 2px 4px;
+    }
+    .status-normal { background: #1b4332; color: #52b788; }
+    .status-correction { background: #3b0f0f; color: #ef5350; }
+    .status-early { background: #2c1f00; color: #ffb74d; }
+    .status-ftd { background: #0d2b45; color: #4fc3f7; }
+
+    .philosophy {
+      background: #1a1f2e;
+      border-left: 4px solid #4fc3f7;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      color: #b0c4de;
+      font-style: italic;
+    }
+
+    .section { margin-bottom: 40px; }
+
+    ul { padding-left: 20px; margin: 10px 0; }
+    ul li { margin-bottom: 6px; color: #ccc; }
+
+    .priority-list {
+      counter-reset: priority;
+      list-style: none;
+      padding: 0;
+    }
+    .priority-list li {
+      counter-increment: priority;
+      padding: 8px 12px 8px 40px;
+      position: relative;
+      border-bottom: 1px solid #1e2230;
+    }
+    .priority-list li::before {
+      content: counter(priority);
+      position: absolute;
+      left: 10px;
+      width: 22px;
+      height: 22px;
+      background: #ef5350;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      top: 10px;
+    }
+    .priority-list li:first-child::before { background: #ef5350; }
+    .priority-list li:nth-child(2)::before { background: #ff8a65; }
+    .priority-list li:nth-child(3)::before { background: #ffb74d; }
+    .priority-list li:nth-child(4)::before { background: #888; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>찐반등 스캐너 &amp; RS 와치리스트</h1>
+  <div class="meta">설계 문서 · 2026-05-27</div>
+
+  <div class="philosophy">
+    지수가 하락하는 동안 이미 독자적 상승 흐름을 보이는 종목(저점 선행, 이평선 위 유지)이
+    시장 회복 시 가장 먼저, 가장 강하게 오른다. — 미너비니 주도주 원칙
+  </div>
+
+  <!-- ─── 1. 아키텍처 ─────────────────────────── -->
+  <div class="section">
+    <h2>1. 아키텍처</h2>
+
+    <pre>app.py
+├── strategy/market_status.py   ← 신규: 지수 상태 감지
+├── strategy/rs_correction.py   ← 신규: 조정 구간 RS 계산
+├── ui/watchlist.py             ← 전면 개편: 새 정렬 기준
+└── ui/intraday_overlay.py      ← 신규: 5분봉 오버레이 차트</pre>
+
+    <h3>데이터 흐름</h3>
+    <pre>지수 OHLCV
+  → 찐반등 날 자동 감지 (market_status)
+  → 조정 구간 확정 (21EMA 이탈일 ~ 찐반등 날)
+
+종목 OHLCV (CSV 업로드)
+  → 조정 구간 RS 계산 (rs_correction)
+  → 와치리스트 정렬
+
+종목 선택
+  → 찐반등 날 5분봉 fetch
+  → 오버레이 차트 (intraday_overlay)</pre>
+  </div>
+
+  <!-- ─── 2. 찐반등 감지 ──────────────────────── -->
+  <div class="section">
+    <h2>2. 찐반등 감지 (strategy/market_status.py)</h2>
+
+    <h3>조기 신호 조건 (지수 일봉 기준)</h3>
+    <table>
+      <tr><th>#</th><th>조건</th><th>비고</th></tr>
+      <tr><td>1</td><td>지수 종가 &lt; EMA21</td><td>조정 구간 전제</td></tr>
+      <tr><td>2</td><td>당일 상승폭 ≥ ADR(14일)</td><td>절대적 크기 확보</td></tr>
+      <tr><td>3</td><td>직전 봉 음봉이고, 당일 양봉 바디 ≥ 직전 음봉 바디 × 70%</td><td>전봉 커버</td></tr>
+      <tr><td>4</td><td>거래량 ≥ 20일 평균 → ★ 보너스</td><td>필수 아님</td></tr>
+    </table>
+    <p>갭업 포함 — 뉴스 이벤트 갭업도 가격 조건 충족 시 찐반등으로 인정.</p>
+
+    <h3>강도 등급</h3>
+    <table>
+      <tr><th>등급</th><th>조건</th></tr>
+      <tr><td>★</td><td>기본 조건 충족, 거래량 평균 미만</td></tr>
+      <tr><td>★★</td><td>기본 조건 + 거래량 ≥ 20일 평균</td></tr>
+      <tr><td>★★★</td><td>기본 조건 + 거래량 ≥ 20일 평균 × 1.2</td></tr>
+    </table>
+
+    <h3>FTD 확인 (보조 표시)</h3>
+    <p>찐반등 이후 Day 1 저점 유지 상태에서 Day 4+ 에 +1.7% 이상 + 전일 대비 거래량 증가. 매수 의사결정에 사용하지 않고 상태 카드 보조 정보로만 표시.</p>
+
+    <h3>반환 구조</h3>
+    <pre>get_market_status(index_df) -> dict
+{
+  "state":             "normal" | "correction" | "early_signal" | "ftd_confirmed",
+  "correction_start":  date | None,   # 21EMA 이탈 시작일
+  "jjin_date":         date | None,   # 찐반등 감지일
+  "jjin_pct":          float,         # 당일 상승%
+  "jjin_stars":        int,           # 1~3
+  "ftd_date":          date | None,   # FTD 확인일 (보조)
+}</pre>
+  </div>
+
+  <!-- ─── 3. 조정 구간 RS ────────────────────── -->
+  <div class="section">
+    <h2>3. 조정 구간 RS 계산 (strategy/rs_correction.py)</h2>
+    <p><strong>측정 구간:</strong> 지수 21EMA 이탈일 ~ 찐반등 날</p>
+
+    <h3>지표</h3>
+    <table>
+      <tr><th>지표</th><th>계산</th><th>의미</th></tr>
+      <tr><td><code>excess_pct</code></td><td>종목 수익률 − 지수 수익률 (구간 전체)</td><td>조정 구간 초과수익</td></tr>
+      <tr><td><code>lead_days</code></td><td>지수 저점 날짜 − 종목 저점 날짜</td><td>양수 = 지수보다 먼저 저점</td></tr>
+      <tr><td><code>ma_score</code></td><td>찐반등 날 기준 EMA10/21, SMA50/150/200 위 개수 (0~5)</td><td>이평선 구조 강도</td></tr>
+      <tr><td><code>vol_ratio</code></td><td>상승일 평균거래량 / 하락일 평균거래량 (구간)</td><td>매수 우위 거래량</td></tr>
+      <tr><td><code>candle_ratio</code></td><td>누적 양봉 바디합 / 음봉 바디합 (구간)</td><td>양봉 질적 우위</td></tr>
+    </table>
+
+    <h3>정렬 우선순위</h3>
+    <ol class="priority-list">
+      <li><strong>lead_days 내림차순</strong> — 지수보다 먼저 저점 찍은 종목</li>
+      <li><strong>excess_pct 내림차순</strong> — 조정 구간 초과수익률</li>
+      <li><strong>ma_score 내림차순</strong> — 찐반등 날 이평선 위 개수</li>
+      <li><strong>vol_ratio 내림차순</strong> — 거래량 품질 (덤)</li>
+    </ol>
+  </div>
+
+  <!-- ─── 4. 와치리스트 ────────────────────────── -->
+  <div class="section">
+    <h2>4. 와치리스트 테이블 (ui/watchlist.py)</h2>
+
+    <h3>컬럼</h3>
+    <table>
+      <tr><th>컬럼</th><th>내용</th></tr>
+      <tr><td>티커 | 종목명</td><td></td></tr>
+      <tr><td>섹터</td><td>기존 Claude 섹터 분류 유지</td></tr>
+      <tr><td>Close</td><td>현재가</td></tr>
+      <tr><td>등락%</td><td>전일 대비</td></tr>
+      <tr><td><strong>저점선행</strong></td><td>+N일 (양수=선행, 음수=지수보다 늦게 저점)</td></tr>
+      <tr><td><strong>조정RS%</strong></td><td>조정 구간 초과수익률</td></tr>
+      <tr><td><strong>MA점수</strong></td><td>0~5</td></tr>
+      <tr><td><strong>거래량비%</strong></td><td>상승/하락일 거래량비 ×100</td></tr>
+      <tr><td><strong>양봉비%</strong></td><td>양봉/음봉 바디 합 비율 ×100</td></tr>
+    </table>
+
+    <h3>시장 상태별 동작</h3>
+    <table>
+      <tr><th>상태</th><th>와치리스트 동작</th></tr>
+      <tr>
+        <td><span class="status-card status-normal">✅ 정상</span></td>
+        <td>조정 구간 RS 기준 (가장 최근 이탈 구간 사용)</td>
+      </tr>
+      <tr>
+        <td><span class="status-card status-correction">🔴 조정중</span></td>
+        <td>현재 진행 중인 조정 구간 RS 기준</td>
+      </tr>
+      <tr>
+        <td><span class="status-card status-early">⚡ 조기신호</span></td>
+        <td>조정 구간 RS 기준 + 상단 배너 표시</td>
+      </tr>
+      <tr>
+        <td><span class="status-card status-ftd">✅ FTD확인</span></td>
+        <td>동일 + FTD 확인 배너 추가</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ─── 5. 5분봉 오버레이 ─────────────────────── -->
+  <div class="section">
+    <h2>5. 찐반등 날 5분봉 오버레이 (ui/intraday_overlay.py)</h2>
+
+    <p>⚠️ <strong>데이터 제약:</strong> yfinance 5분봉은 최근 60일 이내만 제공. 초과 시 "5분봉 데이터 없음" 표시.</p>
+
+    <h3>차트</h3>
+    <p>정규화 누적수익률 오버레이 — 당일 시가 = 0% 기준으로 지수(회색 점선) + 종목(컬러 실선)을 겹쳐 표시. 지수 당일 고점 시각에 수직 점선 표시.</p>
+
+    <h3>인트라데이 강도 지표</h3>
+    <table>
+      <tr><th>지표</th><th>계산</th></tr>
+      <tr><td><strong>지수 고점 이후 초과 상승%</strong></td><td>지수 고점 시각 이후 종목 수익률 − 지수 수익률</td></tr>
+      <tr><td><strong>저점 방어 비교</strong></td><td>지수 저점 이탈 횟수 vs 종목 저점 이탈 횟수</td></tr>
+      <tr><td><strong>고점 갱신 횟수 비교</strong></td><td>종목 5분봉 신고가 갱신 횟수 vs 지수 갱신 횟수</td></tr>
+      <tr><td><strong>오후 버팀 비율</strong></td><td>종가/당일고점 vs 지수종가/지수당일고점</td></tr>
+    </table>
+  </div>
+
+  <!-- ─── 6. UI 레이아웃 ──────────────────────── -->
+  <div class="section">
+    <h2>6. UI 레이아웃</h2>
+    <pre>사이드바
+├── KOSPI CSV 업로드
+├── KOSDAQ CSV 업로드
+├── US CSV 업로드
+└── 새로고침 버튼
+
+메인
+├── [시장 상태 카드 3개: KOSPI / KOSDAQ / NASDAQ]
+│   ├── ✅ 정상 (21EMA 위)
+│   ├── 🔴 조정 N일째 (이탈일: YYYY-MM-DD)
+│   ├── ⚡ 찐반등 감지! (날짜, +X.XX%, ★★)
+│   └── ✅ FTD 확인 (날짜) [보조]
+│
+├── [와치리스트 탭: KOSPI / KOSDAQ / US]
+│   └── 시장 상태에 따라 정렬 기준 자동 전환
+│
+└── [종목 상세 (종목 클릭 시)]
+    ├── 일봉 차트 (EMA10/21, SMA50/150/200, RS Line, 거래량)
+    └── 찐반등 날 5분봉 오버레이 (60일 이내인 경우)
+        ├── 정규화 수익률 겹쳐보기 차트
+        └── 인트라데이 강도 지표 4개 수치</pre>
+  </div>
+
+  <!-- ─── 7. 파일 목록 ────────────────────────── -->
+  <div class="section">
+    <h2>7. 변경/신규 파일 목록</h2>
+    <table>
+      <tr><th>파일</th><th>상태</th><th>내용</th></tr>
+      <tr><td><code>strategy/market_status.py</code></td><td><span class="badge badge-new">신규</span></td><td>찐반등 감지, 시장 상태 관리</td></tr>
+      <tr><td><code>strategy/rs_correction.py</code></td><td><span class="badge badge-new">신규</span></td><td>조정 구간 RS, 저점 선행도 계산</td></tr>
+      <tr><td><code>ui/intraday_overlay.py</code></td><td><span class="badge badge-new">신규</span></td><td>5분봉 오버레이 차트 및 강도 지표</td></tr>
+      <tr><td><code>ui/watchlist.py</code></td><td><span class="badge badge-edit">전면 개편</span></td><td>정렬 기준 교체</td></tr>
+      <tr><td><code>app.py</code></td><td><span class="badge badge-edit">수정</span></td><td>시장 상태 카드 + 오버레이 연결</td></tr>
+      <tr><td><code>strategy/indicators.py</code></td><td><span class="badge badge-keep">유지</span></td><td>calc_ma_position 재사용</td></tr>
+      <tr><td><code>strategy/scoring.py</code></td><td><span class="badge badge-keep">유지</span></td><td>vol/candle ratio 재사용</td></tr>
+      <tr><td><code>data/fetcher.py</code></td><td><span class="badge badge-keep">유지</span></td><td></td></tr>
+      <tr><td><code>ui/charts.py</code></td><td><span class="badge badge-keep">유지</span></td><td></td></tr>
+      <tr><td><code>tests/test_market_status.py</code></td><td><span class="badge badge-new">신규</span></td><td>찐반등 감지 단위 테스트</td></tr>
+      <tr><td><code>tests/test_rs_correction.py</code></td><td><span class="badge badge-new">신규</span></td><td>RS, 저점 선행도 단위 테스트</td></tr>
+    </table>
+  </div>
+
+  <!-- ─── 8. 테스트 계획 ─────────────────────── -->
+  <div class="section">
+    <h2>8. 테스트 계획</h2>
+    <table>
+      <tr><th>테스트</th><th>내용</th></tr>
+      <tr><td><code>test_detect_correction</code></td><td>21EMA 이탈 여부 정확 감지</td></tr>
+      <tr><td><code>test_detect_jjin_bounce</code></td><td>ADR 조건, 음봉 커버 조건, 갭업 케이스</td></tr>
+      <tr><td><code>test_calc_lead_days</code></td><td>종목 저점이 지수 저점보다 선행하는 케이스</td></tr>
+      <tr><td><code>test_correction_rs_ranking</code></td><td>MRVL/FLY가 실제로 상위 랭크되는지 확인</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

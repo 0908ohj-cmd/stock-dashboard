@@ -2,10 +2,15 @@ import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
-from data.fetcher import fetch_daily, fetch_index_daily, get_stock_name
+from data.fetcher import (
+    fetch_daily, fetch_index_daily, get_stock_name,
+    fetch_intraday_for_date, fetch_index_intraday_for_date,
+)
 from data.sector import get_sectors
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs
+from strategy.indicators import calc_pct_from_52w_high
+from ui.intraday_overlay import calc_intraday_strength, intraday_overlay_chart
 
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
@@ -55,8 +60,12 @@ def _build_rows(
     for ticker in tickers:
         try:
             df = fetch_daily(ticker, market=market)
-            if not df.empty and len(df) >= 25:
-                stock_cache[ticker] = df
+            if df.empty or len(df) < 25:
+                continue
+            adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
+            if adr < 5.0:
+                continue
+            stock_cache[ticker] = df
         except Exception:
             continue
 
@@ -74,7 +83,7 @@ def _build_rows(
                 rs = calc_correction_rs(df, index_df, correction_start, jjin_date)
             else:
                 rs = {
-                    'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0,
+                    'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
                     'lead_days': 0,   'ma_score': 0,
                     'vol_ratio': 0.0, 'candle_ratio': 0.0,
                 }
@@ -85,8 +94,10 @@ def _build_rows(
                 '섹터':      sectors.get(ticker, '기타'),
                 'Close':     round(last_close, 2),
                 '등락%':     round(change_pct, 2),
+                '고점대비%': calc_pct_from_52w_high(df),
                 '저점선행':  rs['lead_days'],
                 '조정RS%':   rs['excess_pct'],
+                'RS/ADR':    rs['excess_adr'],
                 'MA점수':    rs['ma_score'],
                 '거래량비%': round(rs['vol_ratio'] * 100, 0),
                 '양봉비%':   round(rs['candle_ratio'] * 100, 0),
@@ -95,9 +106,9 @@ def _build_rows(
             continue
 
     rows.sort(key=lambda r: (
-        -r['저점선행'],
         -(r['조정RS%'] or 0),
         -r['MA점수'],
+        -r['저점선행'],
         -(r['거래량비%'] or 0),
     ))
     return rows
@@ -153,11 +164,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '섹터':          r['섹터'],
         'Close':         r['Close'],
         '등락%':         r['등락%'],
-        '저점선행(일)':  r['저점선행'],
         '조정RS%':       r['조정RS%'],
+        'RS/ADR':        r['RS/ADR'],
         'MA점수':        r['MA점수'],
+        '저점선행(일)':  r['저점선행'],
         '거래량비%':     r['거래량비%'],
         '양봉비%':       r['양봉비%'],
+        '고점대비%':     r['고점대비%'],
     } for r in rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
@@ -167,7 +180,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     else:
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt)
-    for col in ['등락%', '저점선행(일)', '조정RS%', 'MA점수', '거래량비%', '양봉비%']:
+    for col in ['등락%', '조정RS%', 'RS/ADR', 'MA점수', '저점선행(일)', '거래량비%', '양봉비%', '고점대비%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter')
     gb.configure_column('섹터', filter='agSetColumnFilter')
@@ -184,22 +197,81 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         fit_columns_on_grid_load=False,
     )
 
+    # 핵심 후보 안내
+    top_candidates = [
+        r for r in rows
+        if (r['조정RS%'] or 0) >= 10
+        and r['MA점수'] >= 4
+        and (r['고점대비%'] or 0) >= -30
+    ]
+    if top_candidates:
+        names = [f"**{r['Ticker']}** ({r['종목명']})" for r in top_candidates]
+        st.success(
+            f"⭐ 핵심 후보 (조정RS% ≥10% & MA점수 4+ & 고점대비 -30% 이내): "
+            + ", ".join(names)
+        )
+
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
-        selected_ticker = selected_rows[0]['티커 | 종목명'].split(' | ')[0]
+        first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
+        selected_ticker = first_row['티커 | 종목명'].split(' | ')[0]
         st.session_state['selected_ticker'] = selected_ticker
         st.session_state['selected_market'] = market
         st.session_state['selected_jjin_date'] = jjin_date_str
 
+        index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
+
+        if jjin_date_str:
+            jjin_date = pd.Timestamp(jjin_date_str)
+            st.markdown(f'**{selected_ticker} — 찐반등 날 5분봉 비교** ({jjin_date.date()})')
+            with st.spinner('5분봉 로드 중...'):
+                stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market)
+                index_5m = fetch_index_intraday_for_date(index_name, jjin_date)
+
+            if not stock_5m.empty and not index_5m.empty:
+                strength = calc_intraday_strength(stock_5m, index_5m)
+                st.plotly_chart(
+                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name),
+                    use_container_width=True,
+                )
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric('지수고점 후 초과상승', f"{strength.get('excess_after_peak_pct', 0):+.2f}%")
+                m2.metric(
+                    '고점갱신',
+                    f"종목 {strength.get('stock_high_updates', 0)}회",
+                    f"지수 {strength.get('index_high_updates', 0)}회",
+                )
+                m3.metric(
+                    '저점이탈',
+                    f"종목 {strength.get('stock_low_breaks', 0)}회",
+                    f"지수 {strength.get('index_low_breaks', 0)}회",
+                    delta_color='inverse',
+                )
+                m4.metric(
+                    '종가/고점',
+                    f"종목 {strength.get('stock_close_ratio', 0):.1f}%",
+                    f"지수 {strength.get('index_close_ratio', 0):.1f}%",
+                )
+            else:
+                st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
+
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
-    with st.expander('컬럼 설명', expanded=False):
-        st.markdown('- **저점선행(일)**: 지수 저점보다 N일 먼저 저점 찍은 종목. 양수일수록 우선')
-        st.markdown('- **조정RS%**: 조정 구간(21EMA 이탈~찐반등) 동안 지수 대비 초과수익률')
-        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위에 있는 개수 (0~5)')
-        st.markdown('- **거래량비%**: 상승일/하락일 평균거래량 비율 ×100. 120 초과 = 좋음')
-        st.markdown('- **양봉비%**: 누적 양봉바디/음봉바디 비율 ×100. 100 초과 = 양봉 우세')
+    with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
+        st.markdown('#### 정렬 순서 (1→4 우선순위)')
+        st.markdown('1. **조정RS%** — 조정 기간 동안 지수보다 얼마나 강했는가. 기관이 팔지 않고 받고 있다는 증거')
+        st.markdown('2. **MA점수** — 이평선 구조가 살아있는가. 미너비니 Stage 2 기준. 3 미만이면 망가진 것')
+        st.markdown('3. **저점선행(일)** — 지수보다 먼저 저점 찍었는가. RS Line 선행 신호')
+        st.markdown('4. **거래량비%** — 오르는 날 거래량이 빠지는 날보다 많은가. 기관 매집 확인')
+        st.markdown('---')
+        st.markdown('#### 컬럼 설명')
+        st.markdown('- **고점대비%**: 52주 고점 대비 현재 낙폭%. **-30% 이내**여야 VCP 구조 유지 가능')
+        st.markdown('- **조정RS%**: 조정 구간(21EMA 이탈 ~ 찐반등일) 종목수익률 - 지수수익률')
+        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위에 있는 개수 (0~5). **4 이상** 권장')
+        st.markdown('- **저점선행(일)**: 지수 저점보다 N일 먼저 저점. 양수일수록 강한 선행')
+        st.markdown('- **거래량비%**: 상승일/하락일 평균거래량 비율 ×100. **120 이상** = 매집')
+        st.markdown('- **양봉비%**: 누적 양봉바디/음봉바디 ×100. **100 이상** = 양봉이 음봉 상쇄')
 
     tab_kospi, tab_kosdaq, tab_us = st.tabs(['🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '🇺🇸 US'])
     with tab_kospi:

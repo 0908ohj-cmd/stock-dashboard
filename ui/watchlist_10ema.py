@@ -8,7 +8,7 @@ from data.sector import get_sectors
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
-CASE_ORDER = {'Case1': 0, 'Case2': 1, '대기중': 2, '중간선이탈': 3, '하방이탈': 4, '기준봉없음': 5}
+CASE_ORDER = {'Case1': 0, 'Case2': 1, '대기중': 2, '중간선이탈': 3, '10EMA이탈': 4, '하방이탈': 5, '기준봉없음': 6}
 
 KO_LOCALE = {
     'searchOoo': '검색...', 'selectAll': '(모두 선택)',
@@ -84,7 +84,7 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         return
 
     with st.expander('컬럼 설명', expanded=False):
-        st.markdown('- **케이스**: Case1(기준봉 범위 횡보 3~15일) / Case2(고점 복귀) / 대기중 / 하방이탈 / 기준봉없음')
+        st.markdown('- **케이스**: Case1(기준봉 범위 횡보 3~20일·거래량수축) / Case2(고점 +10%이내·5일이내 복귀) / 대기중 / 중간선이탈(영구) / 10EMA이탈(연속2일·영구) / 하방이탈 / 기준봉없음')
         st.markdown('- **기준봉거래량비**: 기준봉 당일 거래량 / 직전 20일 평균 (배수). 클수록 강한 기관 유입')
         st.markdown('- **횡보일수**: 기준봉 이후 현재까지 거래일')
         st.markdown('- **10EMA기울기%**: 최근 5일 EMA10 변화율. 양수 = 우상향')

@@ -113,7 +113,19 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'기준봉없음' | '하방이탈' | '중간선이탈' | '대기중' | 'Case1' | 'Case2'"""
+    """'기준봉없음' | '하방이탈' | '중간선이탈' | '10EMA이탈' | '대기중' | 'Case1' | 'Case2'
+
+    Case1 근거 (Minervini VCP final contraction + Qullamaggie EMA surfing):
+      - 기간 3~20거래일: Minervini final VCP 5~14일, Qullamaggie 3~5주 하단
+      - 가격 midline~high×1.03: Minervini final compression 3~8% 범위
+      - 거래량 수축: 눌림 평균 거래량 ≤ 기준봉 이전 20일 평균 (두 트레이더 공통)
+      - 10EMA 우상향 + 종가 > 10EMA: Qullamaggie EMA surfing 조건
+
+    Case2 근거 (Qullamaggie / Minervini):
+      - 기준봉 고가 위 체류 ≤ 5거래일: Qullamaggie 돌파 후 3~5일 익절 기준
+      - 최대 연장 ≤ +10%: Minervini 피벗 5% 초과 추격금지 × 2
+      - 현재가 기준봉 고가 -3%~+5% 복귀
+    """
     if pivot is None:
         return '기준봉없음'
 
@@ -123,29 +135,50 @@ def classify_case(
     if current_close < pivot['low']:
         return '하방이탈'
 
-    # 중간선 이탈: 기준봉 저가 위지만 중간선 아래 → 셋업 약화
+    since_pivot = stock_df[stock_df.index > pivot['date']]
+
+    # 기준봉 이후 Close가 한 번이라도 중간선 미달이면 영구 탈락
+    if not since_pivot.empty and float(since_pivot['Close'].min()) < pivot['midline']:
+        return '중간선이탈'
     if current_close < pivot['midline']:
         return '중간선이탈'
 
+    # 기준봉 이후 연속 2거래일 Close < 10EMA이면 영구 탈락 (Qullamaggie: 10EMA 이탈 즉시 매도)
+    if len(since_pivot) >= 2:
+        ema10_since = calc_ema(stock_df, 10).loc[since_pivot.index]
+        below = since_pivot['Close'] < ema10_since
+        if (below & below.shift(1)).any():
+            return '10EMA이탈'
+
     days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
 
-    # Case 2: 기준봉 이후 30거래일 이내에 기준봉 고가 돌파한 적 있고 현재 복귀
-    if days_since <= 30:
-        since_pivot = stock_df[stock_df.index > pivot['date']]
-        if not since_pivot.empty:
-            ever_above = float(since_pivot['High'].max()) > pivot['high']
-            back_near  = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
-            if ever_above and back_near:
-                return 'Case2'
+    # Case2: 돌파 후 소폭 상승했다가 기준봉 고가 부근으로 복귀한 2차 매수 타점
+    if days_since <= 30 and not since_pivot.empty:
+        max_high        = float(since_pivot['High'].max())
+        ever_above      = max_high > pivot['high']
+        not_overextended = max_high <= pivot['high'] * 1.10   # Minervini 5%×2
+        days_above_high = int((since_pivot['Close'] > pivot['high']).sum())
+        brief_stay      = days_above_high <= 5                # Qullamaggie 3~5일
+        back_near       = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
+        if ever_above and not_overextended and brief_stay and back_near:
+            return 'Case2'
 
-    # Case 1: 기준봉 midline~high 범위 횡보, 3~15거래일, 10EMA 우상향, 10EMA 위
+    # Case1: 기준봉 고가 아래에서 타이트하게 횡보 중인 1차 매수 타점
     in_range   = pivot['midline'] <= current_close <= pivot['high'] * 1.03
-    valid_days = 3 <= days_since <= 15
+    valid_days = 3 <= days_since <= 20                        # Minervini 14일 + 여유
     slope_up   = calc_10ema_slope(stock_df) > 0
     ema10_now  = float(calc_ema(stock_df, 10).iloc[-1])
     above_ema  = current_close > ema10_now
 
     if in_range and valid_days and slope_up and above_ema:
-        return 'Case1'
+        pivot_pos   = stock_df.index.get_loc(pivot['date'])
+        pre_vol_avg = float(stock_df['Volume'].iloc[max(0, pivot_pos - 20):pivot_pos].mean())
+        vol_dry_up  = (
+            since_pivot.empty
+            or pre_vol_avg == 0
+            or float(since_pivot['Volume'].mean()) <= pre_vol_avg * 1.2
+        )
+        if vol_dry_up:
+            return 'Case1'
 
     return '대기중'

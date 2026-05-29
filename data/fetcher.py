@@ -22,20 +22,31 @@ def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
 
 
 def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """yfinance 마지막 행 Close가 NaN이면 pykrx로 채움 (자정 이후 당일 데이터 공백 대응)."""
-    if df.empty or not pd.isna(df['Close'].iloc[-1]):
+    """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx로 채움."""
+    if df.empty:
         return df
-    last_date = df.index[-1]
+
+    yesterday = (datetime.today() - timedelta(days=1)).date()
+    last_date = df.index[-1].date()
+    last_close_nan = pd.isna(df['Close'].iloc[-1])
+
+    # NaN도 없고 어제 이후 데이터면 패치 불필요
+    if not last_close_nan and last_date >= yesterday:
+        return df
+
     try:
         from pykrx import stock as pykrx_stock
-        date_str = last_date.strftime('%Y%m%d')
+        fetch_date = last_date if last_close_nan else yesterday
+        date_str = fetch_date.strftime('%Y%m%d')
         pk = pykrx_stock.get_market_ohlcv_by_date(date_str, date_str, ticker)
         if not pk.empty:
-            df.loc[last_date, 'Open']   = float(pk['시가'].iloc[0])
-            df.loc[last_date, 'High']   = float(pk['고가'].iloc[0])
-            df.loc[last_date, 'Low']    = float(pk['저가'].iloc[0])
-            df.loc[last_date, 'Close']  = float(pk['종가'].iloc[0])
-            df.loc[last_date, 'Volume'] = float(pk['거래량'].iloc[0])
+            ts = pd.Timestamp(fetch_date)
+            df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
+            df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
+            df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
+            df.loc[ts, 'Close']  = float(pk['종가'].iloc[0])
+            df.loc[ts, 'Volume'] = float(pk['거래량'].iloc[0])
+            df = df.sort_index()
     except Exception:
         pass
     return df
@@ -50,7 +61,7 @@ def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFram
         if df.empty and 'KOSPI' in market:
             df = _download(ticker + '.KQ', start, end)
         df = _patch_kr_today(df, ticker)
-        return df.dropna(subset=['Close'])
+        return df.dropna(subset=['Close']) if 'Close' in df.columns else df
     return _download(ticker, start, end).dropna()
 
 
@@ -71,13 +82,23 @@ def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
 
 
 def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
-    """한국 지수 마지막 행 Close NaN → fast_info.last_price로 채움."""
-    if df.empty or not pd.isna(df['Close'].iloc[-1]):
+    """한국 지수 마지막 행 Close NaN이거나 전거래일 행이 없으면 fast_info로 채움."""
+    if df.empty:
         return df
+
+    yesterday = (datetime.today() - timedelta(days=1)).date()
+    last_date = df.index[-1].date()
+    last_close_nan = pd.isna(df['Close'].iloc[-1])
+
+    if not last_close_nan and last_date >= yesterday:
+        return df
+
     try:
         last_price = yf.Ticker(yf_ticker).fast_info.last_price
         if last_price and last_price > 0:
-            df.loc[df.index[-1], 'Close'] = float(last_price)
+            ts = pd.Timestamp(last_date if last_close_nan else yesterday)
+            df.loc[ts, 'Close'] = float(last_price)
+            df = df.sort_index()
     except Exception:
         pass
     return df
