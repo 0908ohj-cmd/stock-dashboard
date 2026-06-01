@@ -209,9 +209,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     gb.configure_selection('single', use_checkbox=False)
     gb.configure_grid_options(localeText=KO_LOCALE)
 
+    grid_opts = gb.build()
+    for col_def in grid_opts.get('columnDefs', []):
+        col_def['suppressSizeToFit'] = True
+
     grid_response = AgGrid(
         display_df,
-        gridOptions=gb.build(),
+        gridOptions=grid_opts,
         update_mode=GridUpdateMode.SELECTION_CHANGED,
         enable_enterprise_modules=False,
         theme='streamlit',
