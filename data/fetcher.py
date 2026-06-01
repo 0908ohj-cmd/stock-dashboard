@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
@@ -114,6 +116,19 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     return df.dropna(subset=['Close'])
 
 
+@lru_cache(maxsize=1)
+def _load_kr_names_fdr() -> dict:
+    """FinanceDataReader로 KRX 전체 종목명 프로세스당 1회 로드."""
+    try:
+        import FinanceDataReader as fdr
+        df = fdr.StockListing('KRX')
+        code_col = next((c for c in ['Code', 'Symbol', '종목코드'] if c in df.columns), df.columns[0])
+        name_col = next((c for c in ['Name', '종목명', '기업명'] if c in df.columns), df.columns[1])
+        return dict(zip(df[code_col].astype(str).str.zfill(6), df[name_col].astype(str)))
+    except Exception:
+        return {}
+
+
 _name_cache: dict = {}
 
 
@@ -124,12 +139,19 @@ def get_stock_name(ticker: str, market: str = 'US') -> str:
         return _name_cache[key]
 
     name = None
-    try:
-        if market.startswith('KR'):
-            from pykrx import stock as pykrx_stock
-            name = pykrx_stock.get_market_ticker_name(ticker) or None
-    except Exception:
-        pass
+
+    if market.startswith('KR'):
+        # FDR 전체 종목맵 (프로세스 1회 로드, 가장 빠름)
+        kr_map = _load_kr_names_fdr()
+        name = kr_map.get(ticker.zfill(6)) or None
+
+    if not name:
+        try:
+            if market.startswith('KR'):
+                from pykrx import stock as pykrx_stock
+                name = pykrx_stock.get_market_ticker_name(ticker) or None
+        except Exception:
+            pass
 
     if not name:
         try:

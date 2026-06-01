@@ -138,6 +138,21 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.info(f'사이드바에서 {label} CSV를 업로드해 주세요.')
         return
 
+    with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
+        st.markdown('#### 정렬 순서 (1→4 우선순위)')
+        st.markdown('1. **조정RS%** — 조정 기간 동안 지수보다 얼마나 강했는가. 기관이 팔지 않고 받고 있다는 증거')
+        st.markdown('2. **MA점수** — 이평선 구조가 살아있는가. 미너비니 Stage 2 기준. 3 미만이면 망가진 것')
+        st.markdown('3. **저점선행(일)** — 지수보다 먼저 저점 찍었는가. RS Line 선행 신호')
+        st.markdown('4. **거래량비%** — 오르는 날 거래량이 빠지는 날보다 많은가. 기관 매집 확인')
+        st.markdown('---')
+        st.markdown('#### 컬럼 설명')
+        st.markdown('- **고점대비%**: 52주 고점 대비 현재 낙폭%. **-30% 이내**여야 VCP 구조 유지 가능')
+        st.markdown('- **조정RS%**: 조정 구간(21EMA 이탈 ~ 찐반등일) 종목수익률 - 지수수익률')
+        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위에 있는 개수 (0~5). **4 이상** 권장')
+        st.markdown('- **저점선행(일)**: 지수 저점보다 N일 먼저 저점. 양수일수록 강한 선행')
+        st.markdown('- **거래량비%**: 상승일/하락일 평균거래량 비율 ×100. **120 이상** = 매집')
+        st.markdown('- **양봉비%**: 누적 양봉바디/음봉바디 ×100. **100 이상** = 양봉이 음봉 상쇄')
+
     status = _get_market_status_cached(market)
     _status_banner(status, label)
 
