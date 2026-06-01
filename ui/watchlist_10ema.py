@@ -142,5 +142,9 @@ def render_10ema_tab(tickers: list, market: str, label: str):
 
     candidates = [r for r in rows if r['케이스'] in ('Case1', 'Case2')]
     if candidates:
-        names = [f"**{r['Ticker']}** {r['종목명']} ({r['케이스']})" for r in candidates]
+        names = [
+            f"**{r['Ticker']}** {r['종목명']} "
+            f"({r['케이스']} 거래량비:{r['기준봉거래량비']:.1f}x MA:{r['MA점수']})"
+            for r in candidates
+        ]
         st.success('⭐ 매수 대기: ' + ', '.join(names))

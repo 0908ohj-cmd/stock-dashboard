@@ -205,7 +205,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         and (r['고점대비%'] or 0) >= -30
     ]
     if top_candidates:
-        names = [f"**{r['Ticker']}** ({r['종목명']})" for r in top_candidates]
+        names = [
+            f"**{r['Ticker']}** {r['종목명']} "
+            f"(RS:{r['조정RS%']:.0f}% MA:{r['MA점수']} 선행:{r['저점선행']}일)"
+            for r in top_candidates
+        ]
         st.success(
             f"⭐ 핵심 후보 (조정RS% ≥10% & MA점수 4+ & 고점대비 -30% 이내): "
             + ", ".join(names)
