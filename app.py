@@ -1,11 +1,35 @@
+import base64
 import json
 import pathlib
+import requests
 import streamlit as st
 from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_daily, fetch_intraday, fetch_index_daily
 from ui.index_panel import render_index_panel
 from ui.watchlist import render_watchlist_tab, _fetch_index_cached
 from ui.watchlist_10ema import render_10ema_tab
 from ui.charts import daily_chart, intraday_chart
+
+GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
+
+
+def _github_save(filename: str, content: str) -> None:
+    """GITHUB_TOKEN이 secrets에 있으면 파일을 GitHub에 자동 커밋."""
+    try:
+        token = st.secrets.get("GITHUB_TOKEN", "")
+        if not token:
+            return
+        path = f"data/saved/{filename}"
+        url  = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+        hdrs = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        r    = requests.get(url, headers=hdrs, timeout=5)
+        sha  = r.json().get("sha") if r.ok else None
+        body = {"message": f"auto: {filename}",
+                "content": base64.b64encode(content.encode()).decode()}
+        if sha:
+            body["sha"] = sha
+        requests.put(url, json=body, headers=hdrs, timeout=10)
+    except Exception:
+        pass
 
 SAVED_DIR = pathlib.Path(__file__).parent / 'data' / 'saved'
 SAVED_DIR.mkdir(exist_ok=True)
@@ -82,7 +106,9 @@ for uploaded, key, name in [
             else:
                 df = parse_tradingview_csv(io.BytesIO(raw))
                 tickers_parsed = df['Ticker'].dropna().astype(str).tolist()
-            saved_path.write_text('\n'.join(tickers_parsed), encoding='utf-8')
+            content = '\n'.join(tickers_parsed)
+            saved_path.write_text(content, encoding='utf-8')
+            _github_save(saved_path.name, content)
         except Exception as e:
             st.sidebar.error(f'파일 오류: {e}')
 
@@ -109,7 +135,9 @@ if backup_restore_file:
             backup['10EMA_KOSPI'] = backup.pop('10EMA_KR')
         for key, tickers_list in backup.items():
             if key in SAVED_PATHS and isinstance(tickers_list, list):
-                SAVED_PATHS[key].write_text('\n'.join(t for t in tickers_list if t), encoding='utf-8')
+                content = '\n'.join(t for t in tickers_list if t)
+                SAVED_PATHS[key].write_text(content, encoding='utf-8')
+                _github_save(SAVED_PATHS[key].name, content)
         st.sidebar.success('백업 복원 완료! 새로고침됩니다.')
         st.rerun()
     except Exception as e:
