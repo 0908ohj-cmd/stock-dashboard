@@ -114,19 +114,34 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     return df.dropna(subset=['Close'])
 
 
+_name_cache: dict = {}
+
+
 def get_stock_name(ticker: str, market: str = 'US') -> str:
-    """종목 이름 반환. 실패 시 티커 그대로 반환."""
+    """종목 이름 반환. 성공한 결과만 캐시 (실패 시 재시도)."""
+    key = (ticker, market)
+    if key in _name_cache:
+        return _name_cache[key]
+
+    name = None
     try:
         if market.startswith('KR'):
             from pykrx import stock as pykrx_stock
-            name = pykrx_stock.get_market_ticker_name(ticker)
-            if name:
-                return name
-        suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
-        info = yf.Ticker(ticker + suffix).info
-        return info.get('shortName') or info.get('longName') or ticker
+            name = pykrx_stock.get_market_ticker_name(ticker) or None
     except Exception:
-        return ticker
+        pass
+
+    if not name:
+        try:
+            suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
+            info = yf.Ticker(ticker + suffix).info
+            name = info.get('shortName') or info.get('longName') or None
+        except Exception:
+            pass
+
+    if name:
+        _name_cache[key] = name
+    return name or ticker
 
 
 def fetch_intraday_for_date(

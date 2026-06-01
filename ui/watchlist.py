@@ -56,6 +56,7 @@ def _build_rows(
     correction_start = pd.Timestamp(correction_start_str) if correction_start_str else None
     jjin_date        = pd.Timestamp(jjin_date_str)        if jjin_date_str        else None
 
+    adr_min = 2.0 if market.startswith('KR') else 4.0
     stock_cache = {}
     for ticker in tickers:
         try:
@@ -63,7 +64,7 @@ def _build_rows(
             if df.empty or len(df) < 25:
                 continue
             adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
-            if adr < 5.0:
+            if adr < adr_min:
                 continue
             stock_cache[ticker] = df
         except Exception:
@@ -214,6 +215,16 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             f"⭐ 핵심 후보 (조정RS% ≥10% & MA점수 4+ & 고점대비 -30% 이내): "
             + ", ".join(names)
         )
+    elif rows:
+        # 단기 조정 등으로 엄격 기준 미달 시 → MA점수 3+ & 고점대비 -35% 이내 상위 5개
+        relaxed = [r for r in rows if r['MA점수'] >= 3 and (r['고점대비%'] or 0) >= -35][:5]
+        if relaxed:
+            names = [
+                f"**{r['Ticker']}** {r['종목명']} "
+                f"(RS:{r['조정RS%']:.0f}% MA:{r['MA점수']})"
+                for r in relaxed
+            ]
+            st.info("📊 RS 상위 후보 (단기 조정 — 완화 기준): " + ", ".join(names))
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
