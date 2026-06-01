@@ -50,6 +50,11 @@ st.set_page_config(
     initial_sidebar_state='expanded',
 )
 
+# AgGrid 첫 탭 레이아웃 버그 방지 — 세션 최초 1회만 재실행
+if 'grid_initialized' not in st.session_state:
+    st.session_state['grid_initialized'] = True
+    st.rerun()
+
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
     'KR_KOSDAQ': 'KOSDAQ',
