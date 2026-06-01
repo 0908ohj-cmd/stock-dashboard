@@ -190,16 +190,22 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     } for r in rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
-    gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True)
+    gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True, minWidth=70)
     if market.startswith('KR'):
         close_fmt = "value == null ? '' : '₩' + Math.round(value).toLocaleString('ko-KR')"
     else:
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
-    gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt)
-    for col in ['등락%', '조정RS%', 'RS/ADR', 'MA점수', '저점선행(일)', '거래량비%', '양봉비%', '고점대비%']:
-        gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
-    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter')
-    gb.configure_column('섹터', filter='agSetColumnFilter')
+    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', width=180)
+    gb.configure_column('섹터', filter='agSetColumnFilter', width=110)
+    gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, width=100)
+    gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], width=75)
+    gb.configure_column('조정RS%',   filter='agNumberColumnFilter', type=['numericColumn'], width=82)
+    gb.configure_column('RS/ADR',    filter='agNumberColumnFilter', type=['numericColumn'], width=78)
+    gb.configure_column('MA점수',    filter='agNumberColumnFilter', type=['numericColumn'], width=78)
+    gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], width=95)
+    gb.configure_column('거래량비%', filter='agNumberColumnFilter', type=['numericColumn'], width=85)
+    gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], width=80)
+    gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], width=85)
     gb.configure_selection('single', use_checkbox=False)
     gb.configure_grid_options(localeText=KO_LOCALE)
 
