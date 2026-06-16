@@ -42,7 +42,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
 
         curr_body = abs(float(row['Close']) - float(row['Open']))
         prev_body = abs(float(prev['Close']) - float(prev['Open']))
-        if prev_body == 0 or curr_body < prev_body * 0.7:
+        if prev_body == 0 or curr_body < prev_body * 0.5:
             continue
 
         vol_ma    = float(vol_ma20.iloc[i]) if not pd.isna(vol_ma20.iloc[i]) else 0
