@@ -1,7 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from strategy.indicators import calc_ema, calc_sma, calc_adr, calc_rs_line
+from strategy.indicators import calc_ema, calc_sma, calc_adr
 
 
 def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = None) -> go.Figure:
@@ -59,16 +59,6 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         name='Volume', marker_color=colors, showlegend=False
     ), row=2, col=1)
 
-    if index_df is not None and not index_df.empty:
-        rs_data = calc_rs_line(df, index_df)
-        rs_line = rs_data.get('rs_line')
-        if rs_line is not None and len(rs_line) > 0:
-            fig.add_trace(go.Scatter(
-                x=rs_line.index, y=rs_line.values,
-                name='RS Line',
-                line=dict(color='#00bcd4', width=1.5),
-            ), row=2, col=1)
-
     fig.update_layout(
         title=f'{ticker} 일봉  |  ADR: {adr:.2f}%',
         xaxis_rangeslider_visible=False,
@@ -76,6 +66,11 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         height=600,
         margin=dict(l=40, r=40, t=60, b=20),
         legend=dict(orientation='h', y=1.02),
+        xaxis=dict(
+            rangebreaks=[
+                dict(bounds=['sat', 'mon']),
+            ]
+        ),
     )
     return fig
 
@@ -121,5 +116,11 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
         template='plotly_dark',
         height=500,
         margin=dict(l=40, r=40, t=60, b=20),
+        xaxis=dict(
+            rangebreaks=[
+                dict(bounds=['sat', 'mon']),
+                dict(bounds=[20, 9.5], pattern='hour'),
+            ]
+        ),
     )
     return fig
