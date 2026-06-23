@@ -176,7 +176,7 @@ def classify_case(
         vol_dry_up  = (
             since_pivot.empty
             or pre_vol_avg == 0
-            or float(since_pivot['Volume'].mean()) <= pre_vol_avg * 1.2
+            or float(since_pivot['Volume'].mean()) <= pre_vol_avg * 0.8
         )
         if vol_dry_up:
             return 'Case1'

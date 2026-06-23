@@ -11,10 +11,10 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     찐반등 감지 — 가장 최근 조건 충족일 반환.
     조건:
       1. 종가 < EMA21
-      2. 당일 양봉, 상승폭 >= ADR(14일)
-      3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.7
+      2. 당일 양봉, 상승폭 >= ADR(20일)
+      3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.5
     """
-    if len(index_df) < 16:
+    if len(index_df) < 22:
         return None
 
     ema21    = _ema21(index_df)
@@ -35,14 +35,14 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
         pct_chg    = (float(row['Close']) - prev_close) / prev_close * 100
         adr_val    = float(
             ((index_df['High'] - index_df['Low']) / index_df['Close'] * 100)
-            .iloc[max(0, i - 13):i + 1].mean()
+            .iloc[max(0, i - 19):i + 1].mean()
         )
         if pct_chg < adr_val:
             continue
 
         curr_body = abs(float(row['Close']) - float(row['Open']))
         prev_body = abs(float(prev['Close']) - float(prev['Open']))
-        if prev_body == 0 or curr_body < prev_body * 0.5:
+        if prev_body == 0 or curr_body < prev_body * 0.5:  # 직전 음봉 바디 50% 이상 커버
             continue
 
         vol_ma    = float(vol_ma20.iloc[i]) if not pd.isna(vol_ma20.iloc[i]) else 0

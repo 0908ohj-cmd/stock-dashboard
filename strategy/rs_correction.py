@@ -31,7 +31,7 @@ def _candle_ratio(df: pd.DataFrame) -> float:
     return round(float(bull / bear), 2)
 
 
-def _pre_adr(stock_df: pd.DataFrame, correction_start: pd.Timestamp, period: int = 14) -> float:
+def _pre_adr(stock_df: pd.DataFrame, correction_start: pd.Timestamp, period: int = 20) -> float:
     pre = stock_df[stock_df.index < correction_start].tail(period)
     if len(pre) < 2:
         return 0.0
