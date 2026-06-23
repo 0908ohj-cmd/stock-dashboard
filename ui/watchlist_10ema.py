@@ -152,13 +152,17 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
+    row_height = 40
+    header_height = 80
+    grid_height = min(header_height + len(display_df) * row_height, 600)
+
     AgGrid(
         display_df,
         gridOptions=gb.build(),
         update_mode=GridUpdateMode.NO_UPDATE,
         enable_enterprise_modules=False,
         theme='streamlit',
-        height=450,
+        height=grid_height,
         fit_columns_on_grid_load=False,
     )
 
