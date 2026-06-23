@@ -113,8 +113,5 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
         height=500,
         margin=dict(l=40, r=40, t=60, b=20),
     )
-    fig.update_xaxes(rangebreaks=[
-        dict(bounds=['sat', 'mon']),
-        dict(bounds=[16, 9.5], pattern='hour'),
-    ])
+    fig.update_xaxes(rangebreaks=[dict(bounds=['sat', 'mon'])])
     return fig

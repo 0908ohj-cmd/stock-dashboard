@@ -214,9 +214,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     for col_def in grid_opts.get('columnDefs', []):
         col_def['suppressSizeToFit'] = True
 
-    row_height = 40
-    header_height = 80
-    grid_height = min(header_height + len(display_df) * row_height, 600)
+    grid_height = 90 + len(display_df) * 36
 
     grid_response = AgGrid(
         display_df,
