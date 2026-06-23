@@ -71,12 +71,17 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
     return fig
 
 
-def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
+def intraday_chart(df: pd.DataFrame, ticker: str, market: str = 'US') -> go.Figure:
     """5분봉 캔들 차트 + 거래량."""
     if df.empty:
         fig = go.Figure()
         fig.update_layout(title=f'{ticker} 5분봉 — 데이터 없음', template='plotly_dark', height=500)
         return fig
+
+    # 타임존 제거 후 플롯 (Plotly rangebreaks는 naive timestamp 기준)
+    plot_df = df.copy()
+    if hasattr(plot_df.index, 'tz') and plot_df.index.tz is not None:
+        plot_df.index = plot_df.index.tz_localize(None)
 
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,
@@ -87,9 +92,9 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
     bear_color = '#42a5f5'
 
     fig.add_trace(go.Candlestick(
-        x=df.index,
-        open=df['Open'], high=df['High'],
-        low=df['Low'], close=df['Close'],
+        x=plot_df.index,
+        open=plot_df['Open'], high=plot_df['High'],
+        low=plot_df['Low'], close=plot_df['Close'],
         name=ticker,
         increasing_line_color=bull_color,
         increasing_fillcolor=bull_color,
@@ -99,12 +104,16 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
 
     colors = [
         bull_color if float(c) >= float(o) else bear_color
-        for c, o in zip(df['Close'], df['Open'])
+        for c, o in zip(plot_df['Close'], plot_df['Open'])
     ]
     fig.add_trace(go.Bar(
-        x=df.index, y=df['Volume'],
+        x=plot_df.index, y=plot_df['Volume'],
         name='Volume', marker_color=colors, showlegend=False
     ), row=2, col=1)
+
+    # 한국장: 9:00~15:30 / 미국장: 9:30~16:00
+    hour_break = dict(bounds=[15.5, 9], pattern='hour') if market.startswith('KR') \
+        else dict(bounds=[16, 9.5], pattern='hour')
 
     fig.update_layout(
         title=f'{ticker} 5분봉',
@@ -113,5 +122,5 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
         height=500,
         margin=dict(l=40, r=40, t=60, b=20),
     )
-    fig.update_xaxes(rangebreaks=[dict(bounds=['sat', 'mon'])])
+    fig.update_xaxes(rangebreaks=[dict(bounds=['sat', 'mon']), hour_break])
     return fig

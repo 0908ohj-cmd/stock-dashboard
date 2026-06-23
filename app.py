@@ -207,4 +207,4 @@ if st.session_state.get('selected_ticker'):
         with st.spinner('5분봉 로드 중...'):
             df_5m = fetch_intraday(ticker, market=market)
         if not df_5m.empty:
-            st.plotly_chart(intraday_chart(df_5m, ticker), use_container_width=True)
+            st.plotly_chart(intraday_chart(df_5m, ticker, market=market), use_container_width=True)
