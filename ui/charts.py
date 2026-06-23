@@ -5,15 +5,21 @@ from strategy.indicators import calc_ema, calc_sma, calc_adr, calc_rs_line
 
 
 def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = None) -> go.Figure:
-    """일봉 캔들 차트 + EMA21 + SMA200 + 거래량."""
+    """일봉 캔들 차트 + EMA10/21 + SMA50/150/200 + 거래량."""
     if df.empty:
         fig = go.Figure()
         fig.update_layout(title=f'{ticker} — 데이터 없음', template='plotly_dark', height=600)
         return fig
 
-    ema21 = calc_ema(df, 21)
+    ema10  = calc_ema(df, 10)
+    ema21  = calc_ema(df, 21)
+    sma50  = calc_sma(df, 50)
+    sma150 = calc_sma(df, 150)
     sma200 = calc_sma(df, 200)
-    adr = calc_adr(df)
+    adr    = calc_adr(df)
+
+    bull_color = '#ef5350'  # 양봉 빨강
+    bear_color = '#42a5f5'  # 음봉 파랑
 
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,
@@ -25,22 +31,27 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         open=df['Open'], high=df['High'],
         low=df['Low'], close=df['Close'],
         name=ticker,
-        increasing_line_color='#ef5350',
-        decreasing_line_color='#26a69a',
+        increasing_line_color=bull_color,
+        increasing_fillcolor=bull_color,
+        decreasing_line_color=bear_color,
+        decreasing_fillcolor=bear_color,
     ), row=1, col=1)
 
-    fig.add_trace(go.Scatter(
-        x=df.index, y=ema21, name='EMA21',
-        line=dict(color='orange', width=1.5)
-    ), row=1, col=1)
-
-    fig.add_trace(go.Scatter(
-        x=df.index, y=sma200, name='SMA200',
-        line=dict(color='#bb86fc', width=1.5)
-    ), row=1, col=1)
+    mas = [
+        (sma50,  'SMA50',  '#8B1A1A', 1.2),
+        (sma150, 'SMA150', '#1565C0', 1.2),
+        (sma200, 'SMA200', '#7B1FA2', 1.2),
+        (ema10,  'EMA10',  '#FF4444', 1.5),
+        (ema21,  'EMA21',  '#FF9800', 1.5),
+    ]
+    for series, name, color, width in mas:
+        fig.add_trace(go.Scatter(
+            x=df.index, y=series, name=name,
+            line=dict(color=color, width=width)
+        ), row=1, col=1)
 
     colors = [
-        '#ef5350' if float(c) >= float(o) else '#26a69a'
+        bull_color if float(c) >= float(o) else bear_color
         for c, o in zip(df['Close'], df['Open'])
     ]
     fig.add_trace(go.Bar(
@@ -48,12 +59,10 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         name='Volume', marker_color=colors, showlegend=False
     ), row=2, col=1)
 
-    # RS Line 추가 (지수 데이터 있을 때)
     if index_df is not None and not index_df.empty:
         rs_data = calc_rs_line(df, index_df)
         rs_line = rs_data.get('rs_line')
         if rs_line is not None and len(rs_line) > 0:
-            # RS Line을 별도 y축(row3)에 표시
             fig.add_trace(go.Scatter(
                 x=rs_line.index, y=rs_line.values,
                 name='RS Line',
@@ -83,17 +92,22 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
         row_heights=[0.75, 0.25], vertical_spacing=0.03
     )
 
+    bull_color = '#ef5350'
+    bear_color = '#42a5f5'
+
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df['Open'], high=df['High'],
         low=df['Low'], close=df['Close'],
         name=ticker,
-        increasing_line_color='#ef5350',
-        decreasing_line_color='#26a69a',
+        increasing_line_color=bull_color,
+        increasing_fillcolor=bull_color,
+        decreasing_line_color=bear_color,
+        decreasing_fillcolor=bear_color,
     ), row=1, col=1)
 
     colors = [
-        '#ef5350' if float(c) >= float(o) else '#26a69a'
+        bull_color if float(c) >= float(o) else bear_color
         for c, o in zip(df['Close'], df['Open'])
     ]
     fig.add_trace(go.Bar(
