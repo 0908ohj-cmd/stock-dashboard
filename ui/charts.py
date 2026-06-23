@@ -66,12 +66,8 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         height=600,
         margin=dict(l=40, r=40, t=60, b=20),
         legend=dict(orientation='h', y=1.02),
-        xaxis=dict(
-            rangebreaks=[
-                dict(bounds=['sat', 'mon']),
-            ]
-        ),
     )
+    fig.update_xaxes(rangebreaks=[dict(bounds=['sat', 'mon'])])
     return fig
 
 
@@ -116,11 +112,9 @@ def intraday_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
         template='plotly_dark',
         height=500,
         margin=dict(l=40, r=40, t=60, b=20),
-        xaxis=dict(
-            rangebreaks=[
-                dict(bounds=['sat', 'mon']),
-                dict(bounds=[20, 9.5], pattern='hour'),
-            ]
-        ),
     )
+    fig.update_xaxes(rangebreaks=[
+        dict(bounds=['sat', 'mon']),
+        dict(bounds=[16, 9.5], pattern='hour'),
+    ])
     return fig
