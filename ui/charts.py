@@ -18,8 +18,11 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
     sma200 = calc_sma(df, 200)
     adr    = calc_adr(df)
 
-    bull_color = '#ef5350'  # 양봉 빨강
-    bear_color = '#42a5f5'  # 음봉 파랑
+    bull_color = '#ef5350'
+    bear_color = '#42a5f5'
+
+    # 날짜를 문자열로 변환 → 주말/휴일 갭 완전 제거 (카테고리 축)
+    x_dates = df.index.strftime('%Y-%m-%d')
 
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,
@@ -27,7 +30,7 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
     )
 
     fig.add_trace(go.Candlestick(
-        x=df.index,
+        x=x_dates,
         open=df['Open'], high=df['High'],
         low=df['Low'], close=df['Close'],
         name=ticker,
@@ -46,7 +49,7 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
     ]
     for series, name, color, width in mas:
         fig.add_trace(go.Scatter(
-            x=df.index, y=series, name=name,
+            x=x_dates, y=series.values, name=name,
             line=dict(color=color, width=width)
         ), row=1, col=1)
 
@@ -55,7 +58,7 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         for c, o in zip(df['Close'], df['Open'])
     ]
     fig.add_trace(go.Bar(
-        x=df.index, y=df['Volume'],
+        x=x_dates, y=df['Volume'],
         name='Volume', marker_color=colors, showlegend=False
     ), row=2, col=1)
 
@@ -67,7 +70,6 @@ def daily_chart(df: pd.DataFrame, ticker: str, index_df: pd.DataFrame | None = N
         margin=dict(l=40, r=40, t=60, b=20),
         legend=dict(orientation='h', y=1.02),
     )
-    fig.update_xaxes(rangebreaks=[dict(bounds=['sat', 'mon'])])
     return fig
 
 
@@ -78,10 +80,12 @@ def intraday_chart(df: pd.DataFrame, ticker: str, market: str = 'US') -> go.Figu
         fig.update_layout(title=f'{ticker} 5분봉 — 데이터 없음', template='plotly_dark', height=500)
         return fig
 
-    # 타임존 제거 후 플롯 (Plotly rangebreaks는 naive timestamp 기준)
     plot_df = df.copy()
+
+    # 시장 로컬 타임존으로 변환 후 naive로 만들어야 rangebreaks 시간 기준이 맞음
+    tz = 'Asia/Seoul' if market.startswith('KR') else 'America/New_York'
     if hasattr(plot_df.index, 'tz') and plot_df.index.tz is not None:
-        plot_df.index = plot_df.index.tz_localize(None)
+        plot_df.index = plot_df.index.tz_convert(tz).tz_localize(None)
 
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,
@@ -111,7 +115,7 @@ def intraday_chart(df: pd.DataFrame, ticker: str, market: str = 'US') -> go.Figu
         name='Volume', marker_color=colors, showlegend=False
     ), row=2, col=1)
 
-    # 한국장: 9:00~15:30 / 미국장: 9:30~16:00
+    # 한국장 9:00~15:30 / 미국장 9:30~16:00 (로컬 타임 기준)
     hour_break = dict(bounds=[15.5, 9], pattern='hour') if market.startswith('KR') \
         else dict(bounds=[16, 9.5], pattern='hour')
 
