@@ -87,12 +87,12 @@ def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp
 def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
-    state: 'normal' | 'correction' | 'early_signal' | 'ftd_confirmed'
+    state: 'normal' | 'correction' | 'early_signal'
     """
     base = {
         'state': 'normal', 'correction_start': None,
         'jjin_date': None, 'jjin_pct': 0.0,
-        'jjin_stars': 0,   'ftd_date': None,
+        'jjin_stars': 0,
     }
     if len(index_df) < 22:
         return base
@@ -110,16 +110,6 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     last_start = bd_starts[-1]
     recs_after = rec_dates[rec_dates > last_start]
 
-    if is_below_now:
-        # 진행 중인 조정
-        correction_slice = index_df[index_df.index >= last_start]
-    else:
-        # 가장 최근 완료된 조정
-        last_end = recs_after[0] if len(recs_after) > 0 else index_df.index[-1]
-        correction_slice = index_df[
-            (index_df.index >= last_start) & (index_df.index <= last_end)
-        ]
-
     base['correction_start'] = last_start
 
     if not is_below_now:
@@ -136,12 +126,10 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
         base['state'] = 'correction'
         return base
 
-    ftd_date = _detect_ftd(index_df, jjin['date'])
     base.update({
-        'state':       'ftd_confirmed' if ftd_date else 'early_signal',
+        'state':       'early_signal',
         'jjin_date':   jjin['date'],
         'jjin_pct':    jjin['pct'],
         'jjin_stars':  jjin['stars'],
-        'ftd_date':    ftd_date,
     })
     return base

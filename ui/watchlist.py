@@ -10,7 +10,7 @@ from data.sector import get_sectors
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs
 from strategy.indicators import calc_pct_from_52w_high
-from ui.intraday_overlay import calc_intraday_strength, intraday_overlay_chart
+from ui.intraday_overlay import intraday_overlay_chart
 
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
@@ -121,11 +121,6 @@ def _status_banner(status: dict, label: str):
         stars = '★' * status['jjin_stars']
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}")
-    elif state == 'ftd_confirmed':
-        stars = '★' * status['jjin_stars']
-        jdate = status['jjin_date'].date() if status['jjin_date'] else ''
-        fdate = status['ftd_date'].date()  if status['ftd_date']  else ''
-        st.success(f"✅ **{label} FTD 확인!** 찐반등 {jdate} → FTD {fdate}  {stars}")
     elif state == 'correction':
         cdate = status['correction_start'].date() if status['correction_start'] else ''
         st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate})")
@@ -139,19 +134,25 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         return
 
     with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
-        st.markdown('#### 정렬 순서 (1→4 우선순위)')
-        st.markdown('1. **조정RS%** — 조정 기간 동안 지수보다 얼마나 강했는가. 기관이 팔지 않고 받고 있다는 증거')
-        st.markdown('2. **MA점수** — 이평선 구조가 살아있는가. 미너비니 Stage 2 기준. 3 미만이면 망가진 것')
-        st.markdown('3. **저점선행(일)** — 지수보다 먼저 저점 찍었는가. RS Line 선행 신호')
-        st.markdown('4. **거래량비%** — 오르는 날 거래량이 빠지는 날보다 많은가. 기관 매집 확인')
-        st.markdown('---')
-        st.markdown('#### 컬럼 설명')
-        st.markdown('- **고점대비%**: 52주 고점 대비 현재 낙폭%. **-30% 이내**여야 VCP 구조 유지 가능')
-        st.markdown('- **조정RS%**: 조정 구간(21EMA 이탈 ~ 찐반등일) 종목수익률 - 지수수익률')
-        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위에 있는 개수 (0~5). **4 이상** 권장')
-        st.markdown('- **저점선행(일)**: 지수 저점보다 N일 먼저 저점. 양수일수록 강한 선행')
-        st.markdown('- **거래량비%**: 상승일/하락일 평균거래량 비율 ×100. **120 이상** = 매집')
-        st.markdown('- **양봉비%**: 누적 양봉바디/음봉바디 ×100. **100 이상** = 양봉이 음봉 상쇄')
+        st.caption('정렬 순서')
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
+        c2.markdown('**② MA점수**  \n이평선 구조 건강도 (4+ 권장)')
+        c3.markdown('**③ 저점선행(일)**  \n지수보다 먼저 저점 형성')
+        c4.markdown('**④ 거래량비%**  \n상승일 거래량 우위 여부')
+        st.divider()
+        st.caption('컬럼 설명')
+        st.markdown(
+            '| 컬럼 | 설명 | 기준 |\n'
+            '|------|------|------|\n'
+            '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
+            '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
+            '| MA점수 | EMA10/21 · SMA50/150/200 위에 있는 개수 (0~5) | **4 이상** 권장 |\n'
+            '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
+            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
+            '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
+            '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
+        )
 
     status = _get_market_status_cached(market)
     _status_banner(status, label)
@@ -269,28 +270,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 index_5m = fetch_index_intraday_for_date(index_name, jjin_date)
 
             if not stock_5m.empty and not index_5m.empty:
-                strength = calc_intraday_strength(stock_5m, index_5m)
                 st.plotly_chart(
                     intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name),
                     use_container_width=True,
-                )
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric('지수고점 후 초과상승', f"{strength.get('excess_after_peak_pct', 0):+.2f}%")
-                m2.metric(
-                    '고점갱신',
-                    f"종목 {strength.get('stock_high_updates', 0)}회",
-                    f"지수 {strength.get('index_high_updates', 0)}회",
-                )
-                m3.metric(
-                    '저점이탈',
-                    f"종목 {strength.get('stock_low_breaks', 0)}회",
-                    f"지수 {strength.get('index_low_breaks', 0)}회",
-                    delta_color='inverse',
-                )
-                m4.metric(
-                    '종가/고점',
-                    f"종목 {strength.get('stock_close_ratio', 0):.1f}%",
-                    f"지수 {strength.get('index_close_ratio', 0):.1f}%",
                 )
             else:
                 st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
@@ -299,19 +281,25 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
     with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
-        st.markdown('#### 정렬 순서 (1→4 우선순위)')
-        st.markdown('1. **조정RS%** — 조정 기간 동안 지수보다 얼마나 강했는가. 기관이 팔지 않고 받고 있다는 증거')
-        st.markdown('2. **MA점수** — 이평선 구조가 살아있는가. 미너비니 Stage 2 기준. 3 미만이면 망가진 것')
-        st.markdown('3. **저점선행(일)** — 지수보다 먼저 저점 찍었는가. RS Line 선행 신호')
-        st.markdown('4. **거래량비%** — 오르는 날 거래량이 빠지는 날보다 많은가. 기관 매집 확인')
-        st.markdown('---')
-        st.markdown('#### 컬럼 설명')
-        st.markdown('- **고점대비%**: 52주 고점 대비 현재 낙폭%. **-30% 이내**여야 VCP 구조 유지 가능')
-        st.markdown('- **조정RS%**: 조정 구간(21EMA 이탈 ~ 찐반등일) 종목수익률 - 지수수익률')
-        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위에 있는 개수 (0~5). **4 이상** 권장')
-        st.markdown('- **저점선행(일)**: 지수 저점보다 N일 먼저 저점. 양수일수록 강한 선행')
-        st.markdown('- **거래량비%**: 상승일/하락일 평균거래량 비율 ×100. **120 이상** = 매집')
-        st.markdown('- **양봉비%**: 누적 양봉바디/음봉바디 ×100. **100 이상** = 양봉이 음봉 상쇄')
+        st.caption('정렬 순서')
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
+        c2.markdown('**② MA점수**  \n이평선 구조 건강도 (4+ 권장)')
+        c3.markdown('**③ 저점선행(일)**  \n지수보다 먼저 저점 형성')
+        c4.markdown('**④ 거래량비%**  \n상승일 거래량 우위 여부')
+        st.divider()
+        st.caption('컬럼 설명')
+        st.markdown(
+            '| 컬럼 | 설명 | 기준 |\n'
+            '|------|------|------|\n'
+            '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
+            '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
+            '| MA점수 | EMA10/21 · SMA50/150/200 위에 있는 개수 (0~5) | **4 이상** 권장 |\n'
+            '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
+            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
+            '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
+            '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
+        )
 
     tab_kospi, tab_kosdaq, tab_us = st.tabs(['🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '🇺🇸 US'])
     with tab_kospi:

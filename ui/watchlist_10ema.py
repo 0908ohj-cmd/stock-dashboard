@@ -83,12 +83,34 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         st.info(f'사이드바에서 {label} 파일을 업로드해 주세요.')
         return
 
-    with st.expander('컬럼 설명', expanded=False):
-        st.markdown('- **케이스**: Case1(기준봉 범위 횡보 3~20일·거래량수축) / Case2(고점 +10%이내·5일이내 복귀) / 대기중 / 중간선이탈(영구) / 10EMA이탈(연속2일·영구) / 하방이탈 / 기준봉없음')
-        st.markdown('- **기준봉거래량비**: 기준봉 당일 거래량 / 직전 20일 평균 (배수). 클수록 강한 기관 유입')
-        st.markdown('- **횡보일수**: 기준봉 이후 현재까지 거래일')
-        st.markdown('- **10EMA기울기%**: 최근 5일 EMA10 변화율. 양수 = 우상향')
-        st.markdown('- **MA점수**: EMA10/21, SMA50/150/200 위 개수 (0~5). 5 = 완전 정배열')
+    with st.expander('케이스 & 컬럼 설명', expanded=False):
+        st.caption('케이스 분류')
+        c1, c2 = st.columns(2)
+        c1.markdown(
+            '**Case1** — 매수 대기 1순위  \n'
+            '기준봉 범위 횡보 3~20일 · 거래량 수축 · 10EMA 우상향\n\n'
+            '**Case2** — 매수 대기 2순위  \n'
+            '돌파 후 +10% 이내 · 5일 이내에 기준봉 고가 부근 복귀\n\n'
+            '**대기중** — 조건 미충족, 아직 진행 중'
+        )
+        c2.markdown(
+            '**중간선이탈** — 기준봉 (고+저)/2 아래 터치 → 영구 탈락  \n\n'
+            '**10EMA이탈** — 10EMA 아래 연속 2거래일 → 영구 탈락  \n\n'
+            '**하방이탈** — 기준봉 저가 아래  \n\n'
+            '**기준봉없음** — 최근 63일 내 기준봉 미탐지'
+        )
+        st.divider()
+        st.caption('컬럼 설명')
+        st.markdown(
+            '| 컬럼 | 설명 | 기준 |\n'
+            '|------|------|------|\n'
+            '| 케이스 | 현재 진입 단계 분류 | Case1 > Case2 |\n'
+            '| 기준봉거래량비 | 기준봉 거래량 / 직전 20일 평균 (배수) | 클수록 강함 |\n'
+            '| 횡보일수 | 기준봉 이후 현재까지 거래일 수 | 3~20일 |\n'
+            '| 10EMA기울기% | 최근 5일 EMA10 변화율 | 양수 = 우상향 |\n'
+            '| MA점수 | EMA10/21 · SMA50/150/200 위 개수 (0~5) | **5** = 완전 정배열 |\n'
+            '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
+        )
 
     with st.spinner(f'{label} 10EMA 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_10ema_rows(tuple(tickers), market)
