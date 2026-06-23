@@ -3,7 +3,7 @@ from data.fetcher import fetch_index_daily
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
 
-INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'SPY', 'QQQ']
+INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ', 'QQQ']
 
 PHASE_COLORS = {
     'DAY1': '🔴',

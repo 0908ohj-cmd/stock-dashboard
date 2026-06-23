@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 INDICES = {
     'KOSPI':  '^KS11',
     'KOSDAQ': '^KQ11',
-    'SPY':    'SPY',
+    'NASDAQ': '^IXIC',
     'QQQ':    'QQQ',
 }
 
