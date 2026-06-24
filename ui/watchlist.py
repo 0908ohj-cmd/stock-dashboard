@@ -171,7 +171,9 @@ def _status_banner(status: dict, label: str):
     else:  # normal
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate = status['correction_start'].date()
-            st.warning(f"🟡 **{label} EMA21 회복** (찐반등 미확인 | 조정일: {cdate})")
+            pdate = status.get('peak_date')
+            peak_str = f"RS 기산점: {pdate.date()} | " if pdate else ''
+            st.warning(f"🟡 **{label} EMA21 회복** ({peak_str}이탈일: {cdate} | 찐반등 미확인)")
         elif status.get('jjin_date'):
             jdate = status['jjin_date'].date()
             st.success(f"✅ **{label} 정상** (찐반등 확인 {jdate})")
