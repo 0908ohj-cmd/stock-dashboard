@@ -269,9 +269,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_selection('single', use_checkbox=False)
-    gb.configure_grid_options(localeText=KO_LOCALE)
-
-    grid_height = 90 + len(display_df) * 36
+    gb.configure_grid_options(domLayout='autoHeight', localeText=KO_LOCALE)
 
     grid_response = AgGrid(
         display_df,
@@ -279,7 +277,6 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         update_mode=GridUpdateMode.SELECTION_CHANGED,
         enable_enterprise_modules=False,
         theme='streamlit',
-        height=grid_height,
         fit_columns_on_grid_load=True,
     )
 
