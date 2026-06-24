@@ -206,9 +206,9 @@ def get_stock_name(ticker: str, market: str = 'US') -> str:
 
 
 def fetch_intraday_for_date(
-    ticker: str, target_date, market: str = 'US'
+    ticker: str, target_date, market: str = 'US', days: int = 1
 ) -> pd.DataFrame:
-    """특정 날짜 5분봉. 60일 초과 시 빈 DataFrame 반환."""
+    """찐반등 날 포함 이전 N 거래일 5분봉. 60일 초과 시 빈 DataFrame 반환."""
     if isinstance(target_date, pd.Timestamp):
         target_date = target_date.to_pydatetime()
     if (datetime.today() - target_date).days > 59:
@@ -220,21 +220,21 @@ def fetch_intraday_for_date(
     else:
         yf_ticker = ticker
 
-    start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end   = start + timedelta(days=1)
+    end   = target_date.replace(hour=23, minute=59, second=0, microsecond=0) + timedelta(days=1)
+    start = end - timedelta(days=days * 2 + 3)  # 주말 여유 포함해서 N 거래일 확보
     return _download(yf_ticker, start, end, interval='5m')
 
 
-def fetch_index_intraday_for_date(name: str, target_date) -> pd.DataFrame:
-    """지수 특정 날짜 5분봉."""
+def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.DataFrame:
+    """지수 찐반등 날 포함 이전 N 거래일 5분봉."""
     if isinstance(target_date, pd.Timestamp):
         target_date = target_date.to_pydatetime()
     if (datetime.today() - target_date).days > 59:
         return pd.DataFrame()
 
     ticker = INDICES[name]
-    start  = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end    = start + timedelta(days=1)
+    end    = target_date.replace(hour=23, minute=59, second=0, microsecond=0) + timedelta(days=1)
+    start  = end - timedelta(days=days * 2 + 3)
     return _download(ticker, start, end, interval='5m')
 
 

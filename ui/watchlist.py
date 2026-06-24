@@ -332,14 +332,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
         if jjin_date_str:
             jjin_date = pd.Timestamp(jjin_date_str)
-            st.markdown(f'**{selected_ticker} — 찐반등 날 5분봉 비교** ({jjin_date.date()})')
             with st.spinner('5분봉 로드 중...'):
-                stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market)
-                index_5m = fetch_index_intraday_for_date(index_name, jjin_date)
+                stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
+                index_5m = fetch_index_intraday_for_date(index_name, jjin_date, days=5)
 
             if not stock_5m.empty and not index_5m.empty:
                 st.plotly_chart(
-                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name),
+                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date),
                     use_container_width=True,
                 )
             else:

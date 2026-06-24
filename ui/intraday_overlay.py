@@ -59,8 +59,9 @@ def intraday_overlay_chart(
     index_5m: pd.DataFrame,
     ticker: str,
     index_name: str,
+    jjin_date=None,
 ) -> go.Figure:
-    """당일 시가=0% 정규화 누적수익률 오버레이 차트."""
+    """찐반등 날 기준 5일치 누적수익률 오버레이 차트."""
     fig = go.Figure()
 
     if stock_5m.empty or index_5m.empty:
@@ -71,7 +72,14 @@ def intraday_overlay_chart(
     stk_open   = float(stock_5m['Close'].iloc[0])
     idx_cumret = (index_5m['Close'] / idx_open - 1) * 100
     stk_cumret = (stock_5m['Close'] / stk_open - 1) * 100
-    idx_peak_time = index_5m['High'].idxmax()
+
+    # 날짜 경계 수직선
+    dates = index_5m.index.normalize().unique()
+    for d in dates[1:]:
+        fig.add_vline(
+            x=d.timestamp() * 1000,
+            line_width=0.8, line_dash='solid', line_color='#444',
+        )
 
     fig.add_trace(go.Scatter(
         x=index_5m.index, y=idx_cumret,
@@ -83,17 +91,12 @@ def intraday_overlay_chart(
         name=ticker,
         line=dict(color='#ef5350', width=2),
     ))
-    fig.add_vline(
-        x=idx_peak_time.timestamp() * 1000,
-        line_width=1, line_dash='dash', line_color='#ffb74d',
-        annotation_text='지수 고점',
-        annotation_position='top right',
-    )
-    fig.add_hline(y=0, line_width=0.5, line_color='#444')
+    fig.add_hline(y=0, line_width=0.5, line_color='#555')
 
+    title_date = pd.Timestamp(jjin_date).date() if jjin_date else ''
     fig.update_layout(
-        title=f'{ticker} vs {index_name} — 찐반등 날 5분봉',
-        yaxis_title='시가 대비 수익률 (%)',
+        title=f'{ticker} vs {index_name} — 찐반등 날({title_date}) 기준 이전 5일 5분봉',
+        yaxis_title='시가 대비 누적수익률 (%)',
         template='plotly_dark',
         height=380,
         margin=dict(l=40, r=40, t=50, b=20),

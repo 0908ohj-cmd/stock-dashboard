@@ -3,11 +3,10 @@ import json
 import pathlib
 import requests
 import streamlit as st
-from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_daily, fetch_intraday, fetch_index_daily
+from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_daily
 from ui.index_panel import render_index_panel
 from ui.watchlist import render_watchlist_tab, _fetch_index_cached
 from ui.watchlist_10ema import render_10ema_tab
-from ui.charts import daily_chart, intraday_chart
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
 
@@ -189,22 +188,3 @@ with tab_us:
 with tab_10ema_us:
     render_10ema_tab(ema10_us_tickers, 'US', '10EMA 미장')
 
-# ── 종목 일봉 차트 ────────────────────────────────────────
-if st.session_state.get('selected_ticker'):
-    ticker     = st.session_state['selected_ticker']
-    market     = st.session_state.get('selected_market', 'US')
-    index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
-
-    st.divider()
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.spinner('일봉 로드 중...'):
-            df_daily = fetch_daily(ticker, market=market)
-            idx_df   = _fetch_index_cached(index_name)
-        if not df_daily.empty:
-            st.plotly_chart(daily_chart(df_daily, ticker, index_df=idx_df), use_container_width=True)
-    with col2:
-        with st.spinner('5분봉 로드 중...'):
-            df_5m = fetch_intraday(ticker, market=market)
-        if not df_5m.empty:
-            st.plotly_chart(intraday_chart(df_5m, ticker, market=market), use_container_width=True)
