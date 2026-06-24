@@ -160,12 +160,14 @@ def _status_banner(status: dict, label: str):
     elif state == 'correction':
         cdate  = status['correction_start'].date() if status['correction_start'] else ''
         pdate  = status.get('peak_date')
-        peak_str = f" | RS 기산점: {pdate.date()}" if pdate else ''
         failed = status.get('failed_jjin_date')
+        parts  = []
+        if pdate:
+            parts.append(f"RS 기산점: {pdate.date()}")
+        parts.append(f"이탈일: {cdate}")
         if failed:
-            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate}{peak_str} | {failed.date()} 반등 실패)")
-        else:
-            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate}{peak_str})")
+            parts.append(f"{failed.date()} 반등 실패")
+        st.warning(f"🔴 **{label} 조정 중** ({' | '.join(parts)})")
     else:  # normal
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate = status['correction_start'].date()
