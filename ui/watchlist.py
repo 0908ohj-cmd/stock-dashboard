@@ -142,10 +142,10 @@ def _build_rows(
             continue
 
     rows.sort(key=lambda r: (
-        -(r['조정RS%'] or 0),
+        -(r['RS/ADR'] or 0),
         -r['ma_above_count'],
-        -r['저점선행'],
         -(r['거래량비%'] or 0),
+        (r['고점대비%'] or 0),   # 고점대비% 높을수록(덜 빠진) 우선 → 음수라 오름차순이 유리
     ))
     return rows
 
