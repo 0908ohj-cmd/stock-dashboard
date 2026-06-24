@@ -84,15 +84,28 @@ def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp
     return None
 
 
+def _jjin_failed(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
+                  ema21: pd.Series, window: int = 3) -> bool:
+    """jjin_date 이후 window 거래일이 지났는데 EMA21 위로 종가 못 닫혔으면 True."""
+    after = index_df[index_df.index > jjin_date]
+    if len(after) < window:
+        return False  # 아직 window일 안 지남 → 대기 중
+    for idx, row in after.head(window).iterrows():
+        if idx in ema21.index and float(row['Close']) > float(ema21[idx]):
+            return False  # window 내 EMA21 위로 닫힘 → 성공
+    return True  # 실패
+
+
 def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
     state: 'normal' | 'correction' | 'early_signal'
+    찐반등 감지 후 3거래일 내 EMA21 미회복 시 실패로 판정, 조정 상태로 복귀.
     """
     base = {
         'state': 'normal', 'correction_start': None,
         'jjin_date': None, 'jjin_pct': 0.0,
-        'jjin_stars': 0,
+        'jjin_stars': 0, 'failed_jjin_date': None,
     }
     if len(index_df) < 22:
         return base
@@ -108,7 +121,6 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
         return base
 
     last_start = bd_starts[-1]
-    recs_after = rec_dates[rec_dates > last_start]
 
     base['correction_start'] = last_start
 
@@ -121,11 +133,19 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
             base['jjin_stars'] = jjin['stars']
         return base
 
+    # 지수가 EMA21 아래인 상태
     jjin = detect_jjin_bounce(index_df)
     if jjin is None or jjin['date'] < last_start:
         base['state'] = 'correction'
         return base
 
+    # 찐반등 후 3거래일 내 EMA21 회복 실패 여부 확인
+    if _jjin_failed(index_df, jjin['date'], ema21, window=3):
+        base['state']            = 'correction'
+        base['failed_jjin_date'] = jjin['date']  # 실패한 찐반등 날짜 기록
+        return base
+
+    # 찐반등 감지, 아직 확인 대기 중 (3거래일 이내)
     base.update({
         'state':       'early_signal',
         'jjin_date':   jjin['date'],

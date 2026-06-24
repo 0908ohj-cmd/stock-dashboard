@@ -15,7 +15,7 @@ from ui.intraday_overlay import intraday_overlay_chart
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
     'KR_KOSDAQ': 'KOSDAQ',
-    'US':        'QQQ',
+    'US':        'NASDAQ',
 }
 
 KO_LOCALE = {
@@ -28,12 +28,12 @@ KO_LOCALE = {
 
 @st.cache_data(ttl=300)
 def _fetch_index_cached(name: str) -> pd.DataFrame:
-    return fetch_index_daily(name)
+    return fetch_index_daily(name, days=400)
 
 
 @st.cache_data(ttl=300)
 def _get_market_status_cached(market: str) -> dict:
-    index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
+    index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
     index_df   = _fetch_index_cached(index_name)
     return get_market_status(index_df) if not index_df.empty else {
         'state': 'normal', 'correction_start': None,
@@ -83,7 +83,7 @@ def _build_rows(
     jjin_date_str: str | None,
 ) -> list:
     tickers    = list(tickers_tuple)
-    index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
+    index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
     index_df   = _fetch_index_cached(index_name)
 
     correction_start = pd.Timestamp(correction_start_str) if correction_start_str else None
@@ -159,7 +159,11 @@ def _status_banner(status: dict, label: str):
         st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}")
     elif state == 'correction':
         cdate = status['correction_start'].date() if status['correction_start'] else ''
-        st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate})")
+        failed = status.get('failed_jjin_date')
+        if failed:
+            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate} | {failed.date()} 반등 실패 → RS 현재까지 계산)")
+        else:
+            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate})")
     else:
         st.info(f"✅ **{label} 정상** (21EMA 위)")
 
@@ -303,7 +307,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.session_state['selected_market'] = market
         st.session_state['selected_jjin_date'] = jjin_date_str
 
-        index_name = INDEX_FOR_MARKET.get(market, 'QQQ')
+        index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
 
         if jjin_date_str:
             jjin_date = pd.Timestamp(jjin_date_str)

@@ -58,7 +58,7 @@ if 'grid_initialized' not in st.session_state:
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
     'KR_KOSDAQ': 'KOSDAQ',
-    'US':        'QQQ',
+    'US':        'NASDAQ',
 }
 
 # ── 사이드바 ──────────────────────────────────────────────
