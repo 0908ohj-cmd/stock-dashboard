@@ -126,6 +126,20 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
 
     if not is_below_now:
         base['state'] = 'normal'
+
+        # EMA21 위 연속 거래일 카운트
+        consecutive_above = 0
+        for i in range(len(index_df) - 1, -1, -1):
+            if float(index_df['Close'].iloc[i]) < float(ema21.iloc[i]):
+                break
+            consecutive_above += 1
+
+        # 3거래일 연속 EMA21 위 → 조정 완전 종료
+        if consecutive_above >= 3:
+            base['correction_start'] = None
+            return base
+
+        # 3일 미만 → 찐반등 탐색
         jjin = detect_jjin_bounce(index_df)
         if jjin and jjin['date'] >= last_start:
             base['jjin_date']  = jjin['date']
