@@ -164,8 +164,15 @@ def _status_banner(status: dict, label: str):
             st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate} | {failed.date()} 반등 실패 → RS 현재까지 계산)")
         else:
             st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate})")
-    else:
-        st.info(f"✅ **{label} 정상** (21EMA 위)")
+    else:  # normal
+        if status.get('correction_start') and not status.get('jjin_date'):
+            cdate = status['correction_start'].date()
+            st.warning(f"🟡 **{label} EMA21 회복** (찐반등 미확인 | 조정일: {cdate})")
+        elif status.get('jjin_date'):
+            jdate = status['jjin_date'].date()
+            st.success(f"✅ **{label} 정상** (찐반등 확인 {jdate})")
+        else:
+            st.info(f"✅ **{label} 정상** (21EMA 위)")
 
 
 def render_watchlist_tab(tickers: list, market: str, label: str):
