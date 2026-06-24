@@ -24,8 +24,8 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
         row  = index_df.iloc[i]
         prev = index_df.iloc[i - 1]
 
-        if float(row['Close']) >= float(ema21.iloc[i]):
-            continue
+        if float(row['Low']) >= float(ema21.iloc[i]):
+            continue  # 장중에도 EMA21 아래 안 내려왔으면 스킵
         if float(row['Close']) < float(row['Open']):   # 양봉 아님
             continue
         if float(prev['Close']) >= float(prev['Open']): # 직전이 음봉 아님
