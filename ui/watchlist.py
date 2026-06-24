@@ -93,7 +93,7 @@ def _build_rows(
     stock_cache = {}
     for ticker in tickers:
         try:
-            df = fetch_daily(ticker, market=market)
+            df = fetch_daily(ticker, market=market, days=350)
             if df.empty or len(df) < 25:
                 continue
             adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
@@ -291,13 +291,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             with cols[i % 3]:
                 with st.container(border=True):
                     st.markdown(f"**{r['Ticker']}** {r['종목명']}")
+                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
                     st.caption(
                         f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
                         f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
                         f"고점대비: **{r['고점대비%']:.0f}%**"
                     )
                     st.caption(f"📍 {r['이평선위치']}")
-                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
