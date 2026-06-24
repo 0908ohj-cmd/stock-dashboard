@@ -264,22 +264,26 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         and (r['거래량비%'] or 0) >= 120
         and (r['고점대비%'] or 0) >= -30
     ]
-    if top_candidates:
-        names = [
-            f"**{r['Ticker']}** {r['종목명']} "
-            f"(RS/ADR:{r['RS/ADR']:.1f} {r['이평선위치']} 거래량비:{r['거래량비%']:.0f}%)"
-            for r in top_candidates
-        ]
-        st.success("⭐ 핵심 후보 (이평선위 & 거래량비 120%+ & 고점대비 -30% 이내): " + ", ".join(names))
-    elif rows:
-        relaxed = [r for r in rows if r['ma_above_count'] > 0 and (r['고점대비%'] or 0) >= -35][:5]
-        if relaxed:
-            names = [
-                f"**{r['Ticker']}** {r['종목명']} "
-                f"(RS/ADR:{r['RS/ADR']:.1f} {r['이평선위치']})"
-                for r in relaxed
-            ]
-            st.info("📊 RS 상위 후보 (완화 기준): " + ", ".join(names))
+    fallback = (
+        [r for r in rows if r['ma_above_count'] > 0 and (r['고점대비%'] or 0) >= -35][:5]
+        if not top_candidates else []
+    )
+
+    if top_candidates or fallback:
+        candidates = top_candidates or fallback
+        label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보 (완화 기준)'
+        st.markdown(f'**{label}** — {len(candidates)}개')
+        cols = st.columns(3)
+        for i, r in enumerate(candidates):
+            with cols[i % 3]:
+                with st.container(border=True):
+                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
+                    st.caption(
+                        f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
+                        f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
+                        f"고점대비: **{r['고점대비%']:.0f}%**"
+                    )
+                    st.caption(f"📍 {r['이평선위치']}")
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
