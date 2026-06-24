@@ -116,15 +116,31 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     return df.dropna(subset=['Close'])
 
 
+def _parse_fdr_listing(df: pd.DataFrame) -> dict:
+    CODE_COLS = ['Code', 'Symbol', '종목코드', 'Ticker', 'ticker', 'symbol']
+    NAME_COLS = ['Name', '종목명', '기업명', 'CompanyName', 'company_name', 'shortName']
+    code_col = next((c for c in CODE_COLS if c in df.columns), None)
+    name_col = next((c for c in NAME_COLS if c in df.columns), None)
+    if not code_col or not name_col:
+        return {}
+    return dict(zip(df[code_col].astype(str).str.zfill(6), df[name_col].astype(str)))
+
+
 @lru_cache(maxsize=1)
 def _load_kr_names_fdr() -> dict:
-    """FinanceDataReader로 KRX 전체 종목명 프로세스당 1회 로드."""
+    """FinanceDataReader로 KR 종목명 프로세스당 1회 로드. KOSPI/KOSDAQ 개별 → KRX 순서로 시도."""
     try:
         import FinanceDataReader as fdr
-        df = fdr.StockListing('KRX')
-        code_col = next((c for c in ['Code', 'Symbol', '종목코드'] if c in df.columns), df.columns[0])
-        name_col = next((c for c in ['Name', '종목명', '기업명'] if c in df.columns), df.columns[1])
-        return dict(zip(df[code_col].astype(str).str.zfill(6), df[name_col].astype(str)))
+        result = {}
+        for mkt in ['KOSPI', 'KOSDAQ']:
+            try:
+                result.update(_parse_fdr_listing(fdr.StockListing(mkt)))
+            except Exception:
+                pass
+        if result:
+            return result
+        # fallback: KRX 통합
+        return _parse_fdr_listing(fdr.StockListing('KRX'))
     except Exception:
         return {}
 
@@ -141,23 +157,24 @@ def get_stock_name(ticker: str, market: str = 'US') -> str:
     name = None
 
     if market.startswith('KR'):
-        # FDR 전체 종목맵 (프로세스 1회 로드, 가장 빠름)
         kr_map = _load_kr_names_fdr()
-        name = kr_map.get(ticker.zfill(6)) or None
+        name = kr_map.get(ticker.zfill(6)) or kr_map.get(ticker) or None
 
-    if not name:
+    if not name and market.startswith('KR'):
         try:
-            if market.startswith('KR'):
-                from pykrx import stock as pykrx_stock
-                name = pykrx_stock.get_market_ticker_name(ticker) or None
+            from pykrx import stock as pykrx_stock
+            name = pykrx_stock.get_market_ticker_name(ticker) or None
         except Exception:
             pass
 
     if not name:
         try:
             suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
-            info = yf.Ticker(ticker + suffix).info
-            name = info.get('shortName') or info.get('longName') or None
+            info = yf.Ticker(ticker + suffix).fast_info
+            # fast_info: name 없음 → info로 fallback
+            full_info = yf.Ticker(ticker + suffix).info
+            name = (full_info.get('shortName') or full_info.get('longName')
+                    or full_info.get('name') or None)
         except Exception:
             pass
 

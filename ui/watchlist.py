@@ -260,12 +260,16 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     # 핵심 후보 안내
     top_candidates = [
         r for r in rows
-        if r['ma_above_count'] > 0
+        if (r['RS/ADR'] or 0) > 0
+        and r['ma_above_count'] > 0
         and (r['거래량비%'] or 0) >= 120
         and (r['고점대비%'] or 0) >= -30
     ]
     fallback = (
-        [r for r in rows if r['ma_above_count'] > 0 and (r['고점대비%'] or 0) >= -35][:5]
+        [r for r in rows
+         if (r['RS/ADR'] or 0) > 0
+         and r['ma_above_count'] > 0
+         and (r['고점대비%'] or 0) >= -35][:5]
         if not top_candidates else []
     )
 
