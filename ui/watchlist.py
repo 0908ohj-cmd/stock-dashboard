@@ -133,7 +133,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.info(f'사이드바에서 {label} CSV를 업로드해 주세요.')
         return
 
-    with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
+    with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
         st.caption('정렬 순서')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
@@ -278,7 +278,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
-    with st.expander('정렬 기준 & 컬럼 설명', expanded=False):
+    with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
         st.caption('정렬 순서')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
