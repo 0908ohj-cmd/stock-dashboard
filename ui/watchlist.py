@@ -8,7 +8,7 @@ from data.fetcher import (
 )
 from data.sector import get_sectors
 from strategy.market_status import get_market_status
-from strategy.rs_correction import calc_correction_rs
+from strategy.rs_correction import calc_correction_rs, _index_peak_date
 from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
 
@@ -158,12 +158,14 @@ def _status_banner(status: dict, label: str):
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}")
     elif state == 'correction':
-        cdate = status['correction_start'].date() if status['correction_start'] else ''
+        cdate  = status['correction_start'].date() if status['correction_start'] else ''
+        pdate  = status.get('peak_date')
+        peak_str = f" | RS 기산점: {pdate.date()}" if pdate else ''
         failed = status.get('failed_jjin_date')
         if failed:
-            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate} | {failed.date()} 반등 실패 → RS 현재까지 계산)")
+            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate}{peak_str} | {failed.date()} 반등 실패)")
         else:
-            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate})")
+            st.warning(f"🔴 **{label} 조정 중** (이탈일: {cdate}{peak_str})")
     else:  # normal
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate = status['correction_start'].date()
@@ -202,6 +204,14 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         )
 
     status = _get_market_status_cached(market)
+
+    # 고점 날짜 계산해서 status에 추가 (배너용)
+    cs = status['correction_start']
+    if cs:
+        index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
+        _idx = _fetch_index_cached(index_name)
+        status = {**status, 'peak_date': _index_peak_date(_idx, cs) if not _idx.empty else None}
+
     _status_banner(status, label)
 
     cs = status['correction_start']
