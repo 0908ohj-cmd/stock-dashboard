@@ -134,12 +134,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         return
 
     with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
-        st.caption('정렬 순서')
+        st.caption('핵심 후보 조건')
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
-        c2.markdown('**② MA점수**  \n이평선 구조 건강도 (4+ 권장)')
-        c3.markdown('**③ 저점선행(일)**  \n지수보다 먼저 저점 형성')
-        c4.markdown('**④ 거래량비%**  \n상승일 거래량 우위 여부')
+        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
+        c2.markdown('**② MA점수**  \n이평선 구조 건강도 · **4 이상** 권장')
+        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
+        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
         st.divider()
         st.caption('컬럼 설명')
         st.markdown(
@@ -279,12 +279,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
     with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
-        st.caption('정렬 순서')
+        st.caption('핵심 후보 조건')
         c1, c2, c3, c4 = st.columns(4)
-        c1.markdown('**① 조정RS%**  \n조정 중 지수 대비 초과 수익률')
-        c2.markdown('**② MA점수**  \n이평선 구조 건강도 (4+ 권장)')
-        c3.markdown('**③ 저점선행(일)**  \n지수보다 먼저 저점 형성')
-        c4.markdown('**④ 거래량비%**  \n상승일 거래량 우위 여부')
+        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
+        c2.markdown('**② MA점수**  \n이평선 구조 건강도 · **4 이상** 권장')
+        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
+        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
         st.divider()
         st.caption('컬럼 설명')
         st.markdown(
