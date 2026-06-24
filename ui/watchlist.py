@@ -99,14 +99,14 @@ def _build_rows(
             adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
             if adr < adr_min:
                 continue
-            stock_cache[ticker] = df
+            stock_cache[ticker] = (df, round(adr, 2))
         except Exception:
             continue
 
     sectors = get_sectors(list(stock_cache.keys()), market)
     rows    = []
 
-    for ticker, df in stock_cache.items():
+    for ticker, (df, adr_val) in stock_cache.items():
         try:
             last_close  = float(df['Close'].iloc[-1])
             prev_close  = float(df['Close'].iloc[-2])
@@ -127,6 +127,7 @@ def _build_rows(
                 'Ticker':      ticker,
                 '종목명':      name,
                 '섹터':        sectors.get(ticker, '기타'),
+                'ADR':         adr_val,
                 'Close':       round(last_close, 2),
                 '등락%':       round(change_pct, 2),
                 '고점대비%':   calc_pct_from_52w_high(df),
@@ -276,7 +277,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if top_candidates or fallback:
         candidates = top_candidates or fallback
         label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보 (완화 기준)'
-        st.markdown(f'**{label}** — {len(candidates)}개')
+        period_str = ''
+        if correction_start_str:
+            end = jjin_date_str or '진행 중'
+            period_str = f'  <span style="font-size:0.85em; color:gray;">({correction_start_str} ~ {end})</span>'
+        st.markdown(f'**{label}** — {len(candidates)}개{period_str}', unsafe_allow_html=True)
         cols = st.columns(3)
         for i, r in enumerate(candidates):
             with cols[i % 3]:
@@ -288,6 +293,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                         f"고점대비: **{r['고점대비%']:.0f}%**"
                     )
                     st.caption(f"📍 {r['이평선위치']}")
+                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
