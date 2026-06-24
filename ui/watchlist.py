@@ -42,6 +42,39 @@ def _get_market_status_cached(market: str) -> dict:
     }
 
 
+def _ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, int]:
+    """지수가 이탈한 이평선 기준, 종목 위/아래 텍스트 반환. (text, above_count)"""
+    if index_df.empty or len(index_df) < 50:
+        return '', 0
+
+    idx_close = float(index_df['Close'].iloc[-1])
+    stk_close = float(stock_df['Close'].iloc[-1])
+
+    def _ema(df, n): return float(df['Close'].ewm(span=n, adjust=False).mean().iloc[-1])
+    def _sma(df, n): return float(df['Close'].rolling(n).mean().iloc[-1]) if len(df) >= n else float('nan')
+
+    levels = [
+        ('EMA21',  _ema(index_df, 21),  _ema(stock_df, 21)),
+        ('SMA50',  _sma(index_df, 50),  _sma(stock_df, 50)),
+        ('SMA150', _sma(index_df, 150), _sma(stock_df, 150)),
+        ('SMA200', _sma(index_df, 200), _sma(stock_df, 200)),
+    ]
+
+    parts = []
+    above_count = 0
+    for name, idx_ma, stk_ma in levels:
+        if pd.isna(idx_ma) or pd.isna(stk_ma):
+            continue
+        if idx_close < idx_ma:  # 지수가 이 이평선 아래 (이탈)
+            if stk_close > stk_ma:
+                parts.append(f'{name}위')
+                above_count += 1
+            else:
+                parts.append(f'{name}아래')
+
+    return (' · '.join(parts) if parts else '지수정상'), above_count
+
+
 @st.cache_data(ttl=300)
 def _build_rows(
     tickers_tuple: tuple,
@@ -89,26 +122,28 @@ def _build_rows(
                     'vol_ratio': 0.0, 'candle_ratio': 0.0,
                 }
 
+            ma_text, ma_above = _ma_position(df, index_df)
             rows.append({
-                'Ticker':    ticker,
-                '종목명':    name,
-                '섹터':      sectors.get(ticker, '기타'),
-                'Close':     round(last_close, 2),
-                '등락%':     round(change_pct, 2),
-                '고점대비%': calc_pct_from_52w_high(df),
-                '저점선행':  rs['lead_days'],
-                '조정RS%':   rs['excess_pct'],
-                'RS/ADR':    rs['excess_adr'],
-                'MA점수':    rs['ma_score'],
-                '거래량비%': round(rs['vol_ratio'] * 100, 0),
-                '양봉비%':   round(rs['candle_ratio'] * 100, 0),
+                'Ticker':      ticker,
+                '종목명':      name,
+                '섹터':        sectors.get(ticker, '기타'),
+                'Close':       round(last_close, 2),
+                '등락%':       round(change_pct, 2),
+                '고점대비%':   calc_pct_from_52w_high(df),
+                '저점선행':    rs['lead_days'],
+                '조정RS%':     rs['excess_pct'],
+                'RS/ADR':      rs['excess_adr'],
+                '이평선위치':  ma_text,
+                'ma_above_count': ma_above,
+                '거래량비%':   round(rs['vol_ratio'] * 100, 0),
+                '양봉비%':     round(rs['candle_ratio'] * 100, 0),
             })
         except Exception:
             continue
 
     rows.sort(key=lambda r: (
         -(r['조정RS%'] or 0),
-        -r['MA점수'],
+        -r['ma_above_count'],
         -r['저점선행'],
         -(r['거래량비%'] or 0),
     ))
@@ -137,7 +172,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.caption('핵심 후보 조건')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② MA점수**  \n이평선 구조 건강도 · **4 이상** 권장')
+        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
         c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
         c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
         st.divider()
@@ -147,7 +182,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '|------|------|------|\n'
             '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
             '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
-            '| MA점수 | EMA10/21 · SMA50/150/200 위에 있는 개수 (0~5) | **4 이상** 권장 |\n'
+            '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
@@ -183,7 +218,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '등락%':         r['등락%'],
         '조정RS%':       r['조정RS%'],
         'RS/ADR':        r['RS/ADR'],
-        'MA점수':        r['MA점수'],
+        '이평선위치':    r['이평선위치'],
         '저점선행(일)':  r['저점선행'],
         '거래량비%':     r['거래량비%'],
         '양봉비%':       r['양봉비%'],
@@ -202,7 +237,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('조정RS%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('RS/ADR',    filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
-    gb.configure_column('MA점수',    filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
+    gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('거래량비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
@@ -225,30 +260,26 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     # 핵심 후보 안내
     top_candidates = [
         r for r in rows
-        if (r['조정RS%'] or 0) >= 10
-        and r['MA점수'] >= 4
+        if r['ma_above_count'] > 0
+        and (r['거래량비%'] or 0) >= 120
         and (r['고점대비%'] or 0) >= -30
     ]
     if top_candidates:
         names = [
             f"**{r['Ticker']}** {r['종목명']} "
-            f"(RS:{r['조정RS%']:.0f}% MA:{r['MA점수']} 선행:{r['저점선행']}일)"
+            f"(RS/ADR:{r['RS/ADR']:.1f} {r['이평선위치']} 거래량비:{r['거래량비%']:.0f}%)"
             for r in top_candidates
         ]
-        st.success(
-            f"⭐ 핵심 후보 (조정RS% ≥10% & MA점수 4+ & 고점대비 -30% 이내): "
-            + ", ".join(names)
-        )
+        st.success("⭐ 핵심 후보 (이평선위 & 거래량비 120%+ & 고점대비 -30% 이내): " + ", ".join(names))
     elif rows:
-        # 단기 조정 등으로 엄격 기준 미달 시 → MA점수 3+ & 고점대비 -35% 이내 상위 5개
-        relaxed = [r for r in rows if r['MA점수'] >= 3 and (r['고점대비%'] or 0) >= -35][:5]
+        relaxed = [r for r in rows if r['ma_above_count'] > 0 and (r['고점대비%'] or 0) >= -35][:5]
         if relaxed:
             names = [
                 f"**{r['Ticker']}** {r['종목명']} "
-                f"(RS:{r['조정RS%']:.0f}% MA:{r['MA점수']})"
+                f"(RS/ADR:{r['RS/ADR']:.1f} {r['이평선위치']})"
                 for r in relaxed
             ]
-            st.info("📊 RS 상위 후보 (단기 조정 — 완화 기준): " + ", ".join(names))
+            st.info("📊 RS 상위 후보 (완화 기준): " + ", ".join(names))
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
@@ -282,7 +313,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
         st.caption('핵심 후보 조건')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② MA점수**  \n이평선 구조 건강도 · **4 이상** 권장')
+        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
         c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
         c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
         st.divider()
@@ -292,7 +323,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
             '|------|------|------|\n'
             '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
             '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
-            '| MA점수 | EMA10/21 · SMA50/150/200 위에 있는 개수 (0~5) | **4 이상** 권장 |\n'
+            '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
