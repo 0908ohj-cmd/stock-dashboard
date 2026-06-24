@@ -131,10 +131,25 @@ _kr_names_map: dict | None = None
 
 
 def _load_kr_names_fdr() -> dict:
-    """KR 종목명 로드. 성공 시에만 캐싱 (실패 시 매번 재시도)."""
+    """KR 종목명 로드. 번들 JSON → FDR → pykrx 순서로 시도."""
     global _kr_names_map
-    if _kr_names_map:  # 비어있지 않으면 캐시 반환
+    if _kr_names_map:
         return _kr_names_map
+
+    # 1순위: 번들 JSON (Cloud 환경에서도 안정적)
+    try:
+        import json, pathlib
+        json_path = pathlib.Path(__file__).parent / 'kr_names.json'
+        if json_path.exists():
+            with open(json_path, encoding='utf-8') as f:
+                result = json.load(f)
+            if result:
+                _kr_names_map = result
+                return result
+    except Exception:
+        pass
+
+    # 2순위: FDR (네트워크)
     try:
         import FinanceDataReader as fdr
         result = {}
