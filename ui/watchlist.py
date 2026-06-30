@@ -158,13 +158,13 @@ def _status_banner(status: dict, label: str):
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         pdate = status.get('peak_date')
         cdate = status['correction_start'].date() if status['correction_start'] else ''
-        parts = []
+        meta_parts = [f"📅 {jdate}"]
         if pdate:
-            parts.append(f"RS 기산점: {pdate.date()}")
+            meta_parts.append(f"RS 기산점: {pdate.date()}")
         if cdate:
-            parts.append(f"이탈일: {cdate}")
-        sub = f" ({' | '.join(parts)})" if parts else ''
-        st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}{sub}")
+            meta_parts.append(f"이탈일: {cdate}")
+        meta = '  ·  '.join(meta_parts)
+        st.success(f"⚡ **{label} 찐반등 감지!** &nbsp; **+{status['jjin_pct']}%** &nbsp; {stars}\n\n{meta}")
     elif state == 'correction':
         cdate  = status['correction_start'].date() if status['correction_start'] else ''
         pdate  = status.get('peak_date')
