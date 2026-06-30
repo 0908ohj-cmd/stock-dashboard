@@ -106,6 +106,69 @@ def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     return df
 
 
+_KR_INDEX_PYKRX = {'^KS11': '1001', '^KQ11': '2001'}
+
+
+_KR_INDEX_FDR = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
+
+
+def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
+    """yfinance가 O=H=L=C로 반환한 행(OHLC 불완전)을 pykrx → FDR 순서로 교체."""
+    if df.empty:
+        return df
+    pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
+    fdr_name   = _KR_INDEX_FDR.get(yf_ticker)
+    if not pykrx_code:
+        return df
+
+    def _bad_dates(d: pd.DataFrame):
+        mask = (d['Open'] == d['Close']) & (d['High'] == d['Close']) & (d['Low'] == d['Close'])
+        return d.index[mask]
+
+    bad = _bad_dates(df)
+    if bad.empty:
+        return df
+
+    # 1순위: pykrx
+    try:
+        from pykrx import stock as pykrx_stock
+        for ts in bad:
+            date_str = ts.strftime('%Y%m%d')
+            pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
+            if pk.empty:
+                continue
+            df.loc[ts, 'Open']  = float(pk['시가'].iloc[0])
+            df.loc[ts, 'High']  = float(pk['고가'].iloc[0])
+            df.loc[ts, 'Low']   = float(pk['저가'].iloc[0])
+            df.loc[ts, 'Close'] = float(pk['종가'].iloc[0])
+    except Exception:
+        pass
+
+    # 2순위: FDR (pykrx 실패 시 남은 불량 행 처리)
+    bad = _bad_dates(df)
+    if bad.empty or not fdr_name:
+        return df
+    try:
+        import FinanceDataReader as fdr
+        start_str = bad[0].strftime('%Y-%m-%d')
+        end_str   = (bad[-1] + timedelta(days=2)).strftime('%Y-%m-%d')
+        fdr_df    = fdr.DataReader(fdr_name, start_str, end_str)
+        if isinstance(fdr_df.columns, pd.MultiIndex):
+            fdr_df.columns = fdr_df.columns.get_level_values(0)
+        fdr_df.index = pd.to_datetime(fdr_df.index).normalize()
+        for ts in bad:
+            row = fdr_df[fdr_df.index == ts]
+            if row.empty:
+                continue
+            for col_fdr, col_df in [('Open','Open'),('High','High'),('Low','Low'),('Close','Close')]:
+                if col_fdr in row.columns:
+                    df.loc[ts, col_df] = float(row[col_fdr].iloc[0])
+    except Exception:
+        pass
+
+    return df
+
+
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
@@ -113,6 +176,7 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     df = _download(ticker, start, end)
     if name in ('KOSPI', 'KOSDAQ'):
         df = _patch_kr_index_today(df, ticker)
+        df = _patch_kr_index_ohlc(df, ticker)
     return df.dropna(subset=['Close'])
 
 
