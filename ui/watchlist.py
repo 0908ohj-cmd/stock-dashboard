@@ -156,7 +156,15 @@ def _status_banner(status: dict, label: str):
     if state == 'early_signal':
         stars = '★' * status['jjin_stars']
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
-        st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}")
+        pdate = status.get('peak_date')
+        cdate = status['correction_start'].date() if status['correction_start'] else ''
+        parts = []
+        if pdate:
+            parts.append(f"RS 기산점: {pdate.date()}")
+        if cdate:
+            parts.append(f"이탈일: {cdate}")
+        sub = f" ({' | '.join(parts)})" if parts else ''
+        st.success(f"⚡ **{label} 찐반등 감지!** {jdate}  +{status['jjin_pct']}%  {stars}{sub}")
     elif state == 'correction':
         cdate  = status['correction_start'].date() if status['correction_start'] else ''
         pdate  = status.get('peak_date')
