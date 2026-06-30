@@ -194,7 +194,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.info(f'사이드바에서 {label} CSV를 업로드해 주세요.')
         return
 
-    with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
+    with st.expander('사용 가이드', expanded=False):
         st.caption('핵심 후보')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
@@ -402,7 +402,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
-    with st.expander('핵심 후보 & 컬럼 설명', expanded=False):
+    with st.expander('사용 가이드', expanded=False):
         st.caption('핵심 후보')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
