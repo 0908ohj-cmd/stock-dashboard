@@ -100,6 +100,24 @@ def _jjin_failed(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
     return True  # 실패
 
 
+def _jjin_engulfed(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> bool:
+    """찐반등 이후 그 봉 바디를 잡아먹는 음봉(바디 >= 찐반등 바디) 출현 시 True → 즉시 DAY1 복귀."""
+    if jjin_date not in index_df.index:
+        return False
+    jjin_row  = index_df.loc[jjin_date]
+    jjin_body = abs(float(jjin_row['Close']) - float(jjin_row['Open']))
+    if jjin_body == 0:
+        return False
+    after = index_df[index_df.index > jjin_date]
+    for _, row in after.iterrows():
+        if float(row['Close']) >= float(row['Open']):  # 양봉 스킵
+            continue
+        bear_body = float(row['Open']) - float(row['Close'])
+        if bear_body >= jjin_body:  # 찐반등 바디 전부 잡아먹는 음봉
+            return True
+    return False
+
+
 def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
@@ -160,7 +178,13 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     # 찐반등 후 3거래일 내 EMA21 회복 실패 여부 확인
     if _jjin_failed(index_df, jjin['date'], ema21, window=3):
         base['state']            = 'correction'
-        base['failed_jjin_date'] = jjin['date']  # 실패한 찐반등 날짜 기록
+        base['failed_jjin_date'] = jjin['date']
+        return base
+
+    # 찐반등 봉을 잡아먹는 음봉 출현 → 기간 무관 즉시 DAY1 복귀
+    if _jjin_engulfed(index_df, jjin['date']):
+        base['state']            = 'correction'
+        base['failed_jjin_date'] = jjin['date']
         return base
 
     # 찐반등 감지, 아직 확인 대기 중 (3거래일 이내)
