@@ -172,19 +172,19 @@ st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
 st.subheader('와치리스트')
-tab_kospi, tab_kosdaq, tab_10ema_kospi, tab_10ema_kosdaq, tab_us, tab_10ema_us = st.tabs([
-    '🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '📈 10EMA 코스피', '📈 10EMA 코스닥', '🇺🇸 나스닥', '📈 10EMA 미장'
+tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
+    '🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '🇺🇸 나스닥', '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
 ])
 with tab_kospi:
     render_watchlist_tab(kr_kospi, 'KR_KOSPI', 'KOSPI')
 with tab_kosdaq:
     render_watchlist_tab(kr_kosdaq, 'KR_KOSDAQ', 'KOSDAQ')
+with tab_us:
+    render_watchlist_tab(us_tickers, 'US', '나스닥')
 with tab_10ema_kospi:
     render_10ema_tab(ema10_kospi_tickers, 'KR_KOSPI', '10EMA 코스피')
 with tab_10ema_kosdaq:
     render_10ema_tab(ema10_kosdaq_tickers, 'KR_KOSDAQ', '10EMA 코스닥')
-with tab_us:
-    render_watchlist_tab(us_tickers, 'US', '나스닥')
 with tab_10ema_us:
-    render_10ema_tab(ema10_us_tickers, 'US', '10EMA 미장')
+    render_10ema_tab(ema10_us_tickers, 'US', '10EMA 나스닥')
 
