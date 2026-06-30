@@ -66,7 +66,7 @@ with st.sidebar:
     st.caption('TradingView 스크리너 → Export → CSV 업로드')
     st.divider()
 
-    st.markdown('**📊 와치리스트**')
+    st.markdown('**📊 추세추종**')
     kospi_file        = st.file_uploader('코스피 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kospi_csv')
     kosdaq_file       = st.file_uploader('코스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kosdaq_csv')
     us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
