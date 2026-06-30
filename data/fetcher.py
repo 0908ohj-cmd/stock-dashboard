@@ -169,6 +169,38 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     return df
 
 
+def _patch_us_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
+    """US 지수 O=H=L=C 불완전 행을 yf.Ticker.history로 재시도."""
+    if df.empty:
+        return df
+    bad_mask = (
+        (df['Open'] == df['Close']) &
+        (df['High'] == df['Close']) &
+        (df['Low']  == df['Close'])
+    )
+    bad_dates = df.index[bad_mask]
+    if bad_dates.empty:
+        return df
+    try:
+        t = yf.Ticker(yf_ticker)
+        for ts in bad_dates:
+            start_s = ts.strftime('%Y-%m-%d')
+            end_s   = (ts + timedelta(days=2)).strftime('%Y-%m-%d')
+            hist = t.history(start=start_s, end=end_s, interval='1d', auto_adjust=True)
+            if hist.empty:
+                continue
+            hist.index = hist.index.normalize().tz_localize(None)
+            row = hist[hist.index == ts]
+            if row.empty:
+                continue
+            for col in ['Open', 'High', 'Low', 'Close']:
+                if col in row.columns:
+                    df.loc[ts, col] = float(row[col].iloc[0])
+    except Exception:
+        pass
+    return df
+
+
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
@@ -177,6 +209,8 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     if name in ('KOSPI', 'KOSDAQ'):
         df = _patch_kr_index_today(df, ticker)
         df = _patch_kr_index_ohlc(df, ticker)
+    else:
+        df = _patch_us_index_ohlc(df, ticker)
     return df.dropna(subset=['Close'])
 
 
