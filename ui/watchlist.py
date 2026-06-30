@@ -154,7 +154,7 @@ def _build_rows(
 def _status_banner(status: dict, label: str):
     state = status['state']
     if state == 'early_signal':
-        stars = '★' * status['jjin_stars']
+        stars = '⚡' * status['jjin_stars']
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         pdate = status.get('peak_date')
         cdate = status['correction_start'].date() if status['correction_start'] else ''
