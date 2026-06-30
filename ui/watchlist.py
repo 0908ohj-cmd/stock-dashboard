@@ -241,8 +241,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.warning('분석 가능한 종목이 없습니다.')
         return
 
+    state = status['state']
     if correction_start_str:
-        end_str = jjin_date_str or '진행 중'
+        if state == 'early_signal' and jjin_date_str:
+            end_str = f'진행 중 (찐반등 감지: {jjin_date_str})'
+        else:
+            end_str = jjin_date_str or '진행 중'
         st.caption(f"📅 조정 구간: {correction_start_str} ~ {end_str}")
 
     display_df = pd.DataFrame([{
@@ -304,16 +308,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if not top_candidates else []
     )
 
-    if top_candidates or fallback:
-        candidates = top_candidates or fallback
-        label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보 (완화 기준)'
-        period_str = ''
-        if correction_start_str:
-            end = jjin_date_str or '진행 중'
-            period_str = f'  <span style="font-size:0.85em; color:gray;">({correction_start_str} ~ {end})</span>'
-        st.markdown(f'**{label}** — {len(candidates)}개{period_str}', unsafe_allow_html=True)
+    def _render_candidates(cands: list, section_label: str, period_str: str):
+        st.markdown(f'**{section_label}** — {len(cands)}개{period_str}', unsafe_allow_html=True)
         cols = st.columns(3)
-        for i, r in enumerate(candidates):
+        for i, r in enumerate(cands):
             with cols[i % 3]:
                 with st.container(border=True):
                     st.markdown(f"**{r['Ticker']}** {r['종목명']}")
@@ -324,6 +322,38 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                         f"고점대비: **{r['고점대비%']:.0f}%**"
                     )
                     st.caption(f"📍 {r['이평선위치']}")
+
+    def _make_period_str(start: str, end: str) -> str:
+        return f'  <span style="font-size:0.85em; color:gray;">({start} ~ {end})</span>'
+
+    if top_candidates or fallback:
+        candidates = top_candidates or fallback
+        cand_label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보 (완화 기준)'
+        if correction_start_str:
+            end_label = f'{jjin_date_str} 찐반등 날' if (state == 'early_signal' and jjin_date_str) else (jjin_date_str or '진행 중')
+            period_str = _make_period_str(correction_start_str, end_label)
+        else:
+            period_str = ''
+        _render_candidates(candidates, cand_label, period_str)
+
+    # early_signal: 오늘 기준 추가 후보 (찐반등 이후 새로 진입한 종목)
+    if state == 'early_signal' and jjin_date_str:
+        today_date_str = str(pd.Timestamp.today().normalize().date())
+        if today_date_str != jjin_date_str:
+            with st.spinner('오늘 기준 추가 후보 확인 중...'):
+                today_rows = _build_rows(tuple(tickers), market, correction_start_str, None)
+            existing_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
+            today_new = [
+                r for r in today_rows
+                if r['Ticker'] not in existing_tickers
+                and (r['RS/ADR'] or 0) > 0
+                and r['ma_above_count'] > 0
+                and (r['거래량비%'] or 0) >= 120
+                and (r['고점대비%'] or 0) >= -30
+            ]
+            if today_new:
+                period_str2 = _make_period_str(correction_start_str, today_date_str)
+                _render_candidates(today_new, f'⭐ {today_date_str} 기준 추가 후보', period_str2)
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:

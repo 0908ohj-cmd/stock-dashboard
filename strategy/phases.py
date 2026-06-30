@@ -57,23 +57,34 @@ def detect_day2(df: pd.DataFrame, index_adr: float) -> PhaseResult:
 
 
 def get_phase_label(df: pd.DataFrame, index_adr: float) -> str:
-    """현재 페이즈 반환: 'DAY1' | 'DAY2' | 'DAY3' ~ 'DAY5' | 'Normal'"""
+    """현재 페이즈 반환: 'DAY1' | 'DAY2' | 'DAY3' ~ 'DAY5' | 'Normal'
+    DAY 체계:
+      DAY1 = 조정 중 (EMA21 아래, 찐반등 없거나 실패)
+      DAY2 = 찐반등 감지 당일
+      DAY3 = 찐반등 이후 1 거래일 (매수 유효 1일차)
+      DAY4 = 찐반등 이후 2 거래일 (매수 유효 2일차)
+      DAY5 = 찐반등 이후 3 거래일 (매수 유효 마지막)
+      DAY5 이후 EMA21 미회복 시 DAY1 복귀
+    """
+    from strategy.market_status import get_market_status
+    import numpy as np
+
     if len(df) < 25:
         return 'Normal'
-    if detect_day1(df):
+
+    status = get_market_status(df)
+    state  = status['state']
+
+    if state == 'normal':
+        return 'Normal'
+    if state == 'correction':
         return 'DAY1'
-    result = detect_day2(df, index_adr)
-    if result.is_day2:
-        return 'DAY2'
-    for lookback in range(2, 6):
-        if len(df) < lookback + 25:
-            break
-        sub = df.iloc[:-lookback]
-        if detect_day2(sub, index_adr).is_day2:
-            day2_low = float(df.iloc[-(lookback + 1)]['Low'])
-            day2_high = float(df.iloc[-(lookback + 1)]['High'])
-            curr_low = float(df.iloc[-1]['Low'])
-            curr_close = float(df.iloc[-1]['Close'])
-            if curr_low >= day2_low or curr_close >= day2_high:
-                return f'DAY{lookback + 1}'
+    if state == 'early_signal':
+        jjin_date  = status['jjin_date']
+        last_date  = df.index[-1].date()
+        jjin_d     = jjin_date.date() if hasattr(jjin_date, 'date') else jjin_date
+        days_since = int(np.busday_count(jjin_d, last_date))
+        day_num    = min(days_since + 2, 5)
+        return f'DAY{max(day_num, 2)}'
+
     return 'Normal'

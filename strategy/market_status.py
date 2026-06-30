@@ -89,10 +89,11 @@ def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp
 
 def _jjin_failed(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
                   ema21: pd.Series, window: int = 3) -> bool:
-    """jjin_date 이후 window 거래일이 지났는데 EMA21 위로 종가 못 닫혔으면 True."""
+    """jjin_date 이후 window 거래일이 모두 지난 후에도 EMA21 위로 종가 못 닫혔으면 True.
+    window 일 당일(DAY5)에는 아직 실패 판정 안 함 → day4(window+1)부터 판정."""
     after = index_df[index_df.index > jjin_date]
-    if len(after) < window:
-        return False  # 아직 window일 안 지남 → 대기 중
+    if len(after) <= window:
+        return False  # window일 이하 → 대기 중 (DAY3~5 진행 중)
     for idx, row in after.head(window).iterrows():
         if idx in ema21.index and float(row['Close']) > float(ema21[idx]):
             return False  # window 내 EMA21 위로 닫힘 → 성공
