@@ -158,7 +158,7 @@ def _status_banner(status: dict, label: str):
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         pdate = status.get('peak_date')
         cdate = status['correction_start'].date() if status['correction_start'] else ''
-        meta_parts = [f"찐반등: {jdate}"]
+        meta_parts = [f"찐반등일: {jdate}"]
         if pdate:
             meta_parts.append(f"RS 기산점: {pdate.date()}")
         if cdate:
@@ -264,7 +264,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     state = status['state']
     if correction_start_str:
         if state == 'early_signal' and jjin_date_str:
-            end_str = f'진행 중 (찐반등 감지: {jjin_date_str})'
+            end_str = f'진행 중 (찐반등일: {jjin_date_str})'
         else:
             end_str = jjin_date_str or '진행 중'
         st.caption(f"📅 조정 구간: {correction_start_str} ~ {end_str}")
