@@ -352,8 +352,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         candidates = top_candidates or fallback
         cand_label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보 (완화 기준)'
         if correction_start_str:
+            pdate_c = status.get('peak_date')
+            rs_start = str(pdate_c.date()) if pdate_c else correction_start_str
             end_label = f'{jjin_date_str} 찐반등 날' if (state == 'early_signal' and jjin_date_str) else (jjin_date_str or '진행 중')
-            period_str = _make_period_str(correction_start_str, end_label)
+            period_str = _make_period_str(rs_start, end_label)
         else:
             period_str = ''
         _render_candidates(candidates, cand_label, period_str)
