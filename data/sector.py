@@ -1,5 +1,4 @@
 import json
-import subprocess
 from pathlib import Path
 
 _ROOT = Path(__file__).parent.parent
@@ -21,71 +20,73 @@ def _save_cache(cache: dict) -> None:
     )
 
 
-_CLAUDE_EXE = (
-    r"C:\Users\PC\AppData\Roaming\npm\node_modules"
-    r"\@anthropic-ai\claude-code\bin\claude.exe"
+_SECTOR_PROMPT = (
+    "이 회사를 주식 투자 테마 관점에서 분류해줘. "
+    "구체적인 섹터 라벨 하나만 한국어로 답해. 절대 다른 말 하지 말고 라벨만. "
+    "최대한 세분화해서 분류해. 예시 목록:\n"
+    "\n"
+    "[반도체]\n"
+    "반도체 전공정 장비, 반도체 후공정 장비, 반도체 소재·부품, "
+    "메모리 반도체, 시스템 반도체, 파운드리, 팹리스(반도체 설계), "
+    "반도체 테스트·검사, AI GPU, HBM\n"
+    "\n"
+    "[2차전지]\n"
+    "배터리 셀, 배터리 양극재, 배터리 음극재, 배터리 전해질, "
+    "배터리 분리막, 배터리 부품·소재, 배터리 장비, 배터리 재활용\n"
+    "\n"
+    "[AI·SW·IT]\n"
+    "AI 소프트웨어, AI 인프라, 데이터센터 인프라, 데이터센터 운영, "
+    "클라우드 서비스, 네트워크 장비, 사이버보안, 핀테크, 게임, "
+    "엔터테인먼트·미디어, IT 서비스·SI\n"
+    "\n"
+    "[바이오·헬스케어]\n"
+    "바이오 신약, 의료기기, 진단·검사, CMO·CDMO, 의료 AI\n"
+    "\n"
+    "[자동차·모빌리티]\n"
+    "완성차, 자동차 부품, 전기차 부품, 자율주행, 로보틱스\n"
+    "\n"
+    "[에너지·인프라]\n"
+    "전력 인프라, 신재생에너지, 원전, 수소, 방위산업, 우주항공\n"
+    "\n"
+    "[디스플레이·광학]\n"
+    "OLED 디스플레이, LCD 디스플레이, 디스플레이 부품·소재, 광학 부품\n"
+    "\n"
+    "[기타]\n"
+    "철강·금속, 화학, 식품·음료, 유통·물류, 건설·부동산, 금융·보험, "
+    "통신, 섬유·의복, 소재·화학\n"
 )
 
 
-_ERROR_KEYWORDS = ("you've hit your limit", "resets", "rate limit", "too many requests")
-
-
-def _is_valid_label(label: str) -> bool:
-    if not label or len(label) > 40:
-        return False
-    lower = label.lower()
-    return not any(kw in lower for kw in _ERROR_KEYWORDS)
+def _get_api_key() -> str:
+    try:
+        import streamlit as st
+        key = st.secrets.get('ANTHROPIC_API_KEY', '')
+        if key:
+            return key
+    except Exception:
+        pass
+    import os
+    return os.environ.get('ANTHROPIC_API_KEY', '')
 
 
 def _classify(summary: str) -> str:
-    prompt = (
-        "이 회사를 주식 투자 테마 관점에서 분류해줘. "
-        "구체적인 섹터 라벨 하나만 한국어로 답해. 절대 다른 말 하지 말고 라벨만. "
-        "최대한 세분화해서 분류해. 예시 목록:\n"
-        "\n"
-        "[반도체]\n"
-        "반도체 전공정 장비, 반도체 후공정 장비, 반도체 소재·부품, "
-        "메모리 반도체, 시스템 반도체, 파운드리, 팹리스(반도체 설계), "
-        "반도체 테스트·검사, AI GPU, HBM\n"
-        "\n"
-        "[2차전지]\n"
-        "배터리 셀, 배터리 양극재, 배터리 음극재, 배터리 전해질, "
-        "배터리 분리막, 배터리 부품·소재, 배터리 장비, 배터리 재활용\n"
-        "\n"
-        "[AI·SW·IT]\n"
-        "AI 소프트웨어, AI 인프라, 데이터센터 인프라, 데이터센터 운영, "
-        "클라우드 서비스, 네트워크 장비, 사이버보안, 핀테크, 게임, "
-        "엔터테인먼트·미디어, IT 서비스·SI\n"
-        "\n"
-        "[바이오·헬스케어]\n"
-        "바이오 신약, 의료기기, 진단·검사, CMO·CDMO, 의료 AI\n"
-        "\n"
-        "[자동차·모빌리티]\n"
-        "완성차, 자동차 부품, 전기차 부품, 자율주행, 로보틱스\n"
-        "\n"
-        "[에너지·인프라]\n"
-        "전력 인프라, 신재생에너지, 원전, 수소, 방위산업, 우주항공\n"
-        "\n"
-        "[디스플레이·광학]\n"
-        "OLED 디스플레이, LCD 디스플레이, 디스플레이 부품·소재, 광학 부품\n"
-        "\n"
-        "[기타]\n"
-        "철강·금속, 화학, 식품·음료, 유통·물류, 건설·부동산, 금융·보험, "
-        "통신, 섬유·의복, 소재·화학\n"
-        "\n"
-        f"회사 설명:\n{summary[:800]}\n\n"
-        "섹터 라벨:"
+    import anthropic
+    api_key = _get_api_key()
+    if not api_key:
+        raise ValueError('ANTHROPIC_API_KEY 없음')
+    client  = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model='claude-haiku-4-5-20251001',
+        max_tokens=30,
+        messages=[{
+            'role': 'user',
+            'content': _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:",
+        }],
     )
-    result = subprocess.run(
-        [_CLAUDE_EXE, '-p', prompt],
-        capture_output=True,
-        timeout=60,
-        stdin=subprocess.DEVNULL,
-    )
-    label = result.stdout.decode('utf-8', errors='replace').strip()
+    label = message.content[0].text.strip()
     label = label.split('\n')[0].strip().strip('"').strip("'").strip('*').strip('-').strip()
-    if not _is_valid_label(label):
-        raise ValueError(f"invalid label: {label[:60]!r}")
+    if not label or len(label) > 40:
+        raise ValueError(f'invalid label: {label[:60]!r}')
     return label
 
 
