@@ -207,7 +207,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.markdown(
             '| # | 조건 | 비고 |\n'
             '|---|------|------|\n'
-            '| 1 | 장중 **Low < EMA21** | EMA21 아래까지 내려왔다가 |\n'
+            '| 1 | 장중 **Low < EMA21** | 저가가 EMA21 아래로 눌린 자리에서 반등 |\n'
             '| 2 | **양봉** (종가 ≥ 시가) | 강하게 반등 |\n'
             '| 3 | 직전 종가 < 그 전날 종가 | 하락 중에 나온 반등 |\n'
             '| 4 | 상승폭 **≥ ADR(20일)** | 충분히 큰 움직임 |\n'
@@ -417,7 +417,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
         st.markdown(
             '| # | 조건 | 비고 |\n'
             '|---|------|------|\n'
-            '| 1 | 장중 **Low < EMA21** | EMA21 아래까지 내려왔다가 |\n'
+            '| 1 | 장중 **Low < EMA21** | 저가가 EMA21 아래로 눌린 자리에서 반등 |\n'
             '| 2 | **양봉** (종가 ≥ 시가) | 강하게 반등 |\n'
             '| 3 | 직전 종가 < 그 전날 종가 | 하락 중에 나온 반등 |\n'
             '| 4 | 상승폭 **≥ ADR(20일)** | 충분히 큰 움직임 |\n'
