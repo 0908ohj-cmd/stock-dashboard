@@ -30,7 +30,7 @@ def _load_index(name: str):
 
 def render_index_panel():
     st.subheader('지수 현황')
-    cols = st.columns(4)
+    cols = st.columns(len(INDEX_NAMES))
 
     for col, name in zip(cols, INDEX_NAMES):
         with col:
