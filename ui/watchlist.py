@@ -351,8 +351,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
         _render_candidates(candidates, cand_label, period_str)
 
-    # 찐반등 이후 오늘 기준 추가 후보 (early_signal·normal 모두)
-    if jjin_date_str:
+    # 추가 후보: DAY2~5(early_signal) 동안만 매일 갱신, EMA21 회복 후 중단
+    if state == 'early_signal' and jjin_date_str:
         today_date_str = str(pd.Timestamp.today().normalize().date())
         if today_date_str != jjin_date_str:
             with st.spinner('오늘 기준 추가 후보 확인 중...'):
@@ -366,9 +366,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 and (r['거래량비%'] or 0) >= 120
                 and (r['고점대비%'] or 0) >= -30
             ]
+            period_str2 = _make_period_str(rs_start, today_date_str) if rs_start else ''
             if today_new:
-                period_str2 = _make_period_str(rs_start, today_date_str) if rs_start else ''
                 _render_candidates(today_new, f'⭐ {today_date_str} 기준 추가 후보', period_str2)
+            else:
+                st.markdown(f'**⭐ {today_date_str} 기준 추가 후보** — 없음{period_str2}', unsafe_allow_html=True)
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
