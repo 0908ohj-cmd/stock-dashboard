@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 _ROOT = Path(__file__).parent.parent
@@ -19,6 +20,11 @@ def _save_cache(cache: dict) -> None:
         json.dumps(cache, ensure_ascii=False, indent=2), encoding='utf-8'
     )
 
+
+_CLAUDE_EXE = (
+    r"C:\Users\PC\AppData\Roaming\npm\node_modules"
+    r"\@anthropic-ai\claude-code\bin\claude.exe"
+)
 
 _SECTOR_PROMPT = (
     "이 회사를 주식 투자 테마 관점에서 분류해줘. "
@@ -57,33 +63,14 @@ _SECTOR_PROMPT = (
 )
 
 
-def _get_api_key() -> str:
-    try:
-        import streamlit as st
-        key = st.secrets.get('ANTHROPIC_API_KEY', '')
-        if key:
-            return key
-    except Exception:
-        pass
-    import os
-    return os.environ.get('ANTHROPIC_API_KEY', '')
-
-
 def _classify(summary: str) -> str:
-    import anthropic
-    api_key = _get_api_key()
-    if not api_key:
-        raise ValueError('ANTHROPIC_API_KEY 없음')
-    client  = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model='claude-haiku-4-5-20251001',
-        max_tokens=30,
-        messages=[{
-            'role': 'user',
-            'content': _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:",
-        }],
+    result = subprocess.run(
+        [_CLAUDE_EXE, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
+        capture_output=True,
+        timeout=60,
+        stdin=subprocess.DEVNULL,
     )
-    label = message.content[0].text.strip()
+    label = result.stdout.decode('utf-8', errors='replace').strip()
     label = label.split('\n')[0].strip().strip('"').strip("'").strip('*').strip('-').strip()
     if not label or len(label) > 40:
         raise ValueError(f'invalid label: {label[:60]!r}')
@@ -111,6 +98,60 @@ _KRX_SECTOR_MAP = {
     '운수창고업': '운송·물류', '통신업': '통신', '금융업': '금융',
     '은행': '은행', '증권': '증권', '보험': '보험',
     '서비스업': '서비스', '제조업': '제조',
+}
+
+_YF_INDUSTRY_MAP = {
+    # 반도체
+    'Semiconductors': '반도체 소재·부품',
+    'Semiconductor Equipment & Materials': '반도체 전공정 장비',
+    'Semiconductor Equipment': '반도체 전공정 장비',
+    'Electronic Components': '반도체 소재·부품',
+    'Electronic Equipment & Instruments': '반도체 테스트·검사',
+    # 2차전지·에너지
+    'Electrical Equipment & Parts': '전력 인프라',
+    'Specialty Chemicals': '배터리 소재·화학',
+    'Chemicals': '화학',
+    # IT·소프트웨어
+    'Software—Application': 'AI 소프트웨어',
+    'Software—Infrastructure': 'IT 인프라·SW',
+    'Information Technology Services': 'IT 서비스·SI',
+    'Internet Content & Information': '인터넷·플랫폼',
+    'Computer Hardware': 'IT 하드웨어',
+    'Communication Equipment': '네트워크 장비',
+    'Data Storage': '데이터센터 인프라',
+    # 바이오·헬스케어
+    'Biotechnology': '바이오 신약',
+    'Drug Manufacturers—General': '바이오 신약',
+    'Drug Manufacturers—Specialty & Generic': 'CMO·CDMO',
+    'Medical Devices': '의료기기',
+    'Medical Instruments & Supplies': '의료기기',
+    'Diagnostics & Research': '진단·검사',
+    'Health Information Services': '의료 AI',
+    # 자동차·모빌리티
+    'Auto Parts': '자동차 부품',
+    'Auto Manufacturers': '완성차',
+    'Auto & Truck Dealerships': '자동차 유통',
+    # 산업재
+    'Aerospace & Defense': '방위산업',
+    'Industrial Machinery': '산업 기계',
+    'Farm & Heavy Construction Machinery': '건설 기계',
+    'Specialty Industrial Machinery': '반도체 전공정 장비',
+    # 디스플레이
+    'Consumer Electronics': 'OLED 디스플레이',
+    # 기타
+    'Steel': '철강·금속', 'Aluminum': '철강·금속',
+    'Gold': '소재', 'Silver': '소재',
+    'Oil & Gas E&P': '에너지', 'Oil & Gas Integrated': '에너지',
+    'Banks—Regional': '은행', 'Banks—Diversified': '은행',
+    'Insurance—Life': '보험', 'Insurance—Property & Casualty': '보험',
+    'Capital Markets': '증권', 'Asset Management': '금융',
+    'Entertainment': '엔터테인먼트·미디어',
+    'Electronic Gaming & Multimedia': '게임',
+    'Telecom Services': '통신',
+    'Real Estate—General': '건설·부동산',
+    'Residential Construction': '건설·부동산',
+    'Grocery Stores': '식품·음료', 'Packaged Foods': '식품·음료',
+    'Apparel Manufacturing': '섬유·의복',
 }
 
 _YF_SECTOR_MAP = {
@@ -143,15 +184,18 @@ def _fallback_sector(ticker: str, market: str) -> str:
 
     suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
     try:
-        info = yf.Ticker(ticker + suffix).info
-        sector = info.get('sector', '')
+        info     = yf.Ticker(ticker + suffix).info
         industry = info.get('industry', '')
+        sector   = info.get('sector', '')
+        # industry 세분화 매핑 우선
+        if industry in _YF_INDUSTRY_MAP:
+            return _YF_INDUSTRY_MAP[industry]
         if sector in _YF_SECTOR_MAP:
             return _YF_SECTOR_MAP[sector]
-        if sector:
-            return sector
         if industry:
             return industry
+        if sector:
+            return sector
     except Exception:
         pass
 
