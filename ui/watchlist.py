@@ -346,13 +346,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     if top_candidates or fallback:
         candidates = top_candidates or fallback
-        if jjin_date_str:
-            ref_date   = jjin_date_str
-            cand_label = f'⭐ {ref_date} 기준 핵심 후보' if top_candidates else f'📊 {ref_date} 기준 RS 상위 후보'
-            period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
-        else:
-            cand_label = '⭐ 핵심 후보' if top_candidates else '📊 RS 상위 후보'
-            period_str = _make_period_str(rs_start, '현재') if rs_start else ''
+        ref_date   = jjin_date_str or str(pd.Timestamp.today().normalize().date())
+        cand_label = f'⭐ {ref_date} 기준 핵심 후보' if top_candidates else f'📊 {ref_date} 기준 RS 상위 후보'
+        period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
         _render_candidates(candidates, cand_label, period_str)
 
     # early_signal: 오늘 기준 추가 후보 (찐반등 이후 새로 진입한 종목)
