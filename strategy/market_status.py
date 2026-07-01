@@ -156,17 +156,13 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
                 break
             consecutive_above += 1
 
-        # 3거래일 연속 EMA21 위 → 조정 완전 종료
-        if consecutive_above >= 3:
-            base['correction_start'] = None
-            return base
-
-        # 3일 미만 → 찐반등 탐색
+        # 찐반등 탐색 (EMA21 회복 기간 무관)
         jjin = detect_jjin_bounce(index_df)
         if jjin and jjin['date'] >= last_start:
             base['jjin_date']  = jjin['date']
             base['jjin_pct']   = jjin['pct']
             base['jjin_stars'] = jjin['stars']
+        # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         return base
 
     # 지수가 EMA21 아래인 상태
