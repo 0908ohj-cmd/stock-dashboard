@@ -324,20 +324,22 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if not top_candidates else []
     )
 
-    def _render_candidates(cands: list, section_label: str, period_str: str):
-        st.markdown(f'**{section_label}** — {len(cands)}개{period_str}', unsafe_allow_html=True)
-        cols = st.columns(3)
-        for i, r in enumerate(cands):
-            with cols[i % 3]:
-                with st.container(border=True):
-                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
-                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
-                    st.caption(
-                        f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
-                        f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
-                        f"고점대비: **{r['고점대비%']:.0f}%**"
-                    )
-                    st.caption(f"📍 {r['이평선위치']}")
+    def _render_candidates(cands: list, section_label: str, period_str: str, expanded: bool = True):
+        import re
+        plain_period = re.sub(r'<[^>]+>', '', period_str).strip()
+        with st.expander(f'{section_label} — {len(cands)}개 {plain_period}', expanded=expanded):
+            cols = st.columns(3)
+            for i, r in enumerate(cands):
+                with cols[i % 3]:
+                    with st.container(border=True):
+                        st.markdown(f"**{r['Ticker']}** {r['종목명']}")
+                        st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
+                        st.caption(
+                            f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
+                            f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
+                            f"고점대비: **{r['고점대비%']:.0f}%**"
+                        )
+                        st.caption(f"📍 {r['이평선위치']}")
 
     def _make_period_str(start: str, end: str) -> str:
         return f'  <span style="font-size:0.85em; color:gray;">({start} ~ {end})</span>'
