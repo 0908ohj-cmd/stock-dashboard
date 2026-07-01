@@ -354,9 +354,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     # 추가 후보: DAY3·DAY4에만 생성, 이후(DAY5·normal) 동결 유지
     if jjin_date_str:
-        jjin_d          = pd.Timestamp(jjin_date_str).date()
-        today_d         = pd.Timestamp.today().normalize().date()
-        days_since_jjin = max(0, int(np.busday_count(jjin_d, today_d)))
+        jjin_d     = pd.Timestamp(jjin_date_str).date()
+        # 실제 데이터 마지막 날짜 기준 (시장 미개장 시 오늘 날짜 사용 방지)
+        _idx_tmp   = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+        last_data_d = _idx_tmp.index[-1].date() if not _idx_tmp.empty else pd.Timestamp.today().normalize().date()
+        days_since_jjin = max(0, int(np.busday_count(jjin_d, last_data_d)))
 
         if days_since_jjin >= 1:
             def _nth_busday(base, n):
