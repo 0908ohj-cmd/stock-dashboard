@@ -351,8 +351,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
         _render_candidates(candidates, cand_label, period_str)
 
-    # early_signal: 오늘 기준 추가 후보 (찐반등 이후 새로 진입한 종목)
-    if state == 'early_signal' and jjin_date_str:
+    # 찐반등 이후 오늘 기준 추가 후보 (early_signal·normal 모두)
+    if jjin_date_str:
         today_date_str = str(pd.Timestamp.today().normalize().date())
         if today_date_str != jjin_date_str:
             with st.spinner('오늘 기준 추가 후보 확인 중...'):
@@ -362,7 +362,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 r for r in today_rows
                 if r['Ticker'] not in existing_tickers
                 and (r['RS/ADR'] or 0) > 0
-                and r['ma_above_count'] > 0
+                and (ma_ok or r['ma_above_count'] > 0)
                 and (r['거래량비%'] or 0) >= 120
                 and (r['고점대비%'] or 0) >= -30
             ]
