@@ -324,85 +324,89 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if not top_candidates else []
     )
 
-    def _render_candidates(cands: list, section_label: str, period_str: str, expanded: bool = True):
-        import re
-        plain_period = re.sub(r'<[^>]+>', '', period_str).strip()
-        with st.expander(f'{section_label} — {len(cands)}개 {plain_period}', expanded=expanded):
-            cols = st.columns(3)
-            for i, r in enumerate(cands):
-                with cols[i % 3]:
-                    with st.container(border=True):
-                        st.markdown(f"**{r['Ticker']}** {r['종목명']}")
-                        st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
-                        st.caption(
-                            f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
-                            f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
-                            f"고점대비: **{r['고점대비%']:.0f}%**"
-                        )
-                        st.caption(f"📍 {r['이평선위치']}")
+    def _render_candidates(cands: list, section_label: str, period_str: str):
+        st.markdown(f'**{section_label}** — {len(cands)}개{period_str}', unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i, r in enumerate(cands):
+            with cols[i % 3]:
+                with st.container(border=True):
+                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
+                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
+                    st.caption(
+                        f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
+                        f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
+                        f"고점대비: **{r['고점대비%']:.0f}%**"
+                    )
+                    st.caption(f"📍 {r['이평선위치']}")
 
     def _make_period_str(start: str, end: str) -> str:
         return f'  <span style="font-size:0.85em; color:gray;">({start} ~ {end})</span>'
 
-    pdate_c   = status.get('peak_date')
-    rs_start  = str(pdate_c.date()) if pdate_c else correction_start_str
+    pdate_c = status.get('peak_date')
+    rs_start = str(pdate_c.date()) if pdate_c else correction_start_str
 
-    if top_candidates or fallback:
-        candidates = top_candidates or fallback
-        ref_date   = jjin_date_str or str(pd.Timestamp.today().normalize().date())
-        cand_label = f'⭐ {ref_date} 기준 핵심 후보' if top_candidates else f'📊 {ref_date} 기준 RS 상위 후보'
-        period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
-        _render_candidates(candidates, cand_label, period_str)
+    # 전체 후보 섹션을 하나의 expander로
+    has_candidates = bool(top_candidates or fallback)
+    has_extra = bool(jjin_date_str)
 
-    # 추가 후보: DAY3·DAY4에만 생성, 이후(DAY5·normal) 동결 유지
-    if jjin_date_str:
-        jjin_d     = pd.Timestamp(jjin_date_str).date()
-        # 실제 데이터 마지막 날짜 기준 (시장 미개장 시 오늘 날짜 사용 방지)
-        _idx_tmp   = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
-        last_data_d = _idx_tmp.index[-1].date() if not _idx_tmp.empty else pd.Timestamp.today().normalize().date()
-        days_since_jjin = max(0, int(np.busday_count(jjin_d, last_data_d)))
+    if has_candidates or has_extra:
+        with st.expander('📋 매수 후보', expanded=True):
 
-        if days_since_jjin >= 1:
-            def _nth_busday(base, n):
-                return str(np.busday_offset(np.datetime64(base, 'D'), n, roll='forward'))
+            if has_candidates:
+                candidates = top_candidates or fallback
+                ref_date   = jjin_date_str or str(pd.Timestamp.today().normalize().date())
+                cand_label = f'⭐ {ref_date} 기준 핵심 후보' if top_candidates else f'📊 {ref_date} 기준 RS 상위 후보'
+                period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
+                _render_candidates(candidates, cand_label, period_str)
 
-            day3_date    = _nth_busday(jjin_date_str, 1)
-            day4_date    = _nth_busday(jjin_date_str, 2)
-            core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
+            # 추가 후보: DAY3·DAY4에만 생성, 이후 동결 유지
+            if jjin_date_str:
+                jjin_d      = pd.Timestamp(jjin_date_str).date()
+                _idx_tmp    = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+                last_data_d = _idx_tmp.index[-1].date() if not _idx_tmp.empty else pd.Timestamp.today().normalize().date()
+                days_since_jjin = max(0, int(np.busday_count(jjin_d, last_data_d)))
 
-            with st.spinner('추가 후보 확인 중...'):
-                add_rows = _build_rows(tuple(tickers), market, correction_start_str, None)
+                if days_since_jjin >= 1:
+                    def _nth_busday(base, n):
+                        return str(np.busday_offset(np.datetime64(base, 'D'), n, roll='forward'))
 
-            day3_new = [
-                r for r in add_rows
-                if r['Ticker'] not in core_tickers
-                and (r['RS/ADR'] or 0) > 0
-                and (ma_ok or r['ma_above_count'] > 0)
-                and (r['거래량비%'] or 0) >= 120
-                and (r['고점대비%'] or 0) >= -30
-            ]
-            day3_tickers = {r['Ticker'] for r in day3_new}
-            p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
-            if day3_new:
-                _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
-            else:
-                st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
+                    day3_date    = _nth_busday(jjin_date_str, 1)
+                    day4_date    = _nth_busday(jjin_date_str, 2)
+                    core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
 
-            if days_since_jjin >= 2:
-                day4_new = [
-                    r for r in add_rows
-                    if r['Ticker'] not in core_tickers
-                    and r['Ticker'] not in day3_tickers
-                    and (r['RS/ADR'] or 0) > 0
-                    and (ma_ok or r['ma_above_count'] > 0)
-                    and (r['거래량비%'] or 0) >= 120
-                    and (r['고점대비%'] or 0) >= -30
-                ]
-                p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
-                if day4_new:
-                    _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
-                else:
-                    st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
+                    with st.spinner('추가 후보 확인 중...'):
+                        add_rows = _build_rows(tuple(tickers), market, correction_start_str, None)
+
+                    day3_new = [
+                        r for r in add_rows
+                        if r['Ticker'] not in core_tickers
+                        and (r['RS/ADR'] or 0) > 0
+                        and (ma_ok or r['ma_above_count'] > 0)
+                        and (r['거래량비%'] or 0) >= 120
+                        and (r['고점대비%'] or 0) >= -30
+                    ]
+                    day3_tickers = {r['Ticker'] for r in day3_new}
+                    p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
+                    if day3_new:
+                        _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
+                    else:
+                        st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
+
+                    if days_since_jjin >= 2:
+                        day4_new = [
+                            r for r in add_rows
+                            if r['Ticker'] not in core_tickers
+                            and r['Ticker'] not in day3_tickers
+                            and (r['RS/ADR'] or 0) > 0
+                            and (ma_ok or r['ma_above_count'] > 0)
+                            and (r['거래량비%'] or 0) >= 120
+                            and (r['고점대비%'] or 0) >= -30
+                        ]
+                        p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
+                        if day4_new:
+                            _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
+                        else:
+                            st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:
