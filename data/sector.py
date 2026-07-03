@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -21,10 +23,24 @@ def _save_cache(cache: dict) -> None:
     )
 
 
-_CLAUDE_EXE = (
+# 레거시 Windows 경로 — 환경변수·PATH에서 못 찾을 때의 마지막 폴백
+_CLAUDE_EXE_FALLBACK = (
     r"C:\Users\PC\AppData\Roaming\npm\node_modules"
     r"\@anthropic-ai\claude-code\bin\claude.exe"
 )
+
+
+def _resolve_claude_exe() -> str | None:
+    """claude CLI 경로 결정: CLAUDE_CLI_PATH env → PATH → 레거시 Windows 경로."""
+    env_path = os.environ.get('CLAUDE_CLI_PATH', '')
+    if env_path and Path(env_path).exists():
+        return env_path
+    found = shutil.which('claude')
+    if found:
+        return found
+    if Path(_CLAUDE_EXE_FALLBACK).exists():
+        return _CLAUDE_EXE_FALLBACK
+    return None
 
 _SECTOR_PROMPT = (
     "이 회사를 주식 투자 테마 관점에서 분류해줘. "
@@ -64,8 +80,11 @@ _SECTOR_PROMPT = (
 
 
 def _classify(summary: str) -> str:
+    claude_exe = _resolve_claude_exe()
+    if not claude_exe:
+        raise RuntimeError('claude CLI not found')
     result = subprocess.run(
-        [_CLAUDE_EXE, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
+        [claude_exe, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
         capture_output=True,
         timeout=60,
         stdin=subprocess.DEVNULL,
@@ -238,7 +257,8 @@ def get_sectors(tickers: list, market: str) -> dict:
 
     for ticker in tickers:
         cache_key = f"{ticker}|{market}"
-        if cache_key in cache and cache[cache_key] != '기타':
+        # '기타'도 캐시로 인정 — 매 호출마다 60초 타임아웃 재분류 반복 방지
+        if cache_key in cache:
             result[ticker] = cache[cache_key]
         else:
             to_fetch.append(ticker)

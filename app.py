@@ -3,9 +3,9 @@ import json
 import pathlib
 import requests
 import streamlit as st
-from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_daily
+from data.fetcher import parse_tradingview_csv, parse_ticker_txt
 from ui.index_panel import render_index_panel
-from ui.watchlist import render_watchlist_tab, _fetch_index_cached
+from ui.watchlist import render_watchlist_tab
 from ui.watchlist_10ema import render_10ema_tab
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
@@ -53,12 +53,6 @@ st.set_page_config(
 if 'grid_initialized' not in st.session_state:
     st.session_state['grid_initialized'] = True
     st.rerun()
-
-INDEX_FOR_MARKET = {
-    'KR_KOSPI':  'KOSPI',
-    'KR_KOSDAQ': 'KOSDAQ',
-    'US':        'NASDAQ',
-}
 
 # ── 사이드바 ──────────────────────────────────────────────
 with st.sidebar:

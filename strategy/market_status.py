@@ -10,9 +10,9 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     """
     찐반등 감지 — 가장 최근 조건 충족일 반환.
     조건:
-      1. 종가 < EMA21
-      2. 당일 양봉, 상승폭 >= ADR(20일)
-      3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.5
+      1. 장중 EMA21 아래 터치 (Low < EMA21)
+      2. 당일 양봉, 전일 종가 대비 상승폭 >= ADR(20일)
+      3. 직전 봉이 하락 중(전전일 종가 대비 하락) + 당일 바디 >= 직전 봉 바디 * 0.5
     """
     if len(index_df) < 22:
         return None

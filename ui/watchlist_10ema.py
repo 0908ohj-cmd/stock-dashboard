@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from data.fetcher import fetch_daily, get_stock_name
-from data.sector import get_sectors
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
+from strategy.trading_days import trading_days_after
+from strategy.watchlist_rows import FETCH_DAYS
 
 CASE_ORDER = {'Case1': 0, 'Case2': 1, '대기중': 2, '중간선이탈': 3, '10EMA이탈': 4, '하방이탈': 5, '기준봉없음': 6}
 
@@ -36,7 +36,7 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str) -> list:
 
     for ticker in tickers:
         try:
-            df = fetch_daily(ticker, market=market, days=300)
+            df = fetch_daily(ticker, market=market, days=FETCH_DAYS)
             if df.empty or len(df) < 70:
                 continue
 
@@ -50,10 +50,7 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str) -> list:
 
             pivot_date_str = str(pivot['date'].date()) if pivot else ''
             pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
-            days_since     = (
-                int(np.busday_count(pivot['date'].date(), df.index[-1].date()))
-                if pivot else 0
-            )
+            days_since     = trading_days_after(df, pivot['date']) if pivot else 0
 
             rows.append({
                 'Ticker':          ticker,

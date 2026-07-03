@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from data.fetcher import (
-    fetch_daily, fetch_index_daily, get_stock_name,
+    fetch_daily, fetch_index_daily,
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
-from data.sector import get_sectors
 from strategy.market_status import get_market_status
-from strategy.rs_correction import calc_correction_rs, _index_peak_date
-from strategy.indicators import calc_pct_from_52w_high
+from strategy.rs_correction import _index_peak_date
+from strategy.trading_days import trading_days_after, nth_trading_day_after
+from strategy.watchlist_rows import build_rows, FETCH_DAYS, adr_min_for
 from ui.intraday_overlay import intraday_overlay_chart
 
 INDEX_FOR_MARKET = {
@@ -43,37 +42,10 @@ def _get_market_status_cached(market: str) -> dict:
     }
 
 
-def _ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, int]:
-    """지수가 이탈한 이평선 기준, 종목 위/아래 텍스트 반환. (text, above_count)"""
-    if index_df.empty or len(index_df) < 50:
-        return '', 0
-
-    idx_close = float(index_df['Close'].iloc[-1])
-    stk_close = float(stock_df['Close'].iloc[-1])
-
-    def _ema(df, n): return float(df['Close'].ewm(span=n, adjust=False).mean().iloc[-1])
-    def _sma(df, n): return float(df['Close'].rolling(n).mean().iloc[-1]) if len(df) >= n else float('nan')
-
-    levels = [
-        ('EMA21',  _ema(index_df, 21),  _ema(stock_df, 21)),
-        ('SMA50',  _sma(index_df, 50),  _sma(stock_df, 50)),
-        ('SMA150', _sma(index_df, 150), _sma(stock_df, 150)),
-        ('SMA200', _sma(index_df, 200), _sma(stock_df, 200)),
-    ]
-
-    parts = []
-    above_count = 0
-    for name, idx_ma, stk_ma in levels:
-        if pd.isna(idx_ma) or pd.isna(stk_ma):
-            continue
-        if idx_close < idx_ma:  # 지수가 이 이평선 아래 (이탈)
-            if stk_close > stk_ma:
-                parts.append(f'{name}위')
-                above_count += 1
-            else:
-                parts.append(f'{name}아래')
-
-    return (' · '.join(parts) if parts else '지수정상'), above_count
+@st.cache_data(ttl=300)
+def _fetch_daily_cached(ticker: str, market: str, days: int = FETCH_DAYS) -> pd.DataFrame:
+    """종목 OHLCV 캐시 — 핵심/추가 후보 계산이 다운로드를 공유하게 한다."""
+    return fetch_daily(ticker, market=market, days=days)
 
 
 @st.cache_data(ttl=300)
@@ -82,74 +54,16 @@ def _build_rows(
     market: str,
     correction_start_str: str | None,
     jjin_date_str: str | None,
-) -> list:
-    tickers    = list(tickers_tuple)
-    index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    index_df   = _fetch_index_cached(index_name)
-
-    correction_start = pd.Timestamp(correction_start_str) if correction_start_str else None
-    jjin_date        = pd.Timestamp(jjin_date_str)        if jjin_date_str        else None
-
-    adr_min = 2.0 if market.startswith('KR') else 4.0
-    stock_cache = {}
-    for ticker in tickers:
-        try:
-            df = fetch_daily(ticker, market=market, days=350)
-            if df.empty or len(df) < 25:
-                continue
-            adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
-            if adr < adr_min:
-                continue
-            stock_cache[ticker] = (df, round(adr, 2))
-        except Exception:
-            continue
-
-    sectors = get_sectors(list(stock_cache.keys()), market)
-    rows    = []
-
-    for ticker, (df, adr_val) in stock_cache.items():
-        try:
-            last_close  = float(df['Close'].iloc[-1])
-            prev_close  = float(df['Close'].iloc[-2])
-            change_pct  = (last_close - prev_close) / prev_close * 100
-            name        = get_stock_name(ticker, market)
-
-            if correction_start is not None and not index_df.empty:
-                rs = calc_correction_rs(df, index_df, correction_start, jjin_date)
-            else:
-                rs = {
-                    'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
-                    'lead_days': 0,   'ma_score': 0,
-                    'vol_ratio': 0.0, 'candle_ratio': 0.0,
-                }
-
-            ma_text, ma_above = _ma_position(df, index_df)
-            rows.append({
-                'Ticker':      ticker,
-                '종목명':      name,
-                '섹터':        sectors.get(ticker, '기타'),
-                'ADR':         adr_val,
-                'Close':       round(last_close, 2),
-                '등락%':       round(change_pct, 2),
-                '고점대비%':   calc_pct_from_52w_high(df),
-                '저점선행':    rs['lead_days'],
-                '조정RS%':     rs['excess_pct'],
-                'RS/ADR':      rs['excess_adr'],
-                '이평선위치':  ma_text,
-                'ma_above_count': ma_above,
-                '거래량비%':   round(rs['vol_ratio'] * 100, 0),
-                '양봉비%':     round(rs['candle_ratio'] * 100, 0),
-            })
-        except Exception:
-            continue
-
-    rows.sort(key=lambda r: (
-        -(r['RS/ADR'] or 0),
-        -r['ma_above_count'],
-        -(r['거래량비%'] or 0),
-        (r['고점대비%'] or 0),   # 고점대비% 높을수록(덜 빠진) 우선 → 음수라 오름차순이 유리
-    ))
-    return rows
+    asof_str: str | None = None,
+) -> dict:
+    index_df = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+    return build_rows(
+        list(tickers_tuple), market, index_df,
+        correction_start=correction_start_str,
+        jjin_date=jjin_date_str,
+        asof=asof_str,
+        fetch=_fetch_daily_cached,
+    )
 
 
 def _status_banner(status: dict, label: str):
@@ -245,10 +159,14 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     jjin_date_str        = str(jd.date()) if jd else None
 
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
-        rows = _build_rows(
+        res = _build_rows(
             tuple(tickers), market,
             correction_start_str, jjin_date_str,
         )
+    rows = res['rows']
+
+    if res['adr_skipped']:
+        st.caption(f"ℹ️ ADR {adr_min_for(market):g}% 미달로 {res['adr_skipped']}개 종목 제외")
 
     if not rows:
         st.warning('분석 가능한 종목이 없습니다.')
@@ -359,32 +277,29 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
                 _render_candidates(candidates, cand_label, period_str)
 
-            # 추가 후보: DAY3·DAY4에만 생성, 이후 동결 유지
+            # 추가 후보: DAY3·DAY4 시점 데이터로만(as-of) 계산 → 이후 재방문해도 동일(동결)
             if jjin_date_str:
-                jjin_d      = pd.Timestamp(jjin_date_str).date()
-                _idx_tmp    = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
-                last_data_d = _idx_tmp.index[-1].date() if not _idx_tmp.empty else pd.Timestamp.today().normalize().date()
-                days_since_jjin = max(0, int(np.busday_count(jjin_d, last_data_d)))
+                jjin_ts  = pd.Timestamp(jjin_date_str)
+                _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+                days_since_jjin = trading_days_after(_idx_tmp, jjin_ts) if not _idx_tmp.empty else 0
+
+                def _passes(r):
+                    return ((r['RS/ADR'] or 0) > 0
+                            and (ma_ok or r['ma_above_count'] > 0)
+                            and (r['거래량비%'] or 0) >= 120
+                            and (r['고점대비%'] or 0) >= -30)
 
                 if days_since_jjin >= 1:
-                    def _nth_busday(base, n):
-                        return str(np.busday_offset(np.datetime64(base, 'D'), n, roll='forward'))
-
-                    day3_date    = _nth_busday(jjin_date_str, 1)
-                    day4_date    = _nth_busday(jjin_date_str, 2)
+                    day3_ts      = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
+                    day3_date    = str(day3_ts.date())
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
 
                     with st.spinner('추가 후보 확인 중...'):
-                        add_rows = _build_rows(tuple(tickers), market, correction_start_str, None)
+                        day3_rows = _build_rows(tuple(tickers), market,
+                                                correction_start_str, None, day3_date)['rows']
 
-                    day3_new = [
-                        r for r in add_rows
-                        if r['Ticker'] not in core_tickers
-                        and (r['RS/ADR'] or 0) > 0
-                        and (ma_ok or r['ma_above_count'] > 0)
-                        and (r['거래량비%'] or 0) >= 120
-                        and (r['고점대비%'] or 0) >= -30
-                    ]
+                    day3_new = [r for r in day3_rows
+                                if r['Ticker'] not in core_tickers and _passes(r)]
                     day3_tickers = {r['Ticker'] for r in day3_new}
                     p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
                     if day3_new:
@@ -393,15 +308,14 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                         st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
 
                     if days_since_jjin >= 2:
-                        day4_new = [
-                            r for r in add_rows
-                            if r['Ticker'] not in core_tickers
-                            and r['Ticker'] not in day3_tickers
-                            and (r['RS/ADR'] or 0) > 0
-                            and (ma_ok or r['ma_above_count'] > 0)
-                            and (r['거래량비%'] or 0) >= 120
-                            and (r['고점대비%'] or 0) >= -30
-                        ]
+                        day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2)
+                        day4_date = str(day4_ts.date())
+                        with st.spinner('추가 후보 확인 중...'):
+                            day4_rows = _build_rows(tuple(tickers), market,
+                                                    correction_start_str, None, day4_date)['rows']
+                        day4_new = [r for r in day4_rows
+                                    if r['Ticker'] not in core_tickers
+                                    and r['Ticker'] not in day3_tickers and _passes(r)]
                         p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
                         if day4_new:
                             _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
@@ -433,44 +347,3 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
 
 
-def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
-    st.subheader('와치리스트')
-    with st.expander('사용 가이드', expanded=False):
-        st.caption('핵심 후보')
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
-        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
-        st.divider()
-        st.caption('DAY 카운팅 & 복귀 조건')
-        st.markdown(
-            '| 단계 | 내용 |\n'
-            '|------|------|\n'
-            '| DAY1 | 조정 중 — EMA21 아래, 찐반등 대기 |\n'
-            '| DAY2 | 찐반등 감지 당일 |\n'
-            '| DAY3~5 | 이후 1~3 거래일 — 매수 유효 구간 |\n'
-            '| DAY1 복귀 ① | DAY5 이후 EMA21 미회복 시 |\n'
-            '| DAY1 복귀 ② | 찐반등 바디 이상의 음봉 출현 시 즉시 |'
-        )
-        st.divider()
-        st.caption('컬럼 설명')
-        st.markdown(
-            '| 컬럼 | 설명 | 기준 |\n'
-            '|------|------|------|\n'
-            '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
-            '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
-            '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
-            '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
-            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
-            '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
-            '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
-        )
-
-    tab_kospi, tab_kosdaq, tab_us = st.tabs(['🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '🇺🇸 US'])
-    with tab_kospi:
-        render_watchlist_tab(kr_kospi,  'KR_KOSPI',  'KOSPI')
-    with tab_kosdaq:
-        render_watchlist_tab(kr_kosdaq, 'KR_KOSDAQ', 'KOSDAQ')
-    with tab_us:
-        render_watchlist_tab(us_tickers, 'US', 'US')

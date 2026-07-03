@@ -117,6 +117,43 @@ def test_classify_downbreak():
     assert classify_case(df, pivot) == '하방이탈'
 
 
+def _consolidation_df(post_dates):
+    """60일 상승 추세 + 기준봉(마지막 상승일) + 눌림 2봉. 눌림 봉의 날짜를 조절할 수 있다."""
+    closes = [100 + i * 0.5 for i in range(60)]
+    dates  = list(pd.bdate_range('2026-01-01', periods=60)) + list(post_dates)
+    pivot_close = closes[-1]
+    post_closes = [pivot_close - 0.3] * len(post_dates)
+
+    all_closes = closes + post_closes
+    highs   = [c * 1.001 for c in closes] + [c + 0.1 for c in post_closes]
+    lows    = [c * 0.99 for c in closes] + [c - 0.5 for c in post_closes]
+    volumes = [1_000_000] * 60 + [700_000] * len(post_dates)   # 눌림 거래량 수축
+
+    df = pd.DataFrame({'Open': all_closes, 'High': highs, 'Low': lows,
+                       'Close': all_closes, 'Volume': volumes},
+                      index=pd.DatetimeIndex(dates))
+    pivot = {'date': dates[59], 'vol_ratio': 4.0,
+             'high': pivot_close + 0.5, 'low': pivot_close - 2.1,
+             'midline': pivot_close - 0.8, 'close': pivot_close}
+    return df, pivot
+
+
+def test_classify_counts_consolidation_in_trading_days_not_busdays():
+    """기준봉 뒤 실제 거래일이 2일뿐이면(연휴로 달력 영업일은 5일) 아직 Case1이 아니어야 한다."""
+    pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
+    post_dates = [pivot_date + pd.Timedelta(days=6), pivot_date + pd.Timedelta(days=7)]
+    df, pivot = _consolidation_df(post_dates)
+    assert classify_case(df, pivot) == '대기중'
+
+
+def test_classify_case1_with_three_consecutive_trading_days():
+    """같은 셋업이 연속 거래일 3일이면 Case1 — 거래일 카운팅 회귀 방지."""
+    pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
+    post_dates = pd.bdate_range(pivot_date + pd.Timedelta(days=1), periods=3)
+    df, pivot = _consolidation_df(post_dates)
+    assert classify_case(df, pivot) == 'Case1'
+
+
 def test_10ema_slope_positive_on_uptrend():
     closes = [100 + i for i in range(30)]
     df = _make_df(closes)

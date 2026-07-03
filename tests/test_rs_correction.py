@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from strategy.rs_correction import calc_correction_rs
+from strategy.rs_correction import calc_correction_rs, _vol_ratio
 
 
 def _make_df(closes, opens=None, volumes=None, start='2026-01-01'):
@@ -129,3 +129,39 @@ def test_excess_adr_normalizes_by_volatility():
     assert r_high['excess_pct'] == r_low['excess_pct']
     # 변동성 작은 쪽이 RS/ADR 더 높아야 함
     assert r_low['excess_adr'] > r_high['excess_adr']
+
+
+def test_vol_ratio_max_when_no_down_days():
+    """조정 구간에 하락일이 하나도 없는 최강 종목 → 0이 아니라 상한값(2.0)이어야 한다."""
+    df = _make_df([100 + i for i in range(10)], opens=[99 + i for i in range(10)])
+    assert _vol_ratio(df) == 2.0
+
+
+def test_vol_ratio_zero_when_no_up_days():
+    df = _make_df([100 - i for i in range(10)], opens=[101 - i for i in range(10)])
+    assert _vol_ratio(df) == 0.0
+
+
+def test_lead_days_uses_actual_trading_days_not_calendar_busdays():
+    """연휴로 휴장이 껴 있으면 달력 영업일이 아니라 실제 거래일 수로 선행일을 세야 한다."""
+    # 거래일: 1/5~1/16 (10일) + 휴장 1주 + 1/26~1/30 (5일)
+    dates = (list(pd.bdate_range('2026-01-05', '2026-01-16'))
+             + list(pd.bdate_range('2026-01-26', '2026-01-30')))
+
+    def df_from(closes):
+        return pd.DataFrame({
+            'Open':   closes,
+            'High':   [c * 1.01 for c in closes],
+            'Low':    [c * 0.99 for c in closes],
+            'Close':  closes,
+            'Volume': [1_000_000] * len(closes),
+        }, index=pd.DatetimeIndex(dates))
+
+    # 지수 저점: 13번째 행(1/28), 종목 저점: 9번째 행(1/15) → 거래일 기준 선행 4일
+    idx_closes = [100 - i * 2 for i in range(13)] + [78.0, 80.0]
+    stk_closes = [100 - i * 3 for i in range(9)] + [77 + i for i in range(6)]
+
+    result = calc_correction_rs(df_from(stk_closes), df_from(idx_closes),
+                                correction_start=dates[0], jjin_date=dates[-1])
+    # busday_count(1/15, 1/28)로 세면 9가 나와버림
+    assert result['lead_days'] == 4

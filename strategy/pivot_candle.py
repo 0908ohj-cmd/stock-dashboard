@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from strategy.indicators import calc_ema
 
@@ -130,7 +129,6 @@ def classify_case(
         return '기준봉없음'
 
     current_close = float(stock_df['Close'].iloc[-1])
-    current_date  = stock_df.index[-1]
 
     if current_close < pivot['low']:
         return '하방이탈'
@@ -150,7 +148,8 @@ def classify_case(
         if (below & below.shift(1)).any():
             return '10EMA이탈'
 
-    days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
+    # 기준봉 이후 실제 거래일 수 — busday는 휴장일을 거래일로 세버림
+    days_since = len(since_pivot)
 
     # Case2: 돌파 후 소폭 상승했다가 기준봉 고가 부근으로 복귀한 2차 매수 타점
     if days_since <= 30 and not since_pivot.empty:
