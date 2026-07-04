@@ -8,17 +8,11 @@ import pandas as pd
 
 from data.fetcher import fetch_daily, get_stock_name
 from data.sector import get_sectors
-from strategy.indicators import calc_pct_from_52w_high
-from strategy.rs_correction import calc_correction_rs
+from strategy.indicators import calc_adr, calc_ema, calc_pct_from_52w_high, calc_sma
+from strategy.rs_correction import calc_correction_rs, EMPTY_RS
 
 ADR_MIN = {'KR': 2.0, 'US': 4.0}
 FETCH_DAYS = 380   # 52주(252거래일) 고점 계산에 필요한 달력일 여유
-
-_EMPTY_RS = {
-    'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
-    'lead_days': 0, 'ma_score': 0,
-    'vol_ratio': 0.0, 'candle_ratio': 0.0,
-}
 
 
 def adr_min_for(market: str) -> float:
@@ -32,6 +26,18 @@ def slice_asof(df: pd.DataFrame, asof) -> pd.DataFrame:
     return df[df.index <= pd.Timestamp(asof)]
 
 
+def _fetch_days_for(asof) -> int:
+    """fetch 기간(달력일). asof가 과거면 경과일만큼 늘려 52주 창의 왼쪽 끝이
+    오늘이 아닌 asof 기준으로 유지되게 한다(동결 재계산의 결정성).
+    30일 버킷으로 올림해 DAY3/DAY4 재계산이 같은 fetch 캐시를 공유하게 함."""
+    if asof is None:
+        return FETCH_DAYS
+    lag = (pd.Timestamp.today().normalize() - pd.Timestamp(asof)).days
+    if lag <= 0:
+        return FETCH_DAYS
+    return FETCH_DAYS + ((lag + 29) // 30) * 30
+
+
 def ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, int]:
     """지수가 이탈한 이평선 기준, 종목 위/아래 텍스트 반환. (text, above_count)"""
     if index_df.empty or len(index_df) < 50:
@@ -40,8 +46,8 @@ def ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, in
     idx_close = float(index_df['Close'].iloc[-1])
     stk_close = float(stock_df['Close'].iloc[-1])
 
-    def _ema(df, n): return float(df['Close'].ewm(span=n, adjust=False).mean().iloc[-1])
-    def _sma(df, n): return float(df['Close'].rolling(n).mean().iloc[-1]) if len(df) >= n else float('nan')
+    def _ema(df, n): return float(calc_ema(df, n).iloc[-1])
+    def _sma(df, n): return float(calc_sma(df, n).iloc[-1])
 
     levels = [
         ('EMA21',  _ema(index_df, 21),  _ema(stock_df, 21)),
@@ -82,15 +88,16 @@ def build_rows(
     jjin_date        = pd.Timestamp(jjin_date)        if jjin_date        is not None else None
 
     adr_min     = adr_min_for(market)
+    fetch_days  = _fetch_days_for(asof)
     stock_cache = {}
     adr_skipped = 0
 
     for ticker in tickers:
         try:
-            df = slice_asof(fetch(ticker, market=market, days=FETCH_DAYS), asof)
+            df = slice_asof(fetch(ticker, market=market, days=fetch_days), asof)
             if df.empty or len(df) < 25:
                 continue
-            adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
+            adr = calc_adr(df, period=20)
             if adr < adr_min:
                 adr_skipped += 1
                 continue
@@ -111,7 +118,7 @@ def build_rows(
             if correction_start is not None and not index_df.empty:
                 rs = calc_correction_rs(df, index_df, correction_start, jjin_date)
             else:
-                rs = dict(_EMPTY_RS)
+                rs = dict(EMPTY_RS)
 
             ma_text, ma_above = ma_position(df, index_df)
             rows.append({

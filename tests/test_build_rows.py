@@ -63,6 +63,23 @@ def test_adr_skipped_count_returned(index_df, dates60):
     assert res['adr_skipped'] == 1
 
 
+def test_asof_extends_fetch_window_left_edge(index_df, dates60):
+    """asof가 과거일수록 fetch 기간을 늘려 52주 창의 왼쪽 끝이 asof 기준으로 유지돼야 한다."""
+    captured = []
+    frames = _stock_frames(dates60)
+
+    def fetch(ticker, market, days):
+        captured.append(days)
+        return frames[ticker]
+
+    build_rows(['AAA'], 'KR_KOSPI', index_df,
+               correction_start=dates60[40], jjin_date=None, asof=dates60[49],
+               fetch=fetch, get_name=lambda t, m: t, sectors_fn=lambda ts, m: {})
+
+    lag = (pd.Timestamp.today().normalize() - dates60[49]).days
+    assert captured[0] >= 380 + lag
+
+
 def test_row_has_expected_display_fields(index_df, dates60):
     row = _call(['AAA'], index_df, dates60)['rows'][0]
     assert row['종목명'] == 'AAA명'

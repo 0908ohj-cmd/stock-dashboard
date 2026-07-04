@@ -14,7 +14,10 @@ def trading_days_after(df: pd.DataFrame, date) -> int:
 
 
 def nth_trading_day_after(df: pd.DataFrame, date, n: int) -> pd.Timestamp | None:
-    """date 이후 n번째 거래일. 데이터가 거기까지 없으면 None."""
+    """date 이후 n번째 거래일. 데이터가 거기까지 없으면 None. n >= 1만 허용
+    (n<=0을 허용하면 음수 인덱싱으로 마지막 거래일이 조용히 반환된다)."""
+    if n < 1:
+        raise ValueError(f'n은 1 이상이어야 함: {n}')
     after = df.index[df.index > pd.Timestamp(date)]
     if len(after) < n:
         return None

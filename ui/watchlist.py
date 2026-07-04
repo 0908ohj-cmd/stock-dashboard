@@ -6,10 +6,11 @@ from data.fetcher import (
     fetch_daily, fetch_index_daily,
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
+from data.sector import get_sectors_cached_only
 from strategy.market_status import get_market_status
 from strategy.rs_correction import _index_peak_date
 from strategy.trading_days import trading_days_after, nth_trading_day_after
-from strategy.watchlist_rows import build_rows, FETCH_DAYS, adr_min_for
+from strategy.watchlist_rows import build_rows, slice_asof, FETCH_DAYS, adr_min_for
 from ui.intraday_overlay import intraday_overlay_chart
 
 INDEX_FOR_MARKET = {
@@ -57,13 +58,34 @@ def _build_rows(
     asof_str: str | None = None,
 ) -> dict:
     index_df = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+    kwargs = {}
+    if asof_str:
+        # as-of 재계산은 렌더 중 블로킹 분류(subprocess·네트워크) 금지 — 캐시 전용
+        kwargs['sectors_fn'] = get_sectors_cached_only
     return build_rows(
         list(tickers_tuple), market, index_df,
         correction_start=correction_start_str,
         jjin_date=jjin_date_str,
         asof=asof_str,
         fetch=_fetch_daily_cached,
+        **kwargs,
     )
+
+
+@st.cache_data(ttl=300)
+def _ma_ok_asof(market: str, asof_str: str) -> bool:
+    """asof 날짜 시점의 시장 상태가 normal인지 — 동결된 후보 필터의 문맥용."""
+    index_df = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+    sliced = slice_asof(index_df, asof_str)
+    return (not sliced.empty) and get_market_status(sliced)['state'] == 'normal'
+
+
+def _is_core_candidate(r: dict, ma_ok: bool) -> bool:
+    """매수 후보 공통 필터 — 핵심 후보와 DAY3/DAY4 추가 후보가 같은 기준을 공유."""
+    return ((r['RS/ADR'] or 0) > 0
+            and (ma_ok or r['ma_above_count'] > 0)
+            and (r['거래량비%'] or 0) >= 120
+            and (r['고점대비%'] or 0) >= -30)
 
 
 def _status_banner(status: dict, label: str):
@@ -137,7 +159,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
-            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
+            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 (상한 999) | **120 이상** = 매집 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
@@ -225,20 +247,21 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         fit_columns_on_grid_load=True,
     )
 
-    # 핵심 후보 안내
-    ma_ok = state == 'normal'  # 지수 정상이면 MA 위치 조건 스킵
-    top_candidates = [
-        r for r in rows
-        if (r['RS/ADR'] or 0) > 0
-        and (ma_ok or r['ma_above_count'] > 0)
-        and (r['거래량비%'] or 0) >= 120
-        and (r['고점대비%'] or 0) >= -30
-    ]
+    # ── 매수 후보 — 날짜 라벨이 붙는 카드는 그 날짜 시점의 데이터·시장상태로 동결 ──
+    if jjin_date_str:
+        with st.spinner('핵심 후보 확인 중...'):
+            core_rows = _build_rows(tuple(tickers), market, correction_start_str,
+                                    jjin_date_str, jjin_date_str)['rows']
+        core_ma_ok = _ma_ok_asof(market, jjin_date_str)
+    else:
+        core_rows, core_ma_ok = rows, state == 'normal'
+
+    top_candidates = [r for r in core_rows if _is_core_candidate(r, core_ma_ok)]
     fallback = (
-        [r for r in rows
+        [r for r in core_rows
          if (r['RS/ADR'] or 0) > 0
-         and (ma_ok or r['ma_above_count'] > 0)
-         and (r['고점대비%'] or 0) >= -35][:5]
+         and (core_ma_ok or r['ma_above_count'] > 0)
+         and (r['고점대비%'] or 0) >= -35][:5]   # 완화 기준 (거래량비 무관, 고점대비 -35)
         if not top_candidates else []
     )
 
@@ -277,50 +300,36 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
                 _render_candidates(candidates, cand_label, period_str)
 
-            # 추가 후보: DAY3·DAY4 시점 데이터로만(as-of) 계산 → 이후 재방문해도 동일(동결)
+            # 추가 후보: DAY3·DAY4 각각 그 날짜 시점의 데이터·시장상태로 계산(동결) —
+            # 제외 집합도 동결된 핵심 후보에서 파생되므로 재방문해도 목록이 변하지 않는다
             if jjin_date_str:
                 jjin_ts  = pd.Timestamp(jjin_date_str)
                 _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
                 days_since_jjin = trading_days_after(_idx_tmp, jjin_ts) if not _idx_tmp.empty else 0
 
-                def _passes(r):
-                    return ((r['RS/ADR'] or 0) > 0
-                            and (ma_ok or r['ma_above_count'] > 0)
-                            and (r['거래량비%'] or 0) >= 120
-                            and (r['고점대비%'] or 0) >= -30)
-
-                if days_since_jjin >= 1:
-                    day3_ts      = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
-                    day3_date    = str(day3_ts.date())
-                    core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
+                exclude = {r['Ticker'] for r in (top_candidates or fallback)}
+                for n in (1, 2):
+                    if days_since_jjin < n:
+                        break
+                    day_ts = nth_trading_day_after(_idx_tmp, jjin_ts, n)
+                    if day_ts is None:
+                        break
+                    day_str = str(day_ts.date())
 
                     with st.spinner('추가 후보 확인 중...'):
-                        day3_rows = _build_rows(tuple(tickers), market,
-                                                correction_start_str, None, day3_date)['rows']
+                        day_rows = _build_rows(tuple(tickers), market,
+                                               correction_start_str, None, day_str)['rows']
+                    day_ma_ok = _ma_ok_asof(market, day_str)
 
-                    day3_new = [r for r in day3_rows
-                                if r['Ticker'] not in core_tickers and _passes(r)]
-                    day3_tickers = {r['Ticker'] for r in day3_new}
-                    p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
-                    if day3_new:
-                        _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
+                    day_new = [r for r in day_rows
+                               if r['Ticker'] not in exclude and _is_core_candidate(r, day_ma_ok)]
+                    exclude |= {r['Ticker'] for r in day_new}
+
+                    p = _make_period_str(rs_start, day_str) if rs_start else ''
+                    if day_new:
+                        _render_candidates(day_new, f'⭐ {day_str} 기준 추가 후보', p)
                     else:
-                        st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
-
-                    if days_since_jjin >= 2:
-                        day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2)
-                        day4_date = str(day4_ts.date())
-                        with st.spinner('추가 후보 확인 중...'):
-                            day4_rows = _build_rows(tuple(tickers), market,
-                                                    correction_start_str, None, day4_date)['rows']
-                        day4_new = [r for r in day4_rows
-                                    if r['Ticker'] not in core_tickers
-                                    and r['Ticker'] not in day3_tickers and _passes(r)]
-                        p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
-                        if day4_new:
-                            _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
-                        else:
-                            st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
+                        st.markdown(f'**⭐ {day_str} 기준 추가 후보** — 없음{p}', unsafe_allow_html=True)
 
     selected_rows = grid_response.get('selected_rows')
     if selected_rows is not None and len(selected_rows) > 0:

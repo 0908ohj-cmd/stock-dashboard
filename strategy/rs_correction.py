@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 from strategy.indicators import calc_ma_position, calc_ema
 
+# 조정 구간 RS 지표의 영값 세트 — build_rows 등 호출부와 공유
+EMPTY_RS = {
+    'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
+    'lead_days': 0, 'ma_score': 0,
+    'vol_ratio': 0.0, 'candle_ratio': 0.0,
+}
+
+
+# 거래량비 상한. 하락일이 없는 최강 종목도 이 값을 받아 실측 고비율 종목보다
+# 뒤로 밀리지 않는다 (표시: 999%).
+VOL_RATIO_CAP = 9.99
+
 
 def _vol_ratio(df: pd.DataFrame) -> float:
     if len(df) < 4:
@@ -12,9 +24,11 @@ def _vol_ratio(df: pd.DataFrame) -> float:
     down = d[~d['is_up']]['Volume'].mean()
     if pd.isna(up):
         return 0.0
-    if pd.isna(down) or down == 0:
-        return 2.0   # 하락일 없음 = 최강 — _candle_ratio 상한과 동일 규약
-    return round(float(up / down), 2)
+    if pd.isna(down):
+        return VOL_RATIO_CAP           # 하락일 없음 = 최강
+    if down == 0:
+        return 0.0                     # 하락일이 있는데 거래량 0 = 데이터 결함
+    return round(min(float(up / down), VOL_RATIO_CAP), 2)
 
 
 def _candle_ratio(df: pd.DataFrame) -> float:
@@ -70,12 +84,6 @@ def calc_correction_rs(
     조정 구간(correction_start ~ jjin_date) RS 계산.
     jjin_date가 None이면 index_df 마지막 날까지 계산.
     """
-    empty = {
-        'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
-        'lead_days': 0, 'ma_score': 0,
-        'vol_ratio': 0.0, 'candle_ratio': 0.0,
-    }
-
     end        = jjin_date if jjin_date is not None else index_df.index[-1]
     peak_date  = _index_peak_date(index_df, correction_start)
 
@@ -84,16 +92,21 @@ def calc_correction_rs(
     stk_slice = stock_df[(stock_df.index >= peak_date) & (stock_df.index <= end)]
 
     if len(idx_slice) < 2 or len(stk_slice) < 2:
-        return empty
+        return dict(EMPTY_RS)
 
     idx_pct = (float(idx_slice['Close'].iloc[-1]) / float(idx_slice['Close'].iloc[0]) - 1) * 100
     stk_pct = (float(stk_slice['Close'].iloc[-1]) / float(stk_slice['Close'].iloc[0]) - 1) * 100
 
     idx_bottom = idx_slice['Low'].idxmin()
     stk_bottom = stk_slice['Low'].idxmin()
-    # 지수 거래일 달력 기준 위치 차이 — busday는 휴장일을 거래일로 세버림
-    pos        = idx_slice.index
-    lead_days  = int(pos.searchsorted(idx_bottom) - pos.searchsorted(stk_bottom))
+    # 지수 거래일 달력 기준 위치 차이 — busday는 휴장일을 거래일로 세버림.
+    # 종목 저점일이 지수 달력에 없으면(결측일) 직전 지수 거래일 위치로 매핑.
+    pos = idx_slice.index
+
+    def _pos_of(d):
+        return int(pos.searchsorted(d, side='right')) - 1
+
+    lead_days = _pos_of(idx_bottom) - _pos_of(stk_bottom)
 
     stk_for_ma = stock_df[stock_df.index <= end]
     ma_score   = calc_ma_position(stk_for_ma) if len(stk_for_ma) >= 10 else 0

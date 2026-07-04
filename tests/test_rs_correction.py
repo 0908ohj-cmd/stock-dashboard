@@ -132,14 +132,32 @@ def test_excess_adr_normalizes_by_volatility():
 
 
 def test_vol_ratio_max_when_no_down_days():
-    """조정 구간에 하락일이 하나도 없는 최강 종목 → 0이 아니라 상한값(2.0)이어야 한다."""
+    """조정 구간에 하락일이 하나도 없는 최강 종목 → 0이 아니라 상한값이어야 한다."""
     df = _make_df([100 + i for i in range(10)], opens=[99 + i for i in range(10)])
-    assert _vol_ratio(df) == 2.0
+    assert _vol_ratio(df) == 9.99
 
 
 def test_vol_ratio_zero_when_no_up_days():
     df = _make_df([100 - i for i in range(10)], opens=[101 - i for i in range(10)])
     assert _vol_ratio(df) == 0.0
+
+
+def test_vol_ratio_zero_when_down_days_have_zero_volume():
+    """하락일이 존재하는데 거래량이 전부 0인 데이터 결함 → 최강(상한)이 아니라 0."""
+    closes  = [101, 99, 102, 98, 103, 97]     # 상승/하락 교차
+    opens   = [100, 100, 100, 100, 100, 100]
+    volumes = [1_000_000, 0, 1_000_000, 0, 1_000_000, 0]
+    df = _make_df(closes, opens=opens, volumes=volumes)
+    assert _vol_ratio(df) == 0.0
+
+
+def test_vol_ratio_capped_at_sentinel():
+    """실측비가 상한을 넘으면 캡 — 하락일 0개(상한값) 종목이 뒤로 밀리지 않게 정렬 일관성 유지."""
+    closes  = [101, 99, 102, 98, 103, 97]
+    opens   = [100, 100, 100, 100, 100, 100]
+    volumes = [2_000_000, 100_000, 2_000_000, 100_000, 2_000_000, 100_000]  # 실측비 20
+    df = _make_df(closes, opens=opens, volumes=volumes)
+    assert _vol_ratio(df) == 9.99
 
 
 def test_lead_days_uses_actual_trading_days_not_calendar_busdays():
@@ -165,3 +183,27 @@ def test_lead_days_uses_actual_trading_days_not_calendar_busdays():
                                 correction_start=dates[0], jjin_date=dates[-1])
     # busday_count(1/15, 1/28)로 세면 9가 나와버림
     assert result['lead_days'] == 4
+
+
+def test_lead_days_when_stock_bottom_date_missing_from_index_calendar():
+    """종목 저점일이 지수 달력에 없으면(지수 결측일) 직전 지수 거래일로 매핑해야 한다."""
+    idx_dates = (list(pd.bdate_range('2026-01-05', '2026-01-14'))          # 1/5~1/14 (8일)
+                 + list(pd.bdate_range('2026-01-16', '2026-01-21')))       # 1/15 결측
+    stk_dates = list(pd.bdate_range('2026-01-05', '2026-01-21'))           # 1/15 포함 (13일)
+
+    def df_from(closes, dates):
+        return pd.DataFrame({
+            'Open':   closes,
+            'High':   [c * 1.01 for c in closes],
+            'Low':    [c * 0.99 for c in closes],
+            'Close':  closes,
+            'Volume': [1_000_000] * len(closes),
+        }, index=pd.DatetimeIndex(dates))
+
+    # 지수 저점: 1/20 (pos 10). 종목 저점: 1/15 → 직전 지수 거래일 1/14(pos 7)로 매핑 → 선행 3일
+    idx_closes = [100 - i * 2 for i in range(11)] + [82.0]
+    stk_closes = [100 - i * 3 for i in range(9)] + [77 + i for i in range(4)]
+
+    result = calc_correction_rs(df_from(stk_closes, stk_dates), df_from(idx_closes, idx_dates),
+                                correction_start=idx_dates[0], jjin_date=idx_dates[-1])
+    assert result['lead_days'] == 3

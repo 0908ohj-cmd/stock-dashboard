@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 from strategy.trading_days import trading_days_after, nth_trading_day_after
 
 
@@ -31,3 +32,12 @@ def test_nth_trading_day_after_skips_holidays():
 def test_nth_trading_day_after_returns_none_when_out_of_range():
     df = _df_with_dates(DATES)
     assert nth_trading_day_after(df, pd.Timestamp('2026-01-15'), 1) is None
+
+
+def test_nth_trading_day_after_rejects_nonpositive_n():
+    """n=0이 조용히 마지막 거래일을 반환하면 as-of 기준일이 라이브 날짜로 둔갑한다 — 명시적 에러."""
+    df = _df_with_dates(DATES)
+    with pytest.raises(ValueError):
+        nth_trading_day_after(df, pd.Timestamp('2026-01-05'), 0)
+    with pytest.raises(ValueError):
+        nth_trading_day_after(df, pd.Timestamp('2026-01-05'), -1)
