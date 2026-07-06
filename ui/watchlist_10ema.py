@@ -258,12 +258,16 @@ def render_10ema_tab(market: str, label: str):
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(domLayout='autoHeight', localeText=KO_LOCALE)
 
+    # 적은 행: 정확한 높이로 공백 방지 / 많은 행: 400px 초기값 후 setFrameHeight 자동 확장
+    grid_height = min(72 + len(display_df) * 28, 400)
+
     AgGrid(
         display_df,
         gridOptions=gb.build(),
         update_mode=GridUpdateMode.NO_UPDATE,
         enable_enterprise_modules=False,
         theme='streamlit',
+        height=grid_height,
         fit_columns_on_grid_load=True,
     )
 
