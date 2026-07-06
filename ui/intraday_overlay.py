@@ -172,13 +172,13 @@ def intraday_overlay_chart(
         ),
         yaxis=dict(
             title='누적수익률 (%)',
-            title_font=dict(size=13, color='#ffffff'),
-            tickfont=dict(size=12, color='#ffffff'),
+            title_font=dict(size=13, color='#000000'),
+            tickfont=dict(size=12, color='#000000'),
             gridcolor='#1e1e1e',
             zeroline=False,
         ),
         xaxis=dict(
-            tickfont=dict(size=12, color='#ffffff'),
+            tickfont=dict(size=12, color='#000000'),
             gridcolor='#1e1e1e',
             tickformat='%H:%M\n%m/%d',
             tickvals=[pd.Timestamp(f'{d.date()} {open_time_str}', tz=tz) for d in dates],
