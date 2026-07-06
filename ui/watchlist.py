@@ -431,30 +431,64 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                         else:
                             st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
 
-    selected_rows = grid_response.get('selected_rows')
-    if selected_rows is not None and len(selected_rows) > 0:
-        first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
-        selected_ticker = first_row['티커 | 종목명'].split(' | ')[0]
-        st.session_state['selected_ticker'] = selected_ticker
-        st.session_state['selected_market'] = market
-        st.session_state['selected_jjin_date'] = jjin_date_str
+    idx_key = f'chart_idx_{market}'
+    nav_key = f'chart_nav_{market}'
+    if idx_key not in st.session_state:
+        st.session_state[idx_key] = None
 
-        index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
+    # 그리드 클릭 → 인덱스 설정 (prev/next 직후 rerun은 무시)
+    if not st.session_state.get(nav_key, False):
+        selected_rows = grid_response.get('selected_rows')
+        if selected_rows is not None and len(selected_rows) > 0:
+            first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
+            sel_ticker = first_row['티커 | 종목명'].split(' | ')[0]
+            for i, r in enumerate(rows):
+                if r['Ticker'] == sel_ticker:
+                    st.session_state[idx_key] = i
+                    break
+    st.session_state[nav_key] = False
 
-        if jjin_date_str:
-            jjin_date = pd.Timestamp(jjin_date_str)
-            with st.spinner('5분봉 로드 중...'):
-                stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
-                index_5m = fetch_index_intraday_for_date(index_name, jjin_date, days=5)
+    cur_idx = st.session_state[idx_key]
+    index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
 
-            if not stock_5m.empty and not index_5m.empty:
-                stock_name = get_stock_name(selected_ticker, market)
-                st.plotly_chart(
-                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date, market=market, stock_name=stock_name),
-                    use_container_width=True,
-                )
-            else:
-                st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
+    if cur_idx is not None and jjin_date_str:
+        total = len(rows)
+
+        # 이전/다음 내비게이션
+        c_prev, c_info, c_next = st.columns([1, 5, 1])
+        with c_prev:
+            if st.button('◀', key=f'prev_{market}', disabled=(cur_idx <= 0), use_container_width=True):
+                st.session_state[nav_key] = True
+                st.session_state[idx_key] = cur_idx - 1
+                st.rerun()
+        with c_info:
+            r_cur = rows[cur_idx]
+            st.markdown(
+                f"<div style='text-align:center;padding:6px 0'>"
+                f"<b>{r_cur['Ticker']}</b> {r_cur['종목명']} &nbsp;"
+                f"<span style='color:gray'>{cur_idx + 1} / {total}</span></div>",
+                unsafe_allow_html=True,
+            )
+        with c_next:
+            if st.button('▶', key=f'next_{market}', disabled=(cur_idx >= total - 1), use_container_width=True):
+                st.session_state[nav_key] = True
+                st.session_state[idx_key] = cur_idx + 1
+                st.rerun()
+
+        selected_ticker = rows[cur_idx]['Ticker']
+        jjin_date = pd.Timestamp(jjin_date_str)
+        with st.spinner('5분봉 로드 중...'):
+            stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
+            index_5m = fetch_index_intraday_for_date(index_name, jjin_date, days=5)
+
+        if not stock_5m.empty and not index_5m.empty:
+            stock_name = get_stock_name(selected_ticker, market)
+            st.plotly_chart(
+                intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date, market=market, stock_name=stock_name),
+                use_container_width=True,
+            )
+        else:
+            st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
 
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
