@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import streamlit.components.v1 as components
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from data.fetcher import (
@@ -453,6 +454,33 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     if cur_idx is not None and jjin_date_str:
         total = len(rows)
+
+        # 스페이스바 → ▶ 버튼 클릭 (parent document에 한 번만 등록)
+        components.html(f"""
+<script>
+(function() {{
+    var p = window.parent;
+    if (p.__spaceNavRegistered) {{
+        p.document.removeEventListener('keydown', p.__spaceNavHandler);
+    }}
+    p.__spaceNavHandler = function(e) {{
+        if (e.code !== 'Space' && e.key !== ' ') return;
+        var tag = (p.document.activeElement || {{}}).tagName || '';
+        if (/^(INPUT|TEXTAREA|SELECT)$/i.test(tag)) return;
+        e.preventDefault();
+        var btns = p.document.querySelectorAll('button');
+        for (var i = 0; i < btns.length; i++) {{
+            if (btns[i].innerText.trim() === '▶' && !btns[i].disabled) {{
+                btns[i].click();
+                return;
+            }}
+        }}
+    }};
+    p.document.addEventListener('keydown', p.__spaceNavHandler);
+    p.__spaceNavRegistered = true;
+}})();
+</script>
+""", height=0)
 
         # 이전/다음 내비게이션
         c_prev, c_info, c_next = st.columns([1, 5, 1])
