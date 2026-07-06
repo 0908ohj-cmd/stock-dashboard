@@ -249,13 +249,13 @@ def render_10ema_tab(market: str, label: str):
         price_fmt = "value == null ? '' : '$' + value.toFixed(2)"
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
-    gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True)
-    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170)
-    gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120)
-    gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt)
-    gb.configure_column('기준봉일', filter='agTextColumnFilter')
+    gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True, flex=1)
+    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
+    gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
+    gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
+    gb.configure_column('기준봉일', filter='agTextColumnFilter', flex=1)
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
-        gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
+        gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_grid_options(rowHeight=28, localeText=KO_LOCALE)
 
     grid_height = 72 + len(display_df) * 28
