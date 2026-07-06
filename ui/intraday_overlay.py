@@ -150,12 +150,19 @@ def intraday_overlay_chart(
     ))
 
     title_date = pd.Timestamp(jjin_date).strftime('%Y-%m-%d') if jjin_date else ''
-    open_hour = 9 if market.startswith('KR') else 9.5
-    close_hour = 15.5 if market.startswith('KR') else 16
+    open_time_str  = '09:00' if market.startswith('KR') else '09:30'
+    close_time_str = '15:30' if market.startswith('KR') else '16:00'
 
     # x축 시작을 첫 데이터보다 30분 앞으로 설정해 첫 날 09:00 tick 표시
     x_start = index_5m.index[0] - pd.Timedelta(minutes=30)
     x_end   = index_5m.index[-1] + pd.Timedelta(minutes=5)
+
+    # 날짜별 장마감~다음날 장시작 구간을 직접 rangebreak으로 지정
+    overnight_breaks = []
+    for i in range(len(dates) - 1):
+        day_close = pd.Timestamp(f'{dates[i].date()} {close_time_str}', tz=tz)
+        next_open = pd.Timestamp(f'{dates[i+1].date()} {open_time_str}', tz=tz)
+        overnight_breaks.append(dict(bounds=[day_close, next_open]))
 
     fig.update_layout(
         title=dict(
@@ -174,12 +181,9 @@ def intraday_overlay_chart(
             tickfont=dict(size=10),
             gridcolor='#1e1e1e',
             tickformat='%H:%M\n%m/%d',
-            tickvals=[pd.Timestamp(f'{d.date()} {open_time}', tz=tz) for d in dates],
+            tickvals=[pd.Timestamp(f'{d.date()} {open_time_str}', tz=tz) for d in dates],
             range=[x_start, x_end],
-            rangebreaks=[
-                dict(bounds=['sat', 'mon']),
-                dict(bounds=[close_hour, open_hour], pattern='hour'),
-            ],
+            rangebreaks=[dict(bounds=['sat', 'mon'])] + overnight_breaks,
         ),
         template='plotly_dark',
         paper_bgcolor='rgba(0,0,0,0)',
