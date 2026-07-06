@@ -258,8 +258,8 @@ def render_10ema_tab(market: str, label: str):
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
-    # 헤더(42) + 필터행(28) + 행당 28px — 캡 없음 (모든 행 표시, 페이지 스크롤)
-    grid_height = 72 + len(display_df) * 28
+    # 헤더(42) + 필터행(28) + 행당 30px + 여유 6px
+    grid_height = 76 + len(display_df) * 30
 
     AgGrid(
         display_df,
