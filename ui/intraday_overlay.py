@@ -164,12 +164,17 @@ def intraday_overlay_chart(
         next_open = pd.Timestamp(f'{dates[i+1].date()} {open_time_str}', tz=tz)
         overnight_breaks.append(dict(bounds=[day_close, next_open]))
 
+    fig.add_annotation(
+        text=f'<b>{label}</b> vs {index_name} &nbsp;|&nbsp; 찐반등일 {title_date} 기준 5일',
+        xref='x domain', yref='paper',
+        x=0, y=1.06,
+        xanchor='left', yanchor='bottom',
+        showarrow=False,
+        font=dict(size=13),
+    )
+
     fig.update_layout(
-        title=dict(
-            text=f'<b>{label}</b> vs {index_name} &nbsp;|&nbsp; 찐반등일 {title_date} 기준 5일',
-            font=dict(size=13),
-            x=0,
-        ),
+        title=None,
         yaxis=dict(
             title='누적수익률 (%)',
             title_font=dict(size=13, color='#000000'),
