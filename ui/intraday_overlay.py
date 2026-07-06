@@ -54,15 +54,31 @@ def calc_intraday_strength(
     }
 
 
+def _filter_regular_hours(df: pd.DataFrame, market: str) -> pd.DataFrame:
+    """정규장 시간대만 필터링."""
+    if df.empty:
+        return df
+    t = df.index.time
+    if market.startswith('KR'):
+        mask = (t >= pd.Timestamp('09:00').time()) & (t <= pd.Timestamp('15:30').time())
+    else:
+        mask = (t >= pd.Timestamp('09:30').time()) & (t <= pd.Timestamp('16:00').time())
+    return df[mask]
+
+
 def intraday_overlay_chart(
     stock_5m: pd.DataFrame,
     index_5m: pd.DataFrame,
     ticker: str,
     index_name: str,
     jjin_date=None,
+    market: str = 'US',
 ) -> go.Figure:
-    """찐반등 날 기준 5일치 누적수익률 오버레이 차트."""
+    """찐반등 날 기준 5일치 누적수익률 오버레이 차트 (정규장만)."""
     fig = go.Figure()
+
+    stock_5m = _filter_regular_hours(stock_5m, market)
+    index_5m = _filter_regular_hours(index_5m, market)
 
     if stock_5m.empty or index_5m.empty:
         fig.update_layout(title='5분봉 데이터 없음 (60일 초과)', template='plotly_dark', height=350)

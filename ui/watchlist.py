@@ -449,7 +449,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
             if not stock_5m.empty and not index_5m.empty:
                 st.plotly_chart(
-                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date),
+                    intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date, market=market),
                     use_container_width=True,
                 )
             else:
