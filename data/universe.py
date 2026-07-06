@@ -43,7 +43,22 @@ def get_kr_universe(market: str, top_n: int = 200) -> list:
     except Exception:
         pass
 
-    # fallback 2: 하드코딩 주요 종목
+    # fallback 2: FinanceDataReader 상장 종목 목록 (시총순 정렬 가능 시)
+    try:
+        import FinanceDataReader as fdr
+        df = fdr.StockListing(mkt)
+        if df is not None and not df.empty:
+            cap_col = next((c for c in df.columns if 'Cap' in c or '시가총액' in c), None)
+            if cap_col:
+                df = df.sort_values(cap_col, ascending=False)
+            code_col = next((c for c in df.columns if c in ('Code', 'Symbol', '종목코드')), df.columns[0])
+            codes = df[code_col].astype(str).str.zfill(6).tolist()
+            if codes:
+                return codes[:top_n]
+    except Exception:
+        pass
+
+    # fallback 3: 하드코딩 주요 종목 (최후 수단)
     return _KOSPI_FALLBACK[:top_n] if mkt == 'KOSPI' else _KOSDAQ_FALLBACK[:top_n]
 
 
