@@ -170,7 +170,7 @@ def intraday_overlay_chart(
         x=0, y=1.06,
         xanchor='left', yanchor='bottom',
         showarrow=False,
-        font=dict(size=13),
+        font=dict(size=13, color='#000000'),
     )
 
     fig.update_layout(
@@ -194,9 +194,9 @@ def intraday_overlay_chart(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='#0e1117',
         height=360,
-        margin=dict(l=40, r=120, t=45, b=20),
+        margin=dict(l=40, r=120, t=60, b=20),
         legend=dict(
-            orientation='v', y=1, x=1.01, xanchor='left', yanchor='top',
+            orientation='v', y=1.15, x=1.01, xanchor='left', yanchor='top',
             font=dict(size=11),
             bgcolor='rgba(0,0,0,0)',
         ),
