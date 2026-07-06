@@ -27,12 +27,12 @@ KO_LOCALE = {
 }
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)
 def _fetch_index_cached(name: str) -> pd.DataFrame:
     return fetch_index_daily(name, days=400)
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)
 def _get_market_status_cached(market: str) -> dict:
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
     index_df   = _fetch_index_cached(index_name)
@@ -76,7 +76,7 @@ def _ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, i
     return (' · '.join(parts) if parts else '지수정상'), above_count
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=1800)
 def _build_rows(
     tickers_tuple: tuple,
     market: str,
@@ -245,14 +245,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         _idx = _fetch_index_cached(index_name)
         status = {**status, 'peak_date': _index_peak_date(_idx, cs) if not _idx.empty else None}
 
-    _status_banner(status, label)
-
     cs = status['correction_start']
     jd = status['jjin_date']
     correction_start_str = str(cs.date()) if cs else None
     jjin_date_str        = str(jd.date()) if jd else None
 
-    # RS 기산점 커스텀 설정
+    # RS 기산점 커스텀 설정 (사용 가이드 바로 아래)
     auto_peak = status.get('peak_date')
     with st.expander('⚙️ RS 기산점 설정', expanded=False):
         st.caption(f'자동 기산점: {auto_peak.date() if auto_peak else "없음 (조정 미감지)"}')
@@ -265,6 +263,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         custom_rs_start_str = str(custom_date) if custom_date else None
         if custom_rs_start_str:
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
+
+    _status_banner(status, label)
 
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
