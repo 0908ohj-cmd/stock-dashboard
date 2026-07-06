@@ -219,8 +219,10 @@ def render_10ema_tab(market: str, label: str):
     show_forming = col_a.checkbox('🟡 형성중 포함', value=False, key=f'show_forming_{market}')
     show_failed  = col_b.checkbox('🔴 이탈 종목 보기', value=False, key=f'show_failed_{market}')
 
-    if show_failed:
+    if show_failed and show_forming:
         display_rows = rows
+    elif show_failed:
+        display_rows = [r for r in rows if r['상태'] != '형성중']
     elif show_forming:
         display_rows = [r for r in rows if r['상태'] in ('셋업', '형성중')]
     else:
