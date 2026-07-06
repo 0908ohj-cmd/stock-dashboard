@@ -18,8 +18,8 @@ STATE_BADGE = {
     '돌파완료': '🔵 돌파완료',
     '10EMA이탈':'🔴 10EMA이탈',
     '중간선이탈':'🔴 중간선이탈',
-    '이탈':     '⚫ 이탈',
-    '없음':     '⚫ 없음',
+    '이탈':     '🔴 이탈',
+    '없음':     '🔴 없음',
 }
 
 KO_LOCALE = {
@@ -140,8 +140,8 @@ def render_10ema_tab(market: str, label: str):
         cols2 = st.columns(4)
         cols2[0].markdown('🔴 **10EMA이탈**\n\n10EMA 아래\n연속 2거래일\n\n-> 셋업 무효')
         cols2[1].markdown('🔴 **중간선이탈**\n\n기준봉 중간선 아래\n연속 2거래일\n\n-> 셋업 무효')
-        cols2[2].markdown('⚫ **이탈**\n\n기준봉 저가\n하방 이탈\n\n-> 셋업 무효')
-        cols2[3].markdown('⚫ **없음**\n\n최근 3개월 내\n기준봉 미탐지')
+        cols2[2].markdown('🔴 **이탈**\n\n기준봉 저가\n하방 이탈\n\n-> 셋업 무효')
+        cols2[3].markdown('🔴 **없음**\n\n최근 3개월 내\n기준봉 미탐지')
 
         st.divider()
         st.caption('기준봉이란?')
