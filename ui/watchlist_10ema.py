@@ -256,7 +256,7 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('기준봉일', filter='agTextColumnFilter')
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
-    gb.configure_grid_options(localeText=KO_LOCALE)
+    gb.configure_grid_options(rowHeight=28, localeText=KO_LOCALE)
 
     grid_height = 72 + len(display_df) * 28
 
