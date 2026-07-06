@@ -174,10 +174,11 @@ def classify_case(
 
     days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
 
-    # 이미 타점을 크게 돌파 → 추격 불가
+    # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과)
     if not since_pivot.empty:
+        adr = float(((stock_df['High'] - stock_df['Low']) / stock_df['Close'] * 100).rolling(20).mean().iloc[-1])
         days_above = int((since_pivot['Close'] > pivot['high']).sum())
-        if current_close > pivot['high'] * 1.10 or days_above > 5:
+        if current_close > pivot['high'] * (1 + adr * 1.5 / 100) or days_above > 5:
             return '돌파완료'
 
     # 셋업 A: 잠깐 돌파 후 기준봉 고가 부근 복귀 (재진입 기회)

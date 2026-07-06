@@ -135,7 +135,7 @@ def render_10ema_tab(market: str, label: str):
         cols = st.columns(3)
         cols[0].markdown('🟢 **셋업**\n\n타이트 횡보 3~40일\n거래량 수축 · 10EMA 서핑\n→ 기준봉 고가 돌파 시 ORH 매수')
         cols[1].markdown('🟡 **형성중**\n\n기준봉은 있으나\n베이스 조건 미충족\n지켜볼 종목')
-        cols[2].markdown('🔵 **돌파완료**\n\n타점 10%+ 초과\nor 5일 이상 고가 위\n추격 불가')
+        cols[2].markdown('🔵 **돌파완료**\n\nADR 1.5배+ 초과\nor 고가 위 누적 5거래일\n추격 불가')
         cols2 = st.columns(3)
         cols2[0].markdown('🔴 **10EMA이탈**\n\n10EMA 아래\n연속 2거래일\n→ 셋업 무효')
         cols2[1].markdown('🔴 **중간선이탈**\n\n기준봉 중간선 아래\n연속 2거래일\n→ 셋업 무효')
