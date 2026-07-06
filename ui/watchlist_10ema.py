@@ -10,11 +10,12 @@ from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
 # 정렬 우선순위: 셋업 → 형성중 → 이탈류 → 없음
-STATE_ORDER = {'셋업': 0, '형성중': 1, '10EMA이탈': 2, '중간선이탈': 3, '이탈': 4, '없음': 5}
+STATE_ORDER = {'셋업': 0, '형성중': 1, '돌파완료': 2, '10EMA이탈': 3, '중간선이탈': 4, '이탈': 5, '없음': 6}
 
 STATE_BADGE = {
     '셋업':     '🟢 셋업',
     '형성중':   '🟡 형성중',
+    '돌파완료': '🔵 돌파완료',
     '10EMA이탈':'🔴 10EMA이탈',
     '중간선이탈':'🔴 중간선이탈',
     '이탈':     '⚫ 이탈',
@@ -139,6 +140,7 @@ def render_10ema_tab(market: str, label: str):
             '베이스가 아직 무르익는 중, 지켜볼 종목'
         )
         c2.markdown(
+            '**🔵 돌파완료** — 타점 10%+ 초과 or 5일 이상 고가 위 → 추격 불가  \n\n'
             '**🔴 10EMA이탈** — 10EMA 아래 연속 2일 → 셋업 무효  \n\n'
             '**🔴 중간선이탈** — 기준봉 (고+저)/2 아래 터치 → 셋업 무효  \n\n'
             '**⚫ 이탈** — 기준봉 저가 하방  \n\n'

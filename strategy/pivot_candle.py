@@ -173,6 +173,12 @@ def classify_case(
 
     days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
 
+    # 이미 타점을 크게 돌파 → 추격 불가
+    if not since_pivot.empty:
+        days_above = int((since_pivot['Close'] > pivot['high']).sum())
+        if current_close > pivot['high'] * 1.10 or days_above > 5:
+            return '돌파완료'
+
     # 셋업 A: 잠깐 돌파 후 기준봉 고가 부근 복귀 (재진입 기회)
     if days_since <= 30 and not since_pivot.empty:
         max_high         = float(since_pivot['High'].max())
