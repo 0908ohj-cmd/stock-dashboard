@@ -256,10 +256,9 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('기준봉일', filter='agTextColumnFilter')
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
-    gb.configure_grid_options(domLayout='autoHeight', localeText=KO_LOCALE)
+    gb.configure_grid_options(localeText=KO_LOCALE)
 
-    # 적은 행: 정확한 높이로 공백 방지 / 많은 행: 400px 초기값 후 setFrameHeight 자동 확장
-    grid_height = min(72 + len(display_df) * 28, 400)
+    grid_height = 72 + len(display_df) * 28
 
     AgGrid(
         display_df,
