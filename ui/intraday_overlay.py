@@ -77,6 +77,7 @@ def intraday_overlay_chart(
     index_name: str,
     jjin_date=None,
     market: str = 'US',
+    stock_name: str = '',
 ) -> go.Figure:
     """찐반등 날 기준 5일치 누적수익률 오버레이 차트 (정규장만)."""
     fig = go.Figure()
@@ -88,6 +89,14 @@ def intraday_overlay_chart(
         fig.update_layout(title='5분봉 데이터 없음 (60일 초과)', template='plotly_dark', height=350)
         return fig
 
+    # UTC → 현지 시간으로 변환 (x축 시간 표시 정확하게)
+    tz = 'Asia/Seoul' if market.startswith('KR') else 'America/New_York'
+    if stock_5m.index.tz is not None:
+        stock_5m = stock_5m.copy()
+        stock_5m.index = stock_5m.index.tz_convert(tz)
+        index_5m = index_5m.copy()
+        index_5m.index = index_5m.index.tz_convert(tz)
+
     idx_open   = float(index_5m['Close'].iloc[0])
     stk_open   = float(stock_5m['Close'].iloc[0])
     idx_cumret = (index_5m['Close'] / idx_open - 1) * 100
@@ -96,7 +105,7 @@ def intraday_overlay_chart(
     # 찐반등일 하이라이트
     if jjin_date is not None:
         jjin_ts = pd.Timestamp(jjin_date)
-        jjin_data = index_5m[index_5m.index.normalize() == jjin_ts.normalize()]
+        jjin_data = index_5m[index_5m.index.normalize() == jjin_ts.normalize().tz_localize(tz)]
         if not jjin_data.empty:
             fig.add_vrect(
                 x0=jjin_data.index[0], x1=jjin_data.index[-1],
@@ -107,18 +116,19 @@ def intraday_overlay_chart(
                 annotation_font=dict(size=10, color='#ffd600'),
             )
 
-    # 날짜 경계 수직선
+    # 날짜 경계 — 정규장 시작 시각에 수직선
+    open_time = '09:00' if market.startswith('KR') else '09:30'
     dates = index_5m.index.normalize().unique()
-    for d in dates[1:]:
+    for d in dates:
+        open_ts = pd.Timestamp(f'{d.date()} {open_time}', tz=tz)
         fig.add_vline(
-            x=d.timestamp() * 1000,
-            line_width=0.6, line_dash='solid', line_color='#2a2a2a',
+            x=open_ts.timestamp() * 1000,
+            line_width=0.8, line_dash='dot', line_color='#3a3a3a',
         )
 
-    # 0선
     fig.add_hline(y=0, line_width=0.8, line_color='#333')
 
-    # 지수 (배경)
+    # 지수
     fig.add_trace(go.Scatter(
         x=index_5m.index, y=idx_cumret,
         name=index_name,
@@ -126,22 +136,26 @@ def intraday_overlay_chart(
         hovertemplate='%{y:.2f}%<extra>' + index_name + '</extra>',
     ))
 
-    # 종목 (전면)
+    # 종목
     last_val = float(stk_cumret.iloc[-1])
     stock_color = '#26c6da' if last_val >= 0 else '#ef5350'
+    label = f'{ticker} {stock_name}' if stock_name and stock_name != ticker else ticker
     fig.add_trace(go.Scatter(
         x=stock_5m.index, y=stk_cumret,
-        name=ticker,
+        name=label,
         line=dict(color=stock_color, width=2),
         fill='tozeroy',
         fillcolor=f'rgba({34 if last_val >= 0 else 239},{198 if last_val >= 0 else 83},{218 if last_val >= 0 else 80},0.06)',
-        hovertemplate='%{y:.2f}%<extra>' + ticker + '</extra>',
+        hovertemplate='%{y:.2f}%<extra>' + label + '</extra>',
     ))
 
     title_date = pd.Timestamp(jjin_date).strftime('%Y-%m-%d') if jjin_date else ''
+    open_hour = 9 if market.startswith('KR') else 9.5
+    close_hour = 15.5 if market.startswith('KR') else 16
+
     fig.update_layout(
         title=dict(
-            text=f'<b>{ticker}</b> vs {index_name} &nbsp;·&nbsp; 찐반등일 {title_date} 기준 5일',
+            text=f'<b>{label}</b> vs {index_name} &nbsp;·&nbsp; 찐반등일 {title_date} 기준 5일',
             font=dict(size=13),
             x=0,
         ),
@@ -155,18 +169,19 @@ def intraday_overlay_chart(
         xaxis=dict(
             tickfont=dict(size=10),
             gridcolor='#1e1e1e',
+            tickformat='%H:%M\n%m/%d',
             rangebreaks=[
                 dict(bounds=['sat', 'mon']),
-                dict(bounds=[20, 13.5], pattern='hour') if not market.startswith('KR') else dict(bounds=[6.5, 0], pattern='hour'),
+                dict(bounds=[close_hour, open_hour], pattern='hour'),
             ],
         ),
         template='plotly_dark',
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='#0e1117',
         height=360,
-        margin=dict(l=40, r=20, t=45, b=20),
+        margin=dict(l=40, r=120, t=45, b=20),
         legend=dict(
-            orientation='h', y=1.08, x=1, xanchor='right',
+            orientation='v', y=1, x=1.01, xanchor='left',
             font=dict(size=11),
             bgcolor='rgba(0,0,0,0)',
         ),
