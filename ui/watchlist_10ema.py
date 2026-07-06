@@ -133,13 +133,22 @@ def render_10ema_tab(market: str, label: str):
     with st.expander('가이드', expanded=False):
         st.caption('상태')
         cols = st.columns(3)
-        cols[0].markdown('🟢 **셋업**\n\n타이트 횡보 3~40일\n거래량 수축 · 10EMA 서핑\n→ 기준봉 고가 돌파 시 ORH 매수')
-        cols[1].markdown('🟡 **형성중**\n\n기준봉은 있으나\n베이스 조건 미충족\n지켜볼 종목')
-        cols[2].markdown('🔵 **돌파완료**\n\nADR 1.5배+ 초과\nor 고가 위 누적 5거래일\n→ 추격 불가')
+        cols[0].markdown('🟢 **셋업**\n\n타이트 횡보 3~40일\n거래량 수축 · 10EMA 서핑\n\n기준봉 고가 돌파시 ORH 매수')
+        cols[1].markdown('🟡 **형성중**\n\n기준봉은 있으나\n베이스 조건 미충족\n\n지켜볼 종목')
+        cols[2].markdown('🔵 **돌파완료**\n\nADR 1.5배+ 초과\nor 고가 위 누적 5거래일\n\n추격 불가')
         cols2 = st.columns(3)
-        cols2[0].markdown('🔴 **10EMA이탈**\n\n10EMA 아래\n연속 2거래일\n→ 셋업 무효')
-        cols2[1].markdown('🔴 **중간선이탈**\n\n기준봉 중간선 아래\n연속 2거래일\n→ 셋업 무효')
+        cols2[0].markdown('🔴 **10EMA이탈**\n\n10EMA 아래\n연속 2거래일\n\n셋업 무효')
+        cols2[1].markdown('🔴 **중간선이탈**\n\n기준봉 중간선 아래\n연속 2거래일\n\n셋업 무효')
         cols2[2].markdown('⚫ **이탈 / 없음**\n\n저가 하방 이탈\nor 3개월 내\n기준봉 미탐지')
+
+        st.divider()
+        st.caption('기준봉이란?')
+        st.markdown(
+            '거래량이 평소의 **1.5배 이상** 터지면서 **저항을 돌파**한 캔들. '
+            '종가가 당일 레인지 상위 30% 이상에 위치해야 하고, '
+            '10EMA · 21EMA · 50MA **정배열** 상태에서 발생해야 유효. '
+            '이 고가가 **타점(진입가)**이 되고, 고저 중간값이 **손절선**이 된다.'
+        )
 
         st.divider()
         st.caption('컬럼')
@@ -147,13 +156,12 @@ def render_10ema_tab(market: str, label: str):
         ca.markdown(
             '**기준봉일** — 기준봉 발생 날짜  \n'
             '**타점** — 기준봉 고가, ORH 매수 진입가  \n'
-            '**현재→타점%** — 타점까지 남은 거리 *(−5% 이내 주목)*  \n'
+            '**현재→타점%** — 타점까지 남은 거리 *(-5% 이내 주목)*  \n'
             '**횡보일수** — 기준봉 이후 경과 거래일 *(3~40일)*'
         )
         cb.markdown(
-            '**이전상승%** — 기준봉 전 3개월 저점→고가 상승폭  \n'
-            '&nbsp;&nbsp;&nbsp;&nbsp;*(Prior Move — 30%+ 필수)*  \n'
-            '**기준봉** — 거래량 1.5배+ · 저항 돌파 · 정배열 캔들'
+            '**이전상승%** — 기준봉 전 3개월 저점 대비 고가 상승폭  \n'
+            '*(Prior Move — 30%+ 필수)*'
         )
 
         st.divider()
