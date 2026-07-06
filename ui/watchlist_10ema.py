@@ -137,39 +137,39 @@ def render_10ema_tab(market: str, label: str):
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 셋업</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">타이트 횡보 3~40일<br>거래량 수축 · 10EMA 서핑</div>
+    <div style="font-size:0.85em;line-height:1.6">타이트 횡보 3~40일<br>거래량 수축 · 10EMA 서핑</div>
     <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">-> 기준봉 고가 돌파 시 ORH 매수</div>
   </div>
   <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟡 형성중</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">기준봉은 있으나<br>베이스 조건 미충족</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉은 있으나<br>베이스 조건 미충족</div>
     <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">-> 지켜볼 종목</div>
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 돌파완료</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">ADR 1.5배+ 초과<br>or 고가 위 누적 5거래일</div>
+    <div style="font-size:0.85em;line-height:1.6">ADR 1.5배+ 초과<br>or 고가 위 누적 5거래일</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">-> 추격 불가</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 10EMA이탈</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">10EMA 아래<br>연속 2거래일</div>
+    <div style="font-size:0.85em;line-height:1.6">10EMA 아래<br>연속 2거래일</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 중간선이탈</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">기준봉 중간선 아래<br>연속 2거래일</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉 중간선 아래<br>연속 2거래일</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 이탈</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">기준봉 저가<br>하방 이탈</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉 저가<br>하방 이탈</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 없음</div>
-    <div style="color:#aaa;font-size:0.85em;line-height:1.6">최근 3개월 내<br>기준봉 미탐지</div>
+    <div style="font-size:0.85em;line-height:1.6">최근 3개월 내<br>기준봉 미탐지</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
