@@ -55,10 +55,14 @@ def calc_intraday_strength(
 
 
 def _filter_regular_hours(df: pd.DataFrame, market: str) -> pd.DataFrame:
-    """정규장 시간대만 필터링."""
+    """정규장 시간대만 필터링 (타임존 변환 후 비교)."""
     if df.empty:
         return df
-    t = df.index.time
+    idx = df.index
+    if idx.tz is not None:
+        tz = 'Asia/Seoul' if market.startswith('KR') else 'America/New_York'
+        idx = idx.tz_convert(tz)
+    t = idx.time
     if market.startswith('KR'):
         mask = (t >= pd.Timestamp('09:00').time()) & (t <= pd.Timestamp('15:30').time())
     else:
