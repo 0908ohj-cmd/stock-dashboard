@@ -199,11 +199,9 @@ def render_10ema_tab(market: str, label: str):
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '타점':           r['타점'],
         '현재→타점%':     r['현재→타점%'],
-        '리스크%':        r['리스크%'],
         '이전상승%':      r['이전상승%'],
         '횡보일수':       r['횡보일수'],
         '기준봉거래량비':  r['기준봉거래량비'],
-        'MA점수':         r['MA점수'],
         '고점대비%':      r['고점대비%'],
     } for r in display_rows])
 
@@ -217,7 +215,7 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170)
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt)
-    for col in ['현재→타점%', '리스크%', '이전상승%', '횡보일수', '기준봉거래량비', 'MA점수', '고점대비%']:
+    for col in ['현재→타점%', '이전상승%', '횡보일수', '기준봉거래량비', '고점대비%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
