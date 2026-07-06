@@ -63,10 +63,12 @@ def calc_correction_rs(
     index_df: pd.DataFrame,
     correction_start: pd.Timestamp,
     jjin_date: pd.Timestamp | None,
+    custom_peak_date: pd.Timestamp | None = None,
 ) -> dict:
     """
     조정 구간(correction_start ~ jjin_date) RS 계산.
     jjin_date가 None이면 index_df 마지막 날까지 계산.
+    custom_peak_date 지정 시 자동 전고점 계산 대신 해당 날짜를 기산점으로 사용.
     """
     empty = {
         'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
@@ -74,8 +76,8 @@ def calc_correction_rs(
         'vol_ratio': 0.0, 'candle_ratio': 0.0,
     }
 
-    end        = jjin_date if jjin_date is not None else index_df.index[-1]
-    peak_date  = _index_peak_date(index_df, correction_start)
+    end       = jjin_date if jjin_date is not None else index_df.index[-1]
+    peak_date = custom_peak_date if custom_peak_date is not None else _index_peak_date(index_df, correction_start)
 
     # RS%, 저점선행 모두 고점부터 측정
     idx_slice = index_df[(index_df.index >= peak_date) & (index_df.index <= end)]

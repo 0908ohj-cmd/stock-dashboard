@@ -82,13 +82,15 @@ def _build_rows(
     market: str,
     correction_start_str: str | None,
     jjin_date_str: str | None,
+    custom_rs_start_str: str | None = None,
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
     index_df   = _fetch_index_cached(index_name)
 
-    correction_start = pd.Timestamp(correction_start_str) if correction_start_str else None
-    jjin_date        = pd.Timestamp(jjin_date_str)        if jjin_date_str        else None
+    correction_start  = pd.Timestamp(correction_start_str)  if correction_start_str  else None
+    jjin_date         = pd.Timestamp(jjin_date_str)         if jjin_date_str         else None
+    custom_peak_date  = pd.Timestamp(custom_rs_start_str)   if custom_rs_start_str   else None
 
     adr_min = 2.0 if market.startswith('KR') else 4.0
     stock_cache = {}
@@ -115,7 +117,7 @@ def _build_rows(
             name        = get_stock_name(ticker, market)
 
             if correction_start is not None and not index_df.empty:
-                rs = calc_correction_rs(df, index_df, correction_start, jjin_date)
+                rs = calc_correction_rs(df, index_df, correction_start, jjin_date, custom_peak_date)
             else:
                 rs = {
                     'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
@@ -244,10 +246,25 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     correction_start_str = str(cs.date()) if cs else None
     jjin_date_str        = str(jd.date()) if jd else None
 
+    # RS 기산점 커스텀 설정
+    auto_peak = status.get('peak_date')
+    with st.expander('⚙️ RS 기산점 설정', expanded=False):
+        st.caption(f'자동 기산점: {auto_peak.date() if auto_peak else "없음 (조정 미감지)"}')
+        custom_date = st.date_input(
+            '커스텀 기산점 날짜 (설정 시 자동 계산 비활성화)',
+            value=None,
+            key=f'rs_custom_{market}',
+            help='비워두면 자동으로 이탈일 이전 전고점을 기산점으로 사용합니다.',
+        )
+        custom_rs_start_str = str(custom_date) if custom_date else None
+        if custom_rs_start_str:
+            st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
+
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
             tuple(tickers), market,
             correction_start_str, jjin_date_str,
+            custom_rs_start_str,
         )
 
     if not rows:
@@ -343,7 +360,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         return f'  <span style="font-size:0.85em; color:gray;">({start} ~ {end})</span>'
 
     pdate_c = status.get('peak_date')
-    rs_start = str(pdate_c.date()) if pdate_c else correction_start_str
+    rs_start = custom_rs_start_str or (str(pdate_c.date()) if pdate_c else correction_start_str)
 
     # 전체 후보 섹션을 하나의 expander로
     has_candidates = bool(top_candidates or fallback)
@@ -375,7 +392,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
 
                     with st.spinner('추가 후보 확인 중...'):
-                        add_rows = _build_rows(tuple(tickers), market, correction_start_str, None)
+                        add_rows = _build_rows(tuple(tickers), market, correction_start_str, None, custom_rs_start_str)
 
                     day3_new = [
                         r for r in add_rows

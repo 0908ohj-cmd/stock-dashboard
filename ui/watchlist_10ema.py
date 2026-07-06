@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from data.fetcher import fetch_daily, get_stock_name
@@ -29,47 +30,55 @@ def _ma_score(df: pd.DataFrame, close: float) -> int:
     return sum(1 for v in mas if not pd.isna(v) and close > v)
 
 
-@st.cache_data(ttl=300)
+def _process_one(ticker: str, market: str) -> dict | None:
+    try:
+        df = fetch_daily(ticker, market=market, days=300)
+        if df.empty or len(df) < 70:
+            return None
+
+        pivot  = find_pivot_candle(df)
+        case   = classify_case(df, pivot)
+        name   = get_stock_name(ticker, market)
+
+        last_close = float(df['Close'].iloc[-1])
+        prev_close = float(df['Close'].iloc[-2])
+        change_pct = (last_close - prev_close) / prev_close * 100
+
+        pivot_date_str = str(pivot['date'].date()) if pivot else ''
+        pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
+        days_since     = (
+            int(np.busday_count(pivot['date'].date(), df.index[-1].date()))
+            if pivot else 0
+        )
+
+        return {
+            'Ticker':          ticker,
+            '종목명':          name,
+            '케이스':          case,
+            'Close':           round(last_close, 2),
+            '등락%':           round(change_pct, 2),
+            '기준봉일':        pivot_date_str,
+            '기준봉거래량비':  round(pivot_vol_r, 1),
+            '횡보일수':        days_since,
+            '10EMA기울기%':    round(calc_10ema_slope(df), 2),
+            'MA점수':          _ma_score(df, last_close),
+            '고점대비%':       calc_pct_from_52w_high(df),
+        }
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str) -> list:
     tickers = list(tickers_tuple)
     rows = []
 
-    for ticker in tickers:
-        try:
-            df = fetch_daily(ticker, market=market, days=300)
-            if df.empty or len(df) < 70:
-                continue
-
-            pivot  = find_pivot_candle(df)
-            case   = classify_case(df, pivot)
-            name   = get_stock_name(ticker, market)
-
-            last_close = float(df['Close'].iloc[-1])
-            prev_close = float(df['Close'].iloc[-2])
-            change_pct = (last_close - prev_close) / prev_close * 100
-
-            pivot_date_str = str(pivot['date'].date()) if pivot else ''
-            pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
-            days_since     = (
-                int(np.busday_count(pivot['date'].date(), df.index[-1].date()))
-                if pivot else 0
-            )
-
-            rows.append({
-                'Ticker':          ticker,
-                '종목명':          name,
-                '케이스':          case,
-                'Close':           round(last_close, 2),
-                '등락%':           round(change_pct, 2),
-                '기준봉일':        pivot_date_str,
-                '기준봉거래량비':  round(pivot_vol_r, 1),
-                '횡보일수':        days_since,
-                '10EMA기울기%':    round(calc_10ema_slope(df), 2),
-                'MA점수':          _ma_score(df, last_close),
-                '고점대비%':       calc_pct_from_52w_high(df),
-            })
-        except Exception:
-            continue
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(_process_one, t, market): t for t in tickers}
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                rows.append(result)
 
     rows.sort(key=lambda r: (
         CASE_ORDER.get(r['케이스'], 99),
@@ -78,9 +87,18 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str) -> list:
     return rows
 
 
-def render_10ema_tab(tickers: list, market: str, label: str):
+def render_10ema_tab(market: str, label: str):
+    from data.universe import get_kr_universe, get_us_universe
+
+    # 유니버스 로드 (24h 캐시)
+    with st.spinner(f'{label} 유니버스 로딩 중...'):
+        if market == 'US':
+            tickers = get_us_universe()
+        else:
+            tickers = get_kr_universe(market)
+
     if not tickers:
-        st.info(f'사이드바에서 {label} 파일을 업로드해 주세요.')
+        st.warning('유니버스를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.')
         return
 
     with st.expander('케이스 & 컬럼 설명', expanded=False):
@@ -112,17 +130,31 @@ def render_10ema_tab(tickers: list, market: str, label: str):
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
 
-    with st.spinner(f'{label} 10EMA 분석 중... ({len(tickers)}개 종목)'):
-        rows = _build_10ema_rows(tuple(tickers), market)
+    with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
+        rows = _build_10ema_rows(tuple(sorted(tickers)), market)
 
     if not rows:
         st.warning('분석 가능한 종목이 없습니다.')
         return
 
-    case_counts: dict[str, int] = {}
+    # 케이스 요약
+    case_counts: dict = {}
     for r in rows:
         case_counts[r['케이스']] = case_counts.get(r['케이스'], 0) + 1
-    st.caption(' | '.join(f"{k}: {v}개" for k, v in case_counts.items() if v > 0))
+    st.caption(
+        f'스캔: {len(tickers)}개 종목  |  '
+        + ' | '.join(f"{k}: {v}개" for k, v in case_counts.items() if v > 0)
+    )
+
+    # Case1/Case2만 기본 표시, 전체 보기 옵션
+    show_all = st.checkbox('전체 종목 보기', value=False, key=f'show_all_{market}')
+    if show_all:
+        display_rows = rows
+    else:
+        display_rows = [r for r in rows if r['케이스'] in ('Case1', 'Case2')]
+        if not display_rows:
+            st.info('현재 Case1/Case2 해당 종목 없음. "전체 종목 보기"를 체크하면 전체를 확인할 수 있습니다.')
+            return
 
     display_df = pd.DataFrame([{
         '티커 | 종목명':   f"{r['Ticker']} | {r['종목명']}",
@@ -135,7 +167,7 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         '10EMA기울기%':    r['10EMA기울기%'],
         'MA점수':          r['MA점수'],
         '고점대비%':       r['고점대비%'],
-    } for r in rows])
+    } for r in display_rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
     gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True)
@@ -152,7 +184,7 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
-    grid_height = 90 + len(display_df) * 36
+    grid_height = min(90 + len(display_df) * 36, 800)
 
     AgGrid(
         display_df,
@@ -164,7 +196,7 @@ def render_10ema_tab(tickers: list, market: str, label: str):
         fit_columns_on_grid_load=False,
     )
 
-    candidates = [r for r in rows if r['케이스'] in ('Case1', 'Case2')]
+    candidates = [r for r in display_rows if r['케이스'] in ('Case1', 'Case2')]
     if candidates:
         names = [
             f"**{r['Ticker']}** {r['종목명']} "

@@ -34,12 +34,9 @@ SAVED_DIR = pathlib.Path(__file__).parent / 'data' / 'saved'
 SAVED_DIR.mkdir(exist_ok=True)
 
 SAVED_PATHS = {
-    'KR_KOSPI':    SAVED_DIR / 'kospi.tickers',
-    'KR_KOSDAQ':   SAVED_DIR / 'kosdaq.tickers',
-    'US':          SAVED_DIR / 'us.tickers',
-    '10EMA_KOSPI': SAVED_DIR / '10ema_kospi.tickers',
-    '10EMA_KOSDAQ':SAVED_DIR / '10ema_kosdaq.tickers',
-    '10EMA_US':    SAVED_DIR / '10ema_us.tickers',
+    'KR_KOSPI':  SAVED_DIR / 'kospi.tickers',
+    'KR_KOSDAQ': SAVED_DIR / 'kosdaq.tickers',
+    'US':        SAVED_DIR / 'us.tickers',
 }
 
 st.set_page_config(
@@ -71,11 +68,6 @@ with st.sidebar:
     kosdaq_file       = st.file_uploader('코스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kosdaq_csv')
     us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
     st.divider()
-    st.markdown('**📈 10EMA 강세장**')
-    ema10_kospi_file  = st.file_uploader('10EMA 코스피 (CSV 또는 TXT)',  type=['csv', 'txt'], key='10ema_kospi')
-    ema10_kosdaq_file = st.file_uploader('10EMA 코스닥 (CSV 또는 TXT)',  type=['csv', 'txt'], key='10ema_kosdaq')
-    ema10_us_file     = st.file_uploader('10EMA 나스닥 (CSV 또는 TXT)',  type=['csv', 'txt'], key='10ema_us')
-    st.divider()
     if st.button('🔄 새로고침', use_container_width=True):
         st.cache_data.clear()
         st.rerun()
@@ -86,15 +78,11 @@ with st.sidebar:
 
 # ── 종목 파싱 ─────────────────────────────────────────────
 kr_kospi, kr_kosdaq, us_tickers = [], [], []
-ema10_kospi_tickers, ema10_kosdaq_tickers, ema10_us_tickers = [], [], []
 
 for uploaded, key, name in [
-    (kospi_file,       'KR_KOSPI',    'KOSPI'),
-    (kosdaq_file,      'KR_KOSDAQ',   'KOSDAQ'),
-    (us_file,          'US',          'US'),
-    (ema10_kospi_file, '10EMA_KOSPI', '10EMA 코스피'),
-    (ema10_kosdaq_file,'10EMA_KOSDAQ','10EMA 코스닥'),
-    (ema10_us_file,    '10EMA_US',    '10EMA 미장'),
+    (kospi_file,  'KR_KOSPI',  'KOSPI'),
+    (kosdaq_file, 'KR_KOSDAQ', 'KOSDAQ'),
+    (us_file,     'US',        'US'),
 ]:
     saved_path = SAVED_PATHS[key]
 
@@ -117,12 +105,9 @@ for uploaded, key, name in [
     if saved_path.exists():
         try:
             tickers = [t for t in saved_path.read_text(encoding='utf-8').splitlines() if t.strip()]
-            if key == 'KR_KOSPI':       kr_kospi            = tickers
-            elif key == 'KR_KOSDAQ':    kr_kosdaq           = tickers
-            elif key == 'US':           us_tickers          = tickers
-            elif key == '10EMA_KOSPI':  ema10_kospi_tickers = tickers
-            elif key == '10EMA_KOSDAQ': ema10_kosdaq_tickers= tickers
-            else:                       ema10_us_tickers    = tickers
+            if key == 'KR_KOSPI':    kr_kospi  = tickers
+            elif key == 'KR_KOSDAQ': kr_kosdaq = tickers
+            else:                    us_tickers = tickers
             label = f'{name} {len(tickers)}개' + ('' if uploaded else ' (저장됨)')
             st.sidebar.success(label)
         except Exception as e:
@@ -132,9 +117,6 @@ for uploaded, key, name in [
 if backup_restore_file:
     try:
         backup = json.loads(backup_restore_file.read().decode('utf-8'))
-        # 구버전 키(10EMA_KR) 호환
-        if '10EMA_KR' in backup and '10EMA_KOSPI' not in backup:
-            backup['10EMA_KOSPI'] = backup.pop('10EMA_KR')
         for key, tickers_list in backup.items():
             if key in SAVED_PATHS and isinstance(tickers_list, list):
                 content = '\n'.join(t for t in tickers_list if t)
@@ -146,15 +128,12 @@ if backup_restore_file:
         st.sidebar.error(f'백업 복원 오류: {e}')
 
 # ── 백업 다운로드 버튼 ────────────────────────────────────
-_any = kr_kospi or kr_kosdaq or us_tickers or ema10_kospi_tickers or ema10_kosdaq_tickers or ema10_us_tickers
+_any = kr_kospi or kr_kosdaq or us_tickers
 if _any:
     _backup_json = json.dumps({
-        'KR_KOSPI':    kr_kospi,
-        'KR_KOSDAQ':   kr_kosdaq,
-        'US':          us_tickers,
-        '10EMA_KOSPI': ema10_kospi_tickers,
-        '10EMA_KOSDAQ':ema10_kosdaq_tickers,
-        '10EMA_US':    ema10_us_tickers,
+        'KR_KOSPI':  kr_kospi,
+        'KR_KOSDAQ': kr_kosdaq,
+        'US':        us_tickers,
     }, ensure_ascii=False)
     st.sidebar.download_button(
         '⬇️ 티커 백업 다운로드',
@@ -180,9 +159,9 @@ with tab_kosdaq:
 with tab_us:
     render_watchlist_tab(us_tickers, 'US', '나스닥')
 with tab_10ema_kospi:
-    render_10ema_tab(ema10_kospi_tickers, 'KR_KOSPI', '10EMA 코스피')
+    render_10ema_tab('KR_KOSPI', '10EMA 코스피')
 with tab_10ema_kosdaq:
-    render_10ema_tab(ema10_kosdaq_tickers, 'KR_KOSDAQ', '10EMA 코스닥')
+    render_10ema_tab('KR_KOSDAQ', '10EMA 코스닥')
 with tab_10ema_us:
-    render_10ema_tab(ema10_us_tickers, 'US', '10EMA 나스닥')
+    render_10ema_tab('US', '10EMA 나스닥')
 
