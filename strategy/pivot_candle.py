@@ -160,10 +160,11 @@ def classify_case(
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 
-    if not since_pivot.empty and float(since_pivot['Close'].min()) < pivot['midline']:
-        return '중간선이탈'
-    if current_close < pivot['midline']:
-        return '중간선이탈'
+    # 연속 2거래일 중간선 아래 → 이탈 (1회는 허용)
+    if len(since_pivot) >= 2:
+        below_mid = since_pivot['Close'] < pivot['midline']
+        if (below_mid & below_mid.shift(1)).any():
+            return '중간선이탈'
 
     if len(since_pivot) >= 2:
         ema10_since = calc_ema(stock_df, 10).loc[since_pivot.index]
