@@ -153,9 +153,13 @@ def intraday_overlay_chart(
     open_hour = 9 if market.startswith('KR') else 9.5
     close_hour = 15.5 if market.startswith('KR') else 16
 
+    # x축 시작을 첫 데이터보다 30분 앞으로 설정해 첫 날 09:00 tick 표시
+    x_start = index_5m.index[0] - pd.Timedelta(minutes=30)
+    x_end   = index_5m.index[-1] + pd.Timedelta(minutes=5)
+
     fig.update_layout(
         title=dict(
-            text=f'<b>{label}</b> vs {index_name} &nbsp;·&nbsp; 찐반등일 {title_date} 기준 5일',
+            text=f'<b>{label}</b> vs {index_name} &nbsp;|&nbsp; 찐반등일 {title_date} 기준 5일',
             font=dict(size=13),
             x=0,
         ),
@@ -170,6 +174,8 @@ def intraday_overlay_chart(
             tickfont=dict(size=10),
             gridcolor='#1e1e1e',
             tickformat='%H:%M\n%m/%d',
+            tickvals=[pd.Timestamp(f'{d.date()} {open_time}', tz=tz) for d in dates],
+            range=[x_start, x_end],
             rangebreaks=[
                 dict(bounds=['sat', 'mon']),
                 dict(bounds=[close_hour, open_hour], pattern='hour'),
