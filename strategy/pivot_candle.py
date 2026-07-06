@@ -156,7 +156,7 @@ def classify_case(
     current_date  = stock_df.index[-1]
 
     if current_close < pivot['low']:
-        return '이탈'
+        return '저가이탈'
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 

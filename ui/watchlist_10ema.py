@@ -10,7 +10,7 @@ from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
 # 정렬 우선순위: 셋업 → 형성중 → 이탈류 → 없음
-STATE_ORDER = {'셋업': 0, '형성중': 1, '돌파완료': 2, '10EMA이탈': 3, '중간선이탈': 4, '이탈': 5, '없음': 6}
+STATE_ORDER = {'셋업': 0, '형성중': 1, '돌파완료': 2, '10EMA이탈': 3, '중간선이탈': 4, '저가이탈': 5, '없음': 6}
 
 STATE_BADGE = {
     '셋업':     '🟢 셋업',
@@ -18,7 +18,7 @@ STATE_BADGE = {
     '돌파완료': '🔵 돌파완료',
     '10EMA이탈':'🔴 10EMA이탈',
     '중간선이탈':'🔴 중간선이탈',
-    '이탈':     '🔴 이탈',
+    '저가이탈': '🔴 저가이탈',
     '없음':     '🔴 없음',
 }
 
@@ -101,7 +101,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 5  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 6  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -163,7 +163,7 @@ def render_10ema_tab(market: str, label: str):
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 이탈</div>
+    <div style="font-weight:700;margin-bottom:6px">🔴 저가이탈</div>
     <div style="font-size:0.85em;line-height:1.6">기준봉 저가<br>하방 이탈</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
   </div>
