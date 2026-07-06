@@ -73,33 +73,79 @@ def intraday_overlay_chart(
     idx_cumret = (index_5m['Close'] / idx_open - 1) * 100
     stk_cumret = (stock_5m['Close'] / stk_open - 1) * 100
 
+    # 찐반등일 하이라이트
+    if jjin_date is not None:
+        jjin_ts = pd.Timestamp(jjin_date)
+        jjin_data = index_5m[index_5m.index.normalize() == jjin_ts.normalize()]
+        if not jjin_data.empty:
+            fig.add_vrect(
+                x0=jjin_data.index[0], x1=jjin_data.index[-1],
+                fillcolor='rgba(255, 214, 0, 0.07)',
+                line_width=0,
+                annotation_text='찐반등일',
+                annotation_position='top left',
+                annotation_font=dict(size=10, color='#ffd600'),
+            )
+
     # 날짜 경계 수직선
     dates = index_5m.index.normalize().unique()
     for d in dates[1:]:
         fig.add_vline(
             x=d.timestamp() * 1000,
-            line_width=0.8, line_dash='solid', line_color='#444',
+            line_width=0.6, line_dash='solid', line_color='#2a2a2a',
         )
 
+    # 0선
+    fig.add_hline(y=0, line_width=0.8, line_color='#333')
+
+    # 지수 (배경)
     fig.add_trace(go.Scatter(
         x=index_5m.index, y=idx_cumret,
         name=index_name,
-        line=dict(color='#888888', width=1.5, dash='dot'),
+        line=dict(color='#546e7a', width=1.5, dash='dot'),
+        hovertemplate='%{y:.2f}%<extra>' + index_name + '</extra>',
     ))
+
+    # 종목 (전면)
+    last_val = float(stk_cumret.iloc[-1])
+    stock_color = '#26c6da' if last_val >= 0 else '#ef5350'
     fig.add_trace(go.Scatter(
         x=stock_5m.index, y=stk_cumret,
         name=ticker,
-        line=dict(color='#ef5350', width=2),
+        line=dict(color=stock_color, width=2),
+        fill='tozeroy',
+        fillcolor=f'rgba({34 if last_val >= 0 else 239},{198 if last_val >= 0 else 83},{218 if last_val >= 0 else 80},0.06)',
+        hovertemplate='%{y:.2f}%<extra>' + ticker + '</extra>',
     ))
-    fig.add_hline(y=0, line_width=0.5, line_color='#555')
 
-    title_date = pd.Timestamp(jjin_date).date() if jjin_date else ''
+    title_date = pd.Timestamp(jjin_date).strftime('%Y-%m-%d') if jjin_date else ''
     fig.update_layout(
-        title=f'{ticker} vs {index_name} — 찐반등 날({title_date}) 기준 이전 5일 5분봉',
-        yaxis_title='시가 대비 누적수익률 (%)',
+        title=dict(
+            text=f'<b>{ticker}</b> vs {index_name} &nbsp;·&nbsp; 찐반등일 {title_date} 기준 5일',
+            font=dict(size=13),
+            x=0,
+        ),
+        yaxis=dict(
+            title='누적수익률 (%)',
+            title_font=dict(size=11),
+            tickfont=dict(size=10),
+            gridcolor='#1e1e1e',
+            zeroline=False,
+        ),
+        xaxis=dict(
+            tickfont=dict(size=10),
+            gridcolor='#1e1e1e',
+        ),
         template='plotly_dark',
-        height=380,
-        margin=dict(l=40, r=40, t=50, b=20),
-        legend=dict(orientation='h', y=1.02),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='#0e1117',
+        height=360,
+        margin=dict(l=40, r=20, t=45, b=20),
+        legend=dict(
+            orientation='h', y=1.08, x=1, xanchor='right',
+            font=dict(size=11),
+            bgcolor='rgba(0,0,0,0)',
+        ),
+        hovermode='x unified',
     )
     return fig
