@@ -13,6 +13,30 @@ def calc_10ema_slope(stock_df: pd.DataFrame, period: int = 5) -> float:
     return float((ema10.iloc[-1] - base) / base * 100)
 
 
+def _has_prior_move(df: pd.DataFrame, pivot_idx: int, pivot_high: float,
+                    lookback: int = 65, min_pct: float = 30.0) -> bool:
+    """기준봉 이전 lookback 거래일 내 저점 → 기준봉 고가까지 min_pct% 이상 상승 여부."""
+    start = max(0, pivot_idx - lookback)
+    if pivot_idx <= start:
+        return False
+    prior_low = float(df['Low'].iloc[start:pivot_idx].min())
+    if prior_low <= 0:
+        return False
+    return (pivot_high / prior_low - 1) * 100 >= min_pct
+
+
+def _base_is_tight(since_pivot: pd.DataFrame, pivot_high: float,
+                   max_range_pct: float = 15.0) -> bool:
+    """베이스 타이트함: 횡보 구간 High-Low 범위가 기준봉 고가 대비 max_range_pct 이내."""
+    if since_pivot.empty:
+        return True
+    base_high = float(since_pivot['High'].max())
+    base_low  = float(since_pivot['Low'].min())
+    if pivot_high <= 0:
+        return True
+    return (base_high - base_low) / pivot_high * 100 <= max_range_pct
+
+
 def _vol_ratio_at(df: pd.DataFrame, idx: int, window: int = 20) -> float:
     if idx < window:
         return 0.0
@@ -78,7 +102,7 @@ def find_pivot_candle(
 
     for i in range(start_idx, len(stock_df) - 1):  # 오늘(마지막 봉) 제외
         vr = _vol_ratio_at(stock_df, i)
-        if vr < 3.0:
+        if vr < 1.5:  # 쿨라매기 기준: 거래량 1.5배+ (이전 3배 기준에서 완화)
             continue
         row = stock_df.iloc[i]
         if not _close_in_top30(row):
@@ -88,6 +112,9 @@ def find_pivot_candle(
         if pd.isna(ema50.iloc[i]):
             continue
         if not _is_aligned(ema10, ema21, ema50, i):
+            continue
+        # 쿨라매기 조건: 기준봉 이전 65거래일(3개월) 내 30%+ 상승 구간 존재
+        if not _has_prior_move(stock_df, i, float(row['High'])):
             continue
         candidates.append((i, vr))
 
@@ -165,19 +192,22 @@ def classify_case(
 
     # Case1: 기준봉 고가 아래에서 타이트하게 횡보 중인 1차 매수 타점
     in_range   = pivot['midline'] <= current_close <= pivot['high'] * 1.03
-    valid_days = 3 <= days_since <= 20                        # Minervini 14일 + 여유
+    valid_days = 3 <= days_since <= 40        # 쿨라매기 2~8주 = 최대 40거래일
     slope_up   = calc_10ema_slope(stock_df) > 0
     ema10_now  = float(calc_ema(stock_df, 10).iloc[-1])
     above_ema  = current_close > ema10_now
+    base_tight = _base_is_tight(since_pivot, pivot['high'])   # 횡보 범위 ≤ 15%
 
-    if in_range and valid_days and slope_up and above_ema:
+    if in_range and valid_days and slope_up and above_ema and base_tight:
         pivot_pos   = stock_df.index.get_loc(pivot['date'])
         pre_vol_avg = float(stock_df['Volume'].iloc[max(0, pivot_pos - 20):pivot_pos].mean())
-        vol_dry_up  = (
-            since_pivot.empty
-            or pre_vol_avg == 0
-            or float(since_pivot['Volume'].mean()) <= pre_vol_avg * 0.8
-        )
+        if since_pivot.empty or pre_vol_avg == 0:
+            vol_dry_up = True
+        else:
+            consol_avg = float(since_pivot['Volume'].mean())
+            recent_avg = float(since_pivot['Volume'].tail(min(3, len(since_pivot))).mean())
+            # 횡보 평균 거래량 ≤ 기준봉 이전 80% AND 최근 3일이 더 건조
+            vol_dry_up = consol_avg <= pre_vol_avg * 0.8 and recent_avg <= consol_avg
         if vol_dry_up:
             return 'Case1'
 

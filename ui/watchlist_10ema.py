@@ -51,14 +51,19 @@ def _process_one(ticker: str, market: str) -> dict | None:
             if pivot else 0
         )
 
-        # 타점 / 손절 / 리스크
+        # 타점 / 손절 / 리스크 / 이전상승%
         if pivot:
-            entry_price    = round(pivot['high'], 2)       # 기준봉 고가 돌파 = 매수 타점
-            stop_price     = round(pivot['midline'], 2)    # 중간선 = 손절 기준 (쿨라매기 원칙)
+            entry_price    = round(pivot['high'], 2)
+            stop_price     = round(pivot['midline'], 2)
             risk_pct       = round((entry_price - stop_price) / entry_price * 100, 1)
             near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
+            # 기준봉 이전 65거래일 내 저점 → 기준봉 고가 상승률 (쿨라매기 Prior Move 확인용)
+            pivot_pos  = df.index.get_loc(pivot['date'])
+            start_pos  = max(0, pivot_pos - 65)
+            prior_low  = float(df['Low'].iloc[start_pos:pivot_pos].min()) if pivot_pos > 0 else 0.0
+            prior_move_pct = round((pivot['high'] / prior_low - 1) * 100, 0) if prior_low > 0 else 0.0
         else:
-            entry_price = stop_price = risk_pct = near_entry_pct = 0.0
+            entry_price = stop_price = risk_pct = near_entry_pct = prior_move_pct = 0.0
 
         return {
             'Ticker':          ticker,
@@ -69,6 +74,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
             '손절(중간선)':    stop_price,
             '리스크%':         risk_pct,
             '현재→타점%':      near_entry_pct,
+            '이전상승%':       prior_move_pct,
             '등락%':           round(change_pct, 2),
             '기준봉일':        pivot_date_str,
             '기준봉거래량비':  round(pivot_vol_r, 1),
@@ -119,7 +125,7 @@ def render_10ema_tab(market: str, label: str):
         c1, c2 = st.columns(2)
         c1.markdown(
             '**Case1** — 매수 대기 1순위  \n'
-            '기준봉 범위 횡보 3~20일 · 거래량 수축 · 10EMA 우상향\n\n'
+            '기준봉 범위 횡보 3~40일 · 베이스 범위 ≤15% · 거래량 수축 · 10EMA 우상향\n\n'
             '**Case2** — 매수 대기 2순위  \n'
             '돌파 후 +10% 이내 · 5일 이내에 기준봉 고가 부근 복귀\n\n'
             '**대기중** — 조건 미충족, 아직 진행 중'
@@ -139,9 +145,10 @@ def render_10ema_tab(market: str, label: str):
             '| 손절(중간선) | 기준봉 (고+저)/2 — 이탈 시 손절 기준 | 중간선 아래 = 셋업 무효 |\n'
             '| 리스크% | (타점 − 손절) / 타점 — 타점 진입 시 최대 손실 % | 작을수록 유리 |\n'
             '| 현재→타점% | 현재가 / 타점 − 1 (음수 = 타점 아래, 0에 가까울수록 임박) | −5% 이내 주목 |\n'
+            '| 이전상승% | 기준봉 이전 3개월 내 저점→기준봉 고가 상승폭 (쿨라매기 Prior Move) | **30%+** 필수 |\n'
             '| 케이스 | 현재 진입 단계 분류 | Case1 > Case2 |\n'
             '| 기준봉거래량비 | 기준봉 거래량 / 직전 20일 평균 (배수) | 클수록 강함 |\n'
-            '| 횡보일수 | 기준봉 이후 현재까지 거래일 수 | 3~20일 |\n'
+            '| 횡보일수 | 기준봉 이후 현재까지 거래일 수 | 3~40일 |\n'
             '| 10EMA기울기% | 최근 5일 EMA10 변화율 | 양수 = 우상향 |\n'
             '| MA점수 | EMA10/21 · SMA50/150/200 위 개수 (0~5) | **5** = 완전 정배열 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
@@ -181,6 +188,7 @@ def render_10ema_tab(market: str, label: str):
         '손절(중간선)':     r['손절(중간선)'],
         '리스크%':          r['리스크%'],
         '현재→타점%':       r['현재→타점%'],
+        '이전상승%':        r['이전상승%'],
         '등락%':            r['등락%'],
         '기준봉일':         r['기준봉일'],
         '기준봉거래량비':   r['기준봉거래량비'],
@@ -205,7 +213,7 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter')
     gb.configure_column('케이스', filter='agSetColumnFilter')
     gb.configure_column('기준봉일', filter='agTextColumnFilter')
-    for col in ['리스크%', '현재→타점%', '등락%', '기준봉거래량비', '횡보일수', '10EMA기울기%', 'MA점수', '고점대비%']:
+    for col in ['리스크%', '현재→타점%', '이전상승%', '등락%', '기준봉거래량비', '횡보일수', '10EMA기울기%', 'MA점수', '고점대비%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
