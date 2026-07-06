@@ -468,9 +468,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         var tag = (p.document.activeElement || {{}}).tagName || '';
         if (/^(INPUT|TEXTAREA|SELECT)$/i.test(tag)) return;
         e.preventDefault();
+        var target = e.shiftKey ? '◀' : '▶';
         var btns = p.document.querySelectorAll('button');
         for (var i = 0; i < btns.length; i++) {{
-            if (btns[i].innerText.trim() === '▶' && !btns[i].disabled) {{
+            if (btns[i].innerText.trim() === target && !btns[i].disabled) {{
                 btns[i].click();
                 return;
             }}
