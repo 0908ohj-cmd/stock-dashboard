@@ -51,11 +51,24 @@ def _process_one(ticker: str, market: str) -> dict | None:
             if pivot else 0
         )
 
+        # 타점 / 손절 / 리스크
+        if pivot:
+            entry_price    = round(pivot['high'], 2)       # 기준봉 고가 돌파 = 매수 타점
+            stop_price     = round(pivot['midline'], 2)    # 중간선 = 손절 기준 (쿨라매기 원칙)
+            risk_pct       = round((entry_price - stop_price) / entry_price * 100, 1)
+            near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
+        else:
+            entry_price = stop_price = risk_pct = near_entry_pct = 0.0
+
         return {
             'Ticker':          ticker,
             '종목명':          name,
             '케이스':          case,
             'Close':           round(last_close, 2),
+            '타점(기준봉고가)': entry_price,
+            '손절(중간선)':    stop_price,
+            '리스크%':         risk_pct,
+            '현재→타점%':      near_entry_pct,
             '등락%':           round(change_pct, 2),
             '기준봉일':        pivot_date_str,
             '기준봉거래량비':  round(pivot_vol_r, 1),
@@ -122,6 +135,10 @@ def render_10ema_tab(market: str, label: str):
         st.markdown(
             '| 컬럼 | 설명 | 기준 |\n'
             '|------|------|------|\n'
+            '| 타점(기준봉고가) | **매수 진입가** — 이 가격 돌파 시 ORH 매수 | 기준봉 고가 |\n'
+            '| 손절(중간선) | 기준봉 (고+저)/2 — 이탈 시 손절 기준 | 중간선 아래 = 셋업 무효 |\n'
+            '| 리스크% | (타점 − 손절) / 타점 — 타점 진입 시 최대 손실 % | 작을수록 유리 |\n'
+            '| 현재→타점% | 현재가 / 타점 − 1 (음수 = 타점 아래, 0에 가까울수록 임박) | −5% 이내 주목 |\n'
             '| 케이스 | 현재 진입 단계 분류 | Case1 > Case2 |\n'
             '| 기준봉거래량비 | 기준봉 거래량 / 직전 20일 평균 (배수) | 클수록 강함 |\n'
             '| 횡보일수 | 기준봉 이후 현재까지 거래일 수 | 3~20일 |\n'
@@ -157,16 +174,20 @@ def render_10ema_tab(market: str, label: str):
             return
 
     display_df = pd.DataFrame([{
-        '티커 | 종목명':   f"{r['Ticker']} | {r['종목명']}",
-        '케이스':          r['케이스'],
-        'Close':           r['Close'],
-        '등락%':           r['등락%'],
-        '기준봉일':        r['기준봉일'],
-        '기준봉거래량비':  r['기준봉거래량비'],
-        '횡보일수':        r['횡보일수'],
-        '10EMA기울기%':    r['10EMA기울기%'],
-        'MA점수':          r['MA점수'],
-        '고점대비%':       r['고점대비%'],
+        '티커 | 종목명':    f"{r['Ticker']} | {r['종목명']}",
+        '케이스':           r['케이스'],
+        'Close':            r['Close'],
+        '타점(기준봉고가)': r['타점(기준봉고가)'],
+        '손절(중간선)':     r['손절(중간선)'],
+        '리스크%':          r['리스크%'],
+        '현재→타점%':       r['현재→타점%'],
+        '등락%':            r['등락%'],
+        '기준봉일':         r['기준봉일'],
+        '기준봉거래량비':   r['기준봉거래량비'],
+        '횡보일수':         r['횡보일수'],
+        '10EMA기울기%':     r['10EMA기울기%'],
+        'MA점수':           r['MA점수'],
+        '고점대비%':        r['고점대비%'],
     } for r in display_rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
@@ -177,10 +198,14 @@ def render_10ema_tab(market: str, label: str):
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'],
                          valueFormatter=close_fmt)
+    gb.configure_column('타점(기준봉고가)', filter='agNumberColumnFilter', type=['numericColumn'],
+                         valueFormatter=close_fmt)
+    gb.configure_column('손절(중간선)', filter='agNumberColumnFilter', type=['numericColumn'],
+                         valueFormatter=close_fmt)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter')
     gb.configure_column('케이스', filter='agSetColumnFilter')
     gb.configure_column('기준봉일', filter='agTextColumnFilter')
-    for col in ['등락%', '기준봉거래량비', '횡보일수', '10EMA기울기%', 'MA점수', '고점대비%']:
+    for col in ['리스크%', '현재→타점%', '등락%', '기준봉거래량비', '횡보일수', '10EMA기울기%', 'MA점수', '고점대비%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
@@ -200,7 +225,7 @@ def render_10ema_tab(market: str, label: str):
     if candidates:
         names = [
             f"**{r['Ticker']}** {r['종목명']} "
-            f"({r['케이스']} 거래량비:{r['기준봉거래량비']:.1f}x MA:{r['MA점수']})"
+            f"({r['케이스']} | 타점:{r['타점(기준봉고가)']} | 리스크:{r['리스크%']}% | MA:{r['MA점수']})"
             for r in candidates
         ]
-        st.success('⭐ 매수 대기: ' + ', '.join(names))
+        st.success('⭐ 매수 대기 (타점 = 기준봉 고가 돌파 ORH): ' + '  \n'.join(names))
