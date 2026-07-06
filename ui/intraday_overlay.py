@@ -157,7 +157,7 @@ def intraday_overlay_chart(
             gridcolor='#1e1e1e',
             rangebreaks=[
                 dict(bounds=['sat', 'mon']),
-                dict(bounds=[20, 13.5], pattern='hour') if not market.startswith('KR') else dict(bounds=[6.5, 9], pattern='hour'),
+                dict(bounds=[20, 13.5], pattern='hour') if not market.startswith('KR') else dict(bounds=[6.5, 0], pattern='hour'),
             ],
         ),
         template='plotly_dark',

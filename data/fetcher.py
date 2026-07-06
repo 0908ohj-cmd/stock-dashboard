@@ -319,8 +319,15 @@ def fetch_intraday_for_date(
         yf_ticker = ticker
 
     end   = target_date.replace(hour=23, minute=59, second=0, microsecond=0) + timedelta(days=1)
-    start = end - timedelta(days=days * 2 + 3)  # 주말 여유 포함해서 N 거래일 확보
-    return _download(yf_ticker, start, end, interval='5m')
+    start = end - timedelta(days=days + 4)  # 주말 여유 포함
+    df = _download(yf_ticker, start, end, interval='5m')
+    # 정확히 N 거래일만 반환
+    if not df.empty:
+        trading_days = df.index.normalize().unique()
+        if len(trading_days) > days:
+            cutoff = trading_days[-days]
+            df = df[df.index.normalize() >= cutoff]
+    return df
 
 
 def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.DataFrame:
@@ -332,8 +339,14 @@ def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.D
 
     ticker = INDICES[name]
     end    = target_date.replace(hour=23, minute=59, second=0, microsecond=0) + timedelta(days=1)
-    start  = end - timedelta(days=days * 2 + 3)
-    return _download(ticker, start, end, interval='5m')
+    start  = end - timedelta(days=days + 4)
+    df = _download(ticker, start, end, interval='5m')
+    if not df.empty:
+        trading_days = df.index.normalize().unique()
+        if len(trading_days) > days:
+            cutoff = trading_days[-days]
+            df = df[df.index.normalize() >= cutoff]
+    return df
 
 
 def parse_tradingview_csv(uploaded_file) -> pd.DataFrame:
