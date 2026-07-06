@@ -264,7 +264,7 @@ def render_10ema_tab(market: str, label: str):
         update_mode=GridUpdateMode.NO_UPDATE,
         enable_enterprise_modules=False,
         theme='streamlit',
-        fit_columns_on_grid_load=False,
+        fit_columns_on_grid_load=True,
     )
 
     # 셋업 완성 종목 배너
