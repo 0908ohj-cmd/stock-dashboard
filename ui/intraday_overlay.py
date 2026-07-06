@@ -196,7 +196,7 @@ def intraday_overlay_chart(
         height=360,
         margin=dict(l=40, r=20, t=55, b=20),
         legend=dict(
-            orientation='v', y=1.06, x=1.01, xanchor='left', yanchor='bottom',
+            orientation='v', y=1.06, x=1, xanchor='right', yanchor='bottom',
             font=dict(size=11),
             bgcolor='rgba(0,0,0,0)',
         ),
