@@ -195,36 +195,29 @@ def render_10ema_tab(market: str, label: str):
         return
 
     display_df = pd.DataFrame([{
-        '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
-        '상태':          STATE_BADGE.get(r['상태'], r['상태']),
-        'Close':         r['Close'],
-        '타점':          r['타점'],
-        '현재→타점%':    r['현재→타점%'],
-        '손절':          r['손절'],
-        '리스크%':       r['리스크%'],
-        '이전상승%':     r['이전상승%'],
-        '횡보일수':      r['횡보일수'],
-        '기준봉거래량비': r['기준봉거래량비'],
-        'MA점수':        r['MA점수'],
-        '고점대비%':     r['고점대비%'],
-        '등락%':         r['등락%'],
-        '기준봉일':      r['기준봉일'],
+        '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
+        '상태':           STATE_BADGE.get(r['상태'], r['상태']),
+        '타점':           r['타점'],
+        '현재→타점%':     r['현재→타점%'],
+        '리스크%':        r['리스크%'],
+        '이전상승%':      r['이전상승%'],
+        '횡보일수':       r['횡보일수'],
+        '기준봉거래량비':  r['기준봉거래량비'],
+        'MA점수':         r['MA점수'],
+        '고점대비%':      r['고점대비%'],
     } for r in display_rows])
 
     if market.startswith('KR'):
-        close_fmt = "value == null ? '' : '₩' + Math.round(value).toLocaleString('ko-KR')"
+        price_fmt = "value == null ? '' : '₩' + Math.round(value).toLocaleString('ko-KR')"
     else:
-        close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
+        price_fmt = "value == null ? '' : '$' + value.toFixed(2)"
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
     gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True)
-    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=160)
-    gb.configure_column('상태', filter='agSetColumnFilter', minWidth=120)
-    gb.configure_column('Close',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt)
-    gb.configure_column('타점',   filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt)
-    gb.configure_column('손절',   filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt)
-    gb.configure_column('기준봉일', filter='agTextColumnFilter')
-    for col in ['현재→타점%', '리스크%', '이전상승%', '횡보일수', '기준봉거래량비', 'MA점수', '고점대비%', '등락%']:
+    gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170)
+    gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120)
+    gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt)
+    for col in ['현재→타점%', '리스크%', '이전상승%', '횡보일수', '기준봉거래량비', 'MA점수', '고점대비%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
