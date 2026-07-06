@@ -175,27 +175,58 @@ def render_10ema_tab(market: str, label: str):
 """, unsafe_allow_html=True)
 
         st.divider()
-        st.caption('기준봉이란?')
-        st.markdown(
-            '**거래량 1.5배+** 폭발과 함께 저항을 돌파한 캔들(손바뀜).  \n'
-            '종가가 당일 고저 범위의 **상단 70% 이상**에서 마감(윗꼬리 없이 강하게 닫힘).  \n'
-            '**10EMA · 21EMA · 50MA 정배열** 상태에서 발생해야 유효.  \n'
-            '이 봉의 **고가 = 타점**.'
-        )
+        st.markdown("""
+<div style="border:1px solid #ffffff18;border-radius:8px;padding:14px 18px;margin-bottom:4px">
+  <div style="font-size:0.78em;color:#888;margin-bottom:8px;letter-spacing:0.05em">기준봉이란?</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+    <div>
+      <div style="color:#f39c12;font-size:0.8em;font-weight:600;margin-bottom:4px">거래량</div>
+      <div style="color:#ddd;font-size:0.85em;line-height:1.6">평소 대비 <b>1.5배+</b> 폭발과 함께 저항을 돌파한 캔들(손바뀜)</div>
+    </div>
+    <div>
+      <div style="color:#f39c12;font-size:0.8em;font-weight:600;margin-bottom:4px">종가 위치</div>
+      <div style="color:#ddd;font-size:0.85em;line-height:1.6">당일 고저 범위의 <b>상단 70%+</b> 에서 마감<br>(윗꼬리 없이 강하게 닫힘)</div>
+    </div>
+    <div>
+      <div style="color:#f39c12;font-size:0.8em;font-weight:600;margin-bottom:4px">이평선</div>
+      <div style="color:#ddd;font-size:0.85em;line-height:1.6"><b>10EMA · 21EMA · 50MA 정배열</b> 상태에서 발생해야 유효 — 이 봉의 <b>고가 = 타점</b></div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         st.divider()
-        st.caption('컬럼')
-        ca, cb = st.columns(2)
-        ca.markdown(
-            '**기준봉일** — 기준봉 발생 날짜  \n'
-            '**타점** — 기준봉 고가, ORH 매수 진입가  \n'
-            '**현재→타점%** — 타점까지 남은 거리 *(-5% 이내 주목)*'
-        )
-        cb.markdown(
-            '**횡보일수** — 기준봉 이후 경과 거래일 *(3~40일)*  \n'
-            '**이전상승%** — 기준봉 전 3개월 저점 대비 고가 상승폭 *(Prior Move — 30%+ 필수)*  \n'
-            '**ADR%** — 최근 20일 평균 일일 변동폭 *(6%+ 필터 적용)*'
-        )
+        st.markdown("""
+<div style="border:1px solid #ffffff18;border-radius:8px;padding:14px 18px;margin-bottom:4px">
+  <div style="font-size:0.78em;color:#888;margin-bottom:10px;letter-spacing:0.05em">컬럼</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">기준봉일</div>
+      <div style="color:#aaa;font-size:0.82em">기준봉 발생 날짜</div>
+    </div>
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">타점</div>
+      <div style="color:#aaa;font-size:0.82em">기준봉 고가 — ORH 매수 진입가</div>
+    </div>
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">현재→타점%</div>
+      <div style="color:#aaa;font-size:0.82em">타점까지 남은 거리 <span style="color:#2ecc71">(-5% 이내 주목)</span></div>
+    </div>
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">횡보일수</div>
+      <div style="color:#aaa;font-size:0.82em">기준봉 이후 경과 거래일 (3~40일)</div>
+    </div>
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">이전상승%</div>
+      <div style="color:#aaa;font-size:0.82em">기준봉 전 3개월 저점→고가 <span style="color:#f1c40f">(30%+ 필수)</span></div>
+    </div>
+    <div style="border-left:2px solid #4a90d9;padding-left:10px">
+      <div style="font-weight:600;font-size:0.88em;margin-bottom:3px">ADR%</div>
+      <div style="color:#aaa;font-size:0.82em">최근 20일 평균 일일 변동폭 (6%+ 필터)</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         st.divider()
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
