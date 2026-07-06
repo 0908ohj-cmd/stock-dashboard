@@ -260,6 +260,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if custom_rs_start_str:
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
 
+    if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
+        _build_rows.clear()
+        _fetch_index_cached.clear()
+        _get_market_status_cached.clear()
+        st.rerun()
+
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
             tuple(tickers), market,

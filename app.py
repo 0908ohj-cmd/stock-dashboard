@@ -69,7 +69,6 @@ with st.sidebar:
     us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
     st.divider()
     if st.button('🔄 새로고침', use_container_width=True):
-        st.cache_data.clear()
         st.rerun()
     st.caption('⚠️ 주가 데이터는 15분 지연 (무료 API)')
     st.divider()
