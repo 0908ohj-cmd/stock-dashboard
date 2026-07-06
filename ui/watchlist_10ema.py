@@ -95,12 +95,13 @@ def _process_one(ticker: str, market: str) -> dict | None:
             'MA점수':        _ma_score(df, last_close),
             '고점대비%':     calc_pct_from_52w_high(df),
             '기준봉일':      pivot_date_str,
+            'ADR%':          round(adr, 1),
         }
     except Exception:
         return None
 
 
-_ROW_SCHEMA_VER = 3  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 4  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -161,7 +162,8 @@ def render_10ema_tab(market: str, label: str):
         )
         cb.markdown(
             '**이전상승%** — 기준봉 전 3개월 저점 대비 고가 상승폭  \n'
-            '*(Prior Move — 30%+ 필수)*'
+            '*(Prior Move — 30%+ 필수)*  \n'
+            '**ADR%** — 최근 20일 평균 일일 변동폭 *(6%+ 필터 적용)*'
         )
 
         st.divider()
@@ -208,6 +210,7 @@ def render_10ema_tab(market: str, label: str):
         '현재→타점%':     r['현재→타점%'],
         '횡보일수':       r['횡보일수'],
         '이전상승%':      r['이전상승%'],
+        'ADR%':           r['ADR%'],
     } for r in display_rows])
 
     if market.startswith('KR'):
@@ -221,7 +224,7 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt)
     gb.configure_column('기준봉일', filter='agTextColumnFilter')
-    for col in ['현재→타점%', '이전상승%', '횡보일수']:
+    for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
         gb.configure_column(col, filter='agNumberColumnFilter', type=['numericColumn'])
     gb.configure_grid_options(localeText=KO_LOCALE)
 
