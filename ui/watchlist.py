@@ -471,7 +471,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         var target = e.shiftKey ? '◀' : '▶';
         var btns = p.document.querySelectorAll('button');
         for (var i = 0; i < btns.length; i++) {{
-            if (btns[i].innerText.trim() === target && !btns[i].disabled) {{
+            if (btns[i].innerText.trim() === target) {{
                 btns[i].click();
                 return;
             }}
@@ -486,9 +486,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         # 이전/다음 내비게이션
         c_prev, c_info, c_next = st.columns([1, 5, 1])
         with c_prev:
-            if st.button('◀', key=f'prev_{market}', disabled=(cur_idx <= 0), use_container_width=True):
+            if st.button('◀', key=f'prev_{market}', use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = cur_idx - 1
+                st.session_state[idx_key] = (cur_idx - 1) % total
                 st.rerun()
         with c_info:
             r_cur = rows[cur_idx]
@@ -499,9 +499,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 unsafe_allow_html=True,
             )
         with c_next:
-            if st.button('▶', key=f'next_{market}', disabled=(cur_idx >= total - 1), use_container_width=True):
+            if st.button('▶', key=f'next_{market}', use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = cur_idx + 1
+                st.session_state[idx_key] = (cur_idx + 1) % total
                 st.rerun()
 
         selected_ticker = rows[cur_idx]['Ticker']
