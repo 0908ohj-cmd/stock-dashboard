@@ -274,6 +274,6 @@ def render_10ema_tab(market: str, label: str):
             flag = '⚡' if abs(pct) <= 5 else '📌'
             lines.append(
                 f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
-                f"타점 `{r['타점']}` &nbsp; ADR **{r['ADR%']}%**"
+                f"타점 **{r['타점']}** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
             )
         st.success('🎯 **셋업 완성** (⚡ = 타점 5% 이내)  \n' + '  \n'.join(lines), icon=None)
