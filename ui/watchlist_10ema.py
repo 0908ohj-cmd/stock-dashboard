@@ -197,11 +197,11 @@ def render_10ema_tab(market: str, label: str):
     display_df = pd.DataFrame([{
         '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
+        '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],
         '현재→타점%':     r['현재→타점%'],
-        '이전상승%':      r['이전상승%'],
         '횡보일수':       r['횡보일수'],
-        '기준봉일':       r['기준봉일'],
+        '이전상승%':      r['이전상승%'],
     } for r in display_rows])
 
     if market.startswith('KR'):
