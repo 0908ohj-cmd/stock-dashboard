@@ -194,11 +194,12 @@ def intraday_overlay_chart(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='#0e1117',
         height=360,
-        margin=dict(l=40, r=120, t=45, b=20),
+        margin=dict(l=40, r=20, t=45, b=20),
         legend=dict(
-            orientation='v', y=1, x=1.01, xanchor='left',
+            orientation='v', y=1, x=1, xanchor='right', yanchor='top',
             font=dict(size=11),
-            bgcolor='rgba(0,0,0,0)',
+            bgcolor='rgba(14,17,23,0.7)',
+            borderwidth=0,
         ),
         hovermode='x unified',
     )
