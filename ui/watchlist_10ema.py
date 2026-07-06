@@ -87,8 +87,10 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
+_ROW_SCHEMA_VER = 2  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+
 @st.cache_data(ttl=3600)
-def _build_10ema_rows(tickers_tuple: tuple, market: str) -> list:
+def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
     tickers = list(tickers_tuple)
     rows = []
 
@@ -159,7 +161,7 @@ def render_10ema_tab(market: str, label: str):
             st.rerun()
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
-        rows = _build_10ema_rows(tuple(sorted(tickers)), market)
+        rows = _build_10ema_rows(tuple(sorted(tickers)), market, _ROW_SCHEMA_VER)
 
     if not rows:
         st.warning('분석 가능한 종목이 없습니다.')
