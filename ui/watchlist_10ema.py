@@ -153,10 +153,10 @@ def render_10ema_tab(market: str, label: str):
             '| MA점수 | EMA10/21 · SMA50/150/200 위 개수 (0~5) | **5** = 완전 정배열 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
-
-    if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
-        _build_10ema_rows.clear()
-        st.rerun()
+        st.divider()
+        if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
+            _build_10ema_rows.clear()
+            st.rerun()
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
         rows = _build_10ema_rows(tuple(sorted(tickers)), market)

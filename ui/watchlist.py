@@ -229,6 +229,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
+        st.divider()
+        if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
+            _build_rows.clear()
+            _fetch_index_cached.clear()
+            _get_market_status_cached.clear()
+            st.rerun()
 
     status = _get_market_status_cached(market)
 
@@ -259,12 +265,6 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         custom_rs_start_str = str(custom_date) if custom_date else None
         if custom_rs_start_str:
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
-
-    if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
-        _build_rows.clear()
-        _fetch_index_cached.clear()
-        _get_market_status_cached.clear()
-        st.rerun()
 
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
@@ -332,11 +332,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     # 핵심 후보 안내
     ma_ok = state == 'normal'  # 지수 정상이면 MA 위치 조건 스킵
+    # 찐반등 확인 전(조정 진행 중)에는 기간이 너무 짧아 거래량비 데이터가 불충분 → 필터 스킵
+    use_vol_filter = bool(jjin_date_str)
     top_candidates = [
         r for r in rows
         if (r['RS/ADR'] or 0) > 0
         and (ma_ok or r['ma_above_count'] > 0)
-        and (r['거래량비%'] or 0) >= 120
+        and (not use_vol_filter or (r['거래량비%'] or 0) >= 120)
         and (r['고점대비%'] or 0) >= -30
     ]
     fallback = (
