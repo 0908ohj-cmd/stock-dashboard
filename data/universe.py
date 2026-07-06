@@ -113,14 +113,28 @@ _US_FALLBACK = [
 
 @st.cache_data(ttl=86400)
 def get_us_universe() -> list:
-    """S&P500 티커 목록 반환 (Wikipedia → fallback, 24h 캐시)."""
+    """S&P500 티커 목록 반환 (Wikipedia → FinanceDataReader → fallback, 24h 캐시)."""
     tickers: set = set()
+
+    # 1순위: Wikipedia S&P500 목록
     try:
         df = pd.read_html(_SP500_URL, attrs={'id': 'constituents'})[0]
         for t in df['Symbol'].tolist():
             tickers.add(str(t).replace('.', '-'))
     except Exception:
         pass
+
+    # 2순위: FinanceDataReader S&P500 (Wikipedia 실패 시)
+    if len(tickers) < 50:
+        try:
+            import FinanceDataReader as fdr
+            df = fdr.StockListing('S&P500')
+            if df is not None and not df.empty:
+                code_col = next((c for c in df.columns if c in ('Symbol', 'Code')), df.columns[0])
+                for t in df[code_col].tolist():
+                    tickers.add(str(t).replace('.', '-'))
+        except Exception:
+            pass
 
     # 추가 주요 NASDAQ 성장주 (S&P500 외)
     _extra = ['PLTR', 'APP', 'RDDT', 'HOOD', 'GRAB', 'SE', 'MELI', 'NU',
@@ -129,6 +143,7 @@ def get_us_universe() -> list:
               'SNOW', 'ZS', 'S', 'TTWO', 'SPOT', 'PINS']
     tickers.update(_extra)
 
+    # 3순위: 하드코딩 (최후 수단)
     if len(tickers) < 50:
         tickers.update(_US_FALLBACK)
 
