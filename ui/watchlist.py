@@ -332,13 +332,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     # 핵심 후보 안내
     ma_ok = state == 'normal'  # 지수 정상이면 MA 위치 조건 스킵
-    # 찐반등 확인 전(조정 진행 중)에는 기간이 너무 짧아 거래량비 데이터가 불충분 → 필터 스킵
-    use_vol_filter = bool(jjin_date_str)
     top_candidates = [
         r for r in rows
         if (r['RS/ADR'] or 0) > 0
         and (ma_ok or r['ma_above_count'] > 0)
-        and (not use_vol_filter or (r['거래량비%'] or 0) >= 120)
+        and (r['거래량비%'] or 0) >= 120
         and (r['고점대비%'] or 0) >= -30
     ]
     fallback = (
@@ -380,7 +378,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             if has_candidates:
                 candidates = top_candidates or fallback
                 ref_date   = jjin_date_str or str(pd.Timestamp.today().normalize().date())
-                cand_label = f'⭐ {ref_date} 기준 핵심 후보' if top_candidates else f'📊 {ref_date} 기준 RS 상위 후보'
+                cand_label = f'⭐ {ref_date} 기준 핵심 후보'
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
                 _render_candidates(candidates, cand_label, period_str)
 
