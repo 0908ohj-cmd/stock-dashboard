@@ -140,37 +140,31 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'기준봉없음' | '하방이탈' | '중간선이탈' | '10EMA이탈' | '대기중' | 'Case1' | 'Case2'
+    """'없음' | '이탈' | '중간선이탈' | '10EMA이탈' | '형성중' | '셋업'
 
-    Case1 근거 (Minervini VCP final contraction + Qullamaggie EMA surfing):
-      - 기간 3~20거래일: Minervini final VCP 5~14일, Qullamaggie 3~5주 하단
-      - 가격 midline~high×1.03: Minervini final compression 3~8% 범위
-      - 거래량 수축: 눌림 평균 거래량 ≤ 기준봉 이전 20일 평균 (두 트레이더 공통)
-      - 10EMA 우상향 + 종가 > 10EMA: Qullamaggie EMA surfing 조건
-
-    Case2 근거 (Qullamaggie / Minervini):
-      - 기준봉 고가 위 체류 ≤ 5거래일: Qullamaggie 돌파 후 3~5일 익절 기준
-      - 최대 연장 ≤ +10%: Minervini 피벗 5% 초과 추격금지 × 2
-      - 현재가 기준봉 고가 -3%~+5% 복귀
+    셋업: 기준봉 고가 부근 타이트 횡보 — 쿨라매기 브레이크아웃 직전
+    형성중: 기준봉 있으나 셋업 조건 미충족 (베이스 무르익는 중)
+    중간선이탈: 기준봉 (고+저)/2 아래 터치 → 셋업 무효
+    10EMA이탈: 10EMA 아래 연속 2일 → 셋업 무효
+    이탈: 기준봉 저가 하방
+    없음: 최근 63일 내 기준봉 미탐지
     """
     if pivot is None:
-        return '기준봉없음'
+        return '없음'
 
     current_close = float(stock_df['Close'].iloc[-1])
     current_date  = stock_df.index[-1]
 
     if current_close < pivot['low']:
-        return '하방이탈'
+        return '이탈'
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 
-    # 기준봉 이후 Close가 한 번이라도 중간선 미달이면 영구 탈락
     if not since_pivot.empty and float(since_pivot['Close'].min()) < pivot['midline']:
         return '중간선이탈'
     if current_close < pivot['midline']:
         return '중간선이탈'
 
-    # 기준봉 이후 연속 2거래일 Close < 10EMA이면 영구 탈락 (Qullamaggie: 10EMA 이탈 즉시 매도)
     if len(since_pivot) >= 2:
         ema10_since = calc_ema(stock_df, 10).loc[since_pivot.index]
         below = since_pivot['Close'] < ema10_since
@@ -179,24 +173,24 @@ def classify_case(
 
     days_since = int(np.busday_count(pivot['date'].date(), current_date.date()))
 
-    # Case2: 돌파 후 소폭 상승했다가 기준봉 고가 부근으로 복귀한 2차 매수 타점
+    # 셋업 A: 잠깐 돌파 후 기준봉 고가 부근 복귀 (재진입 기회)
     if days_since <= 30 and not since_pivot.empty:
-        max_high        = float(since_pivot['High'].max())
-        ever_above      = max_high > pivot['high']
-        not_overextended = max_high <= pivot['high'] * 1.10   # Minervini 5%×2
-        days_above_high = int((since_pivot['Close'] > pivot['high']).sum())
-        brief_stay      = days_above_high <= 5                # Qullamaggie 3~5일
-        back_near       = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
+        max_high         = float(since_pivot['High'].max())
+        ever_above       = max_high > pivot['high']
+        not_overextended = max_high <= pivot['high'] * 1.10
+        days_above_high  = int((since_pivot['Close'] > pivot['high']).sum())
+        brief_stay       = days_above_high <= 5
+        back_near        = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
         if ever_above and not_overextended and brief_stay and back_near:
-            return 'Case2'
+            return '셋업'
 
-    # Case1: 기준봉 고가 아래에서 타이트하게 횡보 중인 1차 매수 타점
+    # 셋업 B: 기준봉 고가 아래 타이트 횡보 — 거래량 수축 + EMA 서핑
     in_range   = pivot['midline'] <= current_close <= pivot['high'] * 1.03
-    valid_days = 3 <= days_since <= 40        # 쿨라매기 2~8주 = 최대 40거래일
+    valid_days = 3 <= days_since <= 40
     slope_up   = calc_10ema_slope(stock_df) > 0
     ema10_now  = float(calc_ema(stock_df, 10).iloc[-1])
     above_ema  = current_close > ema10_now
-    base_tight = _base_is_tight(since_pivot, pivot['high'])   # 횡보 범위 ≤ 15%
+    base_tight = _base_is_tight(since_pivot, pivot['high'])
 
     if in_range and valid_days and slope_up and above_ema and base_tight:
         pivot_pos   = stock_df.index.get_loc(pivot['date'])
@@ -206,9 +200,8 @@ def classify_case(
         else:
             consol_avg = float(since_pivot['Volume'].mean())
             recent_avg = float(since_pivot['Volume'].tail(min(3, len(since_pivot))).mean())
-            # 횡보 평균 거래량 ≤ 기준봉 이전 80% AND 최근 3일이 더 건조
             vol_dry_up = consol_avg <= pre_vol_avg * 0.8 and recent_avg <= consol_avg
         if vol_dry_up:
-            return 'Case1'
+            return '셋업'
 
-    return '대기중'
+    return '형성중'
