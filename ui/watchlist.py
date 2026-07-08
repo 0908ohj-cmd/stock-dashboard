@@ -211,7 +211,42 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         return
 
     with st.expander('사용 가이드', expanded=False):
-        st.caption('찐반등일 감지 조건')
+
+        # ① DAY 카운팅
+        st.caption('DAY 카운팅 & 복귀 조건')
+        st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
+    <div style="font-size:0.85em;line-height:1.6">조정 중<br>EMA21 아래 · 찐반등 대기</div>
+  </div>
+  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🟢 DAY2</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 감지 당일</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
+  </div>
+  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~5</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~3 거래일<br>매수 유효 구간</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ①</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY5 이후 EMA21 미회복 시</div>
+  </div>
+  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 바디 이상의 음봉 즉시</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        st.divider()
+
+        # ② 찐반등 감지
+        st.caption('찐반등일 감지 조건 (5가지 모두 충족)')
         st.markdown(
             '| # | 조건 | 설명 |\n'
             '|---|------|------|\n'
@@ -222,34 +257,37 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| 5 | 당일 바디 ≥ 직전 음봉 바디 × 50% | 직전 하락분의 절반 이상 회복 |'
         )
         st.caption('거래량 강도 (🔥) — 조정 구간 평균 대비')
-        st.markdown(
-            '| 표시 | 기준 |\n'
-            '|------|------|\n'
-            '| 🔥🔥🔥 | 조정 구간 평균 거래량의 **120% 이상** |\n'
-            '| 🔥🔥 | 조정 구간 평균 거래량 **이상** (100~120%) |\n'
-            '| 🔥 | 조정 구간 평균 거래량 **미만** |\n\n'
-            '※ 조정 구간이 **20거래일 미만**이면 20일 이동평균으로 대체 '
-            '(조정 기간이 짧으면 MA 기준이 더 안정적)'
-        )
+        st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px">
+  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:10px 14px;text-align:center">
+    <div style="font-size:1.3em">🔥🔥🔥</div>
+    <div style="font-size:0.82em;margin-top:6px">평균 <b>120%+</b></div>
+  </div>
+  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px;text-align:center">
+    <div style="font-size:1.3em">🔥🔥</div>
+    <div style="font-size:0.82em;margin-top:6px">평균 <b>100~120%</b></div>
+  </div>
+  <div style="border:1px solid #f1c40f55;border-radius:8px;padding:10px 14px;text-align:center">
+    <div style="font-size:1.3em">🔥</div>
+    <div style="font-size:0.82em;margin-top:6px">평균 <b>미만</b></div>
+  </div>
+</div>
+<div style="font-size:0.8em;opacity:0.65;margin-top:2px">※ 조정 구간 20거래일 미만이면 20일 이동평균 기준 적용</div>
+""", unsafe_allow_html=True)
+
         st.divider()
-        st.caption('DAY 카운팅 & 복귀 조건')
-        st.markdown(
-            '| 단계 | 내용 |\n'
-            '|------|------|\n'
-            '| DAY1 | 조정 중 — EMA21 아래, 찐반등 대기 |\n'
-            '| DAY2 | 찐반등 감지 당일 |\n'
-            '| DAY3~5 | 이후 1~3 거래일 — 매수 유효 구간 |\n'
-            '| DAY1 복귀 ① | DAY5 이후 EMA21 미회복 시 |\n'
-            '| DAY1 복귀 ② | 찐반등 바디 이상의 음봉 출현 시 즉시 |'
-        )
-        st.divider()
+
+        # ③ 핵심 후보
         st.caption('핵심 후보 선별 기준')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
         c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
         c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
         c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+
         st.divider()
+
+        # ④ 컬럼 설명
         st.caption('컬럼 설명')
         st.markdown(
             '| 컬럼 | 설명 | 기준 |\n'
@@ -566,24 +604,51 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     st.subheader('와치리스트')
     with st.expander('사용 가이드', expanded=False):
-        st.caption('핵심 후보')
+
+        # ① DAY 카운팅
+        st.caption('DAY 카운팅 & 복귀 조건')
+        st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
+    <div style="font-size:0.85em;line-height:1.6">조정 중<br>EMA21 아래 · 찐반등 대기</div>
+  </div>
+  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🟢 DAY2</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 감지 당일</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
+  </div>
+  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~5</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~3 거래일<br>매수 유효 구간</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ①</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY5 이후 EMA21 미회복 시</div>
+  </div>
+  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 바디 이상의 음봉 즉시</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        st.divider()
+
+        # ② 핵심 후보
+        st.caption('핵심 후보 선별 기준')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
         c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
         c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
         c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+
         st.divider()
-        st.caption('DAY 카운팅 & 복귀 조건')
-        st.markdown(
-            '| 단계 | 내용 |\n'
-            '|------|------|\n'
-            '| DAY1 | 조정 중 — EMA21 아래, 찐반등 대기 |\n'
-            '| DAY2 | 찐반등 감지 당일 |\n'
-            '| DAY3~5 | 이후 1~3 거래일 — 매수 유효 구간 |\n'
-            '| DAY1 복귀 ① | DAY5 이후 EMA21 미회복 시 |\n'
-            '| DAY1 복귀 ② | 찐반등 바디 이상의 음봉 출현 시 즉시 |'
-        )
-        st.divider()
+
+        # ③ 컬럼 설명
         st.caption('컬럼 설명')
         st.markdown(
             '| 컬럼 | 설명 | 기준 |\n'

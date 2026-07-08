@@ -131,7 +131,7 @@ def render_10ema_tab(market: str, label: str):
         st.warning('유니버스를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.')
         return
 
-    with st.expander('가이드', expanded=False):
+    with st.expander('사용 가이드', expanded=False):
         st.caption('상태')
         st.markdown("""
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
