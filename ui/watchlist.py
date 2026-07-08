@@ -211,12 +211,24 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         return
 
     with st.expander('사용 가이드', expanded=False):
-        st.caption('핵심 후보')
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
-        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+        st.caption('찐반등일 감지 조건')
+        st.markdown(
+            '| # | 조건 | 설명 |\n'
+            '|---|------|------|\n'
+            '| 1 | 장중 저가 EMA21 하방 터치 | 조정 국면임을 확인 |\n'
+            '| 2 | 당일 양봉 (종가 > 시가) | 매수세 우위 |\n'
+            '| 3 | 직전봉 하락 중 | 직전 종가 < 그 전날 종가 |\n'
+            '| 4 | 상승폭 ≥ ADR 20일 평균 | 평소보다 큰 움직임 |\n'
+            '| 5 | 당일 바디 ≥ 직전 음봉 바디 × 50% | 직전 하락분의 절반 이상 회복 |'
+        )
+        st.caption('거래량 강도 (⚡) — 조정 구간 평균 대비')
+        st.markdown(
+            '| 표시 | 기준 |\n'
+            '|------|------|\n'
+            '| ⚡⚡⚡ | 조정 구간 평균 거래량의 **120% 이상** |\n'
+            '| ⚡⚡ | 조정 구간 평균 거래량 **이상** (100~120%) |\n'
+            '| ⚡ | 조정 구간 평균 거래량 **미만** |'
+        )
         st.divider()
         st.caption('DAY 카운팅 & 복귀 조건')
         st.markdown(
@@ -228,6 +240,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| DAY1 복귀 ① | DAY5 이후 EMA21 미회복 시 |\n'
             '| DAY1 복귀 ② | 찐반등 바디 이상의 음봉 출현 시 즉시 |'
         )
+        st.divider()
+        st.caption('핵심 후보 선별 기준')
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
+        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
+        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
+        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
         st.divider()
         st.caption('컬럼 설명')
         st.markdown(
