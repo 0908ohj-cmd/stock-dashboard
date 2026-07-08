@@ -137,10 +137,12 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty:
                 continue
-            df.loc[ts, 'Open']  = float(pk['시가'].iloc[0])
-            df.loc[ts, 'High']  = float(pk['고가'].iloc[0])
-            df.loc[ts, 'Low']   = float(pk['저가'].iloc[0])
-            df.loc[ts, 'Close'] = float(pk['종가'].iloc[0])
+            df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
+            df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
+            df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
+            df.loc[ts, 'Close']  = float(pk['종가'].iloc[0])
+            if '거래량' in pk.columns:
+                df.loc[ts, 'Volume'] = float(pk['거래량'].iloc[0])
     except Exception:
         pass
 
@@ -201,6 +203,31 @@ def _patch_us_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     return df
 
 
+def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
+    """Volume=0인 한국 지수 행을 pykrx로 채움."""
+    if df.empty or 'Volume' not in df.columns:
+        return df
+    pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
+    if not pykrx_code:
+        return df
+    zero_vol = df.index[df['Volume'] == 0]
+    if zero_vol.empty:
+        return df
+    try:
+        from pykrx import stock as pykrx_stock
+        for ts in zero_vol:
+            date_str = ts.strftime('%Y%m%d')
+            pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
+            if pk.empty or '거래량' not in pk.columns:
+                continue
+            vol = float(pk['거래량'].iloc[0])
+            if vol > 0:
+                df.loc[ts, 'Volume'] = vol
+    except Exception:
+        pass
+    return df
+
+
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
@@ -209,6 +236,7 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     if name in ('KOSPI', 'KOSDAQ'):
         df = _patch_kr_index_today(df, ticker)
         df = _patch_kr_index_ohlc(df, ticker)
+        df = _patch_kr_index_volume(df, ticker)
     else:
         df = _patch_us_index_ohlc(df, ticker)
     return df.dropna(subset=['Close'])

@@ -169,7 +169,7 @@ def _build_rows(
 def _status_banner(status: dict, label: str):
     state = status['state']
     if state == 'early_signal':
-        stars = '⚡' * status['jjin_stars']
+        vol_stars = '🔥' * status['jjin_stars']  # ⚡와 구분: 거래량 강도
         jdate = status['jjin_date'].date() if status['jjin_date'] else ''
         pdate = status.get('peak_date')
         cdate = status['correction_start'].date() if status['correction_start'] else ''
@@ -180,7 +180,7 @@ def _status_banner(status: dict, label: str):
             meta_parts.append(f"이탈일: {cdate}")
         meta_parts.append(f"찐반등일: {jdate}")
         meta = f"({' | '.join(meta_parts)})"
-        st.success(f"⚡ **{label} 찐반등 감지!** &nbsp; **+{status['jjin_pct']}%** &nbsp; {stars}\n\n{meta}")
+        st.success(f"⚡ **{label} 찐반등 감지!** &nbsp; **+{status['jjin_pct']}%** &nbsp; {vol_stars}\n\n{meta}")
     elif state == 'correction':
         cdate  = status['correction_start'].date() if status['correction_start'] else ''
         pdate  = status.get('peak_date')
@@ -221,13 +221,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| 4 | 상승폭 ≥ ADR 20일 평균 | 평소보다 큰 움직임 |\n'
             '| 5 | 당일 바디 ≥ 직전 음봉 바디 × 50% | 직전 하락분의 절반 이상 회복 |'
         )
-        st.caption('거래량 강도 (⚡) — 조정 구간 평균 대비')
+        st.caption('거래량 강도 (🔥) — 조정 구간 평균 대비')
         st.markdown(
             '| 표시 | 기준 |\n'
             '|------|------|\n'
-            '| ⚡⚡⚡ | 조정 구간 평균 거래량의 **120% 이상** |\n'
-            '| ⚡⚡ | 조정 구간 평균 거래량 **이상** (100~120%) |\n'
-            '| ⚡ | 조정 구간 평균 거래량 **미만** |'
+            '| 🔥🔥🔥 | 조정 구간 평균 거래량의 **120% 이상** |\n'
+            '| 🔥🔥 | 조정 구간 평균 거래량 **이상** (100~120%) |\n'
+            '| 🔥 | 조정 구간 평균 거래량 **미만** |'
         )
         st.divider()
         st.caption('DAY 카운팅 & 복귀 조건')
