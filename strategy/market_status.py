@@ -61,7 +61,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
             corr_start  = starts_before[-1]
             corr_slice  = index_df[(index_df.index >= corr_start) & (index_df.index < bounce_date)]
             valid_vol   = corr_slice.loc[corr_slice['Volume'] > 0, 'Volume']
-            if len(valid_vol) >= 3 and bounce_vol > 0:
+            if len(valid_vol) >= 5 and bounce_vol > 0:
                 vol_ratio = bounce_vol / float(valid_vol.mean())
 
         if vol_ratio == 0.0:  # 조정 구간 짧거나 데이터 없으면 20일 이동평균으로 fallback
