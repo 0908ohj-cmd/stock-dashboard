@@ -10,28 +10,31 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     """
     찐반등 감지 — 가장 최근 조건 충족일 반환.
     조건:
-      1. 종가 < EMA21
+      1. 장중 저가가 EMA21 아래
       2. 당일 양봉, 상승폭 >= ADR(20일)
       3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.5
+    거래량 별: 조정 구간(EMA21 이탈일 ~ 전날) 평균 대비 비율
     """
     if len(index_df) < 22:
         return None
 
-    ema21    = _ema21(index_df)
-    vol_ma20 = index_df['Volume'].rolling(20).mean()
+    ema21 = _ema21(index_df)
+    below = index_df['Close'] < ema21
+    bd_starts = below.astype(int).diff()[lambda s: s == 1].index  # EMA21 이탈일 목록
+    vol_ma20  = index_df['Volume'].rolling(20).mean()              # fallback용
 
     for i in range(len(index_df) - 1, 15, -1):
         row  = index_df.iloc[i]
         prev = index_df.iloc[i - 1]
 
         if float(row['Low']) >= float(ema21.iloc[i]):
-            continue  # 장중에도 EMA21 아래 안 내려왔으면 스킵
-        if float(row['Close']) < float(row['Open']):   # 양봉 아님
+            continue
+        if float(row['Close']) < float(row['Open']):
             continue
         if i < 2:
             continue
         prev2 = index_df.iloc[i - 2]
-        if float(prev['Close']) >= float(prev2['Close']): # 직전 종가가 그 전날보다 높음 = 상승 중
+        if float(prev['Close']) >= float(prev2['Close']):
             continue
 
         prev_close = float(index_df.iloc[i - 1]['Close'])
@@ -45,15 +48,30 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
 
         curr_body = abs(float(row['Close']) - float(row['Open']))
         prev_body = abs(float(prev['Close']) - float(prev['Open']))
-        if prev_body == 0 or curr_body < prev_body * 0.5:  # 직전 음봉 바디 50% 이상 커버
+        if prev_body == 0 or curr_body < prev_body * 0.5:
             continue
 
-        vol_ma    = float(vol_ma20.iloc[i]) if not pd.isna(vol_ma20.iloc[i]) else 0
-        vol_ratio = float(row['Volume']) / vol_ma if vol_ma > 0 else 0
-        stars     = 3 if vol_ratio >= 1.2 else (2 if vol_ratio >= 1.0 else 1)
+        # 조정 구간 평균 거래량으로 vol_ratio 계산
+        bounce_date   = index_df.index[i]
+        bounce_vol    = float(row['Volume'])
+        starts_before = bd_starts[bd_starts <= bounce_date]
+
+        vol_ratio = 0.0
+        if len(starts_before) > 0:
+            corr_start  = starts_before[-1]
+            corr_slice  = index_df[(index_df.index >= corr_start) & (index_df.index < bounce_date)]
+            valid_vol   = corr_slice.loc[corr_slice['Volume'] > 0, 'Volume']
+            if len(valid_vol) >= 3 and bounce_vol > 0:
+                vol_ratio = bounce_vol / float(valid_vol.mean())
+
+        if vol_ratio == 0.0:  # 조정 구간 짧거나 데이터 없으면 20일 이동평균으로 fallback
+            vol_ma    = float(vol_ma20.iloc[i]) if not pd.isna(vol_ma20.iloc[i]) else 0
+            vol_ratio = bounce_vol / vol_ma if vol_ma > 0 else 0.0
+
+        stars = 3 if vol_ratio >= 1.2 else (2 if vol_ratio >= 1.0 else 1)
 
         return {
-            'date':      index_df.index[i],
+            'date':      bounce_date,
             'pct':       round(pct_chg, 2),
             'adr':       round(adr_val, 2),
             'cover_pct': round(curr_body / prev_body * 100, 1),
