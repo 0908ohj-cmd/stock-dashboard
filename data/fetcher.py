@@ -204,18 +204,44 @@ def _patch_us_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
 
 
 def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
-    """Volume=0인 한국 지수 행을 pykrx로 채움."""
+    """Volume=0인 한국 지수 행을 FDR → pykrx 순서로 채움.
+    FDR은 1주 단위, yfinance는 1000주 단위 → FDR값 /1000 후 저장."""
     if df.empty or 'Volume' not in df.columns:
-        return df
-    pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
-    if not pykrx_code:
         return df
     zero_vol = df.index[df['Volume'] == 0]
     if zero_vol.empty:
         return df
+
+    fdr_name   = _KR_INDEX_FDR.get(yf_ticker)
+    pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
+
+    # 1순위: FDR (Volume 단위 1주 → yfinance 스케일 맞추려면 /1000)
+    if fdr_name:
+        try:
+            import FinanceDataReader as fdr_lib
+            start_str = zero_vol[0].strftime('%Y-%m-%d')
+            end_str   = (zero_vol[-1] + timedelta(days=2)).strftime('%Y-%m-%d')
+            fdr_df = fdr_lib.DataReader(fdr_name, start_str, end_str)
+            if isinstance(fdr_df.columns, pd.MultiIndex):
+                fdr_df.columns = fdr_df.columns.get_level_values(0)
+            fdr_df.index = pd.to_datetime(fdr_df.index).normalize()
+            for ts in zero_vol:
+                row = fdr_df[fdr_df.index == ts]
+                if row.empty or 'Volume' not in row.columns:
+                    continue
+                vol = float(row['Volume'].iloc[0])
+                if vol > 0:
+                    df.loc[ts, 'Volume'] = round(vol / 1000)
+        except Exception:
+            pass
+
+    # 2순위: pykrx (FDR 실패 시)
+    still_zero = df.index[df['Volume'] == 0]
+    if still_zero.empty or not pykrx_code:
+        return df
     try:
         from pykrx import stock as pykrx_stock
-        for ts in zero_vol:
+        for ts in still_zero:
             date_str = ts.strftime('%Y%m%d')
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty or '거래량' not in pk.columns:
