@@ -84,6 +84,7 @@ def _build_rows(
     correction_start_str: str | None,
     jjin_date_str: str | None,
     custom_rs_start_str: str | None = None,
+    as_of_date_str: str | None = None,
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
@@ -92,6 +93,9 @@ def _build_rows(
     correction_start  = pd.Timestamp(correction_start_str)  if correction_start_str  else None
     jjin_date         = pd.Timestamp(jjin_date_str)         if jjin_date_str         else None
     custom_peak_date  = pd.Timestamp(custom_rs_start_str)   if custom_rs_start_str   else None
+    asof              = pd.Timestamp(as_of_date_str)        if as_of_date_str        else None
+
+    idx_asof = index_df[index_df.index <= asof] if asof is not None else index_df
 
     adr_min = 2.0 if market.startswith('KR') else 4.0
     stock_cache = {}
@@ -100,7 +104,10 @@ def _build_rows(
             df = fetch_daily(ticker, market=market, days=350)
             if df.empty or len(df) < 25:
                 continue
-            adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
+            df_asof = df[df.index <= asof] if asof is not None else df
+            if len(df_asof) < 20:
+                continue
+            adr = float(((df_asof['High'] - df_asof['Low']) / df_asof['Close']).iloc[-20:].mean() * 100)
             if adr < adr_min:
                 continue
             stock_cache[ticker] = (df, round(adr, 2))
@@ -112,8 +119,12 @@ def _build_rows(
 
     for ticker, (df, adr_val) in stock_cache.items():
         try:
-            last_close  = float(df['Close'].iloc[-1])
-            prev_close  = float(df['Close'].iloc[-2])
+            df_asof = df[df.index <= asof] if asof is not None else df
+            if df_asof.empty or len(df_asof) < 2:
+                continue
+
+            last_close  = float(df_asof['Close'].iloc[-1])
+            prev_close  = float(df_asof['Close'].iloc[-2])
             change_pct  = (last_close - prev_close) / prev_close * 100
             name        = get_stock_name(ticker, market)
 
@@ -126,7 +137,7 @@ def _build_rows(
                     'vol_ratio': 0.0, 'candle_ratio': 0.0,
                 }
 
-            ma_text, ma_above = _ma_position(df, index_df)
+            ma_text, ma_above = _ma_position(df_asof, idx_asof)
             rows.append({
                 'Ticker':      ticker,
                 '종목명':      name,
@@ -134,7 +145,7 @@ def _build_rows(
                 'ADR':         adr_val,
                 'Close':       round(last_close, 2),
                 '등락%':       round(change_pct, 2),
-                '고점대비%':   calc_pct_from_52w_high(df),
+                '고점대비%':   calc_pct_from_52w_high(df_asof),
                 '저점선행':    rs['lead_days'],
                 '조정RS%':     rs['excess_pct'],
                 'RS/ADR':      rs['excess_adr'],
@@ -150,7 +161,7 @@ def _build_rows(
         -(r['RS/ADR'] or 0),
         -r['ma_above_count'],
         -(r['거래량비%'] or 0),
-        (r['고점대비%'] or 0),   # 고점대비% 높을수록(덜 빠진) 우선 → 음수라 오름차순이 유리
+        (r['고점대비%'] or 0),
     ))
     return rows
 
@@ -331,19 +342,25 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         fit_columns_on_grid_load=True,
     )
 
-    # 핵심 후보 안내
-    ma_ok = state == 'normal'  # 지수 정상이면 MA 위치 조건 스킵
+    # 핵심 후보: jjin_date 기준 고정 스냅샷 (고점대비%·이평선위치도 해당 날짜 기준)
+    if jjin_date_str:
+        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str)
+        cand_ma_ok = False  # jjin_date에 지수는 조정 중 → MA 위치 조건 항상 적용
+    else:
+        cand_rows  = rows
+        cand_ma_ok = (state == 'normal')
+
     top_candidates = [
-        r for r in rows
+        r for r in cand_rows
         if (r['RS/ADR'] or 0) > 0
-        and (ma_ok or r['ma_above_count'] > 0)
+        and (cand_ma_ok or r['ma_above_count'] > 0)
         and (r['거래량비%'] or 0) >= 120
         and (r['고점대비%'] or 0) >= -30
     ]
     fallback = (
-        [r for r in rows
+        [r for r in cand_rows
          if (r['RS/ADR'] or 0) > 0
-         and (ma_ok or r['ma_above_count'] > 0)
+         and (cand_ma_ok or r['ma_above_count'] > 0)
          and (r['고점대비%'] or 0) >= -35][:5]
         if not top_candidates else []
     )
@@ -383,7 +400,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
                 _render_candidates(candidates, cand_label, period_str)
 
-            # 추가 후보: DAY3·DAY4에만 생성, 이후 동결 유지
+            # 추가 후보: DAY3·DAY4 기준 고정 스냅샷
             if jjin_date_str:
                 jjin_d      = pd.Timestamp(jjin_date_str).date()
                 _idx_tmp    = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
@@ -398,14 +415,15 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                     day4_date    = _nth_busday(jjin_date_str, 2)
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
 
+                    # DAY3: peak~day3_date 구간 고정 스냅샷
                     with st.spinner('추가 후보 확인 중...'):
-                        add_rows = _build_rows(tuple(tickers), market, correction_start_str, None, custom_rs_start_str)
+                        day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date)
 
                     day3_new = [
-                        r for r in add_rows
+                        r for r in day3_rows
                         if r['Ticker'] not in core_tickers
                         and (r['RS/ADR'] or 0) > 0
-                        and (ma_ok or r['ma_above_count'] > 0)
+                        and r['ma_above_count'] > 0
                         and (r['거래량비%'] or 0) >= 120
                         and (r['고점대비%'] or 0) >= -30
                     ]
@@ -417,12 +435,16 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
                         st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
 
                     if days_since_jjin >= 2:
+                        # DAY4: peak~day4_date 구간 고정 스냅샷
+                        with st.spinner('추가 후보 확인 중...'):
+                            day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date)
+
                         day4_new = [
-                            r for r in add_rows
+                            r for r in day4_rows
                             if r['Ticker'] not in core_tickers
                             and r['Ticker'] not in day3_tickers
                             and (r['RS/ADR'] or 0) > 0
-                            and (ma_ok or r['ma_above_count'] > 0)
+                            and r['ma_above_count'] > 0
                             and (r['거래량비%'] or 0) >= 120
                             and (r['고점대비%'] or 0) >= -30
                         ]
