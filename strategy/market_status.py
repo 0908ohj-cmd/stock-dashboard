@@ -34,15 +34,19 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
         if i < 2:
             continue
         prev2 = index_df.iloc[i - 2]
-        if float(prev['Close']) >= float(prev2['Close']):
+
+        adr_val = float(
+            ((index_df['High'] - index_df['Low']) / index_df['Close'] * 100)
+            .iloc[max(0, i - 19):i + 1].mean()
+        )
+
+        # 조건 3: 직전봉이 음봉이거나, 양봉이더라도 ADR/2 미만 상승 (지지부진)
+        prev_chg_pct = (float(prev['Close']) - float(prev2['Close'])) / float(prev2['Close']) * 100
+        if prev_chg_pct >= adr_val / 2:
             continue
 
         prev_close = float(index_df.iloc[i - 1]['Close'])
         pct_chg    = (float(row['Close']) - prev_close) / prev_close * 100
-        adr_val    = float(
-            ((index_df['High'] - index_df['Low']) / index_df['Close'] * 100)
-            .iloc[max(0, i - 19):i + 1].mean()
-        )
         if pct_chg < adr_val:
             continue
 
