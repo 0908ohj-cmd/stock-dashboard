@@ -14,18 +14,20 @@ INDICES = {
 
 def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
     df = yf.download(ticker, start=start, end=end, interval=interval,
-                     progress=False, auto_adjust=True)
+                     progress=False, auto_adjust=True, threads=False)
     if df is None or df.empty:
         return pd.DataFrame()
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+    if 'Close' not in df.columns:
+        return pd.DataFrame()
     needed = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in df.columns]
     return df[needed]   # dropna는 호출부에서 처리
 
 
 def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx로 채움."""
-    if df.empty:
+    if df.empty or 'Close' not in df.columns:
         return df
 
     yesterday = (datetime.today() - timedelta(days=1)).date()
@@ -74,18 +76,20 @@ def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
     else:
         yf_ticker = ticker
     df = yf.download(yf_ticker, period='5d', interval='5m',
-                     progress=False, auto_adjust=True)
+                     progress=False, auto_adjust=True, threads=False)
     if df is None or df.empty:
         return pd.DataFrame()
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+    if 'Close' not in df.columns:
+        return pd.DataFrame()
     needed = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in df.columns]
     return df[needed].dropna()
 
 
 def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     """한국 지수 마지막 행 Close NaN이거나 전거래일 행이 없으면 fast_info로 채움."""
-    if df.empty:
+    if df.empty or 'Close' not in df.columns:
         return df
 
     yesterday = (datetime.today() - timedelta(days=1)).date()
@@ -265,7 +269,7 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
         df = _patch_kr_index_volume(df, ticker)
     else:
         df = _patch_us_index_ohlc(df, ticker)
-    return df.dropna(subset=['Close'])
+    return df.dropna(subset=['Close']) if 'Close' in df.columns else df
 
 
 def _parse_fdr_listing(df: pd.DataFrame) -> dict:
