@@ -102,9 +102,11 @@ def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     try:
         last_price = yf.Ticker(yf_ticker).fast_info.last_price
         if last_price and last_price > 0:
-            ts = pd.Timestamp(last_date if last_close_nan else yesterday)
-            df.loc[ts, 'Close'] = float(last_price)
-            df = df.sort_index()
+            last_close = float(df['Close'].iloc[-1])
+            if abs(last_price - last_close) / last_close > 0.001:
+                ts = pd.Timestamp(last_date if last_close_nan else yesterday)
+                df.loc[ts, 'Close'] = float(last_price)
+                df = df.sort_index()
     except Exception:
         pass
     return df
