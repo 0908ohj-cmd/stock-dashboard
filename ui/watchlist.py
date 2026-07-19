@@ -238,7 +238,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 바디 이상의 음봉 즉시</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 저점 아래 종가 즉시</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -631,7 +631,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
   </div>
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 바디 이상의 음봉 즉시</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 저점 아래 종가 즉시</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
