@@ -14,18 +14,7 @@ def _close_on(df: pd.DataFrame, date) -> float | None:
 
 
 def _above_ratio(prices: list, idx: int) -> float:
-    """
-    현재가(prices[idx+1])가 이전 가격들(prices[0..idx]) 중 몇 개보다 높은지 비율 (0.0~1.0).
-
-    '고': 직전가 반드시 포함 → minimum 1/(idx+1)
-    '저': 직전가 미포함    → maximum idx/(idx+1)
-
-    예) 저(500)→고(800)→저(700): idx=1, current=700, prev=[500,800]
-        count([500,800] < 700) / 2 = 1/2 = 0.5  ← 절반은 위에 있음 (높은 저점)
-
-    예) 저(500)→고(800)→저(400): idx=1, current=400, prev=[500,800]
-        count([500,800] < 400) / 2 = 0/2 = 0.0  ← 전부 위에 없음 (새 절대 저점)
-    """
+    """현재가가 이전 가격들 중 몇 개보다 높은지 비율 (0.0~1.0)."""
     current = prices[idx + 1]
     prev = prices[: idx + 1]
     return sum(1 for p in prev if p < current) / len(prev)
@@ -33,12 +22,20 @@ def _above_ratio(prices: list, idx: int) -> float:
 
 def _calc_score(prices: list, labels: list) -> tuple[float, float]:
     """
-    모든 위치(고/저 공통)에 above_ratio × 2^i 적용.
-    - S (모든 고, 완전 돌파) = max_score
-    - C (모든 저, 전부 새 절대 저점) = 0
+    '고': 0.5 + 0.5 × recovery_ratio  → 기여 범위 [0.5, 1.0]
+    '저': 0.5 × survival_ratio         → 기여 범위 [0.0, 0.5)
+
+    같은 위치에서 '고'가 항상 '저'보다 높은 기여를 하므로
+    저→저→고 > 저→고→저 가 성립하면서,
+    '저' 내부에서도 높은 저점일수록 감점이 적다.
+    max_score = 모든 위치 val=1.0 → 2^n - 1
     """
     n = len(labels)
-    score = sum(_above_ratio(prices, i) * (2 ** i) for i in range(n))
+    score = 0.0
+    for i, lbl in enumerate(labels):
+        ar = _above_ratio(prices, i)
+        val = (0.5 + 0.5 * ar) if lbl == '고' else (0.5 * ar)
+        score += val * (2 ** i)
     return score, float((2 ** n) - 1)
 
 
@@ -60,11 +57,11 @@ def _ratio_to_grade(ratio: float) -> str:
 def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     dates = sorted(set(str(d).strip() for d in swing_dates if str(d).strip()))
     if len(dates) < 2 or stock_df.empty:
-        return {'grade': '—', 'pattern': ''}
+        return {'grade': '—', 'pattern': '', 'score': 0.0}
 
     prices = [_close_on(stock_df, d) for d in dates]
     if any(p is None for p in prices):
-        return {'grade': '—', 'pattern': '데이터부족'}
+        return {'grade': '—', 'pattern': '데이터부족', 'score': 0.0}
 
     labels = ['고' if prices[i] > prices[i - 1] else '저'
               for i in range(1, len(prices))]
@@ -72,4 +69,4 @@ def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     score, max_score = _calc_score(prices, labels)
     ratio = score / max_score if max_score > 0 else 0.0
 
-    return {'grade': _ratio_to_grade(ratio), 'pattern': '→'.join(labels)}
+    return {'grade': _ratio_to_grade(ratio), 'pattern': '→'.join(labels), 'score': ratio}

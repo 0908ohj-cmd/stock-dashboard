@@ -165,6 +165,7 @@ def _build_rows(
                 '양봉비%':     round(rs['candle_ratio'] * 100, 0),
                 '등급':        sg['grade'],
                 '패턴':        sg['pattern'],
+                '등급점수':    sg['score'],
             })
         except Exception:
             continue
@@ -173,6 +174,7 @@ def _build_rows(
         from strategy.swing_grade import GRADE_ORDER
         rows.sort(key=lambda r: (
             GRADE_ORDER.get(r['등급'], 6),
+            -r.get('등급점수', 0),
             -(r['RS/ADR'] or 0),
             -r['ma_above_count'],
             -(r['거래량비%'] or 0),
@@ -509,8 +511,17 @@ function(params) {
     return {color: c[grade] || 'inherit', fontWeight: 'bold'};
 }
 """)
+        grade_comparator = JsCode("""
+function(valueA, valueB) {
+    const order = {S:0,'A++':1,'A+':2,A:3,'A-':4,'A--':5,'B++':6,'B+':7,B:8,'B-':9,'B--':10,C:11};
+    const ga = valueA ? valueA.split('|')[0] : '';
+    const gb_ = valueB ? valueB.split('|')[0] : '';
+    return (order[ga] !== undefined ? order[ga] : 99) - (order[gb_] !== undefined ? order[gb_] : 99);
+}
+""")
         gb.configure_column('등급', headerName='등급 | 패턴', valueFormatter=grade_fmt,
-                            cellStyle=grade_style, filter='agTextColumnFilter', flex=2, minWidth=120)
+                            cellStyle=grade_style, comparator=grade_comparator,
+                            filter='agTextColumnFilter', flex=2, minWidth=120)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
