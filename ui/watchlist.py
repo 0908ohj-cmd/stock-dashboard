@@ -327,10 +327,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         # ⑤ Swing Low Grouping
         st.caption('Swing Low Grouping')
         st.markdown("""
-<div style="font-size:0.85em;line-height:1.7;margin-bottom:10px">
-지수 저점 날짜를 지정하면, 동일 날짜 기준으로 각 종목의 <b>상승 다이버전스 강도</b>를 등급으로 평가합니다.<br>
-같은 패턴(예: 저→고→저)이어도 <b>실제 가격 수준</b>에 따라 등급이 달라집니다.
-</div>
+<ul style="font-size:0.85em;line-height:1.9;margin-bottom:10px;padding-left:18px">
+  <li>지수 저점 날짜를 지정하면, 동일 날짜 기준으로 각 종목의 <b>상승 다이버전스 강도</b>를 등급으로 평가합니다.</li>
+  <li>같은 패턴(예: 저→고→저)이어도 <b>실제 가격 수준</b>에 따라 등급이 달라집니다.</li>
+</ul>
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">① 날짜 선택</div>
