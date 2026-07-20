@@ -13,16 +13,33 @@ def _close_on(df: pd.DataFrame, date) -> float | None:
     return float(avail['Close'].iloc[-1]) if not avail.empty else None
 
 
-def _weighted_grade(labels: list) -> str:
+def _recovery_ratio(prices: list, idx: int) -> float:
     """
-    최근 날짜일수록 높은 가중치(2^i, i=0이 가장 오래된 비교).
-    score = sum(고=1/저=0 * 2^i), ratio = score / max_score로 등급 결정.
+    labels[idx] == '고'일 때, 현재가(prices[idx+1])가
+    이전 가격들(prices[0..idx]) 중 몇 개를 돌파했는지 비율.
+    - 직전 하나만 넘음 → 1/(idx+1)
+    - 이전 전체 돌파  → 1.0
+    """
+    current = prices[idx + 1]
+    prev = prices[: idx + 1]
+    return sum(1 for p in prev if p < current) / len(prev)
+
+
+def _calc_score(prices: list, labels: list) -> tuple[float, float]:
+    """
+    weighted_score: '고'는 recovery_ratio × 2^i, '저'는 0.
+    max_score: 모든 위치 완전 돌파(recovery_ratio=1) 기준 = 2^n - 1.
     """
     n = len(labels)
-    score = sum((1 if labels[i] == '고' else 0) * (2 ** i) for i in range(n))
-    max_score = (2 ** n) - 1
-    ratio = score / max_score if max_score > 0 else 0.0
+    score = sum(
+        _recovery_ratio(prices, i) * (2 ** i)
+        for i, lbl in enumerate(labels)
+        if lbl == '고'
+    )
+    return score, float((2 ** n) - 1)
 
+
+def _ratio_to_grade(ratio: float) -> str:
     if ratio == 1.0: return 'S'
     if ratio >= 0.9: return 'A++'
     if ratio >= 0.8: return 'A+'
@@ -33,7 +50,7 @@ def _weighted_grade(labels: list) -> str:
     if ratio >= 0.3: return 'B+'
     if ratio >= 0.2: return 'B'
     if ratio >= 0.1: return 'B-'
-    if ratio > 0.0:  return 'B--'
+    if ratio > 0.0: return 'B--'
     return 'C'
 
 
@@ -49,4 +66,7 @@ def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     labels = ['고' if prices[i] > prices[i - 1] else '저'
               for i in range(1, len(prices))]
 
-    return {'grade': _weighted_grade(labels), 'pattern': '→'.join(labels)}
+    score, max_score = _calc_score(prices, labels)
+    ratio = score / max_score if max_score > 0 else 0.0
+
+    return {'grade': _ratio_to_grade(ratio), 'pattern': '→'.join(labels)}
