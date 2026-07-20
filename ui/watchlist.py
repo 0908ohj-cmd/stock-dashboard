@@ -626,7 +626,7 @@ function(params) {
 
                     # DAY3: peak~day3_date 구간 고정 스냅샷
                     with st.spinner('추가 후보 확인 중...'):
-                        day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date)
+                        day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
 
                     day3_new = [
                         r for r in day3_rows
@@ -646,7 +646,7 @@ function(params) {
                     if days_since_jjin >= 2:
                         # DAY4: peak~day4_date 구간 고정 스냅샷
                         with st.spinner('추가 후보 확인 중...'):
-                            day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date)
+                            day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)
 
                         day4_new = [
                             r for r in day4_rows
