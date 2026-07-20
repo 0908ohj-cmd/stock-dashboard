@@ -323,6 +323,36 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
         st.divider()
+
+        # ⑤ Swing Low Grouping
+        st.caption('Swing Low Grouping')
+        st.markdown("""
+지수 저점 날짜를 직접 지정하면, 각 종목이 동일 날짜에 **얼마나 강하게 지수 대비 상승 다이버전스**를 보였는지 등급으로 평가합니다.
+
+**사용법**
+1. 📊 Swing Low Grouping 패널을 열어 지수 저점 날짜를 **2개 이상** 선택
+2. ＋/－ 버튼으로 날짜 슬롯 추가·제거 (최대 8개)
+3. 2개 이상 선택 시 자동으로 등급 계산 및 등급순 정렬 적용
+""")
+        st.markdown("""
+**등급 산출 원리**
+
+각 날짜 구간마다 종목의 종가가 이전 날짜들의 종가 중 몇 %보다 높은지를 계산합니다.
+- **최근 날짜일수록 가중치가 높습니다** (2배씩 증가)
+- **'고' 구간**: 이전 저점들을 많이 돌파할수록 높은 점수
+- **'저' 구간**: 이전 저점들 위에 머물수록(높은 저점) 감점 최소화
+""")
+        st.markdown(
+            '| 등급 | 의미 |\n'
+            '|------|------|\n'
+            '| **S** | 모든 구간 강한 상승 + 완전 돌파 |\n'
+            '| **A++ ~ A--** | 상위권 — 최근 구간 강세, 이전 저점 돌파 비율 높음 |\n'
+            '| **B++ ~ B--** | 중위권 — 일부 구간 상승, 최근 흐름 혼조 |\n'
+            '| **C** | 모든 구간 신규 절대 저점 갱신 (지수와 동행) |'
+        )
+        st.caption('※ 같은 패턴(예: 저→고→저)이어도 실제 가격 수준에 따라 등급이 달라집니다.')
+
+        st.divider()
         if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
             _build_rows.clear()
             _fetch_index_cached.clear()
@@ -357,7 +387,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if custom_rs_start_str:
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
 
-    with st.expander('📊 스윙로우 그룹핑 설정', expanded=False):
+    with st.expander('📊 Swing Low Grouping', expanded=False):
         st.caption('지수 저점 날짜를 선택하면 개별 종목의 상승 다이버전스 등급을 계산합니다.')
 
         slot_key = f'swing_slot_count_{market}'
