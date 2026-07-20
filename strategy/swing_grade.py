@@ -13,12 +13,18 @@ def _close_on(df: pd.DataFrame, date) -> float | None:
     return float(avail['Close'].iloc[-1]) if not avail.empty else None
 
 
-def _recovery_ratio(prices: list, idx: int) -> float:
+def _above_ratio(prices: list, idx: int) -> float:
     """
-    labels[idx] == '고'일 때, 현재가(prices[idx+1])가
-    이전 가격들(prices[0..idx]) 중 몇 개를 돌파했는지 비율.
-    - 직전 하나만 넘음 → 1/(idx+1)
-    - 이전 전체 돌파  → 1.0
+    현재가(prices[idx+1])가 이전 가격들(prices[0..idx]) 중 몇 개보다 높은지 비율 (0.0~1.0).
+
+    '고': 직전가 반드시 포함 → minimum 1/(idx+1)
+    '저': 직전가 미포함    → maximum idx/(idx+1)
+
+    예) 저(500)→고(800)→저(700): idx=1, current=700, prev=[500,800]
+        count([500,800] < 700) / 2 = 1/2 = 0.5  ← 절반은 위에 있음 (높은 저점)
+
+    예) 저(500)→고(800)→저(400): idx=1, current=400, prev=[500,800]
+        count([500,800] < 400) / 2 = 0/2 = 0.0  ← 전부 위에 없음 (새 절대 저점)
     """
     current = prices[idx + 1]
     prev = prices[: idx + 1]
@@ -27,15 +33,12 @@ def _recovery_ratio(prices: list, idx: int) -> float:
 
 def _calc_score(prices: list, labels: list) -> tuple[float, float]:
     """
-    weighted_score: '고'는 recovery_ratio × 2^i, '저'는 0.
-    max_score: 모든 위치 완전 돌파(recovery_ratio=1) 기준 = 2^n - 1.
+    모든 위치(고/저 공통)에 above_ratio × 2^i 적용.
+    - S (모든 고, 완전 돌파) = max_score
+    - C (모든 저, 전부 새 절대 저점) = 0
     """
     n = len(labels)
-    score = sum(
-        _recovery_ratio(prices, i) * (2 ** i)
-        for i, lbl in enumerate(labels)
-        if lbl == '고'
-    )
+    score = sum(_above_ratio(prices, i) * (2 ** i) for i in range(n))
     return score, float((2 ** n) - 1)
 
 
