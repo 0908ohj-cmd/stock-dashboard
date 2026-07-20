@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import streamlit.components.v1 as components
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 from data.fetcher import (
     fetch_daily, fetch_index_daily, get_stock_name,
@@ -85,6 +85,7 @@ def _build_rows(
     jjin_date_str: str | None,
     custom_rs_start_str: str | None = None,
     as_of_date_str: str | None = None,
+    swing_dates_str: str | None = None,   # 쉼표 구분 날짜: "2026-05-20,2026-06-08,..."
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
@@ -98,6 +99,8 @@ def _build_rows(
     idx_asof = index_df[index_df.index <= asof] if asof is not None else index_df
 
     adr_min = 2.0 if market.startswith('KR') else 4.0
+    swing_dates = [d.strip() for d in swing_dates_str.split(',') if d.strip()] if swing_dates_str else []
+
     stock_cache = {}
     for ticker in tickers:
         try:
@@ -138,6 +141,13 @@ def _build_rows(
                 }
 
             ma_text, ma_above = _ma_position(df_asof, idx_asof)
+
+            if swing_dates:
+                from strategy.swing_grade import calc_swing_grade
+                sg = calc_swing_grade(df, swing_dates)
+            else:
+                sg = {'grade': '—', 'pattern': ''}
+
             rows.append({
                 'Ticker':      ticker,
                 '종목명':      name,
@@ -153,16 +163,28 @@ def _build_rows(
                 'ma_above_count': ma_above,
                 '거래량비%':   round(rs['vol_ratio'] * 100, 0),
                 '양봉비%':     round(rs['candle_ratio'] * 100, 0),
+                '등급':        sg['grade'],
+                '패턴':        sg['pattern'],
             })
         except Exception:
             continue
 
-    rows.sort(key=lambda r: (
-        -(r['RS/ADR'] or 0),
-        -r['ma_above_count'],
-        -(r['거래량비%'] or 0),
-        (r['고점대비%'] or 0),
-    ))
+    if swing_dates:
+        from strategy.swing_grade import GRADE_ORDER
+        rows.sort(key=lambda r: (
+            GRADE_ORDER.get(r['등급'], 6),
+            -(r['RS/ADR'] or 0),
+            -r['ma_above_count'],
+            -(r['거래량비%'] or 0),
+            (r['고점대비%'] or 0),
+        ))
+    else:
+        rows.sort(key=lambda r: (
+            -(r['RS/ADR'] or 0),
+            -r['ma_above_count'],
+            -(r['거래량비%'] or 0),
+            (r['고점대비%'] or 0),
+        ))
     return rows
 
 
@@ -335,13 +357,45 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         if custom_rs_start_str:
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
 
+    with st.expander('📊 스윙로우 그룹핑 설정', expanded=False):
+        st.caption('지수 저점 날짜를 입력하면 개별 종목의 상승 다이버전스 등급(S/A+/A/A-/B/C)을 계산합니다.')
+        swing_raw = st.text_area(
+            '저점 날짜 (쉼표로 구분, 오래된 날짜 → 최근 순)',
+            value=st.session_state.get(f'swing_dates_{market}', ''),
+            placeholder='예: 2026-05-20, 2026-06-08, 2026-06-26, 2026-07-08, 2026-07-14',
+            key=f'swing_input_{market}',
+            height=68,
+        )
+        # 파싱 및 검증
+        swing_dates_valid = []
+        for part in swing_raw.split(','):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                pd.Timestamp(part)
+                swing_dates_valid.append(part)
+            except Exception:
+                st.warning(f'날짜 형식 오류: {part}  (YYYY-MM-DD 형식으로 입력)')
+        st.session_state[f'swing_dates_{market}'] = swing_raw
+
+        if len(swing_dates_valid) >= 2:
+            swing_dates_str = ','.join(sorted(set(swing_dates_valid)))
+            st.caption(f'✅ {len(swing_dates_valid)}개 저점 날짜 설정됨 — 등급순 정렬 활성화')
+        elif len(swing_dates_valid) == 1:
+            swing_dates_str = None
+            st.caption('날짜를 2개 이상 입력해야 등급이 계산됩니다.')
+        else:
+            swing_dates_str = None
+
     _status_banner(status, label)
 
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
             tuple(tickers), market,
             correction_start_str, jjin_date_str,
-            custom_rs_start_str,
+            custom_rs_start_str, None,
+            swing_dates_str,
         )
 
     if not rows:
@@ -358,7 +412,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         start_str = str(pdate.date()) if pdate else correction_start_str
         st.caption(f"📅 조정 구간: {start_str} ~ {end_str}")
 
+    show_grade = bool(swing_dates_str)
     display_df = pd.DataFrame([{
+        **(({'등급': r['등급'], '패턴': r['패턴']} if show_grade else {})),
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '섹터':          r['섹터'],
         'Close':         r['Close'],
@@ -378,6 +434,15 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         close_fmt = "value == null ? '' : '₩' + Math.round(value).toLocaleString('ko-KR')"
     else:
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
+    if show_grade:
+        grade_style = JsCode("""
+function(params) {
+    const c = {S:'#ffd700','A+':'#00c87e',A:'#52d68a','A-':'#a8e6b8',B:'#f0a020',C:'#e84040'};
+    return {color: c[params.value] || '#888', fontWeight:'bold', textAlign:'center'};
+}
+""")
+        gb.configure_column('등급', cellStyle=grade_style, filter='agSetColumnFilter', flex=1, minWidth=60)
+        gb.configure_column('패턴', filter='agTextColumnFilter', flex=2, minWidth=100)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
