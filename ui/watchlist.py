@@ -492,7 +492,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if show_grade:
         grade_renderer = JsCode("""
 function(params) {
-    if (!params.value) return '';
+    if (!params.value) return document.createElement('span');
     const parts = params.value.split('|');
     const grade = parts[0];
     const pattern = parts[1] || '';
@@ -503,7 +503,10 @@ function(params) {
         C:'#e84040'
     };
     const color = c[grade] || '#888';
-    return `<span style="color:${color};font-weight:bold;margin-right:6px">${grade}</span><span style="color:#888;font-size:0.85em">${pattern}</span>`;
+    const el = document.createElement('div');
+    el.innerHTML = '<span style="color:' + color + ';font-weight:bold;margin-right:6px">' + grade + '</span>'
+                 + '<span style="color:#888;font-size:0.85em">' + pattern + '</span>';
+    return el;
 }
 """)
         gb.configure_column('등급', headerName='등급 | 패턴', cellRenderer=grade_renderer,
