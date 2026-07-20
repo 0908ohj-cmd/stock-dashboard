@@ -462,6 +462,7 @@ function(params) {
         gridOptions=gb.build(),
         update_mode=GridUpdateMode.SELECTION_CHANGED,
         enable_enterprise_modules=False,
+        allow_unsafe_jscode=True,
         theme='streamlit',
         fit_columns_on_grid_load=True,
     )
