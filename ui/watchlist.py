@@ -381,7 +381,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
 </div>
 <div style="font-size:0.78em;opacity:0.65;margin-top:8px;padding:6px 10px;border-left:3px solid #55555560;line-height:1.6">
-  💡 패턴 레이블: <b>고</b>(이전 저가 대비 상승) · <b>저</b>(하락했으나 구간 최저가 이상 유지) · <b>신저</b>(구간 내 절대 최저가 갱신)<br>
+  💡 패턴 레이블: <b>신고</b>(구간 내 절대 최고가 갱신) · <b>고</b>(이전 저가 대비 상승, 최고가 미갱신) · <b>저</b>(하락했으나 최저가 유지) · <b>신저</b>(구간 내 절대 최저가 갱신)<br>
   날짜 3개 → 최대 6패턴 &nbsp;|&nbsp; 날짜 4개 이상 → 전 등급(S·A·B·C) 세분화 활성화
 </div>
 """, unsafe_allow_html=True)
