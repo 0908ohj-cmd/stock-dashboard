@@ -342,7 +342,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">③ 등급순 정렬</div>
-    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">와치리스트가 자동으로<br>등급 높은 순서로 재정렬<br>동급은 RS/ADR 기준</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">와치리스트가 자동으로<br>등급 높은 순서로 재정렬</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
