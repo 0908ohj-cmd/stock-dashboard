@@ -7,6 +7,8 @@ GRADE_ORDER = {
     'C': 11, '—': 12,
 }
 
+_GRADES_ASC = ['B--', 'B-', 'B', 'B+', 'B++', 'A--', 'A-', 'A', 'A+', 'A++']
+
 
 def _close_on(df: pd.DataFrame, date) -> float | None:
     avail = df[df.index <= pd.Timestamp(date)]
@@ -20,38 +22,38 @@ def _above_ratio(prices: list, idx: int) -> float:
     return sum(1 for p in prev if p < current) / len(prev)
 
 
-def _calc_score(prices: list, labels: list) -> tuple[float, float]:
+def _binary_score(labels: list) -> int:
     """
-    '고': 0.5 + 0.5 × recovery_ratio  → 기여 범위 [0.5, 1.0]
-    '저': 0.5 × survival_ratio         → 기여 범위 [0.0, 0.5)
-
-    같은 위치에서 '고'가 항상 '저'보다 높은 기여를 하므로
-    저→저→고 > 저→고→저 가 성립하면서,
-    '저' 내부에서도 높은 저점일수록 감점이 적다.
-    max_score = 모든 위치 val=1.0 → 2^n - 1
+    이진 재귀 가중 점수 (최근일수록 2^i 높은 가중치).
+    고=1, 저=0 → 0 ~ 2^n-1 사이 정수.
+    서로 다른 패턴은 항상 다른 점수를 가진다.
     """
-    n = len(labels)
-    score = 0.0
-    for i, lbl in enumerate(labels):
-        ar = _above_ratio(prices, i)
-        val = (0.5 + 0.5 * ar) if lbl == '고' else (0.5 * ar)
-        score += val * (2 ** i)
-    return score, float((2 ** n) - 1)
+    return sum((1 if lbl == '고' else 0) * (2 ** i) for i, lbl in enumerate(labels))
 
 
-def _ratio_to_grade(ratio: float) -> str:
-    if ratio == 1.0: return 'S'
-    if ratio >= 0.9: return 'A++'
-    if ratio >= 0.8: return 'A+'
-    if ratio >= 0.7: return 'A'
-    if ratio >= 0.6: return 'A-'
-    if ratio >= 0.5: return 'A--'
-    if ratio >= 0.4: return 'B++'
-    if ratio >= 0.3: return 'B+'
-    if ratio >= 0.2: return 'B'
-    if ratio >= 0.1: return 'B-'
-    if ratio > 0.0: return 'B--'
-    return 'C'
+def _grade_from_binary(b_score: int, max_score: int) -> str:
+    """
+    이진 점수 → 등급 레이블.
+    N개 날짜의 경우의 수(2^(N-1))를 기반으로 동적 분할 — 하드코딩 없음.
+    """
+    if b_score == max_score:
+        return 'S'
+    if b_score == 0:
+        return 'C'
+    # 중간 구간 [1, max_score-1] 을 _GRADES_ASC 10단계로 균등 분할
+    rank = b_score - 1           # 0 ~ max_score-2
+    total = max_score - 1        # 경우의 수 - 2 (S, C 제외)
+    idx = min(int(rank * 10 / total), 9)
+    return _GRADES_ASC[idx]
+
+
+def _sub_score(prices: list, n: int, max_binary: int) -> float:
+    """
+    같은 등급(같은 이진 패턴) 내에서 가격 수준으로 세분화하는 연속 점수.
+    above_ratio × 2^i 합산 후 정규화 → [0, 1).
+    """
+    raw = sum(_above_ratio(prices, i) * (2 ** i) for i in range(n))
+    return raw / max_binary if max_binary > 0 else 0.0
 
 
 def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
@@ -63,10 +65,14 @@ def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     if any(p is None for p in prices):
         return {'grade': '—', 'pattern': '데이터부족', 'score': 0.0}
 
-    labels = ['고' if prices[i] > prices[i - 1] else '저'
-              for i in range(1, len(prices))]
+    n = len(dates) - 1
+    labels = ['고' if prices[i] > prices[i - 1] else '저' for i in range(1, len(prices))]
 
-    score, max_score = _calc_score(prices, labels)
-    ratio = score / max_score if max_score > 0 else 0.0
+    max_binary = (2 ** n) - 1
+    b_score = _binary_score(labels)
 
-    return {'grade': _ratio_to_grade(ratio), 'pattern': '→'.join(labels), 'score': ratio}
+    return {
+        'grade':   _grade_from_binary(b_score, max_binary),
+        'pattern': '→'.join(labels),
+        'score':   _sub_score(prices, n, max_binary),
+    }
