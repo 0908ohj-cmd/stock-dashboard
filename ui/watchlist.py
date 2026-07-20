@@ -524,7 +524,7 @@ function(params) {
     const c = {
         S:'#FFD700',
         'A++':'#00E676','A+':'#00C853','A':'#69F0AE','A-':'#40C4FF','A--':'#0091EA',
-        'B++':'#FF6D00','B+':'#FF9100','B':'#FFAB40','B-':'#FFD180','B--':'#FFE0B2',
+        'B++':'#E65100','B+':'#F57C00','B':'#FF8F00','B-':'#FFA000','B--':'#FFB300',
         C:'#FF1744',F:'#9E9E9E'
     };
     return {color: c[grade] || 'inherit', fontWeight: 'bold'};
@@ -591,7 +591,7 @@ function(valueA, valueB) {
     _GRADE_COLOR = {
         'S': '#FFD700',
         'A++': '#00E676', 'A+': '#00C853', 'A': '#69F0AE', 'A-': '#40C4FF', 'A--': '#0091EA',
-        'B++': '#FF6D00', 'B+': '#FF9100', 'B': '#FFAB40', 'B-': '#FFD180', 'B--': '#FFE0B2',
+        'B++': '#E65100', 'B+': '#F57C00', 'B': '#FF8F00', 'B-': '#FFA000', 'B--': '#FFB300',
         'C': '#FF1744', 'F': '#9E9E9E',
     }
 
