@@ -12,6 +12,16 @@ GRADE_ORDER = {
 
 _GRADES_ASC = ['B--', 'B-', 'B', 'B+', 'B++', 'A--', 'A-', 'A', 'A+', 'A++']
 
+# 레이블 전이 제약:
+#   신저(0) 직후 → 저(1) 불가  (새 seq_min = prices[i+1] 이므로 다음 구간에서 "이전가 미만 & 최저가 이상" 조건 충족 불가)
+#   신고(3) 직후 → 고(2) 불가  (새 seq_max = prices[i+1] 이므로 "이전가 초과 & 최고가 이하" 조건 충족 불가)
+_AFTER_LABELS: dict[int, tuple[int, ...]] = {
+    3: (3, 1, 0),        # 신고 다음: 신고·저·신저
+    2: (3, 2, 1, 0),     # 고   다음: 전부 가능
+    1: (3, 2, 1, 0),     # 저   다음: 전부 가능
+    0: (3, 2, 0),        # 신저 다음: 신고·고·신저
+}
+
 
 def _low_on(df: pd.DataFrame, date) -> float | None:
     """해당 날짜 이전 마지막 거래일의 저가(Low) 반환."""
@@ -53,17 +63,25 @@ def _max_seq_score(n: int) -> int:
 @lru_cache(maxsize=8)
 def _achievable_intermediate_scores(n: int) -> tuple:
     """
-    n개 구간에서 달성 가능한 중간 점수 집합 (S·C 제외).
-    i=0 구간: 신고(3) 또는 신저(0)만 가능.
-    i>0 구간: 신고/고/저/신저 모두 가능.
+    실제로 달성 가능한 중간 점수 집합 (S·C 제외).
+    _AFTER_LABELS 전이 제약을 지켜 DFS로 탐색.
+    - i=0: 신고(3) 또는 신저(0)만 가능 (seq_min=seq_max=prices[0]이므로)
+    - 신저(0) 직후: 저(1) 불가
+    - 신고(3) 직후: 고(2) 불가
     """
     max_s = _max_seq_score(n)
     scores: set[int] = set()
-    for first in (0, 3):
-        for rest in itertools.product((0, 1, 2, 3), repeat=max(n - 1, 0)):
-            s = _seq_score([first] + list(rest))
-            if 0 < s < max_s:
-                scores.add(s)
+    # stack: (depth, prev_label, score_so_far)  prev=-1 = 첫 구간
+    stack = [(0, -1, 0)]
+    while stack:
+        depth, prev, score = stack.pop()
+        if depth == n:
+            if 0 < score < max_s:
+                scores.add(score)
+            continue
+        choices = (0, 3) if prev == -1 else _AFTER_LABELS[prev]
+        for v in choices:
+            stack.append((depth + 1, v, score + v * (4 ** depth)))
     return tuple(sorted(scores))
 
 
