@@ -441,7 +441,12 @@ function(params) {
     const parts = params.value.split('|');
     const grade = parts[0];
     const pattern = parts[1] || '';
-    const c = {S:'#ffd700','A+':'#00c87e',A:'#52d68a','A-':'#a8e6b8',B:'#f0a020',C:'#e84040'};
+    const c = {
+        S:'#ffd700',
+        'A++':'#00b870','A+':'#00c87e','A':'#52d68a','A-':'#8de8a8','A--':'#b8f0c8',
+        'B++':'#e8a000','B+':'#f0a020','B':'#f4b840','B-':'#f8cc60','B--':'#fde080',
+        C:'#e84040'
+    };
     const color = c[grade] || '#888';
     return `<span style="color:${color};font-weight:bold;margin-right:6px">${grade}</span><span style="color:#888;font-size:0.85em">${pattern}</span>`;
 }
