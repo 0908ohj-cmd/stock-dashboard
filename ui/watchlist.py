@@ -414,7 +414,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     show_grade = bool(swing_dates_str)
     display_df = pd.DataFrame([{
-        **(({'등급': r['등급'], '패턴': r['패턴']} if show_grade else {})),
+        **(({'등급': f"{r['등급']}|{r['패턴']}"} if show_grade else {})),
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '섹터':          r['섹터'],
         'Close':         r['Close'],
@@ -435,14 +435,19 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     else:
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
     if show_grade:
-        grade_style = JsCode("""
+        grade_renderer = JsCode("""
 function(params) {
+    if (!params.value) return '';
+    const parts = params.value.split('|');
+    const grade = parts[0];
+    const pattern = parts[1] || '';
     const c = {S:'#ffd700','A+':'#00c87e',A:'#52d68a','A-':'#a8e6b8',B:'#f0a020',C:'#e84040'};
-    return {color: c[params.value] || '#888', fontWeight:'bold', textAlign:'center'};
+    const color = c[grade] || '#888';
+    return `<span style="color:${color};font-weight:bold;margin-right:6px">${grade}</span><span style="color:#888;font-size:0.85em">${pattern}</span>`;
 }
 """)
-        gb.configure_column('등급', cellStyle=grade_style, filter='agSetColumnFilter', flex=1, minWidth=60)
-        gb.configure_column('패턴', filter='agTextColumnFilter', flex=2, minWidth=100)
+        gb.configure_column('등급', headerName='등급 | 패턴', cellRenderer=grade_renderer,
+                            filter='agTextColumnFilter', flex=2, minWidth=120)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
