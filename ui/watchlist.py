@@ -537,7 +537,7 @@ function(params) {
 
     # 핵심 후보: jjin_date 기준 고정 스냅샷 (고점대비%·이평선위치도 해당 날짜 기준)
     if jjin_date_str:
-        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str)
+        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str)
         cand_ma_ok = False  # jjin_date에 지수는 조정 중 → MA 위치 조건 항상 적용
     else:
         cand_rows  = rows
@@ -558,13 +558,33 @@ function(params) {
         if not top_candidates else []
     )
 
+    _GRADE_COLOR = {
+        'S': '#ffd700',
+        'A++': '#00b870', 'A+': '#00c87e', 'A': '#52d68a', 'A-': '#8de8a8', 'A--': '#b8f0c8',
+        'B++': '#e8a000', 'B+': '#f0a020', 'B': '#f4b840', 'B-': '#f8cc60', 'B--': '#fde080',
+        'C': '#e84040',
+    }
+
     def _render_candidates(cands: list, section_label: str, period_str: str):
         st.markdown(f'**{section_label}** — {len(cands)}개{period_str}', unsafe_allow_html=True)
         cols = st.columns(3)
         for i, r in enumerate(cands):
             with cols[i % 3]:
                 with st.container(border=True):
-                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
+                    grade = r.get('등급', '—')
+                    pattern = r.get('패턴', '')
+                    if grade and grade != '—':
+                        gc = _GRADE_COLOR.get(grade, '#888')
+                        grade_html = (
+                            f'<span style="color:{gc};font-weight:700;font-size:1em">{grade}</span>'
+                            f'<span style="color:#888;font-size:0.78em;margin-left:5px">{pattern}</span>'
+                        )
+                        st.markdown(
+                            f"**{r['Ticker']}** {r['종목명']} &nbsp; {grade_html}",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(f"**{r['Ticker']}** {r['종목명']}")
                     st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
                     st.caption(
                         f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
