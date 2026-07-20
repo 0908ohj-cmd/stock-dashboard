@@ -490,27 +490,27 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     else:
         close_fmt = "value == null ? '' : '$' + value.toFixed(2)"
     if show_grade:
-        grade_renderer = JsCode("""
+        grade_fmt = JsCode("""
 function(params) {
-    if (!params.value) return document.createElement('span');
+    if (!params.value) return '';
     const parts = params.value.split('|');
-    const grade = parts[0];
-    const pattern = parts[1] || '';
+    return parts[0] + '  ' + (parts[1] || '');
+}
+""")
+        grade_style = JsCode("""
+function(params) {
+    const grade = params.value ? params.value.split('|')[0] : '';
     const c = {
         S:'#ffd700',
         'A++':'#00b870','A+':'#00c87e','A':'#52d68a','A-':'#8de8a8','A--':'#b8f0c8',
         'B++':'#e8a000','B+':'#f0a020','B':'#f4b840','B-':'#f8cc60','B--':'#fde080',
         C:'#e84040'
     };
-    const color = c[grade] || '#888';
-    const el = document.createElement('div');
-    el.innerHTML = '<span style="color:' + color + ';font-weight:bold;margin-right:6px">' + grade + '</span>'
-                 + '<span style="color:#888;font-size:0.85em">' + pattern + '</span>';
-    return el;
+    return {color: c[grade] || 'inherit', fontWeight: 'bold'};
 }
 """)
-        gb.configure_column('등급', headerName='등급 | 패턴', cellRenderer=grade_renderer,
-                            filter='agTextColumnFilter', flex=2, minWidth=120)
+        gb.configure_column('등급', headerName='등급 | 패턴', valueFormatter=grade_fmt,
+                            cellStyle=grade_style, filter='agTextColumnFilter', flex=2, minWidth=120)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
