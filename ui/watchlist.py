@@ -358,7 +358,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     <div style="font-size:0.82em;line-height:1.5;opacity:0.8">와치리스트가 자동으로<br>등급 높은 순서로 재정렬</div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
   <div style="border:1px solid #ffd70055;border-radius:8px;padding:8px 10px;text-align:center">
     <div style="color:#FFD700;font-weight:700;font-size:1em">S</div>
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 강한 상승<br>이전 저점 완전 돌파</div>
@@ -375,6 +375,14 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     <div style="color:#FF1744;font-weight:700;font-size:1em">C</div>
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 신규 저점<br>지수와 동일</div>
   </div>
+  <div style="border:1px solid #9e9e9e55;border-radius:8px;padding:8px 10px;text-align:center">
+    <div style="color:#9E9E9E;font-weight:700;font-size:1em">F</div>
+    <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">SMA150 또는 SMA200<br>아래 종목 자동 분류</div>
+  </div>
+</div>
+<div style="font-size:0.78em;opacity:0.65;margin-top:8px;padding:6px 10px;border-left:3px solid #55555560;line-height:1.6">
+  💡 선택한 날짜 수에 따라 등급 세분화 수준이 달라집니다.<br>
+  날짜 3개(구간 2개) → 4등급 &nbsp;|&nbsp; 날짜 4개 → 8등급 &nbsp;|&nbsp; 날짜 5개 → 16등급
 </div>
 """, unsafe_allow_html=True)
 
