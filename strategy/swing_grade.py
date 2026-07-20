@@ -19,13 +19,16 @@ def _low_on(df: pd.DataFrame, date) -> float | None:
     return float(avail['Low'].iloc[-1]) if not avail.empty else None
 
 
-def _label_value(current: float, previous: float, seq_min: float) -> int:
+def _label_value(current: float, previous: float, seq_min: float, seq_max: float) -> int:
     """
-    고(2): 이전가 대비 상승
-    저(1): 이전가 대비 하락이지만 구간 내 절대 최저가 이상 유지
+    신고(3): 구간 내 절대 최고가 갱신
+    고  (2): 이전가 대비 상승, 최고가 미갱신
+    저  (1): 이전가 대비 하락, 최저가 미갱신
     신저(0): 구간 내 절대 최저가 갱신
     """
-    if current > previous:
+    if current > seq_max:
+        return 3
+    elif current > previous:
         return 2
     elif current >= seq_min:
         return 1
@@ -34,38 +37,38 @@ def _label_value(current: float, previous: float, seq_min: float) -> int:
 
 
 def _label_str(v: int) -> str:
-    return {2: '고', 1: '저', 0: '신저'}[v]
+    return {3: '신고', 2: '고', 1: '저', 0: '신저'}[v]
 
 
-def _ternary_score(label_values: list) -> int:
-    """최근 구간일수록 3^i 높은 가중치."""
-    return sum(v * (3 ** i) for i, v in enumerate(label_values))
+def _seq_score(label_values: list) -> int:
+    """최근 구간일수록 4^i 높은 가중치 (신고=3, 고=2, 저=1, 신저=0)."""
+    return sum(v * (4 ** i) for i, v in enumerate(label_values))
 
 
-def _max_ternary_score(n: int) -> int:
-    """전구간 고(2) 패턴의 점수 = 3^n - 1."""
-    return (3 ** n) - 1
+def _max_seq_score(n: int) -> int:
+    """전구간 신고(3) 패턴의 점수 = 4^n - 1."""
+    return (4 ** n) - 1
 
 
 @lru_cache(maxsize=8)
 def _achievable_intermediate_scores(n: int) -> tuple:
     """
     n개 구간에서 달성 가능한 중간 점수 집합 (S·C 제외).
-    i=0 구간은 고(2) 또는 신저(0)만 가능.
-    i>0 구간은 고/저/신저 모두 가능.
+    i=0 구간: 신고(3) 또는 신저(0)만 가능.
+    i>0 구간: 신고/고/저/신저 모두 가능.
     """
-    max_s = _max_ternary_score(n)
+    max_s = _max_seq_score(n)
     scores: set[int] = set()
-    for first in (0, 2):
-        for rest in itertools.product((0, 1, 2), repeat=max(n - 1, 0)):
-            s = _ternary_score([first] + list(rest))
+    for first in (0, 3):
+        for rest in itertools.product((0, 1, 2, 3), repeat=max(n - 1, 0)):
+            s = _seq_score([first] + list(rest))
             if 0 < s < max_s:
                 scores.add(s)
     return tuple(sorted(scores))
 
 
-def _grade_from_ternary(t_score: int, n: int) -> str:
-    max_s = _max_ternary_score(n)
+def _grade_from_score(t_score: int, n: int) -> str:
+    max_s = _max_seq_score(n)
     if t_score == max_s:
         return 'S'
     if t_score == 0:
@@ -82,10 +85,8 @@ def _grade_from_ternary(t_score: int, n: int) -> str:
 def _sub_score(prices: list, n: int) -> float:
     """
     같은 등급(패턴) 내 가격 수준 세분화.
-    각 구간별 current / max(이전 저가들) 비율의 2^i 가중합.
-    - 1.0 초과: 이전 최고점 위로 회복 (높을수록 강함)
-    - 1.0 미만: 이전 최고점 아래 (낮을수록 약함)
-    하드코딩 없이 날짜 수(n)에 관계없이 동일 공식 적용.
+    current / max(이전 저가들) 비율의 2^i 가중합.
+    높을수록 이전 고점 대비 더 높이 회복한 것.
     """
     total = 0.0
     weight_sum = 0.0
@@ -109,15 +110,17 @@ def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     n = len(dates) - 1
     label_values: list[int] = []
     seq_min = prices[0]
+    seq_max = prices[0]
     for i in range(n):
-        lv = _label_value(prices[i + 1], prices[i], seq_min)
+        lv = _label_value(prices[i + 1], prices[i], seq_min, seq_max)
         label_values.append(lv)
         seq_min = min(seq_min, prices[i + 1])
+        seq_max = max(seq_max, prices[i + 1])
 
-    t_score = _ternary_score(label_values)
+    t_score = _seq_score(label_values)
 
     return {
-        'grade':   _grade_from_ternary(t_score, n),
+        'grade':   _grade_from_score(t_score, n),
         'pattern': '→'.join(_label_str(v) for v in label_values),
         'score':   _sub_score(prices, n),
     }
