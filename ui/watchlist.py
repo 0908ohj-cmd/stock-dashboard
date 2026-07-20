@@ -573,18 +573,14 @@ function(params) {
                 with st.container(border=True):
                     grade = r.get('등급', '—')
                     pattern = r.get('패턴', '')
+                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
                     if grade and grade != '—':
                         gc = _GRADE_COLOR.get(grade, '#888')
-                        grade_html = (
-                            f'<span style="color:{gc};font-weight:700;font-size:1em">{grade}</span>'
-                            f'<span style="color:#888;font-size:0.78em;margin-left:5px">{pattern}</span>'
-                        )
                         st.markdown(
-                            f"**{r['Ticker']}** {r['종목명']} &nbsp; {grade_html}",
+                            f'<span style="color:{gc};font-weight:700;font-size:0.95em">{grade}</span>'
+                            f'<span style="color:#888;font-size:0.82em;margin-left:6px">{pattern}</span>',
                             unsafe_allow_html=True,
                         )
-                    else:
-                        st.markdown(f"**{r['Ticker']}** {r['종목명']}")
                     st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
                     st.caption(
                         f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
