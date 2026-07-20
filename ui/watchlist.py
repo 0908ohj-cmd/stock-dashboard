@@ -358,33 +358,45 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
 
     with st.expander('📊 스윙로우 그룹핑 설정', expanded=False):
-        st.caption('지수 저점 날짜를 입력하면 개별 종목의 상승 다이버전스 등급(S/A+/A/A-/B/C)을 계산합니다.')
-        swing_raw = st.text_area(
-            '저점 날짜 (쉼표로 구분, 오래된 날짜 → 최근 순)',
-            value=st.session_state.get(f'swing_dates_{market}', ''),
-            placeholder='예: 2026-05-20, 2026-06-08, 2026-06-26, 2026-07-08, 2026-07-14',
-            key=f'swing_input_{market}',
-            height=68,
-        )
-        # 파싱 및 검증
+        st.caption('지수 저점 날짜를 선택하면 개별 종목의 상승 다이버전스 등급을 계산합니다.')
+
+        slot_key = f'swing_slot_count_{market}'
+        if slot_key not in st.session_state:
+            st.session_state[slot_key] = 3
+        n_slots = st.session_state[slot_key]
+
         swing_dates_valid = []
-        for part in swing_raw.split(','):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                pd.Timestamp(part)
-                swing_dates_valid.append(part)
-            except Exception:
-                st.warning(f'날짜 형식 오류: {part}  (YYYY-MM-DD 형식으로 입력)')
-        st.session_state[f'swing_dates_{market}'] = swing_raw
+        for row_start in range(0, n_slots, 4):
+            cols = st.columns(min(4, n_slots - row_start))
+            for j, col in enumerate(cols):
+                idx = row_start + j
+                with col:
+                    d = st.date_input(
+                        f'저점 {idx + 1}',
+                        value=None,
+                        key=f'swing_date_{market}_{idx}',
+                    )
+                    if d:
+                        swing_dates_valid.append(str(d))
+
+        btn_add, btn_del, _ = st.columns([1, 1, 4])
+        with btn_add:
+            if st.button('＋ 추가', key=f'swing_add_{market}') and n_slots < 8:
+                st.session_state[slot_key] += 1
+                st.rerun()
+        with btn_del:
+            if st.button('－ 삭제', key=f'swing_del_{market}') and n_slots > 2:
+                last_key = f'swing_date_{market}_{n_slots - 1}'
+                st.session_state.pop(last_key, None)
+                st.session_state[slot_key] -= 1
+                st.rerun()
 
         if len(swing_dates_valid) >= 2:
             swing_dates_str = ','.join(sorted(set(swing_dates_valid)))
             st.caption(f'✅ {len(swing_dates_valid)}개 저점 날짜 설정됨 — 등급순 정렬 활성화')
         elif len(swing_dates_valid) == 1:
             swing_dates_str = None
-            st.caption('날짜를 2개 이상 입력해야 등급이 계산됩니다.')
+            st.caption('날짜를 2개 이상 선택해야 등급이 계산됩니다.')
         else:
             swing_dates_str = None
 
