@@ -351,7 +351,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">② 자동 계산</div>
-    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">구간별 종가가 이전 날짜들 대비<br>몇 % 위에 있는지 계산<br>최근 날짜 가중치 2배씩 증가</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">구간별 저가가 구간 내 절대 최저가를<br>갱신했는지 여부로 등급 산정<br>최근 날짜 가중치 3배씩 증가</div>
   </div>
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">③ 등급순 정렬</div>
@@ -381,8 +381,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
 </div>
 <div style="font-size:0.78em;opacity:0.65;margin-top:8px;padding:6px 10px;border-left:3px solid #55555560;line-height:1.6">
-  💡 선택한 날짜 수에 따라 등급 세분화 수준이 달라집니다.<br>
-  날짜 3개(구간 2개) → 4등급 &nbsp;|&nbsp; 날짜 4개 → 8등급 &nbsp;|&nbsp; 날짜 5개 → 16등급
+  💡 패턴 레이블: <b>고</b>(이전 저가 대비 상승) · <b>저</b>(하락했으나 구간 최저가 이상 유지) · <b>신저</b>(구간 내 절대 최저가 갱신)<br>
+  날짜 3개 → 최대 6패턴 &nbsp;|&nbsp; 날짜 4개 이상 → 전 등급(S·A·B·C) 세분화 활성화
 </div>
 """, unsafe_allow_html=True)
 

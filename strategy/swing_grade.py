@@ -1,3 +1,6 @@
+import itertools
+from functools import lru_cache
+
 import pandas as pd
 
 GRADE_ORDER = {
@@ -10,9 +13,70 @@ GRADE_ORDER = {
 _GRADES_ASC = ['B--', 'B-', 'B', 'B+', 'B++', 'A--', 'A-', 'A', 'A+', 'A++']
 
 
-def _close_on(df: pd.DataFrame, date) -> float | None:
+def _low_on(df: pd.DataFrame, date) -> float | None:
+    """해당 날짜 이전 마지막 거래일의 저가(Low) 반환."""
     avail = df[df.index <= pd.Timestamp(date)]
-    return float(avail['Close'].iloc[-1]) if not avail.empty else None
+    return float(avail['Low'].iloc[-1]) if not avail.empty else None
+
+
+def _label_value(current: float, previous: float, seq_min: float) -> int:
+    """
+    고(2): 이전가 대비 상승
+    저(1): 이전가 대비 하락이지만 구간 내 절대 최저가 이상 유지
+    신저(0): 구간 내 절대 최저가 갱신
+    """
+    if current > previous:
+        return 2
+    elif current >= seq_min:
+        return 1
+    else:
+        return 0
+
+
+def _label_str(v: int) -> str:
+    return {2: '고', 1: '저', 0: '신저'}[v]
+
+
+def _ternary_score(label_values: list) -> int:
+    """최근 구간일수록 3^i 높은 가중치."""
+    return sum(v * (3 ** i) for i, v in enumerate(label_values))
+
+
+def _max_ternary_score(n: int) -> int:
+    """전구간 고(2) 패턴의 점수 = 3^n - 1."""
+    return (3 ** n) - 1
+
+
+@lru_cache(maxsize=8)
+def _achievable_intermediate_scores(n: int) -> tuple:
+    """
+    n개 구간에서 달성 가능한 중간 점수 집합 (S·C 제외).
+    i=0 구간은 고(2) 또는 신저(0)만 가능.
+    i>0 구간은 고/저/신저 모두 가능.
+    """
+    max_s = _max_ternary_score(n)
+    scores: set[int] = set()
+    for first in (0, 2):
+        for rest in itertools.product((0, 1, 2), repeat=max(n - 1, 0)):
+            s = _ternary_score([first] + list(rest))
+            if 0 < s < max_s:
+                scores.add(s)
+    return tuple(sorted(scores))
+
+
+def _grade_from_ternary(t_score: int, n: int) -> str:
+    max_s = _max_ternary_score(n)
+    if t_score == max_s:
+        return 'S'
+    if t_score == 0:
+        return 'C'
+    intermediates = _achievable_intermediate_scores(n)
+    if t_score not in intermediates:
+        return '—'
+    rank = intermediates.index(t_score)
+    total = len(intermediates)
+    idx = min(int(rank * 10 / total), 9)
+    return _GRADES_ASC[idx]
 
 
 def _above_ratio(prices: list, idx: int) -> float:
@@ -22,36 +86,9 @@ def _above_ratio(prices: list, idx: int) -> float:
     return sum(1 for p in prev if p < current) / len(prev)
 
 
-def _binary_score(labels: list) -> int:
-    """
-    이진 재귀 가중 점수 (최근일수록 2^i 높은 가중치).
-    고=1, 저=0 → 0 ~ 2^n-1 사이 정수.
-    서로 다른 패턴은 항상 다른 점수를 가진다.
-    """
-    return sum((1 if lbl == '고' else 0) * (2 ** i) for i, lbl in enumerate(labels))
-
-
-def _grade_from_binary(b_score: int, max_score: int) -> str:
-    """
-    이진 점수 → 등급 레이블.
-    N개 날짜의 경우의 수(2^(N-1))를 기반으로 동적 분할 — 하드코딩 없음.
-    """
-    if b_score == max_score:
-        return 'S'
-    if b_score == 0:
-        return 'C'
-    # 중간 구간 [1, max_score-1] 을 _GRADES_ASC 10단계로 균등 분할
-    rank = b_score - 1           # 0 ~ max_score-2
-    total = max_score - 1        # 경우의 수 - 2 (S, C 제외)
-    idx = min(int(rank * 10 / total), 9)
-    return _GRADES_ASC[idx]
-
-
-def _sub_score(prices: list, n: int, max_binary: int) -> float:
-    """
-    같은 등급(같은 이진 패턴) 내에서 가격 수준으로 세분화하는 연속 점수.
-    above_ratio × 2^i 합산 후 정규화 → [0, 1).
-    """
+def _sub_score(prices: list, n: int) -> float:
+    """같은 등급 내 가격 수준 세분화 (above_ratio 가중합, 정규화)."""
+    max_binary = (2 ** n) - 1
     raw = sum(_above_ratio(prices, i) * (2 ** i) for i in range(n))
     return raw / max_binary if max_binary > 0 else 0.0
 
@@ -61,18 +98,22 @@ def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
     if len(dates) < 2 or stock_df.empty:
         return {'grade': '—', 'pattern': '', 'score': 0.0}
 
-    prices = [_close_on(stock_df, d) for d in dates]
+    prices = [_low_on(stock_df, d) for d in dates]
     if any(p is None for p in prices):
         return {'grade': '—', 'pattern': '데이터부족', 'score': 0.0}
 
     n = len(dates) - 1
-    labels = ['고' if prices[i] > prices[i - 1] else '저' for i in range(1, len(prices))]
+    label_values: list[int] = []
+    seq_min = prices[0]
+    for i in range(n):
+        lv = _label_value(prices[i + 1], prices[i], seq_min)
+        label_values.append(lv)
+        seq_min = min(seq_min, prices[i + 1])
 
-    max_binary = (2 ** n) - 1
-    b_score = _binary_score(labels)
+    t_score = _ternary_score(label_values)
 
     return {
-        'grade':   _grade_from_binary(b_score, max_binary),
-        'pattern': '→'.join(labels),
-        'score':   _sub_score(prices, n, max_binary),
+        'grade':   _grade_from_ternary(t_score, n),
+        'pattern': '→'.join(_label_str(v) for v in label_values),
+        'score':   _sub_score(prices, n),
     }
