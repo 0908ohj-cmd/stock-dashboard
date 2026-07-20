@@ -327,30 +327,43 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         # ⑤ Swing Low Grouping
         st.caption('Swing Low Grouping')
         st.markdown("""
-지수 저점 날짜를 직접 지정하면, 각 종목이 동일 날짜에 **얼마나 강하게 지수 대비 상승 다이버전스**를 보였는지 등급으로 평가합니다.
-
-**사용법**
-1. 📊 Swing Low Grouping 패널을 열어 지수 저점 날짜를 **2개 이상** 선택
-2. ＋/－ 버튼으로 날짜 슬롯 추가·제거 (최대 8개)
-3. 2개 이상 선택 시 자동으로 등급 계산 및 등급순 정렬 적용
-""")
-        st.markdown("""
-**등급 산출 원리**
-
-각 날짜 구간마다 종목의 종가가 이전 날짜들의 종가 중 몇 %보다 높은지를 계산합니다.
-- **최근 날짜일수록 가중치가 높습니다** (2배씩 증가)
-- **'고' 구간**: 이전 저점들을 많이 돌파할수록 높은 점수
-- **'저' 구간**: 이전 저점들 위에 머물수록(높은 저점) 감점 최소화
-""")
-        st.markdown(
-            '| 등급 | 의미 |\n'
-            '|------|------|\n'
-            '| **S** | 모든 구간 강한 상승 + 완전 돌파 |\n'
-            '| **A++ ~ A--** | 상위권 — 최근 구간 강세, 이전 저점 돌파 비율 높음 |\n'
-            '| **B++ ~ B--** | 중위권 — 일부 구간 상승, 최근 흐름 혼조 |\n'
-            '| **C** | 모든 구간 신규 절대 저점 갱신 (지수와 동일) |'
-        )
-        st.caption('※ 같은 패턴(예: 저→고→저)이어도 실제 가격 수준에 따라 등급이 달라집니다.')
+<div style="font-size:0.85em;line-height:1.7;margin-bottom:10px">
+지수 저점 날짜를 지정하면, 동일 날짜 기준으로 각 종목의 <b>상승 다이버전스 강도</b>를 등급으로 평가합니다.<br>
+같은 패턴(예: 저→고→저)이어도 <b>실제 가격 수준</b>에 따라 등급이 달라집니다.
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+  <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">① 날짜 선택</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">지수 저점 날짜를 <b>2개 이상</b> 선택<br>＋/－ 버튼으로 슬롯 추가·제거<br>(최대 8개)</div>
+  </div>
+  <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">② 자동 계산</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">구간별 종가가 이전 날짜들 대비<br>몇 % 위에 있는지 계산<br>최근 날짜 가중치 2배씩 증가</div>
+  </div>
+  <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
+    <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">③ 등급순 정렬</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">와치리스트가 자동으로<br>등급 높은 순서로 재정렬<br>동급은 RS/ADR 기준</div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+  <div style="border:1px solid #ffd70055;border-radius:8px;padding:8px 10px;text-align:center">
+    <div style="color:#ffd700;font-weight:700;font-size:1em">S</div>
+    <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 강한 상승<br>이전 저점 완전 돌파</div>
+  </div>
+  <div style="border:1px solid #00c87e55;border-radius:8px;padding:8px 10px;text-align:center">
+    <div style="color:#00c87e;font-weight:700;font-size:1em">A++ ~ A--</div>
+    <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">최근 구간 강세<br>이전 저점 돌파 높음</div>
+  </div>
+  <div style="border:1px solid #f0a02055;border-radius:8px;padding:8px 10px;text-align:center">
+    <div style="color:#f0a020;font-weight:700;font-size:1em">B++ ~ B--</div>
+    <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">일부 구간 상승<br>최근 흐름 혼조</div>
+  </div>
+  <div style="border:1px solid #e8404055;border-radius:8px;padding:8px 10px;text-align:center">
+    <div style="color:#e84040;font-weight:700;font-size:1em">C</div>
+    <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 신규 저점<br>지수와 동일</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
         st.divider()
         if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
