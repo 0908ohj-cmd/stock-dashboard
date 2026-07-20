@@ -79,18 +79,22 @@ def _grade_from_ternary(t_score: int, n: int) -> str:
     return _GRADES_ASC[idx]
 
 
-def _above_ratio(prices: list, idx: int) -> float:
-    """현재가가 이전 가격들 중 몇 개보다 높은지 비율 (0.0~1.0)."""
-    current = prices[idx + 1]
-    prev = prices[: idx + 1]
-    return sum(1 for p in prev if p < current) / len(prev)
-
-
 def _sub_score(prices: list, n: int) -> float:
-    """같은 등급 내 가격 수준 세분화 (above_ratio 가중합, 정규화)."""
-    max_binary = (2 ** n) - 1
-    raw = sum(_above_ratio(prices, i) * (2 ** i) for i in range(n))
-    return raw / max_binary if max_binary > 0 else 0.0
+    """
+    같은 등급(패턴) 내 가격 수준 세분화.
+    각 구간별 current / max(이전 저가들) 비율의 2^i 가중합.
+    - 1.0 초과: 이전 최고점 위로 회복 (높을수록 강함)
+    - 1.0 미만: 이전 최고점 아래 (낮을수록 약함)
+    하드코딩 없이 날짜 수(n)에 관계없이 동일 공식 적용.
+    """
+    total = 0.0
+    weight_sum = 0.0
+    for i in range(n):
+        current = prices[i + 1]
+        prev_max = max(prices[:i + 1])
+        total += (current / prev_max) * (2 ** i)
+        weight_sum += 2 ** i
+    return total / weight_sum if weight_sum > 0 else 0.0
 
 
 def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
