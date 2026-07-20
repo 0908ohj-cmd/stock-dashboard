@@ -145,8 +145,19 @@ def _build_rows(
             if swing_dates:
                 from strategy.swing_grade import calc_swing_grade
                 sg = calc_swing_grade(df, swing_dates)
+                # F 등급: SMA150 또는 SMA200 아래
+                if sg['grade'] != '—':
+                    close_now = float(df_asof['Close'].iloc[-1])
+                    sma150 = df_asof['Close'].rolling(150).mean().iloc[-1]
+                    sma200 = df_asof['Close'].rolling(200).mean().iloc[-1]
+                    below_long = (
+                        (not pd.isna(sma150) and close_now < sma150) or
+                        (not pd.isna(sma200) and close_now < sma200)
+                    )
+                    if below_long:
+                        sg = {'grade': 'F', 'pattern': sg['pattern'], 'score': -1.0}
             else:
-                sg = {'grade': '—', 'pattern': ''}
+                sg = {'grade': '—', 'pattern': '', 'score': 0.0}
 
             rows.append({
                 'Ticker':      ticker,
@@ -349,11 +360,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
   <div style="border:1px solid #ffd70055;border-radius:8px;padding:8px 10px;text-align:center">
-    <div style="color:#ffd700;font-weight:700;font-size:1em">S</div>
+    <div style="color:#FFD700;font-weight:700;font-size:1em">S</div>
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 강한 상승<br>이전 저점 완전 돌파</div>
   </div>
   <div style="border:1px solid #00c87e55;border-radius:8px;padding:8px 10px;text-align:center">
-    <div style="color:#00c87e;font-weight:700;font-size:1em">A++ ~ A--</div>
+    <div style="color:#00C853;font-weight:700;font-size:1em">A++ ~ A--</div>
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">최근 구간 강세<br>이전 저점 돌파 높음</div>
   </div>
   <div style="border:1px solid #f0a02055;border-radius:8px;padding:8px 10px;text-align:center">
@@ -361,7 +372,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">일부 구간 상승<br>최근 흐름 혼조</div>
   </div>
   <div style="border:1px solid #e8404055;border-radius:8px;padding:8px 10px;text-align:center">
-    <div style="color:#e84040;font-weight:700;font-size:1em">C</div>
+    <div style="color:#FF1744;font-weight:700;font-size:1em">C</div>
     <div style="font-size:0.75em;opacity:0.75;margin-top:3px;line-height:1.4">모든 구간 신규 저점<br>지수와 동일</div>
   </div>
 </div>
@@ -503,17 +514,17 @@ function(params) {
 function(params) {
     const grade = params.value ? params.value.split('|')[0] : '';
     const c = {
-        S:'#ffd700',
-        'A++':'#00b870','A+':'#00c87e','A':'#52d68a','A-':'#8de8a8','A--':'#b8f0c8',
-        'B++':'#e8a000','B+':'#f0a020','B':'#f4b840','B-':'#f8cc60','B--':'#fde080',
-        C:'#e84040'
+        S:'#FFD700',
+        'A++':'#00E676','A+':'#00C853','A':'#69F0AE','A-':'#40C4FF','A--':'#0091EA',
+        'B++':'#FF6D00','B+':'#FF9100','B':'#FFAB40','B-':'#FFD180','B--':'#FFE0B2',
+        C:'#FF1744',F:'#9E9E9E'
     };
     return {color: c[grade] || 'inherit', fontWeight: 'bold'};
 }
 """)
         grade_comparator = JsCode("""
 function(valueA, valueB) {
-    const order = {S:0,'A++':1,'A+':2,A:3,'A-':4,'A--':5,'B++':6,'B+':7,B:8,'B-':9,'B--':10,C:11};
+    const order = {S:0,'A++':1,'A+':2,A:3,'A-':4,'A--':5,'B++':6,'B+':7,B:8,'B-':9,'B--':10,C:11,F:12};
     const ga = valueA ? valueA.split('|')[0] : '';
     const gb_ = valueB ? valueB.split('|')[0] : '';
     return (order[ga] !== undefined ? order[ga] : 99) - (order[gb_] !== undefined ? order[gb_] : 99);
@@ -570,10 +581,10 @@ function(valueA, valueB) {
     )
 
     _GRADE_COLOR = {
-        'S': '#ffd700',
-        'A++': '#00b870', 'A+': '#00c87e', 'A': '#52d68a', 'A-': '#8de8a8', 'A--': '#b8f0c8',
-        'B++': '#e8a000', 'B+': '#f0a020', 'B': '#f4b840', 'B-': '#f8cc60', 'B--': '#fde080',
-        'C': '#e84040',
+        'S': '#FFD700',
+        'A++': '#00E676', 'A+': '#00C853', 'A': '#69F0AE', 'A-': '#40C4FF', 'A--': '#0091EA',
+        'B++': '#FF6D00', 'B+': '#FF9100', 'B': '#FFAB40', 'B-': '#FFD180', 'B--': '#FFE0B2',
+        'C': '#FF1744', 'F': '#9E9E9E',
     }
 
     def _render_candidates(cands: list, section_label: str, period_str: str):
