@@ -1,3 +1,5 @@
+import html as html_lib
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -755,7 +757,8 @@ function(valueA, valueB) {
             r_cur = rows[cur_idx]
             st.markdown(
                 f"<div style='text-align:center;padding:6px 0'>"
-                f"<b>{r_cur['Ticker']}</b> {r_cur['종목명']} &nbsp;"
+                f"<b>{html_lib.escape(str(r_cur['Ticker']))}</b> "
+                f"{html_lib.escape(str(r_cur['종목명']))} &nbsp;"
                 f"<span style='color:gray'>{cur_idx + 1} / {total}</span></div>",
                 unsafe_allow_html=True,
             )
