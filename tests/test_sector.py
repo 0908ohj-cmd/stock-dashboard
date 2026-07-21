@@ -31,7 +31,12 @@ def test_gita_not_retried_within_session(tmp_path, monkeypatch):
     """같은 프로세스 안에서는 '기타' 종목을 반복 재분류(60초 타임아웃)하지 않는다."""
     _setup(tmp_path, monkeypatch, {})
     calls = []
-    monkeypatch.setattr(sector, '_classify', lambda s: calls.append(1) and _raise('CLI 없음'))
+
+    def _classify_fail(summary):
+        calls.append(1)
+        raise RuntimeError('CLI 없음')
+
+    monkeypatch.setattr(sector, '_classify', _classify_fail)
     monkeypatch.setattr(sector, '_fallback_sector', lambda t, m: '기타')
 
     sector.get_sectors(['005930'], 'KR_KOSPI')

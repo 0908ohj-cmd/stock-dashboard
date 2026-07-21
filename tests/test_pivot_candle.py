@@ -100,8 +100,7 @@ def test_classify_setup_or_forming_in_consolidation():
     lows    = [c * 0.99 for c in base] + [breakout_close * 0.93] + [c * 0.995 for c in consolidation]
     df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
     pivot = find_pivot_candle(df, lookback=15)
-    if pivot is None:
-        pytest.skip("기준봉 탐지 실패 — 테스트 데이터 조건 미충족")
+    assert pivot is not None, "테스트 데이터가 기준봉 탐지 조건을 충족하지 못함"
     assert classify_case(df, pivot) in ('셋업', '형성중')
 
 

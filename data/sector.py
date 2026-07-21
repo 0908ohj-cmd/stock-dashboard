@@ -266,6 +266,7 @@ def get_sectors(tickers: list, market: str) -> dict:
         if cached and cached != '기타':
             result[ticker] = cached
         elif cache_key in _SESSION_ATTEMPTED:
+            # 미존재(None)든 빈 문자열이든 세션 내 실패 종목은 '기타'로 표시 (의도적 or)
             result[ticker] = cached or '기타'
         else:
             to_fetch.append(ticker)

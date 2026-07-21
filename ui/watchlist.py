@@ -649,30 +649,32 @@ function(valueA, valueB) {
                 if days_since_jjin >= 1:
                     day3_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
                     day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2) if days_since_jjin >= 2 else None
-                    day3_date = str(day3_ts.date())
+                    day3_date = str(day3_ts.date()) if day3_ts is not None else None
                     day4_date = str(day4_ts.date()) if day4_ts is not None else None
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
+                    day3_tickers = set()
 
-                    # DAY3: peak~day3_date 구간 고정 스냅샷
-                    with st.spinner('추가 후보 확인 중...'):
-                        day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
+                    if day3_date:
+                        # DAY3: peak~day3_date 구간 고정 스냅샷
+                        with st.spinner('추가 후보 확인 중...'):
+                            day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
 
-                    day3_new = [
-                        r for r in day3_rows
-                        if r['Ticker'] not in core_tickers
-                        and (r['RS/ADR'] or 0) > 0
-                        and r['ma_above_count'] > 0
-                        and (r['거래량비%'] or 0) >= 120
-                        and (r['고점대비%'] or 0) >= -30
-                    ]
-                    day3_tickers = {r['Ticker'] for r in day3_new}
-                    p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
-                    if day3_new:
-                        _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
-                    else:
-                        st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
+                        day3_new = [
+                            r for r in day3_rows
+                            if r['Ticker'] not in core_tickers
+                            and (r['RS/ADR'] or 0) > 0
+                            and r['ma_above_count'] > 0
+                            and (r['거래량비%'] or 0) >= 120
+                            and (r['고점대비%'] or 0) >= -30
+                        ]
+                        day3_tickers = {r['Ticker'] for r in day3_new}
+                        p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
+                        if day3_new:
+                            _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
+                        else:
+                            st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
 
-                    if days_since_jjin >= 2:
+                    if days_since_jjin >= 2 and day4_date:
                         # DAY4: peak~day4_date 구간 고정 스냅샷
                         with st.spinner('추가 후보 확인 중...'):
                             day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)
