@@ -1,10 +1,15 @@
 import base64
 import hmac
 import json
+import os
 import pathlib
+import time
 import requests
 import streamlit as st
-from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_daily, sanitize_tickers
+from data.fetcher import (
+    parse_tradingview_csv, parse_ticker_txt, fetch_index_daily,
+    sanitize_tickers, MAX_TICKERS_PER_MARKET,
+)
 from ui.index_panel import render_index_panel
 from ui.watchlist import render_watchlist_tab, _fetch_index_cached
 from ui.watchlist_10ema import render_10ema_tab
@@ -31,28 +36,52 @@ def _github_save(filename: str, content: str) -> None:
     except Exception:
         pass
 
+_AUTH_MAX_FAILS  = 10   # 잠금 전 허용 실패 횟수 (프로세스 전역)
+_AUTH_WINDOW_SEC = 600  # 실패 집계 윈도우
+
+
+@st.cache_resource
+def _auth_fail_log() -> list:
+    """실패 타임스탬프 목록 — cache_resource라 세션을 새로 열어도 공유(브루트포스 방지)."""
+    return []
+
+
 def _write_access() -> bool:
     """업로드·백업복원 등 서버 상태 변경 허용 여부.
 
     공개 URL로 배포되므로 익명 방문자의 쓰기를 차단한다.
-    APP_PASSWORD가 secrets에 설정된 경우에만 인증 입력을 받고,
+    APP_PASSWORD(secrets 또는 환경변수)가 설정된 경우에만 인증 입력을 받고,
     미설정이면 쓰기 기능 자체를 비활성화한다.
     """
     try:
         expected = str(st.secrets.get('APP_PASSWORD', ''))
     except Exception:
         expected = ''
+    expected = expected or os.environ.get('APP_PASSWORD', '')
     if not expected:
         st.caption('🔒 업로드/복원은 관리자 전용 — secrets에 APP_PASSWORD 설정 필요')
         return False
     if st.session_state.get('auth_ok'):
         return True
+
+    fails = _auth_fail_log()
+    now = time.time()
+    fails[:] = [t for t in fails if now - t < _AUTH_WINDOW_SEC]
+    if len(fails) >= _AUTH_MAX_FAILS:
+        st.error('로그인 시도 횟수 초과 — 잠시 후 다시 시도하세요')
+        return False
+
     pw = st.text_input('🔒 관리자 비밀번호', type='password', key='auth_pw')
-    if pw:
+    if not pw:
+        return False
+    # 같은 값이 위젯에 남아 재실행될 때 실패가 중복 집계되지 않도록 시도값 추적
+    if pw != st.session_state.get('auth_pw_tried'):
+        st.session_state['auth_pw_tried'] = pw
         if hmac.compare_digest(pw.encode(), expected.encode()):
             st.session_state['auth_ok'] = True
             return True
-        st.error('비밀번호가 올바르지 않습니다')
+        fails.append(time.time())
+    st.error('비밀번호가 올바르지 않습니다')
     return False
 
 
@@ -120,14 +149,25 @@ for uploaded, key, name in [
             import io
             raw = uploaded.read()
             fname = uploaded.name
-            if fname.endswith('.txt'):
+            if fname.lower().endswith('.txt'):
                 tickers_parsed = parse_ticker_txt(raw.decode('utf-8', errors='ignore'))
             else:
                 df = parse_tradingview_csv(io.BytesIO(raw))
                 tickers_parsed = df['Ticker'].dropna().astype(str).tolist()
-            content = '\n'.join(sanitize_tickers(tickers_parsed))
-            saved_path.write_text(content, encoding='utf-8')
-            _github_save(saved_path.name, content)
+            cleaned = sanitize_tickers(tickers_parsed)
+            if not cleaned:
+                # 빈 내용으로 기존 저장 파일을 덮어쓰지 않는다 (전체 소실 방지)
+                st.sidebar.error(f'{name}: 유효한 티커가 없어 저장하지 않았습니다')
+            else:
+                dropped = len(tickers_parsed) - len(cleaned)
+                if dropped > 0:
+                    st.sidebar.warning(
+                        f'{name}: {dropped}개 항목 제외됨 '
+                        f'(형식 불일치 또는 {MAX_TICKERS_PER_MARKET}개 상한)'
+                    )
+                content = '\n'.join(cleaned)
+                saved_path.write_text(content, encoding='utf-8')
+                _github_save(saved_path.name, content)
         except Exception as e:
             st.sidebar.error(f'파일 오류: {e}')
 
@@ -146,13 +186,29 @@ for uploaded, key, name in [
 if backup_restore_file:
     try:
         backup = json.loads(backup_restore_file.read().decode('utf-8'))
+        restored, notices = 0, 0
         for key, tickers_list in backup.items():
             if key in SAVED_PATHS and isinstance(tickers_list, list):
-                content = '\n'.join(sanitize_tickers(tickers_list))
+                cleaned = sanitize_tickers(tickers_list)
+                if not cleaned:
+                    if tickers_list:
+                        st.sidebar.error(f'{key}: 유효한 티커가 없어 복원 건너뜀')
+                        notices += 1
+                    continue
+                dropped = len(tickers_list) - len(cleaned)
+                if dropped > 0:
+                    st.sidebar.warning(f'{key}: {dropped}개 항목 제외됨 (형식 불일치 또는 상한)')
+                    notices += 1
+                content = '\n'.join(cleaned)
                 SAVED_PATHS[key].write_text(content, encoding='utf-8')
                 _github_save(SAVED_PATHS[key].name, content)
-        st.sidebar.success('백업 복원 완료! 새로고침됩니다.')
-        st.rerun()
+                restored += 1
+        if restored and not notices:
+            st.sidebar.success('백업 복원 완료! 새로고침됩니다.')
+            st.rerun()
+        elif restored:
+            # 경고가 있으면 rerun으로 메시지를 지우지 않는다 — 새로고침은 수동
+            st.sidebar.success(f'백업 복원 완료 ({restored}개 시장) — 위 경고 확인 후 새로고침하세요')
     except Exception as e:
         st.sidebar.error(f'백업 복원 오류: {e}')
 
