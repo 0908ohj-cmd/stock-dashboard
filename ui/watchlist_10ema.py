@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
+from strategy.trading_days import trading_days_after
 from data.fetcher import fetch_daily, get_stock_name
 from data.sector import get_sectors
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
@@ -62,10 +62,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
 
         pivot_date_str = str(pivot['date'].date()) if pivot else ''
         pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
-        days_since     = (
-            int(np.busday_count(pivot['date'].date(), df.index[-1].date()))
-            if pivot else 0
-        )
+        days_since     = trading_days_after(df, pivot['date']) if pivot else 0
 
         if pivot:
             entry_price    = round(pivot['high'], 2)
