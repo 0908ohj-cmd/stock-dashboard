@@ -1,10 +1,11 @@
 import base64
 import hashlib
+import hmac
 import json
 import pathlib
 import requests
 import streamlit as st
-from data.fetcher import parse_tradingview_csv, parse_ticker_txt
+from data.fetcher import parse_tradingview_csv, parse_ticker_txt, sanitize_tickers
 from data import store
 from ui.index_panel import render_index_panel, _load_index
 from ui.watchlist import (
@@ -35,6 +36,31 @@ def _github_save(filename: str, content: str) -> None:
         requests.put(url, json=body, headers=hdrs, timeout=10)
     except Exception:
         pass
+
+def _write_access() -> bool:
+    """업로드·백업복원 등 서버 상태 변경 허용 여부.
+
+    공개 URL로 배포되므로 익명 방문자의 쓰기를 차단한다.
+    APP_PASSWORD가 secrets에 설정된 경우에만 인증 입력을 받고,
+    미설정이면 쓰기 기능 자체를 비활성화한다.
+    """
+    try:
+        expected = str(st.secrets.get('APP_PASSWORD', ''))
+    except Exception:
+        expected = ''
+    if not expected:
+        st.caption('🔒 업로드/복원은 관리자 전용 — secrets에 APP_PASSWORD 설정 필요')
+        return False
+    if st.session_state.get('auth_ok'):
+        return True
+    pw = st.text_input('🔒 관리자 비밀번호', type='password', key='auth_pw')
+    if pw:
+        if hmac.compare_digest(pw.encode(), expected.encode()):
+            st.session_state['auth_ok'] = True
+            return True
+        st.error('비밀번호가 올바르지 않습니다')
+    return False
+
 
 SAVED_DIR = pathlib.Path(__file__).parent / 'data' / 'saved'
 SAVED_DIR.mkdir(exist_ok=True)
@@ -76,18 +102,22 @@ with st.sidebar:
     st.caption('TradingView 스크리너 → Export → CSV 업로드')
     st.divider()
 
-    st.markdown('**📊 추세추종**')
-    kospi_file        = st.file_uploader('코스피 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kospi_csv')
-    kosdaq_file       = st.file_uploader('코스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kosdaq_csv')
-    us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
+    can_write = _write_access()
+    kospi_file = kosdaq_file = us_file = backup_restore_file = None
+    if can_write:
+        st.markdown('**📊 추세추종**')
+        kospi_file        = st.file_uploader('코스피 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kospi_csv')
+        kosdaq_file       = st.file_uploader('코스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kosdaq_csv')
+        us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
     st.divider()
     if st.button('🔄 데이터 재수집', use_container_width=True,
                  help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
         st.session_state['force_refetch'] = True
     st.caption('📦 장 마감 후 배치 수집 데이터 (KR 15:45 · US 07:00 KST)')
-    st.divider()
-    st.markdown('**💾 티커 백업**')
-    backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
+    if can_write:
+        st.divider()
+        st.markdown('**💾 티커 백업**')
+        backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
 
 # ── 종목 파싱 ─────────────────────────────────────────────
 kr_kospi, kr_kosdaq, us_tickers = [], [], []
@@ -109,7 +139,8 @@ for uploaded, key, name in [
             else:
                 df = parse_tradingview_csv(io.BytesIO(raw))
                 tickers_parsed = df['Ticker'].dropna().astype(str).tolist()
-            content = '\n'.join(tickers_parsed)
+            cleaned = sanitize_tickers(tickers_parsed)
+            content = '\n'.join(cleaned)
             saved_path.write_text(content, encoding='utf-8')
             _github_save(saved_path.name, content)
             # 업로드 직후 1회 수집 — file_uploader는 rerun마다 같은 파일을 반환하므로
@@ -118,8 +149,9 @@ for uploaded, key, name in [
             if st.session_state.get(f'uploaded_sig_{key}') != sig:
                 st.session_state[f'uploaded_sig_{key}'] = sig
                 with st.sidebar:
-                    with st.spinner(f'{name} 시세 수집 중... ({len(tickers_parsed)}개 종목)'):
-                        store.refetch_market(key, tickers_parsed)
+                    # 정제 통과분만 수집 — 쓰레기 티커로 야후에 헛 요청 보내지 않는다
+                    with st.spinner(f'{name} 시세 수집 중... ({len(cleaned)}개 종목)'):
+                        store.refetch_market(key, cleaned)
                 _clear_analysis_caches()
         except Exception as e:
             st.sidebar.error(f'파일 오류: {e}')
@@ -141,7 +173,7 @@ if backup_restore_file:
         backup = json.loads(backup_restore_file.read().decode('utf-8'))
         for key, tickers_list in backup.items():
             if key in SAVED_PATHS and isinstance(tickers_list, list):
-                content = '\n'.join(t for t in tickers_list if t)
+                content = '\n'.join(sanitize_tickers(tickers_list))
                 SAVED_PATHS[key].write_text(content, encoding='utf-8')
                 _github_save(SAVED_PATHS[key].name, content)
         st.sidebar.success('백업 복원 완료! 새로고침됩니다.')
