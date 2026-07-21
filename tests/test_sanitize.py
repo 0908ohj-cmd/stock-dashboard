@@ -25,5 +25,11 @@ def test_whitespace_stripped():
     assert sanitize_tickers(['  005930  ']) == ['005930']
 
 
-def test_none_and_non_string_items():
-    assert sanitize_tickers([None, 5930, 0]) == ['5930']
+def test_non_string_items_dropped():
+    # JSON 숫자 5930을 str()로 살리면 KR 코드 '005930'의 선행 0이 소실된
+    # 오염 티커가 저장되므로, 비문자열은 변환 없이 버린다
+    assert sanitize_tickers([None, 5930, 0, True]) == []
+
+
+def test_punctuation_only_rejected():
+    assert sanitize_tickers(['.', '..', '---', '.-.']) == []
