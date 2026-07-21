@@ -1,82 +1,56 @@
 ---
 name: stock-dashboard
-description: Stock Watchlist Dashboard 전담 에이전트. TradingView CSV 업로드 → DAY1/2/3 추세추종 전략 분석 → 한국/미국 와치리스트 표시하는 Streamlit 앱 작업 시 사용.
+description: Stock Watchlist Dashboard 전담 에이전트. TradingView CSV/TXT 업로드 → 추세추종(지수 조정→찐반등 DAY1~5)·10EMA 기준봉 전략 분석 → 한국/미국 와치리스트 표시하는 Streamlit 앱 작업 시 사용.
 tools: Read, Edit, Write, Glob, Grep, Bash
 model: sonnet
 ---
 
 # Stock Watchlist Dashboard
 
-TradingView 스크리너 CSV를 업로드하면 추세추종 전략(DAY1/2/3)을 자동 분석해 한국/미국 와치리스트를 보여주는 Streamlit 대시보드.
+TradingView 스크리너 CSV/와치리스트 TXT를 업로드하면 추세추종 전략(지수 조정 → 찐반등 DAY1~5)과 10EMA 기준봉 전략으로 분석해 KOSPI/KOSDAQ/NASDAQ 와치리스트를 보여주는 Streamlit 대시보드. Streamlit Cloud로 배포된다.
+
+**아키텍처·명령어·컨벤션·함정은 루트 `CLAUDE.md`가 기준 문서다 — 작업 시작 전 반드시 읽을 것.** 이 파일에는 에이전트용 빠른 요약만 둔다.
 
 ## 핵심 문서
 
-- 스펙: `docs/superpowers/specs/2026-05-19-stock-watchlist-design.md`
-- 플랜: `docs/superpowers/plans/2026-05-19-stock-watchlist.md`
+- 루트 `CLAUDE.md` — 아키텍처, 명령어, 컨벤션 (항상 최신 기준)
+- 스펙: `docs/superpowers/specs/` (추세추종 와치리스트 / 찐반등 스캐너 / 10EMA 와치리스트)
+- 플랜: `docs/superpowers/plans/`
 
-## 현재 진행 상황 (2026-05-20 기준)
+## 구조 요약
 
-### 완료
-- `requirements.txt`
-- `data/fetcher.py` — yfinance(미국) + FinanceDataReader(한국) OHLCV 수집
-- `data/sector.py`
-- `strategy/indicators.py` — EMA21, SMA200, ADR, RS 계산
-- `strategy/phases.py` — DAY1/DAY2/DAY3+ 페이즈 감지
-- `strategy/scoring.py` — RS 상대강도 / 거래량 비대칭 / 양음봉 비율 스코어링
-- `ui/index_panel.py` — KOSPI/KOSDAQ/SPY/QQQ 지수 현황 카드
-- `ui/charts.py` — 일봉 + 5분봉 Plotly 차트
-- `ui/watchlist.py` — 와치리스트 테이블 (탭: KOSPI/KOSDAQ/US)
-- venv + 패키지 설치 완료
+3계층: `data/`(yfinance + pykrx/FDR 패치 체인 수집·파싱) → `strategy/`(순수 pandas, Streamlit 무의존) → `ui/`(Streamlit + AgGrid + Plotly). 진입점 `app.py`.
 
-### 남은 작업
-- `tests/test_indicators.py` — 테스트 코드는 플랜 파일에 있음
-- `tests/test_phases.py` — 테스트 코드는 플랜 파일에 있음
-- `tests/test_scoring.py` — 테스트 코드는 플랜 파일에 있음
-- `app.py` — Streamlit 메인 진입점 (코드는 플랜 파일 Task 8에 있음)
+- 추세추종 탭: `ui/watchlist.py` + `strategy/market_status.py`(지수 상태 머신) · `phases.py`(DAY 레이블) · `rs_correction.py`(조정 구간 RS) · `swing_grade.py`(스윙 등급)
+- 10EMA 탭: `ui/watchlist_10ema.py` + `strategy/pivot_candle.py`(기준봉 탐지·상태 분류·타점/손절)
 
-## 트레이딩 전략 요약
+## 전략 요약
 
-### DAY1
-최소 21EMA ~ 최대 200SMA 아래로 하락하는 봉 출현
+### 추세추종 (DAY 체계)
 
-### DAY2 (와치리스트 생성 조건)
-DAY1 이후 동시 충족:
-1. 거래량 급증 (평균 대비 1.5배 이상)
-2. 상승폭 ≥ 지수 ADR
-3. 양봉 크기 ≥ DAY1 봉 크기 × 0.8
+지수 기준 상태 머신 — 종목이 아니라 **지수**가 페이즈를 결정:
 
-### 스코어링 3기준 (0~3점)
-1. 지수 대비 상대강도 (RS)
-2. 거래량 비대칭 (상승일 거래량 > 하락일)
-3. 양봉/음봉 비율
+- **DAY1** = 조정: 지수 종가가 EMA21 이탈 (`correction`)
+- **DAY2** = 찐반등 감지 당일 (`early_signal`): 장중 저가 EMA21 아래 + 양봉 상승폭 ≥ ADR(20일) + 직전 음봉 바디 50% 이상 커버
+- **DAY3~5** = 찐반등 이후 1~3거래일, 매수 유효 구간
+- 실패 판정: 3거래일 내 EMA21 미회복 또는 찐반등 저점 아래 종가 → DAY1 복귀
+- 종목 필터: ADR KR ≥ 2% / US ≥ 4%. 지표는 조정 구간 RS·3종 RS·스윙 등급(신고/고/저/신저 시퀀스 → S/A~B/C/F)
 
-### DAY3~5
-DAY2 저점 유지 or 고점 돌파 → 실제 매수 신호
+### 10EMA 기준봉
 
-## 기술 스택
+기준봉(거래량 급증 + 60일 신고가 돌파 + 10>21>50 정배열 + 종가 상단 30% + 사전 30% 상승) → 상태(셋업/형성중/돌파완료/각종 이탈) → 타점 = 기준봉 고가, 손절 = 중간선. ADR ≥ 6% 필터.
 
-- Python 3.11+, Streamlit, yfinance, FinanceDataReader, pandas, numpy, plotly
-- 가상환경: `venv\Scripts\activate` 후 `streamlit run app.py`
+## 명령어
 
-## 파일 구조
-
+```bash
+pip install -r requirements.txt
+streamlit run app.py                                       # port 8501
+python3 -m pytest tests/ --ignore=tests/test_scoring.py    # test_scoring.py는 스테일 — ignore 필수
 ```
-stock-dashboard/
-├── app.py                  # 메인 진입점 (미완성)
-├── data/
-│   ├── fetcher.py
-│   └── sector.py
-├── strategy/
-│   ├── indicators.py
-│   ├── phases.py
-│   └── scoring.py
-├── ui/
-│   ├── index_panel.py
-│   ├── watchlist.py
-│   └── charts.py
-├── tests/                  # 테스트 파일 미완성
-├── requirements.txt
-└── docs/superpowers/
-    ├── specs/2026-05-19-stock-watchlist-design.md
-    └── plans/2026-05-19-stock-watchlist.md
-```
+
+## 주의사항
+
+- KR 시세는 `data/fetcher.py`의 pykrx → FDR 패치 체인을 반드시 경유 (yfinance KR 데이터 품질 문제 보정)
+- `app.py` 상단 최초 1회 `st.rerun()`은 AgGrid 레이아웃 버그 우회 — 제거 금지
+- `strategy/`에 Streamlit import 금지 (단위 테스트 가능성 유지)
+- UI 라벨·주석·커밋 메시지 한국어, 커밋 접두사 `feat:`/`fix:`/`docs:`/`refactor:`
