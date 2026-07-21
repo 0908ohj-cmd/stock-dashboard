@@ -1,3 +1,5 @@
 [server]
 headless = true
 port = 8501
+# 티커 목록 CSV/TXT/JSON 용도라 대용량 불필요 — 업로드 DoS 방지
+maxUploadSize = 5

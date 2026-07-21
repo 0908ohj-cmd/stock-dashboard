@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 
 import pandas as pd
@@ -407,6 +408,25 @@ def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.D
             cutoff = trading_days[-days]
             df = df[df.index.normalize() >= cutoff]
     return df
+
+
+# 업로드 티커 형식: 영숫자·점·하이픈 최대 10자 (KR '005930', US 'BRK.B'·'BF-B' 등)
+_TICKER_RE = re.compile(r'^[A-Za-z0-9.\-]{1,10}$')
+MAX_TICKERS_PER_MARKET = 500
+
+
+def sanitize_tickers(tickers: list) -> list:
+    """업로드 경로 공통 검증 — 형식에 맞는 티커만 남기고 시장당 상한 적용."""
+    out = []
+    for t in tickers:
+        if not t:
+            continue
+        t = str(t).strip()
+        if _TICKER_RE.match(t):
+            out.append(t)
+        if len(out) >= MAX_TICKERS_PER_MARKET:
+            break
+    return out
 
 
 def parse_tradingview_csv(uploaded_file) -> pd.DataFrame:
