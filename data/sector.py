@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -21,10 +23,24 @@ def _save_cache(cache: dict) -> None:
     )
 
 
-_CLAUDE_EXE = (
+# 레거시 Windows 경로 — 환경변수·PATH에서 못 찾을 때의 마지막 폴백
+_CLAUDE_EXE_FALLBACK = (
     r"C:\Users\PC\AppData\Roaming\npm\node_modules"
     r"\@anthropic-ai\claude-code\bin\claude.exe"
 )
+
+
+def _resolve_claude_exe() -> str | None:
+    """claude CLI 경로 결정: CLAUDE_CLI_PATH env → PATH → 레거시 Windows 경로."""
+    env_path = os.environ.get('CLAUDE_CLI_PATH', '')
+    if env_path and Path(env_path).exists():
+        return env_path
+    found = shutil.which('claude')
+    if found:
+        return found
+    if Path(_CLAUDE_EXE_FALLBACK).exists():
+        return _CLAUDE_EXE_FALLBACK
+    return None
 
 _SECTOR_PROMPT = (
     "이 회사를 주식 투자 테마 관점에서 분류해줘. "
@@ -64,8 +80,11 @@ _SECTOR_PROMPT = (
 
 
 def _classify(summary: str) -> str:
+    claude_exe = _resolve_claude_exe()
+    if not claude_exe:
+        raise RuntimeError('claude CLI not found')
     result = subprocess.run(
-        [_CLAUDE_EXE, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
+        [claude_exe, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
         capture_output=True,
         timeout=60,
         stdin=subprocess.DEVNULL,
@@ -227,10 +246,15 @@ def _build_summary(ticker: str, market: str) -> str:
     return '\n'.join(parts) if parts else ticker
 
 
+# 이번 프로세스에서 분류를 시도한 키 — '기타'(실패)의 반복 재시도를 세션 내에서만 막고,
+# 재시작하면 다시 기회를 준다 (디스크에 '기타'를 영속화하면 일시 장애가 영구 고착됨)
+_SESSION_ATTEMPTED: set = set()
+
+
 def get_sectors(tickers: list, market: str) -> dict:
     """
     각 티커의 섹터 라벨 반환 {ticker: sector}.
-    캐시에 없는 종목만 분류 후 저장.
+    캐시에 없는(또는 '기타'로 남은) 종목만 세션당 1회 분류 시도, 성공한 라벨만 저장.
     """
     cache = _load_cache()
     result = {}
@@ -238,12 +262,20 @@ def get_sectors(tickers: list, market: str) -> dict:
 
     for ticker in tickers:
         cache_key = f"{ticker}|{market}"
-        if cache_key in cache and cache[cache_key] != '기타':
-            result[ticker] = cache[cache_key]
+        cached = cache.get(cache_key)
+        if cached and cached != '기타':
+            result[ticker] = cached
+        elif cache_key in _SESSION_ATTEMPTED:
+            # 미존재(None)든 빈 문자열이든 세션 내 실패 종목은 '기타'로 표시 (의도적 or)
+            result[ticker] = cached or '기타'
         else:
             to_fetch.append(ticker)
 
+    newly_classified = False
     for ticker in to_fetch:
+        cache_key = f"{ticker}|{market}"
+        _SESSION_ATTEMPTED.add(cache_key)
+
         sector = ''
         try:
             summary = _build_summary(ticker, market)
@@ -254,11 +286,19 @@ def get_sectors(tickers: list, market: str) -> dict:
         if not sector:
             sector = _fallback_sector(ticker, market)
 
-        cache_key = f"{ticker}|{market}"
-        cache[cache_key] = sector
-        result[ticker] = sector
+        if sector and sector != '기타':
+            cache[cache_key] = sector
+            newly_classified = True
+        result[ticker] = sector or '기타'
 
-    if to_fetch:
+    if newly_classified:
         _save_cache(cache)
 
     return result
+
+
+def get_sectors_cached_only(tickers: list, market: str) -> dict:
+    """캐시에 있는 라벨만 반환, 미캐시는 '기타' — 분류(subprocess·네트워크)를 절대
+    트리거하지 않으므로 as-of 재계산처럼 블로킹이 허용되지 않는 경로에서 사용."""
+    cache = _load_cache()
+    return {t: cache.get(f"{t}|{market}") or '기타' for t in tickers}

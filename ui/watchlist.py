@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import streamlit.components.v1 as components
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
+from strategy.trading_days import trading_days_after, nth_trading_day_after
 from data.fetcher import (
     fetch_daily, fetch_index_daily, get_stock_name,
     fetch_intraday_for_date, fetch_index_intraday_for_date,
@@ -641,39 +641,40 @@ function(valueA, valueB) {
 
             # 추가 후보: DAY3·DAY4 기준 고정 스냅샷
             if jjin_date_str:
-                jjin_d      = pd.Timestamp(jjin_date_str).date()
-                _idx_tmp    = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
-                last_data_d = _idx_tmp.index[-1].date() if not _idx_tmp.empty else pd.Timestamp.today().normalize().date()
-                days_since_jjin = max(0, int(np.busday_count(jjin_d, last_data_d)))
+                jjin_ts  = pd.Timestamp(jjin_date_str)
+                _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
+                # 실제 거래일(지수 데이터 행) 기준 — busday는 공휴일을 거래일로 세버림
+                days_since_jjin = trading_days_after(_idx_tmp, jjin_ts) if not _idx_tmp.empty else 0
 
                 if days_since_jjin >= 1:
-                    def _nth_busday(base, n):
-                        return str(np.busday_offset(np.datetime64(base, 'D'), n, roll='forward'))
-
-                    day3_date    = _nth_busday(jjin_date_str, 1)
-                    day4_date    = _nth_busday(jjin_date_str, 2)
+                    day3_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
+                    day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2) if days_since_jjin >= 2 else None
+                    day3_date = str(day3_ts.date()) if day3_ts is not None else None
+                    day4_date = str(day4_ts.date()) if day4_ts is not None else None
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
+                    day3_tickers = set()
 
-                    # DAY3: peak~day3_date 구간 고정 스냅샷
-                    with st.spinner('추가 후보 확인 중...'):
-                        day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
+                    if day3_date:
+                        # DAY3: peak~day3_date 구간 고정 스냅샷
+                        with st.spinner('추가 후보 확인 중...'):
+                            day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
 
-                    day3_new = [
-                        r for r in day3_rows
-                        if r['Ticker'] not in core_tickers
-                        and (r['RS/ADR'] or 0) > 0
-                        and r['ma_above_count'] > 0
-                        and (r['거래량비%'] or 0) >= 120
-                        and (r['고점대비%'] or 0) >= -30
-                    ]
-                    day3_tickers = {r['Ticker'] for r in day3_new}
-                    p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
-                    if day3_new:
-                        _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
-                    else:
-                        st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
+                        day3_new = [
+                            r for r in day3_rows
+                            if r['Ticker'] not in core_tickers
+                            and (r['RS/ADR'] or 0) > 0
+                            and r['ma_above_count'] > 0
+                            and (r['거래량비%'] or 0) >= 120
+                            and (r['고점대비%'] or 0) >= -30
+                        ]
+                        day3_tickers = {r['Ticker'] for r in day3_new}
+                        p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
+                        if day3_new:
+                            _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
+                        else:
+                            st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
 
-                    if days_since_jjin >= 2:
+                    if days_since_jjin >= 2 and day4_date:
                         # DAY4: peak~day4_date 구간 고정 스냅샷
                         with st.spinner('추가 후보 확인 중...'):
                             day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)

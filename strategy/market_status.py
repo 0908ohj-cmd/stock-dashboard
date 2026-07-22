@@ -27,6 +27,10 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
         row  = index_df.iloc[i]
         prev = index_df.iloc[i - 1]
 
+        # OHLC 불완전 행(Close만 채워진 패치 잔재 등)은 NaN 비교가 모든 가드를
+        # False로 통과시켜 오검출되므로 명시적으로 제외
+        if row[['Open', 'High', 'Low', 'Close']].isna().any():
+            continue
         if float(row['Low']) >= float(ema21.iloc[i]):
             continue
         if float(row['Close']) < float(row['Open']):

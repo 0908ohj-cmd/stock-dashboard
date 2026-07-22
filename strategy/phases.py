@@ -67,7 +67,7 @@ def get_phase_label(df: pd.DataFrame, index_adr: float) -> str:
       DAY5 이후 EMA21 미회복 시 DAY1 복귀
     """
     from strategy.market_status import get_market_status
-    import numpy as np
+    from strategy.trading_days import trading_days_after
 
     if len(df) < 25:
         return 'Normal'
@@ -80,11 +80,7 @@ def get_phase_label(df: pd.DataFrame, index_adr: float) -> str:
     if state == 'correction':
         return 'DAY1'
     if state == 'early_signal':
-        jjin_date  = status['jjin_date']
-        last_date  = df.index[-1].date()
-        jjin_d     = jjin_date.date() if hasattr(jjin_date, 'date') else jjin_date
-        days_since = int(np.busday_count(jjin_d, last_date))
-        day_num    = min(days_since + 2, 5)
-        return f'DAY{max(day_num, 2)}'
+        days_since = trading_days_after(df, status['jjin_date'])
+        return f'DAY{min(days_since + 2, 5)}'
 
     return 'Normal'
