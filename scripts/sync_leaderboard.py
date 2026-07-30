@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""리더보드 소스 JSON을 공통 스키마로 정규화해 대시보드 repo에 푸시한다.
+"""리더보드 소스 JSON을 공통 스키마로 정규화한다.
+
+기본 동작은 **로컬 data/leaderboard/*.json에 쓰기만 하는 것**이다.
+원격(GitHub main) 갱신은 `--push`를 명시했을 때만 일어난다 — 인자 없이 실행해
+출력을 확인하는 흔한 사용법이 실서비스 브랜치에 커밋을 남기면 안 되기 때문이다.
 
 이 repo에서 소스 경로를 아는 유일한 파일. 앱 코드는 data/leaderboard/*.json만 안다.
 Streamlit 무의존.
@@ -134,9 +138,14 @@ def get_token() -> str:
         'DASHBOARD_GITHUB_TOKEN 환경변수를 설정하거나 gh CLI로 로그인하세요.')
 
 
+# 내용 비교 대상 — 기록용 시각(synced_at·source_updated_at)은 종목 목록이 그대로여도
+# 매 배치마다 새로 찍히므로 비교에서 제외한다.
+_CONTENT_KEYS = ('count', 'items')
+
+
 def _comparable(envelope: dict) -> dict:
-    """내용 비교용 사본 — synced_at은 매 실행마다 달라지므로 제외한다."""
-    return {k: v for k, v in envelope.items() if k != 'synced_at'}
+    """내용 비교용 사본 — 실제 리더보드 내용(종목 목록)만 본다."""
+    return {k: envelope.get(k) for k in _CONTENT_KEYS}
 
 
 def _decode_remote(payload: dict) -> dict | None:
@@ -152,8 +161,8 @@ def _decode_remote(payload: dict) -> dict | None:
 def push_to_github(market: str, envelope: dict, token: str) -> bool:
     """Contents API로 data/leaderboard/{market}.json 갱신 (sha 조회 후 update).
 
-    내용이 원격과 같으면(synced_at 제외) PUT을 건너뛴다 — 그러지 않으면 매 실행마다
-    빈 커밋이 쌓이고 그때마다 Streamlit Cloud가 재배포된다.
+    종목 목록이 원격과 같으면 시각만 달라도 PUT을 건너뛴다 — 그러지 않으면 매 실행마다
+    사실상 빈 커밋이 쌓이고 그때마다 Streamlit Cloud가 재배포된다.
     푸시했으면 True, 건너뛰었으면 False.
     """
     path = f'data/leaderboard/{market}.json'
@@ -183,28 +192,29 @@ def push_to_github(market: str, envelope: dict, token: str) -> bool:
     return True
 
 
-def sync_market(market: str, source_dir, local_only: bool, token) -> dict:
-    """한 시장을 정규화해 로컬 저장 또는 GitHub 푸시."""
+def sync_market(market: str, source_dir, push: bool, token) -> dict:
+    """한 시장을 정규화해 로컬 저장(기본) 또는 GitHub 푸시(push=True)."""
     payload = load_source(market, source_dir)
     normalize = normalize_us if market == 'us' else normalize_kr
     items = sort_and_rank(normalize(payload))
     envelope = build_envelope(market, items, payload.get('updated_at'))
 
-    if local_only:
+    if push:
+        push_to_github(market, envelope, token)
+    else:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         (OUTPUT_DIR / f'{market}.json').write_text(
             json.dumps(envelope, ensure_ascii=False, indent=2), encoding='utf-8')
-    else:
-        push_to_github(market, envelope, token)
     return envelope
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description='리더보드 동기화')
+    ap = argparse.ArgumentParser(
+        description='리더보드 동기화 (기본: 로컬 파일만 갱신)')
     ap.add_argument('--market', choices=['us', 'kr', 'all'], default='all')
     ap.add_argument('--source-dir', default=None)
-    ap.add_argument('--local-only', action='store_true',
-                    help='GitHub에 푸시하지 않고 로컬 파일만 갱신 (개발·초기 생성용)')
+    ap.add_argument('--push', action='store_true',
+                    help='GitHub main에 실제로 커밋한다. 없으면 로컬 파일만 갱신(기본·안전)')
     args = ap.parse_args(argv)
 
     source_dir = pathlib.Path(
@@ -213,12 +223,12 @@ def main(argv=None) -> int:
         or DEFAULT_SOURCE_DIR)
 
     markets = ['us', 'kr'] if args.market == 'all' else [args.market]
-    token = None if args.local_only else get_token()
+    token = get_token() if args.push else None
 
     failed = []
     for market in markets:
         try:
-            env = sync_market(market, source_dir, args.local_only, token)
+            env = sync_market(market, source_dir, args.push, token)
             print(f'[{market}] {env["count"]}종목 · 소스 갱신 {env["source_updated_at"]}')
         except Exception as e:
             print(f'[{market}] 실패: {e}', file=sys.stderr)

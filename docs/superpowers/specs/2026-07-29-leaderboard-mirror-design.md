@@ -111,16 +111,18 @@ data/leaderboard/
 
 Streamlit 무의존. 이 repo에서 유일하게 소스 경로를 아는 파일.
 
-- CLI: `python3 scripts/sync_leaderboard.py --market us|kr|all [--local-only]`
+- CLI: `python3 scripts/sync_leaderboard.py --market us|kr|all [--push]`
+- **기본은 로컬 파일 갱신, 원격 쓰기는 `--push`를 명시할 때만**. 인자 없이 실행해 출력을 확인하는 흔한 사용법이 실서비스 브랜치에 커밋을 남기면 안 된다 (실제로 그렇게 6개 커밋이 잘못 올라간 적이 있다)
 - 소스 경로: `--source-dir` 인자 > 환경변수 `LEADERBOARD_SOURCE_DIR` > 기본값 순으로 결정 (하드코딩된 절대경로에만 의존하지 않는다)
 - 토큰: 환경변수 `DASHBOARD_GITHUB_TOKEN` > `gh auth token` 명령 출력 순으로 조회. 로컬 `gh` CLI가 이미 이 repo에 push 권한이 있는 계정으로 인증돼 있으므로, 별도 PAT 발급 없이 동작하는 것이 기본 경로다. 둘 다 실패하면 명확한 에러 메시지와 함께 exit 1
   - ⚠️ 구현 시 검증 필요: cron 환경에서는 macOS 키체인이 잠겨 `gh auth token`이 실패할 수 있다. 실제 배치 환경에서 확인하고, 실패하면 `DASHBOARD_GITHUB_TOKEN`에 PAT를 넣는 경로로 전환한다
 - 동작:
   1. 소스 JSON 읽기 → 파싱
   2. 공통 스키마로 정규화 + 정렬·rank 부여
-  3. `--local-only`면 로컬 `data/leaderboard/*.json`에 쓰고 종료 (개발·초기 생성용)
-  4. 아니면 GitHub Contents API로 PUT (`app.py:_github_save`와 동일한 sha 조회 후 update 패턴)
-- **로컬 repo 파일을 건드리지 않고 GitHub API만 쓴다** — Mac 로컬 작업 트리와 커밋이 충돌하지 않도록
+  3. `--push`가 없으면(기본) 로컬 `data/leaderboard/*.json`에 쓰고 종료 (개발·확인·초기 생성용)
+  4. `--push`면 GitHub Contents API로 PUT (`app.py:_github_save`와 동일한 sha 조회 후 update 패턴)
+- **푸시 경로에서는 로컬 repo 파일을 건드리지 않고 GitHub API만 쓴다** — Mac 로컬 작업 트리와 커밋이 충돌하지 않도록
+- 멱등 푸시: 원격과 **리더보드 내용(`items`·`count`)**이 같으면 PUT을 건너뛴다. `synced_at`·`source_updated_at`은 종목 목록이 그대로여도 매 배치마다 새로 찍히므로 비교에서 제외한다 — 포함하면 비교가 항상 다르게 나와 사실상 빈 커밋이 매일 쌓인다
 
 ### 실패 처리
 
@@ -156,15 +158,25 @@ Streamlit 무의존 (캐시 래핑은 `ui/` 계층에서). 데이터 디렉토�
 
 예정 배치 시각: US 07:00 KST / KR 16:30 KST (평일 기준).
 
-`last_due` = 가장 최근에 지나간 평일 예정 슬롯, `prev_due` = 그 직전 슬롯이라 할 때:
+**놓친 슬롯 수(missed)로 판정한다.** `last_due` = 가장 최근에 지나간 평일 예정 슬롯이라 할 때:
 
 ```
-is_stale = (now > last_due + 6시간) AND (source_updated_at < prev_due)
+missed = (source_updated_at 이후 지나간 평일 슬롯 중 채워지지 않은 슬롯 수)
+         # 슬롯 S는 source_updated_at >= S - 60분 이면 채워진 것으로 본다
+
+is_stale = missed >= 2  OR  (missed == 1 AND now > last_due + 6시간)
 ```
 
-- 두 조건이 **모두** 필요하다. 앞 조건이 없으면 배치가 정시에 성공한 직후에도 stale로 오판한다 (07:02 갱신 < 07:00+6h)
-- 뒤 조건에서 **`prev_due`(전전 슬롯)**를 쓰는 이유: 상류 배치 스케줄은 다른 저장소에 있어 예고 없이 앞당겨질 수 있다. `last_due` 기준이면 정시보다 몇 분 일찍 끝난 정상 데이터가 매일 지연으로 잡힌다(현재 KR의 여유는 6분에 불과했다). **감지가 한 슬롯 늦어지는 대신 스케줄 드리프트에 면역**이 되는 쪽을 택했다. 파이프라인이 완전히 멈추면 약 2영업일 뒤부터 경고가 뜬다
-- 6시간 유예는 배치 지연 흡수용 — 유예 시간 안에는 판정을 보류한다
+| missed | 유예(=`last_due + 6h`) 이내 | 유예 경과 |
+|---|---|---|
+| 0 | 신선 | 신선 |
+| 1 | 신선 (판정 보류 — 오늘 배치가 늦게 돌 수 있다) | **stale** |
+| 2+ | **stale** | **stale** |
+
+- **허용오차 60분**이 오탐을 막는 장치다. 상류 배치 스케줄은 다른 저장소에 있어 예고 없이 몇 분 앞당겨질 수 있는데(KR의 여유는 6분뿐이었다), 허용오차가 없으면 정시보다 조금 일찍 끝난 정상 데이터가 매일 지연으로 잡힌다
+- 6시간 유예는 배치 지연 흡수용 — **슬롯을 하나 놓친 동안에만** 판정을 보류한다
+- **2슬롯 이상이면 유예와 무관하게 stale**이다. 유예 조건을 무조건 AND로 걸면 평일마다 07:00~13:00 여섯 시간 동안 몇 주 묵은 데이터가 신선하다고 보고되는 사각지대가 생긴다 (실측: 7/20에 죽은 배치를 7/27 월 09:00에 보면 `is_stale=False`, 13:01에 보면 `True`)
+- 이전 설계는 `source_updated_at < prev_due`(전전 슬롯) 기준이라 한 번의 배치 실패를 약 30시간 동안 침묵했다. 허용오차 방식이 같은 오탐을 막으면서 감지 하루를 되찾는다
 - 슬롯은 **평일** 기준으로 되감아, 주말과 월요일 오전에 금요일 배치분이 오탐되지 않게 한다
 - 휴장일에도 배치가 돌아 갱신 시각을 남기므로, 거래일 비교가 아닌 **갱신 시각만으로** 판정한다 (설·추석 등 오탐 방지)
 - **모든 비교는 KST(`Asia/Seoul`) 기준**으로 한다. Streamlit Cloud 컨테이너는 UTC로 도는데 예정 시각과 소스 갱신 시각은 KST라, 컨테이너 시계를 그대로 쓰면 경고가 10시간 늦게 뜨거나 장애 중에 다시 꺼지는 오작동이 난다. naive 시각은 KST로 간주하고, tz가 붙은 시각은 KST로 변환한다
@@ -190,11 +202,13 @@ is_stale = (now > last_due + 6시간) AND (source_updated_at < prev_due)
 
 ### 9.2 교차 배지
 
-`ui/watchlist.py`에서 `'티커 | 종목명'` 표시 문자열을 만드는 지점(현재 494행 부근)에서, 티커가 해당 시장 리더보드 집합에 있으면 앞에 `👑`를 붙인다.
+`ui/watchlist.py`·`ui/watchlist_10ema.py`의 표시 DataFrame에 **맨 앞 `👑` 전용 컬럼**을 두고, 티커가 해당 시장 리더보드 집합에 있으면 값으로 `'👑'`을, 아니면 빈 문자열을 넣는다.
 
 - 코스피·코스닥 탭 → `kr` 집합, 나스닥 탭 → `us` 집합
-- `ui/watchlist_10ema.py`에도 동일 적용
-- 리더보드 파일이 없으면 빈 집합이 되어 배지가 그냥 안 붙는다 — 기존 동작과 완전히 동일
+- **배지를 `'티커 | 종목명'` 문자열에 섞지 않는다.** AgGrid는 셀 값 그대로 정렬·필터하므로, 접두사를 붙이면 티커 정렬이 리더보드 종목만 따로 뭉치고 티커 텍스트 필터(정확일치·시작문자)가 배지 행을 놓친다
+- 배지 컬럼은 폭 고정(약 44px)·필터 없음·**정렬 가능**(주도주만 모아 보기 위해). 10EMA 탭은 티커 컬럼이 왼쪽 고정이라 배지도 `pinned='left'`로 둔다
+- 그리드 클릭 → 차트 경로는 `'티커 | 종목명'`을 그대로 `split(' | ')[0]` 하면 된다 (배지 제거 처리 불필요)
+- 리더보드 파일이 없으면 빈 집합이 되어 배지 컬럼이 전부 빈 값 — 기존 동작과 사실상 동일
 
 ## 10. 모듈 구성
 
@@ -215,7 +229,7 @@ is_stale = (now > last_due + 6시간) AND (source_updated_at < prev_due)
 
 - `load`: 정상 파일 / 파일 없음 / `items` 빈 배열
 - `get_tickers`: 티커 집합 반환, 파일 없으면 빈 집합
-- `get_freshness`: 신선 / stale / 주말(금요일 배치가 월요일 오전에 오탐되지 않을 것) / 파일 없음
+- `get_freshness`: 정시 갱신 직후 신선 / 정시보다 몇 분 일찍 끝나도 신선(허용오차) / 1슬롯 미실행 + 유예 이내는 보류 / 1슬롯 미실행 + 유예 경과는 stale / 2슬롯 이상은 아침(구 사각지대)에도 stale / 주말·월요일 오전 오탐 없음 / 파일 없음
 
 `tests/test_sync_leaderboard.py`
 
@@ -224,14 +238,16 @@ is_stale = (now > last_due + 6시간) AND (source_updated_at < prev_due)
 - 정렬·rank 부여 규칙 (leaders 소스 우선, RS 내림차순)
 - 양 시장 정규화 결과의 **키 구성이 동일**할 것
 - 소스 파일 없음 → 푸시 호출 없이 exit 1 (GitHub API 모킹)
-- `items` 0개 → 정상 푸시
+- `items` 0개 → 정상 기록·푸시
+- `--push` 없이 실행 → 원격 호출 없음(토큰 조회조차 안 함), 로컬 파일만 생성
+- 멱등 푸시: 내용 동일 + `source_updated_at`만 변경 → PUT 생략 / `items` 변경 → PUT 발생
 
 회귀: `python3 -m pytest tests/ --ignore=tests/test_scoring.py`
 
 ## 12. 롤아웃
 
 1. `data/leaderboard_store.py` + 테스트 (앱 동작 변화 없음)
-2. `scripts/sync_leaderboard.py` + 테스트 → `--local-only`로 1회 실행해 `data/leaderboard/*.json` 초기 생성·커밋
+2. `scripts/sync_leaderboard.py` + 테스트 → 인자 없이(기본=로컬) 1회 실행해 `data/leaderboard/*.json` 초기 생성·커밋
 3. `ui/leaderboard.py` + `app.py` 탭 추가 → 화면 확인
 4. 교차 배지 적용 (`watchlist.py`, `watchlist_10ema.py`)
 5. 생성 파이프라인에 호출 훅 추가 + `DASHBOARD_GITHUB_TOKEN` 설정 → 다음 배치에서 자동 푸시 확인
@@ -248,7 +264,8 @@ is_stale = (now > last_due + 6시간) AND (source_updated_at < prev_due)
 |---|---|
 | 소스 파일 없음/파싱 실패 | 푸시 스킵, 기존 데이터 유지 |
 | 리더보드 0개 | 그대로 푸시, 화면에 "주도주 부재 신호" 안내 |
-| **내용이 직전 푸시와 동일** | **PUT 생략** — `synced_at`을 제외하고 비교한다. 이게 없으면 매 실행마다 커밋이 쌓이고 그때마다 재배포가 걸린다 |
+| **내용이 직전 푸시와 동일** | **PUT 생략** — `items`·`count`만 비교한다(기록용 시각 2개 제외). 이게 없으면 매 실행마다 커밋이 쌓이고 그때마다 재배포가 걸린다 |
+| `--push` 없이 실행 | 원격을 건드리지 않고 로컬 파일만 갱신 (기본·안전) |
 | 배치 미실행 (stale 판정) | 탭 상단 ⚠️ 경고 배지 |
 | `data/leaderboard/*.json` 없음 | 탭은 "데이터 없음" 안내, 배지는 미표시 (기존 동작과 동일) |
 | GitHub API 실패 | sync exit 1, 원 파이프라인은 성공 유지 |

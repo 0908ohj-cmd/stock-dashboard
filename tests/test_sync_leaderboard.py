@@ -195,7 +195,7 @@ def test_load_source_파일_없으면_예외(tmp_path):
         sync.load_source('us', tmp_path)
 
 
-def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
+def test_sync_market_기본은_로컬파일만_생성(tmp_path, monkeypatch):
     src = tmp_path / 'src'
     src.mkdir()
     (src / 'leaderboard.json').write_text(
@@ -204,7 +204,7 @@ def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
     out.mkdir()
     monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
 
-    env = sync.sync_market('us', src, local_only=True, token=None)
+    env = sync.sync_market('us', src, push=False, token=None)
 
     written = json.loads((out / 'us.json').read_text(encoding='utf-8'))
     assert written['count'] == 1
@@ -212,7 +212,7 @@ def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
     assert env['count'] == 1
 
 
-def test_sync_market_빈_items도_정상_푸시(tmp_path, monkeypatch):
+def test_sync_market_빈_items도_정상_기록(tmp_path, monkeypatch):
     """0개는 주도주 부재 신호 — 장애가 아니므로 그대로 쓴다."""
     src = tmp_path / 'src'
     src.mkdir()
@@ -223,18 +223,62 @@ def test_sync_market_빈_items도_정상_푸시(tmp_path, monkeypatch):
     out.mkdir()
     monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
 
-    sync.sync_market('kr', src, local_only=True, token=None)
+    sync.sync_market('kr', src, push=False, token=None)
 
     written = json.loads((out / 'kr.json').read_text(encoding='utf-8'))
     assert written['count'] == 0
     assert written['items'] == []
 
 
+def test_main_push_없으면_원격을_건드리지_않는다(tmp_path, monkeypatch):
+    """인자 없이 실행하면 로컬 파일만 갱신 — 토큰 조회조차 하지 않는다."""
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    out = tmp_path / 'out'
+    out.mkdir()
+    monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
+    pushed = []
+    monkeypatch.setattr(sync, 'push_to_github',
+                        lambda market, env, token: pushed.append(market))
+
+    def _토큰조회_금지():
+        raise AssertionError('푸시하지 않는데 토큰을 조회했습니다')
+    monkeypatch.setattr(sync, 'get_token', _토큰조회_금지)
+
+    rc = sync.main(['--market', 'us', '--source-dir', str(src)])
+
+    assert rc == 0
+    assert pushed == []
+    assert (out / 'us.json').exists()
+
+
+def test_main_push_주면_푸시하고_로컬은_안_건드린다(tmp_path, monkeypatch):
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    out = tmp_path / 'out'
+    out.mkdir()
+    monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
+    pushed = []
+    monkeypatch.setattr(sync, 'push_to_github',
+                        lambda market, env, token: pushed.append(market))
+    monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
+
+    rc = sync.main(['--market', 'us', '--source-dir', str(src), '--push'])
+
+    assert rc == 0
+    assert pushed == ['us']
+    assert not (out / 'us.json').exists()     # 로컬 작업 트리는 그대로
+
+
 def test_main_소스_없으면_exit1_푸시_안함(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(sync, 'push_to_github', lambda *a, **k: calls.append(a))
     monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
-    rc = sync.main(['--market', 'us', '--source-dir', str(tmp_path)])
+    rc = sync.main(['--market', 'us', '--source-dir', str(tmp_path), '--push'])
     assert rc == 1
     assert calls == []
 
@@ -250,7 +294,7 @@ def test_main_all_한쪽_실패해도_다른쪽은_푸시(tmp_path, monkeypatch)
                         lambda market, env, token: pushed.append(market))
     monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
 
-    rc = sync.main(['--market', 'all', '--source-dir', str(src)])
+    rc = sync.main(['--market', 'all', '--source-dir', str(src), '--push'])
 
     assert rc == 1              # KR 실패
     assert pushed == ['us']     # US는 정상 푸시
@@ -317,11 +361,43 @@ def test_push_원격_파일이_없으면_sha_없이_생성(monkeypatch):
     assert 'sha' not in puts[0]['json']
 
 
-def test_push_소스_갱신시각만_바뀌어도_푸시(monkeypatch):
-    """synced_at은 무시하지만 source_updated_at은 실제 변화다."""
+def test_push_소스_갱신시각만_바뀌면_PUT_생략(monkeypatch):
+    """상류 배치는 결과가 같아도 updated_at을 매번 새로 찍는다 — 그건 내용 변화가 아니다.
+
+    이 시각까지 비교하면 종목 목록이 완전히 같아도 매일 커밋이 쌓이고
+    그때마다 Streamlit Cloud가 재배포된다.
+    """
     envelope = _봉투(updated='2026-07-30T07:01:00')
     remote = dict(envelope, source_updated_at='2026-07-29T07:02:16',
                   synced_at='2026-07-29T07:05:00')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is False
+    assert puts == []
+
+
+def test_push_0종목끼리는_시각이_달라도_PUT_생략(monkeypatch):
+    """실제 사례: KR이 연일 0종목이라 시각 말고는 다른 게 없었다."""
+    envelope = sync.build_envelope('kr', [], '2026-07-30T16:33:10')
+    remote = dict(envelope, source_updated_at='2026-07-29T16:36:40',
+                  synced_at='2026-07-29T16:40:00')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('kr', envelope, 'tok') is False
+    assert puts == []
+
+
+def test_push_종목이_하나라도_바뀌면_PUT(monkeypatch):
+    """시각이 동일해도 items가 다르면 반드시 푸시한다 — 비교가 과하게 무뎌지지 않게."""
+    envelope = _봉투()
+    바뀐_아이템 = [dict(envelope['items'][0], ticker='NVDA')]
+    remote = dict(envelope, items=바뀐_아이템)                  # 시각은 그대로
     puts = []
     monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
     monkeypatch.setattr(sync.requests, 'put',

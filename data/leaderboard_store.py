@@ -19,8 +19,14 @@ _BATCH_DUE = {
     'us': (7, 0),
     'kr': (16, 30),
 }
-# 배치 지연 흡수용 유예 시간 — 이 시간 안에는 stale 판정을 보류한다
+# 배치 지연 흡수용 유예 시간 — 슬롯을 하나 놓친 동안은 이 시간 안에서 판정을 보류한다
 _GRACE_HOURS = 6
+# 예정 시각보다 이만큼 일찍 끝난 배치도 그 슬롯을 채운 것으로 본다.
+# 상류 스케줄은 다른 저장소에 있어 예고 없이 몇 분 앞당겨질 수 있다.
+_SLOT_TOLERANCE_MINUTES = 60
+# 놓친 슬롯이 이 수 이상이면 유예와 무관하게 stale.
+# 판정이 같아지므로 셀 때도 여기서 끊는다.
+_STALE_MISSED = 2
 
 
 def _empty(market: str) -> dict:
@@ -81,30 +87,54 @@ def _as_kst(dt: datetime) -> datetime:
     return dt.astimezone(KST)
 
 
-def _nth_last_due(market: str, now: datetime, n: int = 1) -> datetime:
-    """지금 기준 n번째로 최근에 지나간 평일 예정 배치 시각 (n=1이 직전 슬롯)."""
+def _last_due(market: str, now: datetime) -> datetime:
+    """지금 기준 가장 최근에 지나간 평일 예정 배치 시각."""
     hh, mm = _BATCH_DUE[market]
     due = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     if due > now:
         due -= timedelta(days=1)
     while due.weekday() >= 5:              # 5=토, 6=일 — 주말엔 배치가 없다
         due -= timedelta(days=1)
-    for _ in range(n - 1):
-        due -= timedelta(days=1)
-        while due.weekday() >= 5:
-            due -= timedelta(days=1)
     return due
+
+
+def _prev_due(due: datetime) -> datetime:
+    """한 슬롯 앞(직전 평일)의 예정 배치 시각."""
+    due -= timedelta(days=1)
+    while due.weekday() >= 5:
+        due -= timedelta(days=1)
+    return due
+
+
+def _missed_slots(market: str, updated: datetime, now: datetime) -> int:
+    """갱신 시각 이후로 지나갔지만 채워지지 않은 평일 슬롯 수 (_STALE_MISSED에서 절단).
+
+    슬롯 S는 `updated >= S - 허용오차`면 채워진 것으로 본다. 허용오차가 없으면
+    정시보다 몇 분 일찍 끝난 정상 배치가 매일 미실행으로 잡힌다.
+    """
+    tolerance = timedelta(minutes=_SLOT_TOLERANCE_MINUTES)
+    due = _last_due(market, now)
+    missed = 0
+    while missed < _STALE_MISSED and due - tolerance > updated:
+        missed += 1
+        due = _prev_due(due)
+    return missed
 
 
 def get_freshness(market: str, now: datetime | None = None) -> dict:
     """신선도 판정 (모든 비교는 KST 기준).
 
-    stale = (지금 > 직전 예정시각 + 유예) AND (갱신시각 < 전전 예정시각)
+    갱신 시각 이후 '놓친 평일 슬롯 수'로 판정한다:
 
-    앞 조건이 없으면 정시 성공 직후에도 오판한다.
-    뒤 조건에서 '전전'을 쓰는 이유: 상류 배치 스케줄은 다른 저장소에 있어 예고 없이
-    앞당겨질 수 있다. '직전' 기준이면 정시보다 몇 분 일찍 끝난 정상 데이터가 매일
-    지연으로 잡힌다. 감지가 하루 늦어지는 대신 스케줄 드리프트에 면역이 되는 쪽을 택했다.
+    - 0개 → 신선
+    - 1개 + 직전 예정시각 + 유예 이내 → 판정 보류(신선). 오늘 배치가 늦게 돌고
+      있을 수 있으므로 아직 경고하지 않는다
+    - 1개 + 유예 경과 → stale
+    - 2개 이상 → 유예와 무관하게 stale. 며칠째 멈춘 파이프라인이 매일 아침 6시간씩
+      신선하다고 보고되는 사각지대를 없앤다
+
+    슬롯 충족 판정에 허용오차(_SLOT_TOLERANCE_MINUTES)를 둬서, 정시보다 조금 일찍
+    끝난 배치가 오탐되지 않게 한다 — 하루치 감지를 포기하지 않고 같은 목적을 이룬다.
 
     has_timestamp는 '표시할 수 있는 갱신 시각이 있는가'만 뜻한다 —
     데이터 유무 판단에 쓰면 안 된다(items가 있어도 시각만 없을 수 있다).
@@ -120,8 +150,8 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
         updated = _as_kst(datetime.fromisoformat(src))
     except (ValueError, TypeError):        # 문자열이 아니거나 ISO 형식이 아닌 경우
         return base
-    last_due = _nth_last_due(market, now, 1)
-    prev_due = _nth_last_due(market, now, 2)
-    is_stale = now > last_due + timedelta(hours=_GRACE_HOURS) and updated < prev_due
+    missed = _missed_slots(market, updated, now)
+    past_grace = now > _last_due(market, now) + timedelta(hours=_GRACE_HOURS)
+    is_stale = missed >= _STALE_MISSED or (missed == 1 and past_grace)
     return {'source_updated_at': src, 'synced_at': data.get('synced_at'),
             'is_stale': is_stale, 'has_timestamp': True}

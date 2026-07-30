@@ -495,8 +495,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
     display_df = pd.DataFrame([{
+        # 배지는 별도 컬럼 — 티커 문자열에 섞으면 정렬·필터가 그 접두사까지 보게 된다
+        '👑': '👑' if r['Ticker'] in crown else '',
         **(({'등급': f"{r['등급']}|{r['패턴']}"} if show_grade else {})),
-        '티커 | 종목명': ('👑 ' if r['Ticker'] in crown else '') + f"{r['Ticker']} | {r['종목명']}",
+        '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '섹터':          r['섹터'],
         'Close':         r['Close'],
         '등락%':         r['등락%'],
@@ -546,6 +548,11 @@ function(valueA, valueB) {
         gb.configure_column('등급', headerName='등급 | 패턴', valueFormatter=grade_fmt,
                             cellStyle=grade_style, comparator=grade_comparator,
                             filter='agTextColumnFilter', flex=2, minWidth=120)
+    # 리더보드 배지 — 정렬은 되게(주도주 묶어보기) 두고 폭은 고정한다
+    gb.configure_column('👑', headerName='👑', headerTooltip='리더보드 편입 종목',
+                        sortable=True, filter=False, floatingFilter=False,
+                        resizable=False, suppressSizeToFit=True, flex=0,
+                        width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
@@ -708,7 +715,7 @@ function(valueA, valueB) {
         selected_rows = grid_response.get('selected_rows')
         if selected_rows is not None and len(selected_rows) > 0:
             first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
-            sel_ticker = first_row['티커 | 종목명'].removeprefix('👑 ').split(' | ')[0]
+            sel_ticker = first_row['티커 | 종목명'].split(' | ')[0]
             for i, r in enumerate(rows):
                 if r['Ticker'] == sel_ticker:
                     st.session_state[idx_key] = i

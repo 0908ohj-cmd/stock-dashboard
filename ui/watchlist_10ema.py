@@ -238,7 +238,9 @@ def render_10ema_tab(market: str, label: str):
 
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
     display_df = pd.DataFrame([{
-        '티커 | 종목명':  ('👑 ' if r['Ticker'] in crown else '') + f"{r['Ticker']} | {r['종목명']}",
+        # 배지는 별도 컬럼 — 티커 문자열에 섞으면 정렬·필터가 그 접두사까지 보게 된다
+        '👑': '👑' if r['Ticker'] in crown else '',
+        '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],
@@ -255,6 +257,11 @@ def render_10ema_tab(market: str, label: str):
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
     gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True, flex=1)
+    # 리더보드 배지 — 티커와 함께 왼쪽 고정(안 하면 고정 컬럼 뒤로 밀린다)
+    gb.configure_column('👑', headerName='👑', headerTooltip='리더보드 편입 종목',
+                        sortable=True, filter=False, floatingFilter=False,
+                        resizable=False, suppressSizeToFit=True, pinned='left', flex=0,
+                        width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)

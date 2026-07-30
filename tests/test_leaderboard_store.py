@@ -68,38 +68,56 @@ def test_get_tickers_파일_없으면_빈_집합(lb_dir):
 
 
 def test_freshness_정시_갱신_직후는_신선(lb_dir):
-    """US 배치 07:00 → 07:02 갱신, 09:00 조회. stale이면 안 된다."""
+    """US 배치 07:00 → 07:02 갱신, 09:00 조회. 놓친 슬롯 0개."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-29T07:02:16'))
     now = datetime(2026, 7, 29, 9, 0)          # 수요일
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
-def test_freshness_유예시간_내에는_판정_보류(lb_dir):
-    """갱신이 안 됐어도 예정시각+6h 전이면 아직 stale로 보지 않는다."""
+def test_freshness_당일_갱신분은_유예_지나도_신선(lb_dir):
+    """오늘 배치가 정상적으로 돌았으면 저녁에 봐도 놓친 슬롯이 없다."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-29T07:02:16'))
+    now = datetime(2026, 7, 29, 22, 0)         # 유예(13:00) 한참 경과
+    assert store.get_freshness('us', now)['is_stale'] is False
+
+
+def test_freshness_한슬롯_놓쳐도_유예_안이면_판정_보류(lb_dir):
+    """오늘(수) 배치가 아직 안 돌았어도 유예 안이면 경고하지 않는다 — 늦게 돌 수 있다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-28T07:02:16'))
     now = datetime(2026, 7, 29, 10, 0)         # 07:00+6h=13:00 이전
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
-def test_freshness_직전_슬롯만_놓친_것은_stale_아님(lb_dir):
-    """오늘(수) 배치가 안 돌았어도 어제(화) 갱신분이면 아직 경고하지 않는다.
+def test_freshness_한슬롯_놓치고_유예_지나면_stale(lb_dir):
+    """어제 갱신분 그대로 오늘 유예가 지나면 하루를 더 기다리지 않고 경고한다.
 
-    상류 스케줄 드리프트에 면역이 되도록 '전전 슬롯' 기준으로 판정한다.
+    (구 규칙은 '전전 슬롯' 기준이라 여기서 30시간을 더 침묵했다.)
     """
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-28T07:02:16'))
     now = datetime(2026, 7, 29, 14, 0)         # 수요일, 07:00+6h=13:00 경과
-    assert store.get_freshness('us', now)['is_stale'] is False
+    assert store.get_freshness('us', now)['is_stale'] is True
+
+
+def test_freshness_두슬롯_이상_놓치면_유예_안이라도_stale(lb_dir):
+    """며칠째 멈춘 파이프라인은 아침 09:00(구 규칙의 사각지대)에도 경고해야 한다.
+
+    구 규칙은 '지금 > 직전 예정시각 + 6h'를 AND로 걸어, 평일마다 07:00~13:00
+    여섯 시간 동안 몇 주 묵은 데이터를 신선하다고 보고했다.
+    """
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-20T07:02:16'))
+    now = datetime(2026, 7, 27, 9, 0)          # 월요일 아침, 유예 이전
+    assert store.get_freshness('us', now)['is_stale'] is True
 
 
 def test_freshness_전전_슬롯보다_오래되면_stale(lb_dir):
-    """월요일 갱신분을 수요일 오후에 보면 전전 슬롯(화 07:00)보다 오래됐다."""
+    """월요일 갱신분을 수요일 오후에 보면 화·수 두 슬롯을 놓쳤다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-27T07:02:16'))
     now = datetime(2026, 7, 29, 14, 0)         # 07:00+6h=13:00 경과
     assert store.get_freshness('us', now)['is_stale'] is True
 
 
 def test_freshness_예정시각보다_일찍_끝나도_stale_아님(lb_dir):
-    """정상 배치가 정시보다 몇 분 일찍 끝난 경우 — 매일 오탐하면 안 된다."""
+    """정상 배치가 정시보다 몇 분 일찍 끝난 경우 — 허용오차가 그 슬롯을 채운 것으로 본다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-29T06:57:00'))
     now = datetime(2026, 7, 29, 20, 0)         # 유예(13:00) 한참 경과
     assert store.get_freshness('us', now)['is_stale'] is False
@@ -110,6 +128,16 @@ def test_freshness_KR도_예정시각보다_일찍_끝나면_stale_아님(lb_dir
     _write(lb_dir, 'kr', _envelope([], source_updated_at='2026-07-29T16:28:00'))
     now = datetime(2026, 7, 30, 15, 0)         # 목요일, 직전 due는 수 16:30 + 6h 경과
     assert store.get_freshness('kr', now)['is_stale'] is False
+
+
+def test_freshness_허용오차_밖으로_일찍_끝나면_슬롯_미충족(lb_dir):
+    """허용오차(60분)보다 크게 벌어진 차이는 '일찍 끝남'이 아니라 미실행이다.
+
+    US 07:00 예정인데 갱신 시각이 전날 05:00이면 어제·오늘 두 슬롯 모두 미충족.
+    """
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-28T05:00:00'))
+    now = datetime(2026, 7, 29, 9, 0)          # 유예 이전인데도 2슬롯이라 stale
+    assert store.get_freshness('us', now)['is_stale'] is True
 
 
 def test_freshness_일요일_조회시_금요일_데이터는_오탐_아님(lb_dir):
@@ -130,10 +158,7 @@ def test_freshness_월요일_오전은_유예시간이_보호(lb_dir):
 
 
 def test_freshness_월요일_오후_이틀치_미실행이면_stale(lb_dir):
-    """월요일 유예가 지나도록 금·월 배치가 모두 안 돌았으면 목요일 데이터는 오래됐다.
-
-    전전 슬롯 = 금 07:00 이라 목요일 갱신분이 그보다 앞선다.
-    """
+    """금·월 배치가 모두 안 돌았으면 목요일 갱신분은 두 슬롯(금·월)을 놓친 것이다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-30T07:02:16'))
     now = datetime(2026, 8, 3, 15, 0)          # 월요일 15:00 > 07:00+6h
     assert store.get_freshness('us', now)['is_stale'] is True
