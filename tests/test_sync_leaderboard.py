@@ -133,3 +133,93 @@ def test_build_envelope_빈_리스트도_정상():
     env = sync.build_envelope('kr', [], '2026-07-29T16:36:40')
     assert env['count'] == 0
     assert env['items'] == []
+
+
+import json
+import os
+import pytest
+
+
+def test_load_source_us(tmp_path):
+    (tmp_path / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    payload = sync.load_source('us', tmp_path)
+    assert payload['updated_at'] == '2026-07-29T07:02:16'
+
+
+def test_load_source_kr_파일명(tmp_path):
+    (tmp_path / 'leaderboard_kr.json').write_text(
+        json.dumps(KR_SOURCE, ensure_ascii=False), encoding='utf-8')
+    payload = sync.load_source('kr', tmp_path)
+    assert payload['items'][0]['ticker'] == '005930'
+
+
+def test_load_source_파일_없으면_예외(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        sync.load_source('us', tmp_path)
+
+
+def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    out = tmp_path / 'out'
+    out.mkdir()
+    monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
+
+    env = sync.sync_market('us', src, local_only=True, token=None)
+
+    written = json.loads((out / 'us.json').read_text(encoding='utf-8'))
+    assert written['count'] == 1
+    assert written['items'][0]['rank'] == 1
+    assert env['count'] == 1
+
+
+def test_sync_market_빈_items도_정상_푸시(tmp_path, monkeypatch):
+    """0개는 주도주 부재 신호 — 장애가 아니므로 그대로 쓴다."""
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard_kr.json').write_text(
+        json.dumps({'updated_at': '2026-07-29T16:36:40', 'items': []}),
+        encoding='utf-8')
+    out = tmp_path / 'out'
+    out.mkdir()
+    monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
+
+    sync.sync_market('kr', src, local_only=True, token=None)
+
+    written = json.loads((out / 'kr.json').read_text(encoding='utf-8'))
+    assert written['count'] == 0
+    assert written['items'] == []
+
+
+def test_main_소스_없으면_exit1_푸시_안함(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(sync, 'push_to_github', lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
+    rc = sync.main(['--market', 'us', '--source-dir', str(tmp_path)])
+    assert rc == 1
+    assert calls == []
+
+
+def test_main_all_한쪽_실패해도_다른쪽은_푸시(tmp_path, monkeypatch):
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    # KR 소스는 일부러 만들지 않는다
+    pushed = []
+    monkeypatch.setattr(sync, 'push_to_github',
+                        lambda market, env, token: pushed.append(market))
+    monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
+
+    rc = sync.main(['--market', 'all', '--source-dir', str(src)])
+
+    assert rc == 1              # KR 실패
+    assert pushed == ['us']     # US는 정상 푸시
+
+
+def test_get_token_환경변수_우선(monkeypatch):
+    monkeypatch.setenv('DASHBOARD_GITHUB_TOKEN', 'env-token')
+    assert sync.get_token() == 'env-token'

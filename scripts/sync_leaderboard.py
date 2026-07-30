@@ -4,7 +4,23 @@
 이 repo에서 소스 경로를 아는 유일한 파일. 앱 코드는 data/leaderboard/*.json만 안다.
 Streamlit 무의존.
 """
+import argparse
+import base64
+import json
+import os
+import pathlib
+import subprocess
+import sys
 from datetime import datetime
+
+import requests
+
+GITHUB_REPO = '0908ohj-cmd/stock-dashboard'
+OUTPUT_DIR = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'leaderboard'
+
+# 소스 경로 — 이 repo에서 외부 파이프라인 위치를 아는 유일한 지점
+DEFAULT_SOURCE_DIR = pathlib.Path.home() / 'Workspace' / 'stockEdge' / 'data'
+_SOURCE_FILENAME = {'us': 'leaderboard.json', 'kr': 'leaderboard_kr.json'}
 
 # 공통 아이템 키 — US·KR 정규화 결과가 이 구성을 완전히 동일하게 갖는다
 COMMON_KEYS = [
@@ -91,3 +107,93 @@ def build_envelope(market: str, items: list, source_updated_at) -> dict:
         'count': len(items),
         'items': items,
     }
+
+
+def load_source(market: str, source_dir) -> dict:
+    """소스 JSON 로드. 없으면 FileNotFoundError — 호출부가 푸시를 건너뛴다."""
+    path = pathlib.Path(source_dir) / _SOURCE_FILENAME[market]
+    if not path.exists():
+        raise FileNotFoundError(f'리더보드 소스를 찾을 수 없습니다: {path}')
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def get_token() -> str:
+    """DASHBOARD_GITHUB_TOKEN → gh auth token 순으로 조회."""
+    token = os.environ.get('DASHBOARD_GITHUB_TOKEN', '').strip()
+    if token:
+        return token
+    try:
+        out = subprocess.run(['gh', 'auth', 'token'], capture_output=True,
+                             text=True, timeout=10)
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except Exception:
+        pass
+    raise RuntimeError(
+        'GitHub 토큰을 찾을 수 없습니다. '
+        'DASHBOARD_GITHUB_TOKEN 환경변수를 설정하거나 gh CLI로 로그인하세요.')
+
+
+def push_to_github(market: str, envelope: dict, token: str) -> None:
+    """Contents API로 data/leaderboard/{market}.json 갱신 (sha 조회 후 update)."""
+    path = f'data/leaderboard/{market}.json'
+    url = f'https://api.github.com/repos/{GITHUB_REPO}/contents/{path}'
+    hdrs = {'Authorization': f'Bearer {token}',
+            'Accept': 'application/vnd.github+json'}
+    r = requests.get(url, headers=hdrs, timeout=10)
+    sha = r.json().get('sha') if r.ok else None
+    content = json.dumps(envelope, ensure_ascii=False, indent=2)
+    body = {'message': f'data: 리더보드 {market.upper()} {envelope["count"]}종목',
+            'content': base64.b64encode(content.encode()).decode()}
+    if sha:
+        body['sha'] = sha
+    resp = requests.put(url, json=body, headers=hdrs, timeout=20)
+    if not resp.ok:
+        raise RuntimeError(f'GitHub 푸시 실패 ({resp.status_code}): {resp.text[:200]}')
+
+
+def sync_market(market: str, source_dir, local_only: bool, token) -> dict:
+    """한 시장을 정규화해 로컬 저장 또는 GitHub 푸시."""
+    payload = load_source(market, source_dir)
+    normalize = normalize_us if market == 'us' else normalize_kr
+    items = sort_and_rank(normalize(payload))
+    envelope = build_envelope(market, items, payload.get('updated_at'))
+
+    if local_only:
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        (OUTPUT_DIR / f'{market}.json').write_text(
+            json.dumps(envelope, ensure_ascii=False, indent=2), encoding='utf-8')
+    else:
+        push_to_github(market, envelope, token)
+    return envelope
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description='리더보드 동기화')
+    ap.add_argument('--market', choices=['us', 'kr', 'all'], default='all')
+    ap.add_argument('--source-dir', default=None)
+    ap.add_argument('--local-only', action='store_true',
+                    help='GitHub에 푸시하지 않고 로컬 파일만 갱신 (개발·초기 생성용)')
+    args = ap.parse_args(argv)
+
+    source_dir = pathlib.Path(
+        args.source_dir
+        or os.environ.get('LEADERBOARD_SOURCE_DIR')
+        or DEFAULT_SOURCE_DIR)
+
+    markets = ['us', 'kr'] if args.market == 'all' else [args.market]
+    token = None if args.local_only else get_token()
+
+    failed = []
+    for market in markets:
+        try:
+            env = sync_market(market, source_dir, args.local_only, token)
+            print(f'[{market}] {env["count"]}종목 · 소스 갱신 {env["source_updated_at"]}')
+        except Exception as e:
+            print(f'[{market}] 실패: {e}', file=sys.stderr)
+            failed.append(market)
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
