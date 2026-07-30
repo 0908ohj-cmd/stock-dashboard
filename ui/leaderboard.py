@@ -22,7 +22,17 @@ KO_LOCALE = {
 
 
 def _fmt_sources(sources) -> str:
-    return ', '.join(_SOURCE_LABEL.get(s, s) for s in (sources or []))
+    """내부 스크리너 슬러그는 표시용 라벨로만 노출한다.
+
+    매핑에 없는 슬러그를 그대로 찍으면 내부 명명이 사용자 화면으로 새어나간다 —
+    중립적인 '기타'로 접고 중복은 제거한다.
+    """
+    labels = []
+    for s in (sources or []):
+        label = _SOURCE_LABEL.get(s, '기타')
+        if label not in labels:
+            labels.append(label)
+    return ', '.join(labels)
 
 
 def _fmt_updated(iso: str) -> str:
@@ -43,13 +53,15 @@ def render_leaderboard_tab():
                       horizontal=True, key='lb_market', label_visibility='collapsed')
     market = 'us' if 'US' in choice else 'kr'
 
+    # 데이터 유무는 파일 존재로만 판단한다 — 갱신 시각이 없거나 깨져도
+    # items는 멀쩡할 수 있고, 그 경우 와치리스트 탭엔 👑가 붙는데 여기만 비면 모순이다
+    if not leaderboard_store.has_snapshot(market):
+        st.info('리더보드 데이터가 아직 없습니다.')
+        return
+
     data = leaderboard_store.load(market)
     fresh = leaderboard_store.get_freshness(market)
     items = data.get('items', [])
-
-    if not fresh['has_data']:
-        st.info('리더보드 데이터가 아직 없습니다.')
-        return
 
     c1, c2 = st.columns([3, 1])
     c1.caption(f"📅 {_fmt_updated(data.get('source_updated_at'))} 갱신 · {len(items)}종목")
@@ -62,8 +74,8 @@ def render_leaderboard_tab():
 
     is_kr = market == 'kr'
     display_df = pd.DataFrame([{
-        '#':        it['rank'],
-        '티커 | 종목명': f"{it['ticker']} | {it['name']}" if it.get('name') else it['ticker'],
+        '#':        it.get('rank'),        # 구 스키마·수기 편집 파일엔 없을 수 있다
+        '티커 | 종목명': f"{it.get('ticker')} | {it['name']}" if it.get('name') else it.get('ticker'),
         '소스':      _fmt_sources(it.get('sources')),
         '테마':      it.get('theme') or '기타',
         '종가':      it.get('close'),

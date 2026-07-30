@@ -1,9 +1,50 @@
-import sys
+import base64
+import json
 import pathlib
+import socket
+import sys
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'scripts'))
 
 import sync_leaderboard as sync
+
+
+@pytest.fixture(autouse=True)
+def 실제_네트워크_차단(monkeypatch):
+    """이 모듈의 테스트가 실제 HTTP를 내지 못하게 막는다.
+
+    목을 빠뜨린 테스트가 조용히 진짜 GitHub API를 때리면 원격 파일이 바뀐다 —
+    실패로 드러나게 한다. requests와 소켓 양쪽을 막아 우회 경로를 남기지 않는다.
+    """
+    def _차단(*args, **kwargs):
+        raise AssertionError('테스트에서 실제 네트워크 호출이 발생했습니다 (목 누락)')
+
+    for name in ('get', 'put', 'post', 'patch', 'delete', 'request'):
+        monkeypatch.setattr(sync.requests, name, _차단, raising=False)
+    monkeypatch.setattr(socket.socket, 'connect', _차단)
+    monkeypatch.setattr(socket.socket, 'connect_ex', _차단)
+
+
+class _FakeResponse:
+    """requests.Response 흉내 — push_to_github가 쓰는 속성만 갖는다."""
+
+    def __init__(self, status_code=200, payload=None):
+        self.status_code = status_code
+        self.ok = 200 <= status_code < 300
+        self._payload = payload if payload is not None else {}
+        self.text = ''
+
+    def json(self):
+        return self._payload
+
+
+def _원격응답(envelope, sha='sha-old'):
+    """Contents API의 GET 응답(내용 + sha)을 흉내낸다."""
+    content = base64.b64encode(
+        json.dumps(envelope, ensure_ascii=False, indent=2).encode()).decode()
+    return _FakeResponse(200, {'sha': sha, 'content': content, 'encoding': 'base64'})
 
 
 US_SOURCE = {
@@ -135,11 +176,6 @@ def test_build_envelope_빈_리스트도_정상():
     assert env['items'] == []
 
 
-import json
-import os
-import pytest
-
-
 def test_load_source_us(tmp_path):
     (tmp_path / 'leaderboard.json').write_text(
         json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
@@ -223,3 +259,81 @@ def test_main_all_한쪽_실패해도_다른쪽은_푸시(tmp_path, monkeypatch)
 def test_get_token_환경변수_우선(monkeypatch):
     monkeypatch.setenv('DASHBOARD_GITHUB_TOKEN', 'env-token')
     assert sync.get_token() == 'env-token'
+
+
+def test_네트워크_차단_가드가_실제로_동작(monkeypatch):
+    """가드 자체의 회귀 방지 — 목 없이 호출하면 반드시 실패해야 한다."""
+    with pytest.raises(AssertionError):
+        sync.requests.get('https://api.github.com/x')
+    with pytest.raises(AssertionError):
+        socket.socket().connect(('127.0.0.1', 9))
+
+
+# ── push_to_github: GET(sha·내용) → 변경 시에만 PUT ────────────────────────────
+
+def _봉투(count=1, updated='2026-07-29T07:02:16'):
+    items = sync.sort_and_rank(sync.normalize_us(US_SOURCE))[:count]
+    return sync.build_envelope('us', items, updated)
+
+
+def test_push_내용이_같으면_PUT_생략(monkeypatch, capsys):
+    """synced_at만 다른 동일 내용은 푸시하지 않는다 — 빈 커밋·재배포 방지."""
+    envelope = _봉투()
+    remote = dict(envelope, synced_at='2020-01-01T00:00:00')   # 시각만 다르다
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is False
+    assert puts == []
+    assert '건너뜀' in capsys.readouterr().out
+
+
+def test_push_내용이_다르면_sha와_함께_PUT(monkeypatch):
+    """L10: GET으로 sha를 얻어 PUT 본문에 실어 보내는 계약."""
+    envelope = _봉투()
+    remote = dict(envelope, count=0, items=[])                 # 내용이 실제로 다르다
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is True
+    assert len(puts) == 1
+    body = puts[0]['json']
+    assert body['sha'] == 'sha-old'
+    보낸내용 = json.loads(base64.b64decode(body['content']).decode('utf-8'))
+    assert 보낸내용['count'] == 1
+
+
+def test_push_원격_파일이_없으면_sha_없이_생성(monkeypatch):
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _FakeResponse(404))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(201))
+
+    assert sync.push_to_github('us', _봉투(), 'tok') is True
+    assert 'sha' not in puts[0]['json']
+
+
+def test_push_소스_갱신시각만_바뀌어도_푸시(monkeypatch):
+    """synced_at은 무시하지만 source_updated_at은 실제 변화다."""
+    envelope = _봉투(updated='2026-07-30T07:01:00')
+    remote = dict(envelope, source_updated_at='2026-07-29T07:02:16',
+                  synced_at='2026-07-29T07:05:00')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is True
+    assert len(puts) == 1
+
+
+def test_push_실패하면_예외(monkeypatch):
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _FakeResponse(404))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: _FakeResponse(409))
+    with pytest.raises(RuntimeError):
+        sync.push_to_github('us', _봉투(), 'tok')

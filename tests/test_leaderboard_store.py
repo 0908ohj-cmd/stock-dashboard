@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -81,10 +81,35 @@ def test_freshness_유예시간_내에는_판정_보류(lb_dir):
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
-def test_freshness_유예시간_지나고_미갱신이면_stale(lb_dir):
+def test_freshness_직전_슬롯만_놓친_것은_stale_아님(lb_dir):
+    """오늘(수) 배치가 안 돌았어도 어제(화) 갱신분이면 아직 경고하지 않는다.
+
+    상류 스케줄 드리프트에 면역이 되도록 '전전 슬롯' 기준으로 판정한다.
+    """
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-28T07:02:16'))
+    now = datetime(2026, 7, 29, 14, 0)         # 수요일, 07:00+6h=13:00 경과
+    assert store.get_freshness('us', now)['is_stale'] is False
+
+
+def test_freshness_전전_슬롯보다_오래되면_stale(lb_dir):
+    """월요일 갱신분을 수요일 오후에 보면 전전 슬롯(화 07:00)보다 오래됐다."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-27T07:02:16'))
     now = datetime(2026, 7, 29, 14, 0)         # 07:00+6h=13:00 경과
     assert store.get_freshness('us', now)['is_stale'] is True
+
+
+def test_freshness_예정시각보다_일찍_끝나도_stale_아님(lb_dir):
+    """정상 배치가 정시보다 몇 분 일찍 끝난 경우 — 매일 오탐하면 안 된다."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-29T06:57:00'))
+    now = datetime(2026, 7, 29, 20, 0)         # 유예(13:00) 한참 경과
+    assert store.get_freshness('us', now)['is_stale'] is False
+
+
+def test_freshness_KR도_예정시각보다_일찍_끝나면_stale_아님(lb_dir):
+    """KR 16:30 예정 → 16:28 완료. 다음날 오후까지 경고가 뜨면 안 된다."""
+    _write(lb_dir, 'kr', _envelope([], source_updated_at='2026-07-29T16:28:00'))
+    now = datetime(2026, 7, 30, 15, 0)         # 목요일, 직전 due는 수 16:30 + 6h 경과
+    assert store.get_freshness('kr', now)['is_stale'] is False
 
 
 def test_freshness_일요일_조회시_금요일_데이터는_오탐_아님(lb_dir):
@@ -104,9 +129,12 @@ def test_freshness_월요일_오전은_유예시간이_보호(lb_dir):
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
-def test_freshness_월요일_오후_배치_미실행이면_stale(lb_dir):
-    """유예가 지나도록 월요일 배치가 안 돌았으면 금요일 데이터는 오래된 것이 맞다."""
-    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-31T07:02:16'))
+def test_freshness_월요일_오후_이틀치_미실행이면_stale(lb_dir):
+    """월요일 유예가 지나도록 금·월 배치가 모두 안 돌았으면 목요일 데이터는 오래됐다.
+
+    전전 슬롯 = 금 07:00 이라 목요일 갱신분이 그보다 앞선다.
+    """
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-30T07:02:16'))
     now = datetime(2026, 8, 3, 15, 0)          # 월요일 15:00 > 07:00+6h
     assert store.get_freshness('us', now)['is_stale'] is True
 
@@ -118,7 +146,60 @@ def test_freshness_kr은_1630_기준(lb_dir):
     assert store.get_freshness('kr', now)['is_stale'] is False
 
 
-def test_freshness_파일_없으면_데이터없음_stale_아님(lb_dir):
+def test_freshness_파일_없으면_시각없음_stale_아님(lb_dir):
     f = store.get_freshness('us', datetime(2026, 7, 29, 14, 0))
-    assert f['has_data'] is False
+    assert f['has_timestamp'] is False
     assert f['is_stale'] is False
+
+
+def test_freshness_갱신시각_없어도_숫자여도_예외_없음(lb_dir):
+    """source_updated_at이 null이거나 숫자여도 탭이 죽으면 안 된다."""
+    _write(lb_dir, 'us', _envelope([{'ticker': 'DELL'}], source_updated_at=None))
+    assert store.get_freshness('us', datetime(2026, 7, 29, 14, 0))['has_timestamp'] is False
+
+    _write(lb_dir, 'us', _envelope([{'ticker': 'DELL'}], source_updated_at=1753776136))
+    f = store.get_freshness('us', datetime(2026, 7, 29, 14, 0))
+    assert f['has_timestamp'] is False
+    assert f['is_stale'] is False
+
+
+def test_has_snapshot_파일_유무만_본다(lb_dir):
+    """갱신 시각이 없어도 items가 있으면 '데이터 없음'이 아니다."""
+    assert store.has_snapshot('us') is False
+
+    _write(lb_dir, 'us', _envelope([{'ticker': 'DELL', 'rank': 1}],
+                                   source_updated_at=None))
+    assert store.has_snapshot('us') is True
+    assert store.get_tickers('us') == {'DELL'}          # 배지와 탭이 어긋나면 안 된다
+
+
+def test_has_snapshot_items_0개도_True(lb_dir):
+    """0종목은 '주도주 부재'라는 정상 결과 — 데이터 없음과 구분한다."""
+    _write(lb_dir, 'kr', _envelope([]))
+    assert store.has_snapshot('kr') is True
+
+
+def test_has_snapshot_깨진_JSON은_False(lb_dir):
+    (lb_dir / 'us.json').write_text('{not json', encoding='utf-8')
+    assert store.has_snapshot('us') is False
+
+
+def test_freshness_now_생략시_KST_기준(lb_dir, monkeypatch):
+    """컨테이너가 UTC여도 KST로 판정해야 한다 — now 생략 경로 검증."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-27T07:02:16'))
+
+    class _FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            # UTC 05:00 = KST 14:00 (수요일) — 유예 경과 시점
+            return datetime(2026, 7, 29, 5, 0, tzinfo=timezone.utc).astimezone(tz)
+
+    monkeypatch.setattr(store, 'datetime', _FakeDatetime)
+    assert store.get_freshness('us')['is_stale'] is True
+
+
+def test_freshness_UTC_aware_now도_KST로_해석(lb_dir):
+    """aware datetime을 주면 KST로 변환해 비교한다."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-29T06:57:00'))
+    now_utc = datetime(2026, 7, 29, 11, 0, tzinfo=timezone.utc)   # KST 20:00
+    assert store.get_freshness('us', now_utc)['is_stale'] is False

@@ -134,14 +134,44 @@ def get_token() -> str:
         'DASHBOARD_GITHUB_TOKEN 환경변수를 설정하거나 gh CLI로 로그인하세요.')
 
 
-def push_to_github(market: str, envelope: dict, token: str) -> None:
-    """Contents API로 data/leaderboard/{market}.json 갱신 (sha 조회 후 update)."""
+def _comparable(envelope: dict) -> dict:
+    """내용 비교용 사본 — synced_at은 매 실행마다 달라지므로 제외한다."""
+    return {k: v for k, v in envelope.items() if k != 'synced_at'}
+
+
+def _decode_remote(payload: dict) -> dict | None:
+    """Contents API 응답에서 현재 원격 봉투를 복원. 실패하면 None(=비교 불가)."""
+    try:
+        raw = base64.b64decode(payload.get('content') or '')
+        data = json.loads(raw.decode('utf-8'))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def push_to_github(market: str, envelope: dict, token: str) -> bool:
+    """Contents API로 data/leaderboard/{market}.json 갱신 (sha 조회 후 update).
+
+    내용이 원격과 같으면(synced_at 제외) PUT을 건너뛴다 — 그러지 않으면 매 실행마다
+    빈 커밋이 쌓이고 그때마다 Streamlit Cloud가 재배포된다.
+    푸시했으면 True, 건너뛰었으면 False.
+    """
     path = f'data/leaderboard/{market}.json'
     url = f'https://api.github.com/repos/{GITHUB_REPO}/contents/{path}'
     hdrs = {'Authorization': f'Bearer {token}',
             'Accept': 'application/vnd.github+json'}
     r = requests.get(url, headers=hdrs, timeout=10)
-    sha = r.json().get('sha') if r.ok else None
+    sha, remote = None, None
+    if r.ok:
+        payload = r.json()
+        if isinstance(payload, dict):
+            sha = payload.get('sha')
+            remote = _decode_remote(payload)      # sha 조회 응답을 그대로 재사용
+
+    if remote is not None and _comparable(remote) == _comparable(envelope):
+        print(f'[{market}] 원격과 동일 — 푸시 건너뜀')
+        return False
+
     content = json.dumps(envelope, ensure_ascii=False, indent=2)
     body = {'message': f'data: 리더보드 {market.upper()} {envelope["count"]}종목',
             'content': base64.b64encode(content.encode()).decode()}
@@ -150,6 +180,7 @@ def push_to_github(market: str, envelope: dict, token: str) -> None:
     resp = requests.put(url, json=body, headers=hdrs, timeout=20)
     if not resp.ok:
         raise RuntimeError(f'GitHub 푸시 실패 ({resp.status_code}): {resp.text[:200]}')
+    return True
 
 
 def sync_market(market: str, source_dir, local_only: bool, token) -> dict:
