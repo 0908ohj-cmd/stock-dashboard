@@ -6,6 +6,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from data.fetcher import fetch_daily, get_stock_name
 from data.sector import get_sectors
+from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
@@ -21,6 +22,9 @@ STATE_BADGE = {
     '저가이탈': '🔴 저가이탈',
     '없음':     '🔴 없음',
 }
+
+# UI 시장 코드 → 리더보드 시장 코드
+_LB_MARKET = {'KR_KOSPI': 'kr', 'KR_KOSDAQ': 'kr', 'US': 'us'}
 
 KO_LOCALE = {
     'searchOoo': '검색...', 'selectAll': '(모두 선택)',
@@ -232,8 +236,9 @@ def render_10ema_tab(market: str, label: str):
         st.info('현재 셋업 완성 종목 없음. "형성중 포함"을 체크하면 더 넓게 볼 수 있습니다.')
         return
 
+    crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
     display_df = pd.DataFrame([{
-        '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
+        '티커 | 종목명':  ('👑 ' if r['Ticker'] in crown else '') + f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],

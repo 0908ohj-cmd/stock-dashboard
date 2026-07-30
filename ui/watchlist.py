@@ -9,6 +9,7 @@ from data.fetcher import (
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
 from data.sector import get_sectors
+from data import leaderboard_store
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs, _index_peak_date
 from strategy.indicators import calc_pct_from_52w_high
@@ -19,6 +20,9 @@ INDEX_FOR_MARKET = {
     'KR_KOSDAQ': 'KOSDAQ',
     'US':        'NASDAQ',
 }
+
+# UI 시장 코드 → 리더보드 시장 코드
+_LB_MARKET = {'KR_KOSPI': 'kr', 'KR_KOSDAQ': 'kr', 'US': 'us'}
 
 KO_LOCALE = {
     'searchOoo': '검색...', 'selectAll': '(모두 선택)',
@@ -489,9 +493,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.caption(f"📅 조정 구간: {start_str} ~ {end_str}")
 
     show_grade = bool(swing_dates_str)
+    crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
     display_df = pd.DataFrame([{
         **(({'등급': f"{r['등급']}|{r['패턴']}"} if show_grade else {})),
-        '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
+        '티커 | 종목명': ('👑 ' if r['Ticker'] in crown else '') + f"{r['Ticker']} | {r['종목명']}",
         '섹터':          r['섹터'],
         'Close':         r['Close'],
         '등락%':         r['등락%'],
