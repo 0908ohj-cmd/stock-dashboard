@@ -115,7 +115,7 @@ a { color: var(--accent2); }
 <li><a href="#10">10. 모듈 구성</a></li>
 <li><a href="#11">11. 테스트</a></li>
 <li><a href="#12">12. 롤아웃</a><ul>
-<li><a href="#_6">사용자 준비 사항</a></li>
+<li><a href="#_6">인증 (확인 완료)</a></li>
 </ul>
 </li>
 <li><a href="#13">13. 에러 처리 요약</a></li>
@@ -262,7 +262,8 @@ a { color: var(--accent2); }
 <ul>
 <li>CLI: <code>python3 scripts/sync_leaderboard.py --market us|kr|all [--local-only]</code></li>
 <li>소스 경로: <code>--source-dir</code> 인자 &gt; 환경변수 <code>LEADERBOARD_SOURCE_DIR</code> &gt; 기본값 순으로 결정 (하드코딩된 절대경로에만 의존하지 않는다)</li>
-<li>토큰: 환경변수 <code>DASHBOARD_GITHUB_TOKEN</code></li>
+<li>토큰: 환경변수 <code>DASHBOARD_GITHUB_TOKEN</code> &gt; <code>gh auth token</code> 명령 출력 순으로 조회. 로컬 <code>gh</code> CLI가 이미 이 repo에 push 권한이 있는 계정으로 인증돼 있으므로, 별도 PAT 발급 없이 동작하는 것이 기본 경로다. 둘 다 실패하면 명확한 에러 메시지와 함께 exit 1</li>
+<li>⚠️ 구현 시 검증 필요: cron 환경에서는 macOS 키체인이 잠겨 <code>gh auth token</code>이 실패할 수 있다. 실제 배치 환경에서 확인하고, 실패하면 <code>DASHBOARD_GITHUB_TOKEN</code>에 PAT를 넣는 경로로 전환한다</li>
 <li>동작:</li>
 <li>소스 JSON 읽기 → 파싱</li>
 <li>공통 스키마로 정규화 + 정렬·rank 부여</li>
@@ -415,8 +416,9 @@ a { color: var(--accent2); }
 <li>교차 배지 적용 (<code>watchlist.py</code>, <code>watchlist_10ema.py</code>)</li>
 <li>생성 파이프라인에 호출 훅 추가 + <code>DASHBOARD_GITHUB_TOKEN</code> 설정 → 다음 배치에서 자동 푸시 확인</li>
 </ol>
-<h3 id="_6">사용자 준비 사항</h3>
-<p>Mac의 리더보드 생성 파이프라인 환경(<code>.env</code>)에 이 repo 쓰기 권한이 있는 GitHub 토큰을 <code>DASHBOARD_GITHUB_TOKEN</code>으로 등록해야 한다. Streamlit secrets에 이미 쓰고 있는 <code>GITHUB_TOKEN</code>과 같은 토큰을 재사용할 수 있다.</p>
+<h3 id="_6">인증 (확인 완료)</h3>
+<p>로컬 <code>gh</code> CLI가 인증된 계정은 이 repo에 <strong>collaborator push 권한</strong>을 갖고 있다 (2026-07-29 확인: <code>permissions.push = true</code>, SSH push dry-run 통과, 토큰 스코프에 <code>repo</code> 포함). 따라서 <strong>별도 PAT 발급 없이</strong> <code>gh auth token</code>으로 얻은 토큰으로 Contents API 쓰기가 가능하다.</p>
+<p>남은 검증은 하나뿐이다 — <strong>cron 환경에서 <code>gh auth token</code>이 동작하는가</strong>. macOS 키체인이 잠긴 상태면 실패할 수 있으므로 롤아웃 5단계에서 실제 배치 환경으로 확인하고, 실패하면 그때 PAT를 발급해 <code>DASHBOARD_GITHUB_TOKEN</code>으로 등록한다.</p>
 <h2 id="13">13. 에러 처리 요약</h2>
 <table>
 <thead>

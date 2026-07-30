@@ -113,7 +113,8 @@ Streamlit 무의존. 이 repo에서 유일하게 소스 경로를 아는 파일.
 
 - CLI: `python3 scripts/sync_leaderboard.py --market us|kr|all [--local-only]`
 - 소스 경로: `--source-dir` 인자 > 환경변수 `LEADERBOARD_SOURCE_DIR` > 기본값 순으로 결정 (하드코딩된 절대경로에만 의존하지 않는다)
-- 토큰: 환경변수 `DASHBOARD_GITHUB_TOKEN`
+- 토큰: 환경변수 `DASHBOARD_GITHUB_TOKEN` > `gh auth token` 명령 출력 순으로 조회. 로컬 `gh` CLI가 이미 이 repo에 push 권한이 있는 계정으로 인증돼 있으므로, 별도 PAT 발급 없이 동작하는 것이 기본 경로다. 둘 다 실패하면 명확한 에러 메시지와 함께 exit 1
+  - ⚠️ 구현 시 검증 필요: cron 환경에서는 macOS 키체인이 잠겨 `gh auth token`이 실패할 수 있다. 실제 배치 환경에서 확인하고, 실패하면 `DASHBOARD_GITHUB_TOKEN`에 PAT를 넣는 경로로 전환한다
 - 동작:
   1. 소스 JSON 읽기 → 파싱
   2. 공통 스키마로 정규화 + 정렬·rank 부여
@@ -232,9 +233,11 @@ is_stale = (now > last_due + 6시간) AND (source_updated_at < last_due)
 4. 교차 배지 적용 (`watchlist.py`, `watchlist_10ema.py`)
 5. 생성 파이프라인에 호출 훅 추가 + `DASHBOARD_GITHUB_TOKEN` 설정 → 다음 배치에서 자동 푸시 확인
 
-### 사용자 준비 사항
+### 인증 (확인 완료)
 
-Mac의 리더보드 생성 파이프라인 환경(`.env`)에 이 repo 쓰기 권한이 있는 GitHub 토큰을 `DASHBOARD_GITHUB_TOKEN`으로 등록해야 한다. Streamlit secrets에 이미 쓰고 있는 `GITHUB_TOKEN`과 같은 토큰을 재사용할 수 있다.
+로컬 `gh` CLI가 인증된 계정은 이 repo에 **collaborator push 권한**을 갖고 있다 (2026-07-29 확인: `permissions.push = true`, SSH push dry-run 통과, 토큰 스코프에 `repo` 포함). 따라서 **별도 PAT 발급 없이** `gh auth token`으로 얻은 토큰으로 Contents API 쓰기가 가능하다.
+
+남은 검증은 하나뿐이다 — **cron 환경에서 `gh auth token`이 동작하는가**. macOS 키체인이 잠긴 상태면 실패할 수 있으므로 롤아웃 5단계에서 실제 배치 환경으로 확인하고, 실패하면 그때 PAT를 발급해 `DASHBOARD_GITHUB_TOKEN`으로 등록한다.
 
 ## 13. 에러 처리 요약
 
