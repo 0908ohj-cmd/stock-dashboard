@@ -1,0 +1,430 @@
+{
+  "market": "US",
+  "synced_at": "2026-07-30T14:01:04",
+  "source_updated_at": "2026-07-30T10:50:33",
+  "count": 20,
+  "items": [
+    {
+      "rank": 1,
+      "ticker": "VSXY",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-14",
+      "close": 89.13,
+      "rs_rating": 98,
+      "adr": 4.8,
+      "perf_1m": 3.1,
+      "perf_3m": 72.3,
+      "perf_6m": 59.5,
+      "perf_12m": 328.5,
+      "dist_from_52w_high": -0.2,
+      "avg_dollar_vol": 208639662,
+      "theme": "글로벌 미용소매 혁신",
+      "sector": null
+    },
+    {
+      "rank": 2,
+      "ticker": "DDOG",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-25",
+      "close": 264.2,
+      "rs_rating": 96,
+      "adr": 5.5,
+      "perf_1m": 6.3,
+      "perf_3m": 100.8,
+      "perf_6m": 91.2,
+      "perf_12m": 75.2,
+      "dist_from_52w_high": -4.8,
+      "avg_dollar_vol": 1494580690,
+      "theme": "AI 워크로드 옵저버빌리티",
+      "sector": null
+    },
+    {
+      "rank": 3,
+      "ticker": "BTSG",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-25",
+      "close": 69.37,
+      "rs_rating": 96,
+      "adr": 3.9,
+      "perf_1m": 0.6,
+      "perf_3m": 46.1,
+      "perf_6m": 77.6,
+      "perf_12m": 238.7,
+      "dist_from_52w_high": -4.9,
+      "avg_dollar_vol": 258295714,
+      "theme": "홈 헬스케어 서비스",
+      "sector": null
+    },
+    {
+      "rank": 4,
+      "ticker": "OSCR",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders",
+        "leader_ride"
+      ],
+      "added_at": "2026-07-28",
+      "close": 30.57,
+      "rs_rating": 95,
+      "adr": 6.2,
+      "perf_1m": 3.8,
+      "perf_3m": 69.5,
+      "perf_6m": 105.4,
+      "perf_12m": 108.4,
+      "dist_from_52w_high": -5.0,
+      "avg_dollar_vol": 217043246,
+      "theme": "AI 헬스케어 보험",
+      "sector": null
+    },
+    {
+      "rank": 5,
+      "ticker": "PBF",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-28",
+      "close": 63.35,
+      "rs_rating": 95,
+      "adr": 5.7,
+      "perf_1m": 36.4,
+      "perf_3m": 54.2,
+      "perf_6m": 94.6,
+      "perf_12m": 161.1,
+      "dist_from_52w_high": -4.1,
+      "avg_dollar_vol": 180013030,
+      "theme": "재생 디젤 정유",
+      "sector": null
+    },
+    {
+      "rank": 6,
+      "ticker": "SNOW",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 282.9,
+      "rs_rating": 94,
+      "adr": 5.1,
+      "perf_1m": 12.4,
+      "perf_3m": 98.4,
+      "perf_6m": 33.0,
+      "perf_12m": 29.4,
+      "dist_from_52w_high": 0.0,
+      "avg_dollar_vol": 2223763058,
+      "theme": "엔터프라이즈 AI 에이전트",
+      "sector": null
+    },
+    {
+      "rank": 7,
+      "ticker": "FTNT",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 153.22,
+      "rs_rating": 92,
+      "adr": 4.5,
+      "perf_1m": -1.4,
+      "perf_3m": 78.7,
+      "perf_6m": 87.5,
+      "perf_12m": 46.1,
+      "dist_from_52w_high": -8.2,
+      "avg_dollar_vol": 968331430,
+      "theme": "AI 보안 플랫폼",
+      "sector": null
+    },
+    {
+      "rank": 8,
+      "ticker": "PANW",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 314.15,
+      "rs_rating": 91,
+      "adr": 5.4,
+      "perf_1m": -5.4,
+      "perf_3m": 73.6,
+      "perf_6m": 71.2,
+      "perf_12m": 53.6,
+      "dist_from_52w_high": -12.4,
+      "avg_dollar_vol": 2551823560,
+      "theme": "AI 위협 자동 대응",
+      "sector": null
+    },
+    {
+      "rank": 9,
+      "ticker": "OKTA",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 136.91,
+      "rs_rating": 91,
+      "adr": 5.8,
+      "perf_1m": 4.3,
+      "perf_3m": 79.7,
+      "perf_6m": 49.7,
+      "perf_12m": 39.9,
+      "dist_from_52w_high": -11.5,
+      "avg_dollar_vol": 510857052,
+      "theme": "AI 에이전트 신원보안",
+      "sector": null
+    },
+    {
+      "rank": 10,
+      "ticker": "RNG",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 57.58,
+      "rs_rating": 91,
+      "adr": 6.4,
+      "perf_1m": 47.3,
+      "perf_3m": 45.7,
+      "perf_6m": 113.6,
+      "perf_12m": 111.8,
+      "dist_from_52w_high": 0.0,
+      "avg_dollar_vol": 115608110,
+      "theme": "음성 AI 에이전트",
+      "sector": null
+    },
+    {
+      "rank": 11,
+      "ticker": "HUM",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 365.41,
+      "rs_rating": 90,
+      "adr": 4.3,
+      "perf_1m": -6.0,
+      "perf_3m": 59.4,
+      "perf_6m": 77.0,
+      "perf_12m": 60.1,
+      "dist_from_52w_high": -10.7,
+      "avg_dollar_vol": 564753528,
+      "theme": "고령층 의료보험",
+      "sector": null
+    },
+    {
+      "rank": 12,
+      "ticker": "DINO",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 90.0,
+      "rs_rating": 90,
+      "adr": 3.8,
+      "perf_1m": 27.1,
+      "perf_3m": 44.5,
+      "perf_6m": 83.3,
+      "perf_12m": 107.6,
+      "dist_from_52w_high": -1.8,
+      "avg_dollar_vol": 229718626,
+      "theme": "에너지 정유사",
+      "sector": null
+    },
+    {
+      "rank": 13,
+      "ticker": "HNGE",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 74.06,
+      "rs_rating": 90,
+      "adr": 4.9,
+      "perf_1m": -9.1,
+      "perf_3m": 65.5,
+      "perf_6m": 83.3,
+      "perf_12m": 63.5,
+      "dist_from_52w_high": -17.7,
+      "avg_dollar_vol": 150460377,
+      "theme": "근골격계 AI 진료",
+      "sector": null
+    },
+    {
+      "rank": 14,
+      "ticker": "NTAP",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 173.23,
+      "rs_rating": 89,
+      "adr": 4.7,
+      "perf_1m": 12.1,
+      "perf_3m": 60.5,
+      "perf_6m": 74.8,
+      "perf_12m": 64.9,
+      "dist_from_52w_high": -4.0,
+      "avg_dollar_vol": 568939120,
+      "theme": "AI 데이터 스토리지",
+      "sector": null
+    },
+    {
+      "rank": 15,
+      "ticker": "CAKE",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 101.14,
+      "rs_rating": 89,
+      "adr": 3.8,
+      "perf_1m": 27.4,
+      "perf_3m": 62.2,
+      "perf_6m": 78.9,
+      "perf_12m": 56.6,
+      "dist_from_52w_high": 0.0,
+      "avg_dollar_vol": 139324775,
+      "theme": "레스토랑 체인 확장",
+      "sector": null
+    },
+    {
+      "rank": 16,
+      "ticker": "VLO",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders",
+        "leader_ride"
+      ],
+      "added_at": "2026-07-30",
+      "close": 301.32,
+      "rs_rating": 88,
+      "adr": 3.5,
+      "perf_1m": 13.1,
+      "perf_3m": 26.0,
+      "perf_6m": 66.5,
+      "perf_12m": 113.5,
+      "dist_from_52w_high": -4.3,
+      "avg_dollar_vol": 920449596,
+      "theme": "저탄소 정유 확대",
+      "sector": null
+    },
+    {
+      "rank": 17,
+      "ticker": "DAVE",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 378.99,
+      "rs_rating": 88,
+      "adr": 6.5,
+      "perf_1m": 2.0,
+      "perf_3m": 36.1,
+      "perf_6m": 113.5,
+      "perf_12m": 77.8,
+      "dist_from_52w_high": -14.4,
+      "avg_dollar_vol": 220267623,
+      "theme": "네오뱅크 플랫폼",
+      "sector": null
+    },
+    {
+      "rank": 18,
+      "ticker": "EAT",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 205.73,
+      "rs_rating": 87,
+      "adr": 4.4,
+      "perf_1m": 22.7,
+      "perf_3m": 59.3,
+      "perf_6m": 30.8,
+      "perf_12m": 30.9,
+      "dist_from_52w_high": 0.0,
+      "avg_dollar_vol": 215717546,
+      "theme": "글로벌 외식 프랜차이즈",
+      "sector": null
+    },
+    {
+      "rank": 19,
+      "ticker": "BBY",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 90.17,
+      "rs_rating": 86,
+      "adr": 3.0,
+      "perf_1m": 16.1,
+      "perf_3m": 54.6,
+      "perf_6m": 41.1,
+      "perf_12m": 40.4,
+      "dist_from_52w_high": 0.0,
+      "avg_dollar_vol": 373646014,
+      "theme": "전자제품 소매·옴니채널",
+      "sector": null
+    },
+    {
+      "rank": 20,
+      "ticker": "RAL",
+      "name": "",
+      "market": "US",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": "2026-07-30",
+      "close": 66.97,
+      "rs_rating": 86,
+      "adr": 3.9,
+      "perf_1m": -7.5,
+      "perf_3m": 53.0,
+      "perf_6m": 25.8,
+      "perf_12m": 39.2,
+      "dist_from_52w_high": -9.0,
+      "avg_dollar_vol": 120049372,
+      "theme": "방위 우주 센서",
+      "sector": null
+    }
+  ]
+}
