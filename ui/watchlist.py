@@ -708,7 +708,7 @@ function(valueA, valueB) {
         selected_rows = grid_response.get('selected_rows')
         if selected_rows is not None and len(selected_rows) > 0:
             first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
-            sel_ticker = first_row['티커 | 종목명'].split(' | ')[0]
+            sel_ticker = first_row['티커 | 종목명'].removeprefix('👑 ').split(' | ')[0]
             for i, r in enumerate(rows):
                 if r['Ticker'] == sel_ticker:
                     st.session_state[idx_key] = i
