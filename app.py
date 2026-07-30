@@ -7,6 +7,7 @@ from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_da
 from ui.index_panel import render_index_panel
 from ui.watchlist import render_watchlist_tab, _fetch_index_cached
 from ui.watchlist_10ema import render_10ema_tab
+from ui.leaderboard import render_leaderboard_tab
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
 
@@ -148,8 +149,9 @@ st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
 st.subheader('와치리스트')
-tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
-    '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥', '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
+tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us, tab_lb = st.tabs([
+    '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
+    '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥', '👑 리더보드'
 ])
 with tab_kospi:
     render_watchlist_tab(kr_kospi, 'KR_KOSPI', 'KOSPI')
@@ -163,4 +165,6 @@ with tab_10ema_kosdaq:
     render_10ema_tab('KR_KOSDAQ', '10EMA 코스닥')
 with tab_10ema_us:
     render_10ema_tab('US', '10EMA 나스닥')
+with tab_lb:
+    render_leaderboard_tab()
 
