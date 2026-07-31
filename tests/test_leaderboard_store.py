@@ -58,6 +58,65 @@ def test_load_깨진_JSON이면_빈_봉투(lb_dir):
     assert result['items'] == []
 
 
+# ── 형식이 깨진 파일도 예외를 내지 않는다 ────────────────────────────────────
+# load()·get_tickers()는 6개 탭 렌더 첫머리에서 try/except 없이 불린다.
+# Streamlit은 한 번의 스크립트 실행으로 모든 탭 본문을 돌리므로,
+# 여기서 예외가 나면 리더보드 탭만이 아니라 와치리스트·10EMA 탭까지 통째로 죽는다.
+
+def test_load_items가_null이어도_빈_리스트(lb_dir):
+    """setdefault는 명시적 null을 대체하지 않는다 — len(None)이 터지던 자리."""
+    _write(lb_dir, 'us', dict(_envelope([]), items=None, count=7))
+    result = store.load('us')
+    assert result['items'] == []
+    assert result['count'] == 0
+
+
+def test_load_items가_dict여도_빈_리스트(lb_dir):
+    _write(lb_dir, 'us', dict(_envelope([]), items={'DELL': 1}))
+    assert store.load('us')['items'] == []
+
+
+def test_load_items에_dict가_아닌_원소는_걸러낸다(lb_dir):
+    _write(lb_dir, 'us', dict(_envelope([]), items=['DELL', None, {'ticker': 'NVDA'}]))
+    result = store.load('us')
+    assert result['items'] == [{'ticker': 'NVDA'}]
+    assert result['count'] == 1                 # count도 실제 원소 수로 재계산
+
+
+def test_load_count가_실제와_어긋나면_재계산(lb_dir):
+    _write(lb_dir, 'us', dict(_envelope([{'ticker': 'DELL'}]), count=99))
+    assert store.load('us')['count'] == 1
+
+
+def test_get_tickers_items가_null이어도_빈_집합(lb_dir):
+    _write(lb_dir, 'us', dict(_envelope([]), items=None))
+    assert store.get_tickers('us') == set()
+
+
+def test_get_tickers_문자열_리스트여도_빈_집합(lb_dir):
+    """items가 dict가 아닌 문자열 목록이면 it.get(...)이 AttributeError를 냈다."""
+    _write(lb_dir, 'us', dict(_envelope([]), items=['DELL', 'NVDA']))
+    assert store.get_tickers('us') == set()
+
+
+def test_get_tickers_items가_dict여도_빈_집합(lb_dir):
+    _write(lb_dir, 'us', dict(_envelope([]), items={'DELL': 1}))
+    assert store.get_tickers('us') == set()
+
+
+def test_get_tickers_정상_원소만_골라낸다(lb_dir):
+    _write(lb_dir, 'kr', dict(_envelope([]), items=[
+        {'ticker': '005930'}, 'garbage', {'ticker': None}, {'ticker': 660}, {}]))
+    assert store.get_tickers('kr') == {'005930'}
+
+
+def test_freshness_items가_null이어도_판정_가능(lb_dir):
+    """신선도 경로도 같은 파일을 읽는다 — 여기서 터지면 탭이 통째로 죽는다."""
+    _write(lb_dir, 'us', dict(_envelope([], source_updated_at='2026-07-29T07:02:16'),
+                              items=None))
+    assert store.get_freshness('us', datetime(2026, 7, 29, 9, 0))['is_stale'] is False
+
+
 def test_get_tickers(lb_dir):
     _write(lb_dir, 'kr', _envelope([{'ticker': '005930'}, {'ticker': '000660'}]))
     assert store.get_tickers('kr') == {'005930', '000660'}
@@ -140,25 +199,62 @@ def test_freshness_허용오차_밖으로_일찍_끝나면_슬롯_미충족(lb_d
     assert store.get_freshness('us', now)['is_stale'] is True
 
 
-def test_freshness_일요일_조회시_금요일_데이터는_오탐_아님(lb_dir):
-    """주말엔 배치가 없다 — due를 금요일로 되감지 않으면 일요일에 오탐한다.
+# ── 스케줄은 시장별로 다르다: US는 매일 07:00, KR은 평일만 16:30 ──────────────
+# 실제 crontab 기준. 양쪽을 평일로 뭉뚱그리면 금요일에 죽은 US 파이프라인이
+# 주말 내내(그리고 월요일 오후까지, 약 54시간) 신선하다고 보고된다 —
+# 하필 다음 주 후보를 검토하는 그 주말에.
 
-    되감기가 없으면 due=일 07:00 이 되어 금요일 갱신분이 stale로 잘못 잡힌다.
-    """
+def test_freshness_US는_토요일에도_배치가_돈다(lb_dir):
+    """금요일 갱신분 그대로 토요일 유예가 지나면 stale — 토요일도 US 슬롯이다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-31T07:02:16'))
-    now = datetime(2026, 8, 2, 14, 0)          # 일요일 14:00 (유예 6h 경과 시점)
+    now = datetime(2026, 8, 1, 14, 0)          # 토요일 14:00 > 토 07:00+6h
+    assert store.get_freshness('us', now)['is_stale'] is True
+
+
+def test_freshness_US_주말_이틀_미실행이면_일요일_아침에도_stale(lb_dir):
+    """토·일 두 슬롯을 놓쳤으면 유예와 무관하게 stale."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-31T07:02:16'))
+    now = datetime(2026, 8, 2, 9, 0)           # 일요일 아침, 유예 이전
+    assert store.get_freshness('us', now)['is_stale'] is True
+
+
+def test_freshness_US_토요일_갱신분은_토요일_오후에도_신선(lb_dir):
+    """주말에도 정상적으로 돈 배치를 stale로 보면 안 된다 (반대편 고정)."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-08-01T07:03:00'))
+    now = datetime(2026, 8, 1, 20, 0)          # 토요일 20:00
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
-def test_freshness_월요일_오전은_유예시간이_보호(lb_dir):
-    """월요일 07:00 배치 전/직후에는 금요일 데이터라도 아직 판정하지 않는다."""
-    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-31T07:02:16'))
+def test_freshness_KR은_주말을_건너뛴다(lb_dir):
+    """KR은 평일만 돈다 — 금요일 저녁 갱신분이 일요일에 오탐되면 안 된다."""
+    _write(lb_dir, 'kr', _envelope([], source_updated_at='2026-07-31T16:35:00'))
+    now = datetime(2026, 8, 2, 14, 0)          # 일요일 14:00
+    assert store.get_freshness('kr', now)['is_stale'] is False
+
+
+def test_freshness_KR_월요일_오전은_금요일_갱신분도_신선(lb_dir):
+    """월요일 16:30 슬롯 전이면 직전 슬롯은 금요일 16:30 — 이미 채워져 있다."""
+    _write(lb_dir, 'kr', _envelope([], source_updated_at='2026-07-31T16:35:00'))
+    now = datetime(2026, 8, 3, 10, 0)          # 월요일 10:00 < 16:30
+    assert store.get_freshness('kr', now)['is_stale'] is False
+
+
+def test_freshness_KR_화요일_오후까지_안_돌면_stale(lb_dir):
+    """평일 슬롯(월·화)을 둘 다 놓치면 stale — 주말 건너뛰기가 무한 면죄부는 아니다."""
+    _write(lb_dir, 'kr', _envelope([], source_updated_at='2026-07-31T16:35:00'))
+    now = datetime(2026, 8, 4, 23, 0)          # 화요일 23:00
+    assert store.get_freshness('kr', now)['is_stale'] is True
+
+
+def test_freshness_US_월요일_오전은_일요일_갱신분이_보호(lb_dir):
+    """어제(일) 배치가 돌았으면 월요일 오전엔 놓친 슬롯이 없다."""
+    _write(lb_dir, 'us', _envelope([], source_updated_at='2026-08-02T07:02:16'))
     now = datetime(2026, 8, 3, 10, 0)          # 월요일 10:00 < 07:00+6h
     assert store.get_freshness('us', now)['is_stale'] is False
 
 
 def test_freshness_월요일_오후_이틀치_미실행이면_stale(lb_dir):
-    """금·월 배치가 모두 안 돌았으면 목요일 갱신분은 두 슬롯(금·월)을 놓친 것이다."""
+    """목요일 갱신분을 월요일 오후에 보면 US 슬롯을 금·토·일·월 네 개 놓쳤다."""
     _write(lb_dir, 'us', _envelope([], source_updated_at='2026-07-30T07:02:16'))
     now = datetime(2026, 8, 3, 15, 0)          # 월요일 15:00 > 07:00+6h
     assert store.get_freshness('us', now)['is_stale'] is True

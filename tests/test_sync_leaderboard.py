@@ -83,6 +83,18 @@ def test_normalize_us_주간거래대금을_일평균으로_환산():
     assert items[0]['avg_dollar_vol'] == round(18879041930 / 5)
 
 
+def test_normalize_us_거래대금_0은_0으로_남는다():
+    """0은 '값 없음'이 아니라 '거래가 없었다'는 실제 값이다 — null로 바꾸면 안 된다."""
+    payload = {'updated_at': 'x', 'items': [dict(US_SOURCE['items'][0], dollar_vol_w=0)]}
+    assert sync.normalize_us(payload)[0]['avg_dollar_vol'] == 0
+
+
+def test_normalize_us_거래대금이_없으면_null():
+    payload = {'updated_at': 'x', 'items': [
+        {k: v for k, v in US_SOURCE['items'][0].items() if k != 'dollar_vol_w'}]}
+    assert sync.normalize_us(payload)[0]['avg_dollar_vol'] is None
+
+
 def test_normalize_us_이름은_빈문자열_섹터는_null():
     items = sync.normalize_us(US_SOURCE)
     assert items[0]['name'] == ''
@@ -305,6 +317,35 @@ def test_get_token_환경변수_우선(monkeypatch):
     assert sync.get_token() == 'env-token'
 
 
+def test_main_토큰_조회_실패도_시장별_로그와_exit1(tmp_path, monkeypatch, capsys):
+    """토큰 실패가 트레이스백으로 새면 안 된다 — 2026-07-30 배치가 그렇게 죽었다.
+
+    구현이 get_token()을 try 밖에서 부르면 main이 예외로 빠져나가
+    '[market] 실패' 로그도 종료 코드도 남지 않는다.
+    """
+    src = tmp_path / 'src'
+    src.mkdir()
+    (src / 'leaderboard.json').write_text(
+        json.dumps(US_SOURCE, ensure_ascii=False), encoding='utf-8')
+    (src / 'leaderboard_kr.json').write_text(
+        json.dumps(KR_SOURCE, ensure_ascii=False), encoding='utf-8')
+    pushed = []
+    monkeypatch.setattr(sync, 'push_to_github',
+                        lambda market, env, token: pushed.append(market))
+
+    def _토큰없음():
+        raise RuntimeError('GitHub 토큰을 찾을 수 없습니다.')
+    monkeypatch.setattr(sync, 'get_token', _토큰없음)
+
+    rc = sync.main(['--market', 'all', '--source-dir', str(src), '--push'])
+
+    assert rc == 1
+    assert pushed == []
+    err = capsys.readouterr().err
+    assert '[us] 실패' in err and '[kr] 실패' in err
+    assert '토큰' in err
+
+
 def test_네트워크_차단_가드가_실제로_동작(monkeypatch):
     """가드 자체의 회귀 방지 — 목 없이 호출하면 반드시 실패해야 한다."""
     with pytest.raises(AssertionError):
@@ -361,13 +402,9 @@ def test_push_원격_파일이_없으면_sha_없이_생성(monkeypatch):
     assert 'sha' not in puts[0]['json']
 
 
-def test_push_소스_갱신시각만_바뀌면_PUT_생략(monkeypatch):
-    """상류 배치는 결과가 같아도 updated_at을 매번 새로 찍는다 — 그건 내용 변화가 아니다.
-
-    이 시각까지 비교하면 종목 목록이 완전히 같아도 매일 커밋이 쌓이고
-    그때마다 Streamlit Cloud가 재배포된다.
-    """
-    envelope = _봉투(updated='2026-07-30T07:01:00')
+def test_push_같은날_시각만_바뀌면_PUT_생략(monkeypatch):
+    """같은 날 재실행·재시도는 커밋을 만들지 않는다 — 시각만 다르고 내용은 같다."""
+    envelope = _봉투(updated='2026-07-29T07:31:00')
     remote = dict(envelope, source_updated_at='2026-07-29T07:02:16',
                   synced_at='2026-07-29T07:05:00')
     puts = []
@@ -379,8 +416,27 @@ def test_push_소스_갱신시각만_바뀌면_PUT_생략(monkeypatch):
     assert puts == []
 
 
-def test_push_0종목끼리는_시각이_달라도_PUT_생략(monkeypatch):
-    """실제 사례: KR이 연일 0종목이라 시각 말고는 다른 게 없었다."""
+def test_push_날짜가_바뀌면_종목이_같아도_PUT(monkeypatch):
+    """날이 바뀌면 목록이 똑같아도 푸시한다 — 신선도 시각을 전진시켜야 한다."""
+    envelope = _봉투(updated='2026-07-30T07:01:00')
+    remote = dict(envelope, source_updated_at='2026-07-29T07:02:16',
+                  synced_at='2026-07-29T07:05:00')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is True
+    보낸내용 = json.loads(base64.b64decode(puts[0]['json']['content']).decode('utf-8'))
+    assert 보낸내용['source_updated_at'] == '2026-07-30T07:01:00'
+
+
+def test_push_0종목이_연일_이어져도_갱신시각은_전진한다(monkeypatch):
+    """실제 사례: KR은 매일 0종목이라 날짜 말고는 다른 게 없다.
+
+    여기서 PUT을 생략하면 미러의 source_updated_at이 2026-07-29에 얼어붙고,
+    정상 동작하는 파이프라인이 KR 탭에 영원히 ⚠️ 갱신 지연으로 표시된다.
+    """
     envelope = sync.build_envelope('kr', [], '2026-07-30T16:33:10')
     remote = dict(envelope, source_updated_at='2026-07-29T16:36:40',
                   synced_at='2026-07-29T16:40:00')
@@ -389,8 +445,37 @@ def test_push_0종목끼리는_시각이_달라도_PUT_생략(monkeypatch):
     monkeypatch.setattr(sync.requests, 'put',
                         lambda *a, **k: puts.append(k) or _FakeResponse(200))
 
+    assert sync.push_to_github('kr', envelope, 'tok') is True
+    보낸내용 = json.loads(base64.b64decode(puts[0]['json']['content']).decode('utf-8'))
+    assert 보낸내용['count'] == 0
+    assert 보낸내용['source_updated_at'] == '2026-07-30T16:33:10'   # 시각이 전진
+
+
+def test_push_같은날_0종목_재실행은_PUT_생략(monkeypatch):
+    """하루 안의 재시도까지 커밋을 만들면 안 된다 — 절충의 반대편을 고정한다."""
+    envelope = sync.build_envelope('kr', [], '2026-07-30T16:39:02')
+    remote = dict(envelope, source_updated_at='2026-07-30T16:33:10',
+                  synced_at='2026-07-30T16:35:00')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
     assert sync.push_to_github('kr', envelope, 'tok') is False
     assert puts == []
+
+
+@pytest.mark.parametrize('이상한_시각', [None, '', '2026', 12345, {'a': 1}])
+def test_push_갱신시각이_깨져도_비교가_터지지_않는다(monkeypatch, 이상한_시각):
+    """source_updated_at이 null이거나 짧거나 문자열이 아니어도 예외 없이 판단한다."""
+    envelope = dict(_봉투(), source_updated_at=이상한_시각)
+    remote = dict(envelope, source_updated_at='2026-07-29T07:02:16')
+    puts = []
+    monkeypatch.setattr(sync.requests, 'get', lambda *a, **k: _원격응답(remote))
+    monkeypatch.setattr(sync.requests, 'put',
+                        lambda *a, **k: puts.append(k) or _FakeResponse(200))
+
+    assert sync.push_to_github('us', envelope, 'tok') is True   # 날짜가 다르니 푸시
 
 
 def test_push_종목이_하나라도_바뀌면_PUT(monkeypatch):

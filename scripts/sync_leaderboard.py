@@ -67,7 +67,7 @@ def normalize_us(payload: dict) -> list:
             name='',                                    # 소스에 종목명 없음
             market='US',
             added_at=it.get('added_at'),
-            avg_dollar_vol=round(dvw / 5) if dvw else None,
+            avg_dollar_vol=round(dvw / 5) if dvw is not None else None,   # 0도 유효한 값
             sector=None,
         ))
     return out
@@ -138,14 +138,32 @@ def get_token() -> str:
         'DASHBOARD_GITHUB_TOKEN 환경변수를 설정하거나 gh CLI로 로그인하세요.')
 
 
-# 내용 비교 대상 — 기록용 시각(synced_at·source_updated_at)은 종목 목록이 그대로여도
-# 매 배치마다 새로 찍히므로 비교에서 제외한다.
+# 내용 비교 대상 — 종목 목록 + 소스 갱신 '날짜'.
+# synced_at은 순수 기록용이라 제외한다.
 _CONTENT_KEYS = ('count', 'items')
 
 
+def _source_date(envelope: dict) -> str:
+    """source_updated_at의 날짜 부분(YYYY-MM-DD)만 뽑는다. 없거나 형식이 이상하면 ''."""
+    src = envelope.get('source_updated_at')
+    if not isinstance(src, str):
+        return ''
+    return src[:10]
+
+
 def _comparable(envelope: dict) -> dict:
-    """내용 비교용 사본 — 실제 리더보드 내용(종목 목록)만 본다."""
-    return {k: envelope.get(k) for k in _CONTENT_KEYS}
+    """내용 비교용 사본 — 종목 목록과 소스 갱신 '날짜'를 본다.
+
+    시각을 통째로 비교하면 종목이 그대로여도 매 실행마다 커밋이 쌓이고,
+    반대로 시각을 통째로 빼면 미러의 source_updated_at이 얼어붙는다. 그 시각은
+    data/leaderboard_store.py의 신선도 판정이 쓰는 유일한 값이라, 얼어붙는 순간
+    멀쩡한 파이프라인이 '갱신 지연'으로 표시된다(KR은 매일 0종목이라 항상 그랬다).
+    날짜까지만 비교하면 같은 날 재실행·재시도는 커밋을 안 만들면서
+    하루가 바뀌면 목록이 같아도 반드시 푸시된다 — 시장당 하루 최대 1커밋.
+    """
+    comparable = {k: envelope.get(k) for k in _CONTENT_KEYS}
+    comparable['source_date'] = _source_date(envelope)
+    return comparable
 
 
 def _decode_remote(payload: dict) -> dict | None:
@@ -161,8 +179,9 @@ def _decode_remote(payload: dict) -> dict | None:
 def push_to_github(market: str, envelope: dict, token: str) -> bool:
     """Contents API로 data/leaderboard/{market}.json 갱신 (sha 조회 후 update).
 
-    종목 목록이 원격과 같으면 시각만 달라도 PUT을 건너뛴다 — 그러지 않으면 매 실행마다
-    사실상 빈 커밋이 쌓이고 그때마다 Streamlit Cloud가 재배포된다.
+    같은 날 안에서 종목 목록이 원격과 같으면 PUT을 건너뛴다 — 그러지 않으면 재실행마다
+    사실상 빈 커밋이 쌓이고 그때마다 Streamlit Cloud가 재배포된다. 날이 바뀌면
+    목록이 같아도 푸시해 신선도 시각을 전진시킨다(_comparable 주석 참조).
     푸시했으면 True, 건너뛰었으면 False.
     """
     path = f'data/leaderboard/{market}.json'
@@ -178,7 +197,7 @@ def push_to_github(market: str, envelope: dict, token: str) -> bool:
             remote = _decode_remote(payload)      # sha 조회 응답을 그대로 재사용
 
     if remote is not None and _comparable(remote) == _comparable(envelope):
-        print(f'[{market}] 원격과 동일 — 푸시 건너뜀')
+        print(f'[{market}] 같은 날 · 원격과 동일 — 푸시 건너뜀')
         return False
 
     content = json.dumps(envelope, ensure_ascii=False, indent=2)
@@ -223,7 +242,18 @@ def main(argv=None) -> int:
         or DEFAULT_SOURCE_DIR)
 
     markets = ['us', 'kr'] if args.market == 'all' else [args.market]
-    token = get_token() if args.push else None
+
+    token = None
+    if args.push:
+        try:
+            token = get_token()
+        except Exception as e:
+            # 토큰 조회 실패도 시장별 실패와 같은 경로로 보고한다. 여기서 예외가 그냥
+            # 새어나가면 '[market] 실패' 로그도 종료 코드도 없이 트레이스백만 남는다
+            # (2026-07-30 배치가 실제로 이렇게 죽었다).
+            for market in markets:
+                print(f'[{market}] 실패: {e}', file=sys.stderr)
+            return 1
 
     failed = []
     for market in markets:

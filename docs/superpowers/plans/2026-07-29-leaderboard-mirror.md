@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.11, pandas, Streamlit, streamlit-aggrid, requests, pytest
 
+> ⚠️ **이 문서는 최초 구현 시점의 플랜이다.** CLI 인터페이스(`--push`)는 현재 코드에 맞춰 갱신했지만, 각 Task의 코드 블록은 그 뒤 리뷰 수정(신선도 판정 재설계·KST·멱등 푸시·형식 파손 방어)을 반영하지 않는다. **현재 동작의 기준은 스펙 `docs/superpowers/specs/2026-07-29-leaderboard-mirror-design.md`와 실제 코드다.**
+
 ## Global Constraints
 
 - **UI 문구·에러 메시지·컬럼명 어디에도 소스 파이프라인 이름(stockEdge)을 노출하지 않는다.** 전부 "리더보드"로 부른다. 소스 경로를 아는 유일한 파일은 `scripts/sync_leaderboard.py`다
@@ -568,7 +570,7 @@ git commit -m "feat: 리더보드 소스 정규화 로직 — US/KR 공통 스�
 - Produces:
   - `get_token() -> str` — `DASHBOARD_GITHUB_TOKEN` → `gh auth token` 순 조회
   - `load_source(market: str, source_dir: pathlib.Path) -> dict` — 소스 JSON 로드 (없으면 `FileNotFoundError`)
-  - `sync_market(market, source_dir, local_only, token) -> dict` — 한 시장 처리, 봉투 반환
+  - `sync_market(market, source_dir, push, token) -> dict` — 한 시장 처리, 봉투 반환 (`push=False`가 기본=로컬 저장)
   - `main(argv=None) -> int` — 종료 코드 반환
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -600,7 +602,7 @@ def test_load_source_파일_없으면_예외(tmp_path):
         sync.load_source('us', tmp_path)
 
 
-def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
+def test_sync_market_기본은_로컬파일만_생성(tmp_path, monkeypatch):
     src = tmp_path / 'src'
     src.mkdir()
     (src / 'leaderboard.json').write_text(
@@ -609,7 +611,7 @@ def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
     out.mkdir()
     monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
 
-    env = sync.sync_market('us', src, local_only=True, token=None)
+    env = sync.sync_market('us', src, push=False, token=None)
 
     written = json.loads((out / 'us.json').read_text(encoding='utf-8'))
     assert written['count'] == 1
@@ -617,7 +619,7 @@ def test_sync_market_local_only_파일_생성(tmp_path, monkeypatch):
     assert env['count'] == 1
 
 
-def test_sync_market_빈_items도_정상_푸시(tmp_path, monkeypatch):
+def test_sync_market_빈_items도_정상_기록(tmp_path, monkeypatch):
     """0개는 주도주 부재 신호 — 장애가 아니므로 그대로 쓴다."""
     src = tmp_path / 'src'
     src.mkdir()
@@ -628,7 +630,7 @@ def test_sync_market_빈_items도_정상_푸시(tmp_path, monkeypatch):
     out.mkdir()
     monkeypatch.setattr(sync, 'OUTPUT_DIR', out)
 
-    sync.sync_market('kr', src, local_only=True, token=None)
+    sync.sync_market('kr', src, push=False, token=None)
 
     written = json.loads((out / 'kr.json').read_text(encoding='utf-8'))
     assert written['count'] == 0
@@ -639,7 +641,7 @@ def test_main_소스_없으면_exit1_푸시_안함(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(sync, 'push_to_github', lambda *a, **k: calls.append(a))
     monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
-    rc = sync.main(['--market', 'us', '--source-dir', str(tmp_path)])
+    rc = sync.main(['--market', 'us', '--source-dir', str(tmp_path), '--push'])
     assert rc == 1
     assert calls == []
 
@@ -655,7 +657,7 @@ def test_main_all_한쪽_실패해도_다른쪽은_푸시(tmp_path, monkeypatch)
                         lambda market, env, token: pushed.append(market))
     monkeypatch.setattr(sync, 'get_token', lambda: 'fake-token')
 
-    rc = sync.main(['--market', 'all', '--source-dir', str(src)])
+    rc = sync.main(['--market', 'all', '--source-dir', str(src), '--push'])
 
     assert rc == 1              # KR 실패
     assert pushed == ['us']     # US는 정상 푸시
@@ -741,28 +743,29 @@ def push_to_github(market: str, envelope: dict, token: str) -> None:
         raise RuntimeError(f'GitHub 푸시 실패 ({resp.status_code}): {resp.text[:200]}')
 
 
-def sync_market(market: str, source_dir, local_only: bool, token) -> dict:
-    """한 시장을 정규화해 로컬 저장 또는 GitHub 푸시."""
+def sync_market(market: str, source_dir, push: bool, token) -> dict:
+    """한 시장을 정규화해 로컬 저장(기본) 또는 GitHub 푸시(push=True)."""
     payload = load_source(market, source_dir)
     normalize = normalize_us if market == 'us' else normalize_kr
     items = sort_and_rank(normalize(payload))
     envelope = build_envelope(market, items, payload.get('updated_at'))
 
-    if local_only:
+    if push:
+        push_to_github(market, envelope, token)
+    else:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         (OUTPUT_DIR / f'{market}.json').write_text(
             json.dumps(envelope, ensure_ascii=False, indent=2), encoding='utf-8')
-    else:
-        push_to_github(market, envelope, token)
     return envelope
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description='리더보드 동기화')
+    ap = argparse.ArgumentParser(
+        description='리더보드 동기화 (기본: 로컬 파일만 갱신)')
     ap.add_argument('--market', choices=['us', 'kr', 'all'], default='all')
     ap.add_argument('--source-dir', default=None)
-    ap.add_argument('--local-only', action='store_true',
-                    help='GitHub에 푸시하지 않고 로컬 파일만 갱신 (개발·초기 생성용)')
+    ap.add_argument('--push', action='store_true',
+                    help='GitHub main에 실제로 커밋한다. 없으면 로컬 파일만 갱신(기본·안전)')
     args = ap.parse_args(argv)
 
     source_dir = pathlib.Path(
@@ -771,12 +774,21 @@ def main(argv=None) -> int:
         or DEFAULT_SOURCE_DIR)
 
     markets = ['us', 'kr'] if args.market == 'all' else [args.market]
-    token = None if args.local_only else get_token()
+
+    token = None
+    if args.push:
+        try:
+            token = get_token()
+        except Exception as e:
+            # 토큰 실패도 시장별 실패와 같은 경로로 — 예외가 새면 로그도 종료코드도 없다
+            for market in markets:
+                print(f'[{market}] 실패: {e}', file=sys.stderr)
+            return 1
 
     failed = []
     for market in markets:
         try:
-            env = sync_market(market, source_dir, args.local_only, token)
+            env = sync_market(market, source_dir, args.push, token)
             print(f'[{market}] {env["count"]}종목 · 소스 갱신 {env["source_updated_at"]}')
         except Exception as e:
             print(f'[{market}] 실패: {e}', file=sys.stderr)
@@ -803,8 +815,10 @@ Expected: PASS (20개 전부)
 
 - [ ] **Step 6: 실제 소스로 로컬 생성**
 
-Run: `python3 scripts/sync_leaderboard.py --market all --local-only`
+Run: `python3 scripts/sync_leaderboard.py --market all`   (플래그 없음 = 로컬 전용이 기본)
 Expected: `[us] 20종목 ...` / `[kr] 0종목 ...` 출력, `data/leaderboard/us.json`·`kr.json` 생성
+
+> ⚠️ 이 명령은 **추적 중인 `data/leaderboard/*.json`을 덮어쓴다.** 스냅샷을 갱신할 의도가 아니면 실행하지 말 것 (되돌리기: `git checkout -- data/leaderboard/`).
 
 생성된 파일 확인:
 ```bash
@@ -1150,7 +1164,8 @@ def _sync_dashboard_leaderboard(market: str):
         print(f"[orchestrator] 동기화 스크립트 없음, 생략: {script}")
         return
     result = subprocess.run(
-        ["python3", str(script), "--market", market],
+        # --push 필수 — 없으면 원격이 아니라 로컬 작업 트리만 갱신된다
+        ["python3", str(script), "--market", market, "--push"],
         capture_output=True, text=True, timeout=120,
     )
     print(f"[orchestrator] 리더보드 동기화({market}) rc={result.returncode}")
@@ -1184,7 +1199,8 @@ def _sync_dashboard_leaderboard(market: str):
         print(f"[orchestrator_kr] 동기화 스크립트 없음, 생략: {script}")
         return
     result = subprocess.run(
-        ["python3", str(script), "--market", market],
+        # --push 필수 — 없으면 원격이 아니라 로컬 작업 트리만 갱신된다
+        ["python3", str(script), "--market", market, "--push"],
         capture_output=True, text=True, timeout=120,
     )
     print(f"[orchestrator_kr] 리더보드 동기화({market}) rc={result.returncode}")
@@ -1198,7 +1214,7 @@ def _sync_dashboard_leaderboard(market: str):
 
 - [ ] **Step 3: 훅 동작 검증 (실제 푸시)**
 
-Run: `cd ~/Workspace/stock-dashboard && python3 scripts/sync_leaderboard.py --market us`
+Run: `cd ~/Workspace/stock-dashboard && python3 scripts/sync_leaderboard.py --market us --push`
 Expected: `[us] 20종목 · 소스 갱신 ...` 출력, 종료 코드 0
 
 GitHub에 반영됐는지 확인:

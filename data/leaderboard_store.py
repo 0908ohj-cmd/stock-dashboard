@@ -14,10 +14,17 @@ LEADERBOARD_DIR = pathlib.Path(__file__).parent / 'leaderboard'
 # 배포 컨테이너(Streamlit Cloud)는 UTC라서 datetime.now()를 그대로 쓰면 9시간 어긋난다.
 KST = ZoneInfo('Asia/Seoul')
 
-# 시장별 예정 배치 시각 (KST, 평일 기준)
+# 시장별 예정 배치 시각 (KST)
 _BATCH_DUE = {
     'us': (7, 0),
     'kr': (16, 30),
+}
+# 시장별 실행 요일 — 실제 배치 스케줄과 일치시킨 값이다.
+# US는 주말 포함 매일 돌고, KR은 평일에만 돈다. 양쪽을 평일로 뭉뚱그리면
+# 금요일에 죽은 US 파이프라인이 주말 내내 신선하다고 보고된다(약 54시간 사각지대).
+_WEEKDAYS_ONLY = {
+    'us': False,
+    'kr': True,
 }
 # 배치 지연 흡수용 유예 시간 — 슬롯을 하나 놓친 동안은 이 시간 안에서 판정을 보류한다
 _GRACE_HOURS = 6
@@ -52,12 +59,21 @@ def _read(market: str) -> dict | None:
 
 
 def load(market: str) -> dict:
-    """정규화 봉투를 반환. 파일이 없거나 깨졌으면 빈 봉투 (예외 없음)."""
+    """정규화 봉투를 반환. 파일이 없거나 깨졌으면 빈 봉투 (예외 없음).
+
+    items가 리스트가 아니거나(`null`·dict 등) 원소가 dict가 아니어도 예외를 내지 않는다.
+    이 함수는 모든 와치리스트 탭 렌더 첫머리에서 try/except 없이 불리고 Streamlit은
+    한 번의 스크립트 실행으로 모든 탭 본문을 돌리므로, 여기서 터지면 리더보드 탭만이
+    아니라 코스피·코스닥·나스닥·10EMA 탭까지 통째로 비어 버린다.
+    """
     data = _read(market)
     if data is None:
         return _empty(market)
-    data.setdefault('items', [])
-    data.setdefault('count', len(data['items']))
+    items = data.get('items')
+    if not isinstance(items, list):        # null·dict·문자열 등은 '목록 없음'으로 본다
+        items = []
+    data['items'] = [it for it in items if isinstance(it, dict)]
+    data['count'] = len(data['items'])     # 파일의 count를 믿지 않고 항상 재계산
     data.setdefault('source_updated_at', None)
     data.setdefault('synced_at', None)
     return data
@@ -73,8 +89,19 @@ def has_snapshot(market: str) -> bool:
 
 
 def get_tickers(market: str) -> set:
-    """교차 배지용 티커 집합. 파일이 없으면 빈 집합 → 배지가 안 붙는다."""
-    return {it['ticker'] for it in load(market).get('items', []) if it.get('ticker')}
+    """교차 배지용 티커 집합. 파일이 없거나 형식이 깨졌으면 빈 집합 → 배지가 안 붙는다.
+
+    원소가 dict가 아니거나 ticker가 문자열이 아니면 조용히 건너뛴다 — 배지 하나를
+    포기하는 편이 와치리스트 탭 전체가 죽는 것보다 낫다.
+    """
+    tickers = set()
+    for it in load(market).get('items', []):
+        if not isinstance(it, dict):
+            continue
+        ticker = it.get('ticker')
+        if isinstance(ticker, str) and ticker:
+            tickers.add(ticker)
+    return tickers
 
 
 def _as_kst(dt: datetime) -> datetime:
@@ -87,27 +114,34 @@ def _as_kst(dt: datetime) -> datetime:
     return dt.astimezone(KST)
 
 
+def _is_slot_day(market: str, dt: datetime) -> bool:
+    """그 날짜에 이 시장의 배치가 도는가 (5=토, 6=일)."""
+    if _WEEKDAYS_ONLY.get(market, True):
+        return dt.weekday() < 5
+    return True
+
+
 def _last_due(market: str, now: datetime) -> datetime:
-    """지금 기준 가장 최근에 지나간 평일 예정 배치 시각."""
+    """지금 기준 가장 최근에 지나간 예정 배치 시각 (시장별 실행 요일 반영)."""
     hh, mm = _BATCH_DUE[market]
     due = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     if due > now:
         due -= timedelta(days=1)
-    while due.weekday() >= 5:              # 5=토, 6=일 — 주말엔 배치가 없다
+    while not _is_slot_day(market, due):   # 주말 배치가 없는 시장만 되감는다
         due -= timedelta(days=1)
     return due
 
 
-def _prev_due(due: datetime) -> datetime:
-    """한 슬롯 앞(직전 평일)의 예정 배치 시각."""
+def _prev_due(market: str, due: datetime) -> datetime:
+    """한 슬롯 앞(그 시장의 직전 실행일)의 예정 배치 시각."""
     due -= timedelta(days=1)
-    while due.weekday() >= 5:
+    while not _is_slot_day(market, due):
         due -= timedelta(days=1)
     return due
 
 
 def _missed_slots(market: str, updated: datetime, now: datetime) -> int:
-    """갱신 시각 이후로 지나갔지만 채워지지 않은 평일 슬롯 수 (_STALE_MISSED에서 절단).
+    """갱신 시각 이후로 지나갔지만 채워지지 않은 슬롯 수 (_STALE_MISSED에서 절단).
 
     슬롯 S는 `updated >= S - 허용오차`면 채워진 것으로 본다. 허용오차가 없으면
     정시보다 몇 분 일찍 끝난 정상 배치가 매일 미실행으로 잡힌다.
@@ -117,14 +151,15 @@ def _missed_slots(market: str, updated: datetime, now: datetime) -> int:
     missed = 0
     while missed < _STALE_MISSED and due - tolerance > updated:
         missed += 1
-        due = _prev_due(due)
+        due = _prev_due(market, due)
     return missed
 
 
 def get_freshness(market: str, now: datetime | None = None) -> dict:
     """신선도 판정 (모든 비교는 KST 기준).
 
-    갱신 시각 이후 '놓친 평일 슬롯 수'로 판정한다:
+    갱신 시각 이후 '놓친 슬롯 수'로 판정한다 (슬롯 요일은 시장별로 다르다 —
+    US 매일 07:00, KR 평일 16:30):
 
     - 0개 → 신선
     - 1개 + 직전 예정시각 + 유예 이내 → 판정 보류(신선). 오늘 배치가 늦게 돌고
