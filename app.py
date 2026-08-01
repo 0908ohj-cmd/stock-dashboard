@@ -7,6 +7,7 @@ from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_da
 from ui.index_panel import render_index_panel
 from ui.watchlist import render_watchlist_tab, _fetch_index_cached
 from ui.watchlist_10ema import render_10ema_tab
+from ui.leaderboard import render_leaderboard_section
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
 
@@ -146,10 +147,18 @@ if _any:
 render_index_panel()
 st.divider()
 
+# ── 리더보드 ──────────────────────────────────────────────
+# 와치리스트 탭 그룹보다 반드시 앞에서 렌더한다. Streamlit은 스크립트를 위에서 아래로
+# 통째로 재실행하므로, 뒤에 두면 앞 탭들이 수백 종목 시세를 받는 동안(캐시가 비면
+# 10분 이상) 이 줄에 도달하지 못해 화면이 빈 채로 남는다. 여기선 파일만 읽어 즉시 뜬다.
+render_leaderboard_section()
+st.divider()
+
 # ── 와치리스트 ────────────────────────────────────────────
 st.subheader('와치리스트')
 tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
-    '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥', '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
+    '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
+    '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
 ])
 with tab_kospi:
     render_watchlist_tab(kr_kospi, 'KR_KOSPI', 'KOSPI')

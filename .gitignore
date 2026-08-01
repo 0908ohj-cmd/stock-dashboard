@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .env
 .streamlit/secrets.toml
+
+# 로컬 작업 산출물 — git add -A로 딸려 들어가면 안 된다
+.claude/worktrees/
+.claude/settings.json

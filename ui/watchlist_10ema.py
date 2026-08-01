@@ -6,6 +6,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from strategy.trading_days import trading_days_after
 from data.fetcher import fetch_daily, get_stock_name
 from data.sector import get_sectors
+from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 
@@ -21,6 +22,9 @@ STATE_BADGE = {
     '저가이탈': '🔴 저가이탈',
     '없음':     '🔴 없음',
 }
+
+# UI 시장 코드 → 리더보드 시장 코드
+_LB_MARKET = {'KR_KOSPI': 'kr', 'KR_KOSDAQ': 'kr', 'US': 'us'}
 
 KO_LOCALE = {
     'searchOoo': '검색...', 'selectAll': '(모두 선택)',
@@ -229,7 +233,10 @@ def render_10ema_tab(market: str, label: str):
         st.info('현재 셋업 완성 종목 없음. "형성중 포함"을 체크하면 더 넓게 볼 수 있습니다.')
         return
 
+    crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
     display_df = pd.DataFrame([{
+        # 배지는 별도 컬럼 — 티커 문자열에 섞으면 정렬·필터가 그 접두사까지 보게 된다
+        '👑': '👑' if r['Ticker'] in crown else '',
         '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '기준봉일':       r['기준봉일'],
@@ -247,6 +254,11 @@ def render_10ema_tab(market: str, label: str):
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
     gb.configure_default_column(sortable=True, resizable=True, filter=True, floatingFilter=True, flex=1)
+    # 리더보드 배지 — 티커와 함께 왼쪽 고정(안 하면 고정 컬럼 뒤로 밀린다)
+    gb.configure_column('👑', headerName='👑', headerTooltip='리더보드 편입 종목',
+                        sortable=True, filter=False, floatingFilter=False,
+                        resizable=False, suppressSizeToFit=True, pinned='left', flex=0,
+                        width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
