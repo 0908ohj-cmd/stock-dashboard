@@ -3,6 +3,11 @@ import pandas as pd
 from strategy.indicators import calc_ma_position, calc_ema
 
 
+# 거래량비 상한. 하락일이 없는 최강 종목도 이 값을 받아 실측 고비율 종목보다
+# 뒤로 밀리지 않는다 (표시: 999%).
+VOL_RATIO_CAP = 9.99
+
+
 def _vol_ratio(df: pd.DataFrame) -> float:
     if len(df) < 4:
         return 0.0
@@ -10,9 +15,13 @@ def _vol_ratio(df: pd.DataFrame) -> float:
     d['is_up'] = d['Close'] >= d['Open']
     up   = d[d['is_up']]['Volume'].mean()
     down = d[~d['is_up']]['Volume'].mean()
-    if pd.isna(up) or pd.isna(down) or down == 0:
+    if pd.isna(up):
         return 0.0
-    return round(float(up / down), 2)
+    if pd.isna(down):
+        return VOL_RATIO_CAP           # 하락일 없음 = 최강
+    if down == 0:
+        return 0.0                     # 하락일이 있는데 거래량 0 = 데이터 결함
+    return round(min(float(up / down), VOL_RATIO_CAP), 2)
 
 
 def _candle_ratio(df: pd.DataFrame) -> float:
@@ -91,7 +100,14 @@ def calc_correction_rs(
 
     idx_bottom = idx_slice['Low'].idxmin()
     stk_bottom = stk_slice['Low'].idxmin()
-    lead_days  = int(np.busday_count(stk_bottom.date(), idx_bottom.date()))
+    # 지수 거래일 달력 기준 위치 차이 — busday는 휴장일을 거래일로 세버림.
+    # 종목 저점일이 지수 달력에 없으면(결측일) 직전 지수 거래일 위치로 매핑.
+    pos = idx_slice.index
+
+    def _pos_of(d):
+        return int(pos.searchsorted(d, side='right')) - 1
+
+    lead_days = _pos_of(idx_bottom) - _pos_of(stk_bottom)
 
     stk_for_ma = stock_df[stock_df.index <= end]
     ma_score   = calc_ma_position(stk_for_ma) if len(stk_for_ma) >= 10 else 0

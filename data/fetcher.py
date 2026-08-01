@@ -1,8 +1,15 @@
 from functools import lru_cache
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
+
+
+def _prev_weekday(d) -> 'datetime.date':
+    """d 직전의 평일 반환. 주말이면 지난 금요일 — 주말·월요일마다 KRX에 없는
+    날짜(일요일 등)를 조회하는 헛 호출을 막는다."""
+    return pd.Timestamp(np.busday_offset(np.datetime64(d, 'D'), -1, roll='forward')).date()
 
 INDICES = {
     'KOSPI':  '^KS11',
@@ -30,7 +37,7 @@ def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if df.empty or 'Close' not in df.columns:
         return df
 
-    yesterday = (datetime.today() - timedelta(days=1)).date()
+    yesterday = _prev_weekday(datetime.today().date())
     last_date = df.index[-1].date()
     last_close_nan = pd.isna(df['Close'].iloc[-1])
 

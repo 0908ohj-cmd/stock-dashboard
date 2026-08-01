@@ -105,3 +105,17 @@ def test_get_market_status_early_signal():
     assert status['state'] in ('early_signal', 'ftd_confirmed')
     assert status['jjin_date'] is not None
     assert status['jjin_pct'] > 0
+
+
+def test_jjin_bounce_skips_incomplete_ohlc_row():
+    """Close만 있고 OHL이 NaN인 불완전 행(지수 패치 잔재 등)을 찐반등으로 오검출하면 안 된다."""
+    dates = pd.date_range('2026-01-01', periods=35, freq='B')
+    opens  = [100.0] * 30 + [100.0, 98.0, 96.0, 94.0] + [np.nan]
+    closes = [100.0] * 30 + [98.0, 96.0, 94.0, 92.0]  + [96.7]   # 마지막 행 +5.1%
+    highs  = [101.0] * 30 + [100.5, 98.5, 96.5, 94.5] + [np.nan]
+    lows   = [99.0]  * 30 + [97.5, 95.5, 93.5, 91.5]  + [np.nan]
+    vols   = [1_000_000] * 34 + [1_300_000]
+    df = pd.DataFrame({'Open': opens, 'High': highs, 'Low': lows,
+                       'Close': closes, 'Volume': vols}, index=dates)
+
+    assert detect_jjin_bounce(df) is None
