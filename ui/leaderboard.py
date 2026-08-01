@@ -1,6 +1,12 @@
-"""👑 리더보드 탭 — 시장 주도주 명단 열람.
+"""👑 리더보드 섹션 — 시장 주도주 명단 열람.
 
 data/leaderboard/*.json만 읽는다 (네트워크 수집 없음).
+
+⚠️ 이 섹션은 와치리스트 탭 그룹보다 **앞에서** 렌더해야 한다. Streamlit은 상호작용마다
+app.py를 위에서 아래로 통째로 재실행하고, `st.tabs()`는 탭 모양만 만들 뿐 각 탭 본문을
+스크립트 순서대로 실행한다. 리더보드가 탭 그룹 뒤에 있으면 앞 탭들이 수백 종목 시세를
+받는 동안(캐시가 비면 10분 이상) 이 코드 줄에 도달하지 못해, 탭은 보이는데 안이 빈
+화면이 된다. 렌더 자체는 파일 읽기라 즉시 끝나므로 순서만 앞에 두면 바로 표시된다.
 """
 import pandas as pd
 import streamlit as st
@@ -45,8 +51,13 @@ def _fmt_updated(iso: str) -> str:
         return iso
 
 
-def render_leaderboard_tab():
-    st.markdown('#### 👑 리더보드')
+def render_leaderboard_section(expanded: bool = True):
+    """접을 수 있는 리더보드 섹션. 와치리스트 탭 그룹보다 앞에서 호출한다."""
+    with st.expander('👑 리더보드 — 시장 주도주 명단', expanded=expanded):
+        _render_body()
+
+
+def _render_body():
     st.caption('시장 전체에서 RS 상위 주도주를 매일 추려낸 명단입니다.')
 
     choice = st.radio('시장', ['🇺🇸 US', '🇰🇷 KR'],
