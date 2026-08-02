@@ -51,9 +51,20 @@ def _fmt_updated(iso: str) -> str:
         return iso
 
 
-def render_leaderboard_section(expanded: bool = True):
-    """접을 수 있는 리더보드 섹션. 와치리스트 탭 그룹보다 앞에서 호출한다."""
-    with st.expander('👑 리더보드 — 시장 주도주 명단', expanded=expanded):
+def render_leaderboard_section(expanded: bool = False):
+    """접을 수 있는 리더보드 섹션. 와치리스트 탭 그룹보다 앞에서 호출한다.
+
+    기본은 접힌 상태다. 대신 **접힌 제목에 지연 여부를 함께 노출**한다 —
+    펼쳐야만 보이는 경고는 접어둔 사람에게 도달하지 않고, 표가 그럴듯하게
+    채워져 있으면 오래된 데이터를 최신으로 오인하기 쉽기 때문이다.
+    """
+    label = '👑 리더보드 — 시장 주도주 명단'
+    stale = [m.upper() for m in ('us', 'kr')
+             if leaderboard_store.get_freshness(m)['is_stale']]
+    if stale:
+        label += f"  ⚠️ 갱신 지연 ({'/'.join(stale)})"
+
+    with st.expander(label, expanded=expanded):
         _render_body()
 
 
