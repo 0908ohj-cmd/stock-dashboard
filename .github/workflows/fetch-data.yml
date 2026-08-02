@@ -1,0 +1,57 @@
+name: 스냅샷 수집
+
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'    # 16:00 KST 월~금 → KR
+    - cron: '0 22 * * 1-5'   # 07:00 KST 화~토 → US
+  workflow_dispatch:
+    inputs:
+      markets:
+        description: '수집 대상'
+        type: choice
+        options: [all, kr, us]
+        default: all
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-data
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements-batch.txt
+
+      - name: 대상 시장 결정
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 7 * * 1-5" ]; then
+            echo "markets=kr" >> "$GITHUB_OUTPUT"
+          else
+            echo "markets=us" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 스냅샷 수집
+        run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
+
+      - name: 커밋 & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ohlcv
+          git diff --cached --quiet && { echo "변경 없음"; exit 0; }
+          git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F)"
+          git pull --rebase origin main
+          git push origin main
