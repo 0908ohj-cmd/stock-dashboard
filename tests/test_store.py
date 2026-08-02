@@ -63,6 +63,27 @@ def test_load_index_hit(tmp_store, monkeypatch):
     assert float(df['Close'].iloc[-1]) == 103.0
 
 
+def test_load_snapshot_memoized_until_file_changes(tmp_store, monkeypatch):
+    """같은 파일은 1회만 파싱 (티커별 반복 로드 O(N²) 방지), 파일 갱신 시 무효화."""
+    snap_v1 = {'market': 'US', 'data': {'AAPL': store._df_to_records(_sample_df())}}
+    (tmp_store / 'US.json').write_text(json.dumps(snap_v1), encoding='utf-8')
+
+    parses = []
+    real_loads = json.loads
+    monkeypatch.setattr(store.json, 'loads', lambda s: (parses.append(1), real_loads(s))[1])
+
+    store.load_snapshot('US')
+    store.load_snapshot('US')
+    store.load_snapshot('US')
+    assert len(parses) == 1                      # 메모 히트
+
+    snap_v2 = {'market': 'US', 'data': {}}
+    store.save_snapshot('US', snap_v2)
+    assert store.load_snapshot('US') == snap_v2  # 저장 직후 최신 반영
+    fresh = store.load_snapshot('US')
+    assert fresh == snap_v2
+
+
 def test_refetch_market_full_replace(tmp_store, monkeypatch):
     old = {'market': 'US', 'fetched_at': '2026-07-01T07:00:00+09:00',
            'data': {'OLD': store._df_to_records(_sample_df())}}

@@ -45,20 +45,33 @@ def _records_to_df(rec: dict) -> pd.DataFrame:
     }, index=pd.DatetimeIndex(pd.to_datetime(rec['dates'])))
 
 
+# market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
+# 파일 mtime이 바뀌면(배치 재배포·재수집) 자동 무효화. Streamlit rerun 간에도 유지.
+_snap_cache: dict = {}
+
+
 def load_snapshot(market: str) -> dict:
     path = _snapshot_path(market)
     if not path.exists():
+        _snap_cache.pop(market, None)
         return {}
+    mtime = path.stat().st_mtime_ns
+    hit = _snap_cache.get(market)
+    if hit and hit[0] == mtime:
+        return hit[1]
     try:
-        return json.loads(path.read_text(encoding='utf-8'))
+        snap = json.loads(path.read_text(encoding='utf-8'))
     except Exception:
         return {}
+    _snap_cache[market] = (mtime, snap)
+    return snap
 
 
 def save_snapshot(market: str, snap: dict) -> None:
     OHLCV_DIR.mkdir(exist_ok=True)
-    _snapshot_path(market).write_text(
-        json.dumps(snap, ensure_ascii=False), encoding='utf-8')
+    path = _snapshot_path(market)
+    path.write_text(json.dumps(snap, ensure_ascii=False), encoding='utf-8')
+    _snap_cache[market] = (path.stat().st_mtime_ns, snap)
 
 
 def _merge_ticker(market: str, key: str, df: pd.DataFrame) -> None:
