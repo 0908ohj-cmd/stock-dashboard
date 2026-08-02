@@ -1,5 +1,5 @@
 import streamlit as st
-from data.fetcher import fetch_index_daily
+from data import store
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
 
@@ -24,12 +24,17 @@ PHASE_DESC = {
 
 @st.cache_data(ttl=300)
 def _load_index(name: str):
-    df = fetch_index_daily(name, days=300)
-    return df
+    return store.load_index(name)
 
 
 def render_index_panel():
     st.subheader('지수 현황')
+    fr = store.get_freshness('indices')
+    if fr['fetched_at']:
+        st.caption(
+            f"📅 {fr['last_trading_date']} 장마감 기준 · "
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+        )
     cols = st.columns(len(INDEX_NAMES))
 
     for col, name in zip(cols, INDEX_NAMES):
