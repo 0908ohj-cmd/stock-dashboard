@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from data.fetcher import fetch_daily, fetch_index_daily
+from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily
 
 OHLCV_DIR = pathlib.Path(__file__).parent / 'ohlcv'
 KST = timezone(timedelta(hours=9))
@@ -163,21 +163,42 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             return False
 
     failed = []
-    for t in tickers:
-        if not _try(t):
-            failed.append(t)
-        if throttle_sec:
-            time.sleep(throttle_sec)
-
-    if failed:                        # 재시도 패스 — 레이트리밋 완화 대기 후
-        if throttle_sec:
-            time.sleep(throttle_sec * 12)
-        retry, failed = failed, []
-        for t in retry:
+    if fetch_fn is None and market == 'US':
+        # US 벌크 경로 — 요청 수 390→8회로 축소 (프로세스당 ~245요청 세션 만료 회피)
+        bulk = fetch_daily_bulk_us(tickers, days=STOCK_DAYS)
+        misses = []
+        for t in tickers:
+            df = bulk.get(t)
+            if df is not None and not df.empty:
+                try:
+                    data[t] = _df_to_records(df)
+                    d = df.index[-1].strftime('%Y-%m-%d')
+                    last_date = max(last_date, d) if last_date else d
+                except Exception:
+                    misses.append(t)
+            else:
+                misses.append(t)
+        for t in misses:              # 벌크 미스만 개별 폴백 1회
             if not _try(t):
                 failed.append(t)
             if throttle_sec:
-                time.sleep(max(throttle_sec, 0.5))
+                time.sleep(throttle_sec)
+    else:
+        for t in tickers:
+            if not _try(t):
+                failed.append(t)
+            if throttle_sec:
+                time.sleep(throttle_sec)
+
+        if failed:                    # 재시도 패스 — 레이트리밋 완화 대기 후
+            if throttle_sec:
+                time.sleep(throttle_sec * 12)
+            retry, failed = failed, []
+            for t in retry:
+                if not _try(t):
+                    failed.append(t)
+                if throttle_sec:
+                    time.sleep(max(throttle_sec, 0.5))
 
     return {
         'market': market,

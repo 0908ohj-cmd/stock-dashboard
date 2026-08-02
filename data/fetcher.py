@@ -76,6 +76,46 @@ def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFram
     return _download(ticker, start, end).dropna()
 
 
+def fetch_daily_bulk_us(tickers: list, days: int = 350, chunk_size: int = 50) -> dict:
+    """US 전용 벌크 수집 — yf.download 멀티티커로 HTTP 요청 수를 1/chunk_size로 줄인다.
+
+    한 프로세스가 야후에 개별 요청을 ~245회 넘게 보내면 세션이 만료돼 이후 전부
+    실패하는 문제(2026-08 확인)를 회피한다. KR은 pykrx 패치 체인이 필요해 제외.
+    반환: {ticker: DataFrame} — 실패 티커는 키 자체가 없음.
+    """
+    end = datetime.today() + timedelta(days=1)
+    start = end - timedelta(days=days + 1)
+    out: dict = {}
+    for i in range(0, len(tickers), chunk_size):
+        chunk = tickers[i:i + chunk_size]
+        try:
+            df = yf.download(chunk, start=start, end=end, interval='1d',
+                             progress=False, auto_adjust=True, threads=False,
+                             group_by='ticker')
+        except Exception:
+            continue
+        if df is None or df.empty:
+            continue
+        for t in chunk:
+            try:
+                if isinstance(df.columns, pd.MultiIndex):
+                    if t not in df.columns.get_level_values(0):
+                        continue
+                    sub = df[t]
+                else:               # 청크에 유효 티커가 1개뿐이면 단일 컬럼으로 옴
+                    sub = df
+                if 'Close' not in sub.columns:
+                    continue
+                sub = sub.dropna(subset=['Close'])
+                if sub.empty:
+                    continue
+                needed = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in sub.columns]
+                out[t] = sub[needed]
+            except Exception:
+                continue
+    return out
+
+
 def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
     if market.startswith('KR'):
         suffix = '.KS' if 'KOSPI' in market else '.KQ'

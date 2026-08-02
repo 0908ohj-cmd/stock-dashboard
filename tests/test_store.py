@@ -67,6 +67,8 @@ def test_refetch_market_full_replace(tmp_store, monkeypatch):
     old = {'market': 'US', 'fetched_at': '2026-07-01T07:00:00+09:00',
            'data': {'OLD': store._df_to_records(_sample_df())}}
     (tmp_store / 'US.json').write_text(json.dumps(old), encoding='utf-8')
+    monkeypatch.setattr(store, 'fetch_daily_bulk_us',
+                        lambda tickers, days: {t: _sample_df() for t in tickers})
     monkeypatch.setattr(store, 'fetch_daily', lambda t, market, days: _sample_df())
     store.refetch_market('US', ['AAPL', 'TSLA'])
     saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
@@ -85,6 +87,44 @@ def test_build_snapshot_records_failures(tmp_store):
     assert snap['ticker_count'] == 1
     assert snap['failed'] == ['BAD']
     assert not (tmp_store / 'US.json').exists()   # build는 저장하지 않는다
+
+
+def test_build_snapshot_us_uses_bulk(tmp_store, monkeypatch):
+    """US는 벌크 수집 경로 — 프로세스당 요청 수 제한(~245회) 회피."""
+    monkeypatch.setattr(store, 'fetch_daily_bulk_us',
+                        lambda tickers, days: {'AAPL': _sample_df(), 'TSLA': _sample_df()})
+    monkeypatch.setattr(store, 'fetch_daily',
+                        lambda *a, **k: pytest.fail('벌크 성공 시 개별 호출 금지'))
+    snap = store.build_market_snapshot('US', ['AAPL', 'TSLA'], throttle_sec=0)
+    assert snap['ticker_count'] == 2
+    assert snap['failed'] == []
+    assert snap['last_trading_date'] == '2026-07-21'
+
+
+def test_build_snapshot_us_bulk_miss_retries_individually(tmp_store, monkeypatch):
+    """벌크에서 빠진 티커는 개별 폴백 1회 시도 후 실패 기록."""
+    monkeypatch.setattr(store, 'fetch_daily_bulk_us',
+                        lambda tickers, days: {'AAPL': _sample_df()})
+    calls = []
+    def single(t, market, days):
+        calls.append(t)
+        if t == 'GOOD':
+            return _sample_df()
+        return pd.DataFrame()
+    monkeypatch.setattr(store, 'fetch_daily', single)
+    snap = store.build_market_snapshot('US', ['AAPL', 'GOOD', 'BAD'], throttle_sec=0)
+    assert snap['ticker_count'] == 2
+    assert snap['failed'] == ['BAD']
+    assert calls == ['GOOD', 'BAD']   # 벌크 성공분은 개별 호출 안 함
+
+
+def test_build_snapshot_kr_stays_per_ticker(tmp_store, monkeypatch):
+    """KR은 pykrx 패치 체인이 필요하므로 개별 수집 경로 유지."""
+    monkeypatch.setattr(store, 'fetch_daily_bulk_us',
+                        lambda *a, **k: pytest.fail('KR은 벌크 경로 금지'))
+    monkeypatch.setattr(store, 'fetch_daily', lambda t, market, days: _sample_df())
+    snap = store.build_market_snapshot('KR_KOSPI', ['005930'], throttle_sec=0)
+    assert snap['ticker_count'] == 1
 
 
 def test_build_snapshot_retries_transient_failures(tmp_store):
