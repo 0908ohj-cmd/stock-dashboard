@@ -3,9 +3,13 @@ import json
 import pathlib
 import requests
 import streamlit as st
-from data.fetcher import parse_tradingview_csv, parse_ticker_txt, fetch_index_daily
-from ui.index_panel import render_index_panel
-from ui.watchlist import render_watchlist_tab, _fetch_index_cached
+from data.fetcher import parse_tradingview_csv, parse_ticker_txt
+from data import store
+from ui.index_panel import render_index_panel, _load_index
+from ui.watchlist import (
+    render_watchlist_tab, _fetch_index_cached,
+    _build_rows, _get_market_status_cached,
+)
 from ui.watchlist_10ema import render_10ema_tab
 from ui.leaderboard import render_leaderboard_section
 
@@ -40,6 +44,13 @@ SAVED_PATHS = {
     'US':        SAVED_DIR / 'us.tickers',
 }
 
+
+def _clear_analysis_caches() -> None:
+    _build_rows.clear()
+    _fetch_index_cached.clear()
+    _get_market_status_cached.clear()
+    _load_index.clear()
+
 st.set_page_config(
     page_title='Stock Watchlist',
     page_icon='📈',
@@ -69,9 +80,10 @@ with st.sidebar:
     kosdaq_file       = st.file_uploader('코스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='kosdaq_csv')
     us_file           = st.file_uploader('나스닥 (CSV 또는 TXT)',     type=['csv', 'txt'], key='us_csv')
     st.divider()
-    if st.button('🔄 새로고침', use_container_width=True):
-        st.rerun()
-    st.caption('⚠️ 주가 데이터는 15분 지연 (무료 API)')
+    if st.button('🔄 데이터 재수집', use_container_width=True,
+                 help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
+        st.session_state['force_refetch'] = True
+    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 16:00 · US 07:00 KST)')
     st.divider()
     st.markdown('**💾 티커 백업**')
     backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
@@ -99,6 +111,15 @@ for uploaded, key, name in [
             content = '\n'.join(tickers_parsed)
             saved_path.write_text(content, encoding='utf-8')
             _github_save(saved_path.name, content)
+            # 업로드 직후 1회 수집 — file_uploader는 rerun마다 같은 파일을 반환하므로
+            # 세션 시그니처 가드가 없으면 매 rerun 전량 재수집된다
+            sig = f'{fname}:{len(raw)}'
+            if st.session_state.get(f'uploaded_sig_{key}') != sig:
+                st.session_state[f'uploaded_sig_{key}'] = sig
+                with st.sidebar:
+                    with st.spinner(f'{name} 시세 수집 중... ({len(tickers_parsed)}개 종목)'):
+                        store.refetch_market(key, tickers_parsed)
+                _clear_analysis_caches()
         except Exception as e:
             st.sidebar.error(f'파일 오류: {e}')
 
@@ -142,6 +163,17 @@ if _any:
         mime='application/json',
         use_container_width=True,
     )
+
+# ── 수동 데이터 재수집 (비상용) ───────────────────────────
+if st.session_state.pop('force_refetch', False):
+    for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq), ('US', us_tickers)]:
+        if tickers:
+            with st.spinner(f'{key} 재수집 중... ({len(tickers)}개 종목)'):
+                store.refetch_market(key, tickers)
+    with st.spinner('지수 재수집 중...'):
+        store.refetch_indices()
+    _clear_analysis_caches()
+    st.rerun()
 
 # ── 지수 패널 ─────────────────────────────────────────────
 render_index_panel()
