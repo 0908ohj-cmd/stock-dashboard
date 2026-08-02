@@ -81,10 +81,24 @@ def test_build_snapshot_records_failures(tmp_store):
         if t == 'BAD':
             raise RuntimeError('boom')
         return _sample_df()
-    snap = store.build_market_snapshot('US', ['AAPL', 'BAD'], fetch_fn=flaky)
+    snap = store.build_market_snapshot('US', ['AAPL', 'BAD'], fetch_fn=flaky, throttle_sec=0)
     assert snap['ticker_count'] == 1
     assert snap['failed'] == ['BAD']
     assert not (tmp_store / 'US.json').exists()   # build는 저장하지 않는다
+
+
+def test_build_snapshot_retries_transient_failures(tmp_store):
+    """일시 실패(레이트리밋 등)는 재시도 패스에서 회복돼야 한다."""
+    calls = {}
+    def transient(t, market, days):
+        calls[t] = calls.get(t, 0) + 1
+        if t == 'FLAKY' and calls[t] == 1:
+            return pd.DataFrame()   # 첫 시도만 빈 응답
+        return _sample_df()
+    snap = store.build_market_snapshot('US', ['AAPL', 'FLAKY'], fetch_fn=transient, throttle_sec=0)
+    assert snap['ticker_count'] == 2
+    assert snap['failed'] == []
+    assert calls['FLAKY'] == 2
 
 
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──

@@ -137,21 +137,48 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
 
 
 # ── 전체 재수집 (배치·업로드 직후·수동 새로고침) ─────────
-def build_market_snapshot(market: str, tickers: list, fetch_fn=None) -> dict:
-    """전 종목 수집 → 스냅샷 dict 생성. 저장하지 않는다 (성공률 게이트는 호출부 책임)."""
+def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
+                          throttle_sec: float = 0.25) -> dict:
+    """전 종목 수집 → 스냅샷 dict 생성. 저장하지 않는다 (성공률 게이트는 호출부 책임).
+
+    throttle_sec: 호출 간 대기 — 수백 종목 연속 호출 시 Yahoo 레이트리밋 방지.
+    실패 티커는 잠시 대기 후 1회 재시도 (일시적 레이트리밋 회복).
+    """
+    import time
+
     fetch = fetch_fn or fetch_daily
-    data, failed, last_date = {}, [], None
-    for t in tickers:
+    data, last_date = {}, None
+
+    def _try(t) -> bool:
+        nonlocal last_date
         try:
             df = fetch(t, market=market, days=STOCK_DAYS)
             if df.empty:
-                failed.append(t)
-                continue
+                return False
             data[t] = _df_to_records(df)
             d = df.index[-1].strftime('%Y-%m-%d')
             last_date = max(last_date, d) if last_date else d
+            return True
         except Exception:
+            return False
+
+    failed = []
+    for t in tickers:
+        if not _try(t):
             failed.append(t)
+        if throttle_sec:
+            time.sleep(throttle_sec)
+
+    if failed:                        # 재시도 패스 — 레이트리밋 완화 대기 후
+        if throttle_sec:
+            time.sleep(throttle_sec * 12)
+        retry, failed = failed, []
+        for t in retry:
+            if not _try(t):
+                failed.append(t)
+            if throttle_sec:
+                time.sleep(max(throttle_sec, 0.5))
+
     return {
         'market': market,
         'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
