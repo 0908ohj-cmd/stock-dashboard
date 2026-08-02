@@ -5,9 +5,10 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 from strategy.trading_days import trading_days_after, nth_trading_day_after
 from data.fetcher import (
-    fetch_daily, fetch_index_daily, get_stock_name,
+    get_stock_name,
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
+from data import store
 from data.sector import get_sectors
 from data import leaderboard_store
 from strategy.market_status import get_market_status
@@ -34,7 +35,7 @@ KO_LOCALE = {
 
 @st.cache_data(ttl=1800)
 def _fetch_index_cached(name: str) -> pd.DataFrame:
-    return fetch_index_daily(name, days=400)
+    return store.load_index(name)
 
 
 @st.cache_data(ttl=1800)
@@ -108,7 +109,7 @@ def _build_rows(
     stock_cache = {}
     for ticker in tickers:
         try:
-            df = fetch_daily(ticker, market=market, days=350)
+            df = store.load_daily(ticker, market)
             if df.empty or len(df) < 25:
                 continue
             df_asof = df[df.index <= asof] if asof is not None else df
@@ -391,11 +392,23 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 """, unsafe_allow_html=True)
 
         st.divider()
-        if st.button('🔄 재스캔', key=f'rescan_{market}', help='종목 데이터를 지금 즉시 다시 불러옵니다'):
+        if st.button('🔄 재스캔', key=f'rescan_{market}', help='이 시장 시세를 지금 즉시 다시 수집합니다'):
+            with st.spinner(f'{label} 재수집 중... ({len(tickers)}개 종목)'):
+                store.refetch_market(market, tickers)
+                store.refetch_indices()
             _build_rows.clear()
             _fetch_index_cached.clear()
             _get_market_status_cached.clear()
             st.rerun()
+
+    fr = store.get_freshness(market)
+    if fr['fetched_at']:
+        st.caption(
+            f"📅 {fr['last_trading_date']} 장마감 기준 · "
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+        )
+    if fr['is_stale']:
+        st.warning('⚠️ 배치 수집이 실패한 것 같습니다 — 사이드바 [데이터 재수집]을 눌러 주세요.')
 
     status = _get_market_status_cached(market)
 
