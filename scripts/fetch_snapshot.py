@@ -40,12 +40,14 @@ def run_market(market: str) -> bool:
         print(f'[{market}] 티커 파일 없음 — 건너뜀')
         return True
     snap = store.build_market_snapshot(market, tickers)
-    rate = snap['ticker_count'] / len(tickers)
+    # 분모는 실제 시도 수(성공+실패) — 티커 파일 중복 라인에 왜곡되지 않는다
+    attempted = snap['ticker_count'] + len(snap['failed'])
+    rate = snap['ticker_count'] / attempted if attempted else 1.0
     if rate < MIN_SUCCESS_RATE:
         print(f'[{market}] 성공률 {rate:.0%} < {MIN_SUCCESS_RATE:.0%} — 스냅샷 미교체')
         return False
     store.save_snapshot(market, snap)
-    print(f"[{market}] {snap['ticker_count']}/{len(tickers)}개 저장 "
+    print(f"[{market}] {snap['ticker_count']}/{attempted}개 저장 "
           f"(실패 {len(snap['failed'])}: {snap['failed'][:5]})")
     return True
 

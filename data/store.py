@@ -146,6 +146,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     """
     import time
 
+    tickers = list(dict.fromkeys(tickers))   # 순서 보존 dedupe — 파일 중복 라인 방어
     fetch = fetch_fn or fetch_daily
     data, last_date = {}, None
 

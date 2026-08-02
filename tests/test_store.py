@@ -118,6 +118,19 @@ def test_build_snapshot_us_bulk_miss_retries_individually(tmp_store, monkeypatch
     assert calls == ['GOOD', 'BAD']   # 벌크 성공분은 개별 호출 안 함
 
 
+def test_build_snapshot_dedupes_tickers(tmp_store):
+    """중복 티커는 1회만 수집 — 성공률 분모 왜곡 방지 (us.tickers 390줄 중 유니크 249개 사례)."""
+    calls = []
+    def fetch(t, market, days):
+        calls.append(t)
+        return _sample_df()
+    snap = store.build_market_snapshot('KR_KOSPI', ['005930', '005930', '000660'],
+                                       fetch_fn=fetch, throttle_sec=0)
+    assert calls == ['005930', '000660']
+    assert snap['ticker_count'] == 2
+    assert snap['failed'] == []
+
+
 def test_build_snapshot_kr_stays_per_ticker(tmp_store, monkeypatch):
     """KR은 pykrx 패치 체인이 필요하므로 개별 수집 경로 유지."""
     monkeypatch.setattr(store, 'fetch_daily_bulk_us',
