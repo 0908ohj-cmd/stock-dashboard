@@ -90,3 +90,104 @@ def load_index(name: str) -> pd.DataFrame:
     if not df.empty:
         _merge_ticker('indices', name, df)
     return df
+
+
+# ── 신선도 판정 ──────────────────────────────────────────
+# KST 기준 배치 예정: KR 월~금 16:00, US 화~토 07:00 (cron: 0 7 / 0 22 * * 1-5 UTC)
+_BATCH_SCHEDULE = {
+    'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
+    'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
+}
+_GRACE_HOURS = 6   # cron 지연·재배포 여유
+
+
+def _last_deadline(schedule: dict, now: datetime) -> datetime:
+    """유예를 반영해 '이미 돌았어야 하는' 가장 최근 배치 예정 시각을 반환."""
+    cutoff = now - timedelta(hours=_GRACE_HOURS)
+    d = cutoff.date()
+    for _ in range(10):
+        cand = datetime(d.year, d.month, d.day, schedule['hour'], tzinfo=KST)
+        if cand.weekday() in schedule['weekdays'] and cand <= cutoff:
+            return cand
+        d -= timedelta(days=1)
+    return cutoff - timedelta(days=10)
+
+
+def get_freshness(market: str, now: datetime | None = None) -> dict:
+    now = now or datetime.now(KST)
+    snap = load_snapshot(market)
+    result = {
+        'fetched_at': None,
+        'last_trading_date': snap.get('last_trading_date'),
+        'is_stale': False,
+    }
+    fetched_at_s = snap.get('fetched_at')
+    if not fetched_at_s:
+        return result   # 파일/메타 없음 → 경고하지 않음 (스펙 8절)
+    fetched_at = datetime.fromisoformat(fetched_at_s)
+    result['fetched_at'] = fetched_at
+    if market == 'indices':   # 지수는 KR·US 두 배치 모두가 갱신 → 더 최근 기한 적용
+        deadline = max(_last_deadline(_BATCH_SCHEDULE['KR'], now),
+                       _last_deadline(_BATCH_SCHEDULE['US'], now))
+    else:
+        deadline = _last_deadline(
+            _BATCH_SCHEDULE['KR' if market.startswith('KR') else 'US'], now)
+    result['is_stale'] = fetched_at < deadline
+    return result
+
+
+# ── 전체 재수집 (배치·업로드 직후·수동 새로고침) ─────────
+def build_market_snapshot(market: str, tickers: list, fetch_fn=None) -> dict:
+    """전 종목 수집 → 스냅샷 dict 생성. 저장하지 않는다 (성공률 게이트는 호출부 책임)."""
+    fetch = fetch_fn or fetch_daily
+    data, failed, last_date = {}, [], None
+    for t in tickers:
+        try:
+            df = fetch(t, market=market, days=STOCK_DAYS)
+            if df.empty:
+                failed.append(t)
+                continue
+            data[t] = _df_to_records(df)
+            d = df.index[-1].strftime('%Y-%m-%d')
+            last_date = max(last_date, d) if last_date else d
+        except Exception:
+            failed.append(t)
+    return {
+        'market': market,
+        'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
+        'last_trading_date': last_date,
+        'ticker_count': len(data),
+        'failed': failed,
+        'data': data,
+    }
+
+
+def refetch_market(market: str, tickers: list) -> dict:
+    """전체 수집 후 스냅샷 전체 교체 저장 (업로드 직후·수동 새로고침용)."""
+    snap = build_market_snapshot(market, tickers)
+    save_snapshot(market, snap)
+    return snap
+
+
+def refetch_indices() -> dict:
+    data, last_date = {}, None
+    for name in INDEX_NAMES:
+        try:
+            df = fetch_index_daily(name, days=INDEX_DAYS)
+        except Exception:
+            continue
+        if df.empty:
+            continue
+        data[name] = _df_to_records(df)
+        d = df.index[-1].strftime('%Y-%m-%d')
+        last_date = max(last_date, d) if last_date else d
+    snap = {
+        'market': 'indices',
+        'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
+        'last_trading_date': last_date,
+        'ticker_count': len(data),
+        'failed': [],
+        'data': data,
+    }
+    save_snapshot('indices', snap)
+    return snap
