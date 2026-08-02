@@ -106,7 +106,8 @@ def load_index(name: str) -> pd.DataFrame:
 
 
 # ── 신선도 판정 ──────────────────────────────────────────
-# KST 기준 배치 예정: KR 월~금 16:00, US 화~토 07:00 (cron: 0 7 / 0 22 * * 1-5 UTC)
+# KST 기준 배치 예정: KR 월~금 16:30, US 화~토 07:00 (cron: 30 7 / 0 22 * * 1-5 UTC)
+# 기한(deadline)은 정각(16:00) 기준 보수 판정 — 30분 차이는 6h 유예가 흡수한다
 _BATCH_SCHEDULE = {
     'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
     'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
@@ -224,9 +225,14 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     }
 
 
-def refetch_market(market: str, tickers: list) -> dict:
-    """전체 수집 후 스냅샷 전체 교체 저장 (업로드 직후·수동 새로고침용)."""
-    snap = build_market_snapshot(market, tickers)
+def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> dict:
+    """전체 수집 후 스냅샷 전체 교체 저장 (업로드 직후·수동 새로고침용).
+
+    전량 실패(네트워크 장애 등) 시에는 저장하지 않는다 — 기존 스냅샷 보존.
+    """
+    snap = build_market_snapshot(market, tickers, throttle_sec=throttle_sec)
+    if snap['ticker_count'] == 0 and tickers:
+        return snap
     save_snapshot(market, snap)
     return snap
 
@@ -251,5 +257,7 @@ def refetch_indices() -> dict:
         'failed': [],
         'data': data,
     }
+    if not data:                      # 전량 실패 — 기존 indices.json 보존
+        return snap
     save_snapshot('indices', snap)
     return snap

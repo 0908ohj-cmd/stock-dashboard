@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 import pathlib
 import requests
@@ -83,7 +84,7 @@ with st.sidebar:
     if st.button('🔄 데이터 재수집', use_container_width=True,
                  help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
         st.session_state['force_refetch'] = True
-    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 16:00 · US 07:00 KST)')
+    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 16:30 · US 07:00 KST)')
     st.divider()
     st.markdown('**💾 티커 백업**')
     backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
@@ -113,7 +114,7 @@ for uploaded, key, name in [
             _github_save(saved_path.name, content)
             # 업로드 직후 1회 수집 — file_uploader는 rerun마다 같은 파일을 반환하므로
             # 세션 시그니처 가드가 없으면 매 rerun 전량 재수집된다
-            sig = f'{fname}:{len(raw)}'
+            sig = hashlib.md5(raw).hexdigest()   # 내용 기반 — 같은 이름·길이의 다른 파일도 감지
             if st.session_state.get(f'uploaded_sig_{key}') != sig:
                 st.session_state[f'uploaded_sig_{key}'] = sig
                 with st.sidebar:

@@ -96,13 +96,18 @@ def fetch_daily_bulk_us(tickers: list, days: int = 350, chunk_size: int = 50) ->
             continue
         if df is None or df.empty:
             continue
+        if not isinstance(df.columns, pd.MultiIndex) and len(chunk) > 1:
+            # 멀티 티커 청크에 flat 컬럼 → 어느 티커의 데이터인지 알 수 없음.
+            # 같은 DataFrame이 청크 전체에 배정되는 오염을 막기 위해 청크를 통째로
+            # 스킵한다 (미스 처리 → 호출부의 개별 폴백이 수습)
+            continue
         for t in chunk:
             try:
                 if isinstance(df.columns, pd.MultiIndex):
                     if t not in df.columns.get_level_values(0):
                         continue
                     sub = df[t]
-                else:               # 청크에 유효 티커가 1개뿐이면 단일 컬럼으로 옴
+                else:               # 티커 1개짜리 청크의 flat 컬럼은 정상 케이스
                     sub = df
                 if 'Close' not in sub.columns:
                     continue

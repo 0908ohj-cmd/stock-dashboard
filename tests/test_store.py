@@ -175,6 +175,30 @@ def test_build_snapshot_retries_transient_failures(tmp_store):
     assert calls['FLAKY'] == 2
 
 
+def test_refetch_market_keeps_old_snapshot_when_all_fail(tmp_store, monkeypatch):
+    """전량 실패(네트워크 장애 등) 시 기존 스냅샷을 빈 것으로 덮지 않는다."""
+    old = {'market': 'KR_KOSPI', 'fetched_at': '2026-07-01T16:00:00+09:00',
+           'data': {'005930': store._df_to_records(_sample_df())}}
+    (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
+    monkeypatch.setattr(store, 'fetch_daily', lambda *a, **k: pd.DataFrame())
+    snap = store.refetch_market('KR_KOSPI', ['005930'], throttle_sec=0)
+    assert snap['ticker_count'] == 0
+    saved = json.loads((tmp_store / 'KR_KOSPI.json').read_text(encoding='utf-8'))
+    assert '005930' in saved['data']                              # 기존 데이터 보존
+    assert saved['fetched_at'] == '2026-07-01T16:00:00+09:00'
+
+
+def test_refetch_indices_keeps_old_when_all_fail(tmp_store, monkeypatch):
+    """지수 전량 실패 시 기존 indices.json을 빈 것으로 덮지 않는다."""
+    old = {'market': 'indices', 'fetched_at': '2026-07-01T16:00:00+09:00',
+           'data': {'KOSPI': store._df_to_records(_sample_df())}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: pd.DataFrame())
+    store.refetch_indices()
+    saved = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))
+    assert 'KOSPI' in saved['data']                               # 기존 데이터 보존
+
+
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──
 
 def _write_meta(tmp_store, market, fetched_at):
