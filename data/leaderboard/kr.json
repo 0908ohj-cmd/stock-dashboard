@@ -1,7 +1,29 @@
 {
   "market": "KR",
-  "synced_at": "2026-08-03T22:07:25",
-  "source_updated_at": "2026-08-03T16:30:20.925958",
-  "count": 0,
-  "items": []
+  "synced_at": "2026-08-04T17:43:58",
+  "source_updated_at": "2026-08-04T17:43:08.698310",
+  "count": 1,
+  "items": [
+    {
+      "rank": 1,
+      "ticker": "006340",
+      "name": "대원전선",
+      "market": "KOSPI",
+      "sources": [
+        "leaders"
+      ],
+      "added_at": null,
+      "close": 13790.0,
+      "rs_rating": 96,
+      "adr": 14.4,
+      "perf_1m": 5.7,
+      "perf_3m": -8.4,
+      "perf_6m": 278.3,
+      "perf_12m": 374.7,
+      "dist_from_52w_high": -23.6,
+      "avg_dollar_vol": 148705243992,
+      "theme": "노후 송배전망 교체",
+      "sector": "전기·전자"
+    }
+  ]
 }
