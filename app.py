@@ -84,7 +84,7 @@ with st.sidebar:
     if st.button('🔄 데이터 재수집', use_container_width=True,
                  help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
         st.session_state['force_refetch'] = True
-    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 16:30 · US 07:00 KST)')
+    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 15:45 · US 07:00 KST)')
     st.divider()
     st.markdown('**💾 티커 백업**')
     backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')

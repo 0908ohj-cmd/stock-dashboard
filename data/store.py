@@ -106,10 +106,10 @@ def load_index(name: str) -> pd.DataFrame:
 
 
 # ── 신선도 판정 ──────────────────────────────────────────
-# KST 기준 배치 예정: KR 월~금 16:30, US 화~토 07:00 (cron: 30 7 / 0 22 * * 1-5 UTC)
-# 기한(deadline)은 정각(16:00) 기준 보수 판정 — 30분 차이는 6h 유예가 흡수한다
+# KST 기준 배치 예정: KR 월~금 15:45, US 화~토 07:00 (cron: 45 6 / 0 22 * * 1-5 UTC)
+# 기한(deadline)은 정각(15:00) 기준 보수 판정 — 45분 차이는 6h 유예가 흡수한다
 _BATCH_SCHEDULE = {
-    'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
+    'KR': {'hour': 15, 'weekdays': {0, 1, 2, 3, 4}},
     'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
 }
 _GRACE_HOURS = 6   # cron 지연·재배포 여유
