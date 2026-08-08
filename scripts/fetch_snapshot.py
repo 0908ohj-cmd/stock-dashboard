@@ -58,8 +58,8 @@ def main() -> int:
     args = ap.parse_args()
 
     results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
-    store.refetch_indices()
-    print('[indices] 지수 3종 갱신')
+    store.refetch_indices(args.markets)
+    print(f'[indices] {args.markets} 지수 갱신')
     return 0 if all(results) else 1
 
 

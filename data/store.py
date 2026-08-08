@@ -237,27 +237,44 @@ def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> di
     return snap
 
 
-def refetch_indices() -> dict:
-    data, last_date = {}, None
-    for name in INDEX_NAMES:
+_MARKET_INDEX_MAP = {
+    'kr':  ('KOSPI', 'KOSDAQ'),
+    'us':  ('NASDAQ',),
+    'all': INDEX_NAMES,
+}
+
+
+def refetch_indices(markets: str = 'all') -> dict:
+    to_update = _MARKET_INDEX_MAP.get(markets, INDEX_NAMES)
+
+    # 기존 데이터 보존 — 업데이트 대상 외 지수(예: KR 배치 시 NASDAQ)는 덮어쓰지 않음
+    existing   = load_snapshot('indices')
+    merged     = dict(existing.get('data', {}))
+
+    for name in to_update:
         try:
             df = fetch_index_daily(name, days=INDEX_DAYS)
         except Exception:
             continue
         if df.empty:
             continue
-        data[name] = _df_to_records(df)
-        d = df.index[-1].strftime('%Y-%m-%d')
-        last_date = max(last_date, d) if last_date else d
+        merged[name] = _df_to_records(df)
+
+    last_date = None
+    for rec in merged.values():
+        d = rec['dates'][-1] if rec.get('dates') else None
+        if d:
+            last_date = max(last_date, d) if last_date else d
+
     snap = {
         'market': 'indices',
         'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
         'last_trading_date': last_date,
-        'ticker_count': len(data),
+        'ticker_count': len(merged),
         'failed': [],
-        'data': data,
+        'data': merged,
     }
-    if not data:                      # 전량 실패 — 기존 indices.json 보존
+    if not merged:                    # 전량 실패 — 기존 indices.json 보존
         return snap
     save_snapshot('indices', snap)
     return snap
