@@ -80,6 +80,11 @@ def _process_one(ticker: str, market: str) -> dict | None:
         else:
             entry_price = stop_price = risk_pct = near_entry_pct = prior_move_pct = 0.0
 
+        ema10_v = float(calc_ema(df, 10).iloc[-1])
+        ema21_v = float(calc_ema(df, 21).iloc[-1])
+        sma50_v = df['Close'].rolling(50).mean().iloc[-1]
+        aligned3 = (not pd.isna(sma50_v)) and (ema10_v > ema21_v > float(sma50_v))
+
         return {
             'Ticker':        ticker,
             '종목명':        name,
@@ -97,12 +102,13 @@ def _process_one(ticker: str, market: str) -> dict | None:
             '고점대비%':     calc_pct_from_52w_high(df),
             '기준봉일':      pivot_date_str,
             'ADR%':          round(adr, 1),
+            '정배열3':       aligned3,
         }
     except Exception:
         return None
 
 
-_ROW_SCHEMA_VER = 6  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 7  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -216,9 +222,10 @@ def render_10ema_tab(market: str, label: str):
     m3.metric('📊 스캔', f'{len(tickers)}개')
 
     # 표시 필터
-    col_a, col_b = st.columns(2)
-    show_forming = col_a.checkbox('🟡 형성중 포함', value=False, key=f'show_forming_{market}')
-    show_failed  = col_b.checkbox('🔴 이탈 종목 보기', value=False, key=f'show_failed_{market}')
+    col_a, col_b, col_c = st.columns(3)
+    show_forming  = col_a.checkbox('🟡 형성중 포함',        value=False, key=f'show_forming_{market}')
+    show_failed   = col_b.checkbox('🔴 이탈 종목 보기',     value=False, key=f'show_failed_{market}')
+    only_aligned3 = col_c.checkbox('📐 10>21>50 정배열만', value=False, key=f'aligned3_{market}')
 
     if show_failed and show_forming:
         display_rows = rows
@@ -228,6 +235,9 @@ def render_10ema_tab(market: str, label: str):
         display_rows = [r for r in rows if r['상태'] in ('셋업', '형성중')]
     else:
         display_rows = setup_rows
+
+    if only_aligned3:
+        display_rows = [r for r in display_rows if r.get('정배열3', False)]
 
     if not display_rows:
         st.info('현재 셋업 완성 종목 없음. "형성중 포함"을 체크하면 더 넓게 볼 수 있습니다.')
