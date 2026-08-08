@@ -266,15 +266,15 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~5</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~3 거래일<br>매수 유효 구간</div>
+    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일<br>매수 유효 구간</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ①</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY5 이후 EMA21 미회복 시</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY7 이후 EMA21 미회복 시</div>
   </div>
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
@@ -664,7 +664,7 @@ function(valueA, valueB) {
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
                 _render_candidates(candidates, cand_label, period_str)
 
-            # 추가 후보: DAY3·DAY4 기준 고정 스냅샷
+            # 추가 후보: DAY3~DAY6 기준 고정 스냅샷
             if jjin_date_str:
                 jjin_ts  = pd.Timestamp(jjin_date_str)
                 _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
@@ -674,50 +674,72 @@ function(valueA, valueB) {
                 if days_since_jjin >= 1:
                     day3_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
                     day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2) if days_since_jjin >= 2 else None
+                    day5_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 3) if days_since_jjin >= 3 else None
+                    day6_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 4) if days_since_jjin >= 4 else None
                     day3_date = str(day3_ts.date()) if day3_ts is not None else None
                     day4_date = str(day4_ts.date()) if day4_ts is not None else None
+                    day5_date = str(day5_ts.date()) if day5_ts is not None else None
+                    day6_date = str(day6_ts.date()) if day6_ts is not None else None
                     core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
-                    day3_tickers = set()
 
-                    if day3_date:
-                        # DAY3: peak~day3_date 구간 고정 스냅샷
-                        with st.spinner('추가 후보 확인 중...'):
-                            day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
-
-                        day3_new = [
-                            r for r in day3_rows
-                            if r['Ticker'] not in core_tickers
+                    def _extra_filter(rows, seen):
+                        return [
+                            r for r in rows
+                            if r['Ticker'] not in seen
                             and (r['RS/ADR'] or 0) > 0
                             and r['ma_above_count'] > 0
                             and (r['거래량비%'] or 0) >= 120
                             and (r['고점대비%'] or 0) >= -30
                         ]
-                        day3_tickers = {r['Ticker'] for r in day3_new}
+
+                    if day3_date:
+                        # DAY3
+                        with st.spinner('추가 후보 확인 중...'):
+                            day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
+                        day3_new = _extra_filter(day3_rows, core_tickers)
+                        seen = core_tickers | {r['Ticker'] for r in day3_new}
                         p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
                         if day3_new:
                             _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
                         else:
                             st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
+                    else:
+                        seen = core_tickers
 
                     if days_since_jjin >= 2 and day4_date:
-                        # DAY4: peak~day4_date 구간 고정 스냅샷
+                        # DAY4
                         with st.spinner('추가 후보 확인 중...'):
                             day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)
-
-                        day4_new = [
-                            r for r in day4_rows
-                            if r['Ticker'] not in core_tickers
-                            and r['Ticker'] not in day3_tickers
-                            and (r['RS/ADR'] or 0) > 0
-                            and r['ma_above_count'] > 0
-                            and (r['거래량비%'] or 0) >= 120
-                            and (r['고점대비%'] or 0) >= -30
-                        ]
+                        day4_new = _extra_filter(day4_rows, seen)
+                        seen = seen | {r['Ticker'] for r in day4_new}
                         p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
                         if day4_new:
                             _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
                         else:
                             st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
+
+                    if days_since_jjin >= 3:
+                        # DAY5
+                        with st.spinner('추가 후보 확인 중...'):
+                            day5_rows = _build_rows(tuple(tickers), market, correction_start_str, day5_date, custom_rs_start_str, day5_date, swing_dates_str)
+                        day5_new = _extra_filter(day5_rows, seen)
+                        seen = seen | {r['Ticker'] for r in day5_new}
+                        p5 = _make_period_str(rs_start, day5_date) if rs_start else ''
+                        if day5_new:
+                            _render_candidates(day5_new, f'⭐ {day5_date} 기준 추가 후보', p5)
+                        else:
+                            st.markdown(f'**⭐ {day5_date} 기준 추가 후보** — 없음{p5}', unsafe_allow_html=True)
+
+                    if days_since_jjin >= 4:
+                        # DAY6
+                        with st.spinner('추가 후보 확인 중...'):
+                            day6_rows = _build_rows(tuple(tickers), market, correction_start_str, day6_date, custom_rs_start_str, day6_date, swing_dates_str)
+                        day6_new = _extra_filter(day6_rows, seen)
+                        p6 = _make_period_str(rs_start, day6_date) if rs_start else ''
+                        if day6_new:
+                            _render_candidates(day6_new, f'⭐ {day6_date} 기준 추가 후보', p6)
+                        else:
+                            st.markdown(f'**⭐ {day6_date} 기준 추가 후보** — 없음{p6}', unsafe_allow_html=True)
 
     idx_key = f'chart_idx_{market}'
     nav_key = f'chart_nav_{market}'
@@ -825,15 +847,15 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~5</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~3 거래일<br>매수 유효 구간</div>
+    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일<br>매수 유효 구간</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ①</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY5 이후 EMA21 미회복 시</div>
+    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY7 이후 EMA21 미회복 시</div>
   </div>
   <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>

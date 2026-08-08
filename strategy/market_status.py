@@ -114,9 +114,9 @@ def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp
 
 
 def _jjin_failed(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
-                  ema21: pd.Series, window: int = 3) -> bool:
+                  ema21: pd.Series, window: int = 5) -> bool:
     """jjin_date 이후 window 거래일이 모두 지난 후에도 EMA21 위로 종가 못 닫혔으면 True.
-    window 일 당일(DAY5)에는 아직 실패 판정 안 함 → day4(window+1)부터 판정."""
+    window 일 당일(DAY7)에는 아직 실패 판정 안 함 → day8(window+1)부터 판정."""
     after = index_df[index_df.index > jjin_date]
     if len(after) <= window:
         return False  # window일 이하 → 대기 중 (DAY3~5 진행 중)
@@ -142,7 +142,7 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
     state: 'normal' | 'correction' | 'early_signal'
-    찐반등 감지 후 3거래일 내 EMA21 미회복 시 실패로 판정, 조정 상태로 복귀.
+    찐반등 감지 후 5거래일 내 EMA21 미회복 시 실패로 판정, 조정 상태로 복귀.
     """
     base = {
         'state': 'normal', 'correction_start': None,
@@ -192,7 +192,7 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
         return base
 
     # 찐반등 후 3거래일 내 EMA21 회복 실패 여부 확인
-    if _jjin_failed(index_df, jjin['date'], ema21, window=3):
+    if _jjin_failed(index_df, jjin['date'], ema21, window=5):
         base['state']            = 'correction'
         base['failed_jjin_date'] = jjin['date']
         return base
