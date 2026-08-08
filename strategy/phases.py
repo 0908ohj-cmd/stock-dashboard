@@ -78,6 +78,11 @@ def get_phase_label(df: pd.DataFrame, index_adr: float) -> str:
     state  = status['state']
 
     if state == 'normal':
+        jjin_date = status.get('jjin_date')
+        if jjin_date is not None:
+            days_since = trading_days_after(df, jjin_date)
+            if days_since <= 5:  # DAY7까지는 DAY 레이블 유지 (EMA21 회복 여부 무관)
+                return f'DAY{min(days_since + 2, 7)}'
         return 'Normal'
     if state == 'correction':
         return 'DAY1'
