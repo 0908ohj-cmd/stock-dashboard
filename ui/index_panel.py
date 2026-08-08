@@ -8,7 +8,7 @@ INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ']
 PHASE_COLORS = {
     'DAY1': '🔴',
     'DAY2': '🟡',
-    'DAY3': '🟢', 'DAY4': '🟢', 'DAY5': '🟢',
+    'DAY3': '🟢', 'DAY4': '🟢', 'DAY5': '🟢', 'DAY6': '🟢', 'DAY7': '🟢',
     'Normal': '⚪',
 }
 
@@ -17,7 +17,9 @@ PHASE_DESC = {
     'DAY2': '찐반등 감지 → 와치리스트 체크',
     'DAY3': '매수 유효 1일차',
     'DAY4': '매수 유효 2일차',
-    'DAY5': '매수 유효 마지막 (EMA21 미회복 시 DAY1 복귀)',
+    'DAY5': '매수 유효 3일차',
+    'DAY6': '매수 유효 4일차',
+    'DAY7': '매수 유효 마지막 (EMA21 미회복 시 DAY1 복귀)',
     'Normal': '관망',
 }
 
