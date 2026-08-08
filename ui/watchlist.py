@@ -657,12 +657,19 @@ function(valueA, valueB) {
     if has_candidates or has_extra:
         with st.expander('📋 매수 후보', expanded=True):
 
-            if has_candidates:
-                candidates = top_candidates or fallback
-                ref_date   = jjin_date_str or str(pd.Timestamp.today().normalize().date())
+            if jjin_date_str:
+                ref_date   = jjin_date_str
                 cand_label = f'⭐ {ref_date} 기준 핵심 후보'
                 period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
-                _render_candidates(candidates, cand_label, period_str)
+                if has_candidates:
+                    _render_candidates(top_candidates or fallback, cand_label, period_str)
+                else:
+                    st.markdown(f'**{cand_label}** — 없음{period_str}', unsafe_allow_html=True)
+            elif has_candidates:
+                ref_date   = str(pd.Timestamp.today().normalize().date())
+                cand_label = f'⭐ {ref_date} 기준 핵심 후보'
+                period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
+                _render_candidates(top_candidates or fallback, cand_label, period_str)
 
             # 추가 후보: DAY3~DAY6 기준 고정 스냅샷
             if jjin_date_str:
