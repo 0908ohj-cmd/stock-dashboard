@@ -41,6 +41,17 @@ def _fmt_sources(sources) -> str:
     return ', '.join(labels)
 
 
+def _fmt_market(market) -> str:
+    """KR 아이템의 시장 구분(KOSPI/KOSDAQ) 표시값.
+
+    소스에 시장이 없으면 동기화가 'KR'로 메워 보낸다 — 구분을 아는 척하지 않고
+    그대로 노출한다. 문자열이 아닌 값도 표에서 터지지 않게 '—'로 접는다.
+    """
+    if not isinstance(market, str) or not market:
+        return '—'
+    return market
+
+
 def _fmt_updated(iso: str) -> str:
     """'2026-07-29T07:02:16' → '07-29 07:02'"""
     if not iso:
@@ -98,6 +109,8 @@ def _render_body():
     display_df = pd.DataFrame([{
         '#':        it.get('rank'),        # 구 스키마·수기 편집 파일엔 없을 수 있다
         '티커 | 종목명': f"{it.get('ticker')} | {it['name']}" if it.get('name') else it.get('ticker'),
+        # 시장 구분은 KR에서만 의미가 있다 — US는 전 종목이 'US'라 컬럼이 노이즈다
+        **({'시장': _fmt_market(it.get('market'))} if is_kr else {}),
         '소스':      _fmt_sources(it.get('sources')),
         '테마':      it.get('theme') or '기타',
         '종가':      it.get('close'),
@@ -143,6 +156,8 @@ function(params) {
     gb.configure_column('#', type=['numericColumn'], maxWidth=70)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter',
                         pinned='left', minWidth=160, flex=2)
+    if is_kr:
+        gb.configure_column('시장', filter='agSetColumnFilter', maxWidth=110)
     gb.configure_column('소스', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'],
