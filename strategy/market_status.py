@@ -8,7 +8,7 @@ def _ema21(index_df: pd.DataFrame) -> pd.Series:
 
 def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     """
-    찐반등 감지 — 가장 최근 조건 충족일 반환.
+    찐반등 감지 — 가장 최근 조정 시작일 이후 첫 번째 조건 충족일 반환.
     조건:
       1. 장중 저가가 EMA21 아래
       2. 당일 양봉, 상승폭 >= ADR(20일)
@@ -23,7 +23,22 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     bd_starts = below.astype(int).diff()[lambda s: s == 1].index  # EMA21 이탈일 목록
     vol_ma20  = index_df['Volume'].rolling(20).mean()              # fallback용
 
-    for i in range(len(index_df) - 1, 15, -1):
+    if len(bd_starts) == 0:
+        return None
+
+    last_start = bd_starts[-1]
+    try:
+        last_start_loc = index_df.index.get_loc(last_start)
+    except KeyError:
+        return None
+
+    # 조정 구간 최저 Low 이후부터 탐색 — EMA21이 장기 이탈 중이어도
+    # 가장 최근 바닥 이후 첫 번째 반등을 찐반등으로 인식하기 위함
+    correction_slice = index_df.iloc[last_start_loc:]
+    lowest_low_loc   = last_start_loc + int(correction_slice['Low'].argmin())
+    start_loc        = max(lowest_low_loc, 2)
+
+    for i in range(start_loc, len(index_df)):
         row  = index_df.iloc[i]
         prev = index_df.iloc[i - 1]
 
@@ -35,8 +50,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
             continue
         if float(row['Close']) < float(row['Open']):
             continue
-        if i < 2:
-            continue
+
         prev2 = index_df.iloc[i - 2]
 
         adr_val = float(
