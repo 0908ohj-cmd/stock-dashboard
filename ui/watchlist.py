@@ -598,28 +598,6 @@ function(valueA, valueB) {
         cand_rows  = rows
         cand_ma_ok = (state == 'normal')
 
-    # 후보 필터 토글
-    with st.expander('🔧 후보 필터', expanded=False):
-        fc1, fc2, fc3, fc4 = st.columns(4)
-        f_rs   = fc1.checkbox('RS/ADR > 0',       value=True, key=f'f_rs_{market}')
-        f_ma   = fc2.checkbox('이평선위치',        value=True, key=f'f_ma_{market}')
-        f_vol  = fc3.checkbox('거래량비% ≥ 120',  value=True, key=f'f_vol_{market}')
-        f_peak = fc4.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
-
-    top_candidates = [
-        r for r in cand_rows
-        if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-        and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
-        and (not f_vol  or (r['거래량비%'] or 0) >= 120)
-        and (not f_peak or (r['고점대비%'] or 0) >= -30)
-    ]
-    fallback = (
-        [r for r in cand_rows
-         if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-         and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
-         and (not f_peak or (r['고점대비%'] or 0) >= -35)][:5]
-        if not top_candidates else []
-    )
 
     _GRADE_COLOR = {
         'S': '#FFD700',
@@ -658,12 +636,36 @@ function(valueA, valueB) {
     pdate_c = status.get('peak_date')
     rs_start = custom_rs_start_str or (str(pdate_c.date()) if pdate_c else correction_start_str)
 
-    # 전체 후보 섹션을 하나의 expander로
-    has_candidates = bool(top_candidates or fallback)
-    has_extra = bool(jjin_date_str)
-
-    if has_candidates or has_extra:
+    # 후보 섹션 — @st.fragment로 감싸서 필터 변경 시 이 블록만 즉시 재렌더링
+    @st.fragment
+    def _candidates_frag():
+        has_extra = bool(jjin_date_str)
+        if not has_extra and not cand_rows:
+            return
         with st.expander('📋 매수 후보', expanded=True):
+            # 필터 토글 — expander 상단
+            fc1, fc2, fc3, fc4 = st.columns(4)
+            f_rs   = fc1.checkbox('RS/ADR > 0',       value=True, key=f'f_rs_{market}')
+            f_ma   = fc2.checkbox('이평선위치',        value=True, key=f'f_ma_{market}')
+            f_vol  = fc3.checkbox('거래량비% ≥ 120',  value=True, key=f'f_vol_{market}')
+            f_peak = fc4.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
+            st.divider()
+
+            top_candidates = [
+                r for r in cand_rows
+                if (not f_rs   or (r['RS/ADR'] or 0) > 0)
+                and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+                and (not f_vol  or (r['거래량비%'] or 0) >= 120)
+                and (not f_peak or (r['고점대비%'] or 0) >= -30)
+            ]
+            fallback = (
+                [r for r in cand_rows
+                 if (not f_rs   or (r['RS/ADR'] or 0) > 0)
+                 and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+                 and (not f_peak or (r['고점대비%'] or 0) >= -35)][:5]
+                if not top_candidates else []
+            )
+            has_candidates = bool(top_candidates or fallback)
 
             if jjin_date_str:
                 ref_date   = jjin_date_str
@@ -683,7 +685,6 @@ function(valueA, valueB) {
             if jjin_date_str:
                 jjin_ts  = pd.Timestamp(jjin_date_str)
                 _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
-                # 실제 거래일(지수 데이터 행) 기준 — busday는 공휴일을 거래일로 세버림
                 days_since_jjin = trading_days_after(_idx_tmp, jjin_ts) if not _idx_tmp.empty else 0
 
                 if days_since_jjin >= 1:
@@ -708,7 +709,6 @@ function(valueA, valueB) {
                         ]
 
                     if day3_date:
-                        # DAY3
                         with st.spinner('추가 후보 확인 중...'):
                             day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
                         day3_new = _extra_filter(day3_rows, core_tickers)
@@ -722,7 +722,6 @@ function(valueA, valueB) {
                         seen = core_tickers
 
                     if days_since_jjin >= 2 and day4_date:
-                        # DAY4
                         with st.spinner('추가 후보 확인 중...'):
                             day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)
                         day4_new = _extra_filter(day4_rows, seen)
@@ -734,7 +733,6 @@ function(valueA, valueB) {
                             st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
 
                     if days_since_jjin >= 3:
-                        # DAY5
                         with st.spinner('추가 후보 확인 중...'):
                             day5_rows = _build_rows(tuple(tickers), market, correction_start_str, day5_date, custom_rs_start_str, day5_date, swing_dates_str)
                         day5_new = _extra_filter(day5_rows, seen)
@@ -746,7 +744,6 @@ function(valueA, valueB) {
                             st.markdown(f'**⭐ {day5_date} 기준 추가 후보** — 없음{p5}', unsafe_allow_html=True)
 
                     if days_since_jjin >= 4:
-                        # DAY6
                         with st.spinner('추가 후보 확인 중...'):
                             day6_rows = _build_rows(tuple(tickers), market, correction_start_str, day6_date, custom_rs_start_str, day6_date, swing_dates_str)
                         day6_new = _extra_filter(day6_rows, seen)
@@ -755,6 +752,8 @@ function(valueA, valueB) {
                             _render_candidates(day6_new, f'⭐ {day6_date} 기준 추가 후보', p6)
                         else:
                             st.markdown(f'**⭐ {day6_date} 기준 추가 후보** — 없음{p6}', unsafe_allow_html=True)
+
+    _candidates_frag()
 
     idx_key = f'chart_idx_{market}'
     nav_key = f'chart_nav_{market}'
