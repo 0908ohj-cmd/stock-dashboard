@@ -598,18 +598,26 @@ function(valueA, valueB) {
         cand_rows  = rows
         cand_ma_ok = (state == 'normal')
 
+    # 후보 필터 토글
+    with st.expander('🔧 후보 필터', expanded=False):
+        fc1, fc2, fc3, fc4 = st.columns(4)
+        f_rs   = fc1.checkbox('RS/ADR > 0',       value=True, key=f'f_rs_{market}')
+        f_ma   = fc2.checkbox('이평선위치',        value=True, key=f'f_ma_{market}')
+        f_vol  = fc3.checkbox('거래량비% ≥ 120',  value=True, key=f'f_vol_{market}')
+        f_peak = fc4.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
+
     top_candidates = [
         r for r in cand_rows
-        if (r['RS/ADR'] or 0) > 0
-        and (cand_ma_ok or r['ma_above_count'] > 0)
-        and (r['거래량비%'] or 0) >= 120
-        and (r['고점대비%'] or 0) >= -30
+        if (not f_rs   or (r['RS/ADR'] or 0) > 0)
+        and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+        and (not f_vol  or (r['거래량비%'] or 0) >= 120)
+        and (not f_peak or (r['고점대비%'] or 0) >= -30)
     ]
     fallback = (
         [r for r in cand_rows
-         if (r['RS/ADR'] or 0) > 0
-         and (cand_ma_ok or r['ma_above_count'] > 0)
-         and (r['고점대비%'] or 0) >= -35][:5]
+         if (not f_rs   or (r['RS/ADR'] or 0) > 0)
+         and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+         and (not f_peak or (r['고점대비%'] or 0) >= -35)][:5]
         if not top_candidates else []
     )
 
@@ -693,10 +701,10 @@ function(valueA, valueB) {
                         return [
                             r for r in rows
                             if r['Ticker'] not in seen
-                            and (r['RS/ADR'] or 0) > 0
-                            and r['ma_above_count'] > 0
-                            and (r['거래량비%'] or 0) >= 120
-                            and (r['고점대비%'] or 0) >= -30
+                            and (not f_rs   or (r['RS/ADR'] or 0) > 0)
+                            and (not f_ma   or r['ma_above_count'] > 0)
+                            and (not f_vol  or (r['거래량비%'] or 0) >= 120)
+                            and (not f_peak or (r['고점대비%'] or 0) >= -30)
                         ]
 
                     if day3_date:
