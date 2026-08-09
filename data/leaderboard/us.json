@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-08-08T22:58:55",
-  "source_updated_at": "2026-08-08T22:58:53",
+  "synced_at": "2026-08-09T14:56:21",
+  "source_updated_at": "2026-08-09T14:56:18",
   "count": 20,
   "items": [
     {
@@ -388,8 +388,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-07-31",
       "close": 80.38,
