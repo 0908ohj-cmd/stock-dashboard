@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-08-09T14:56:21",
-  "source_updated_at": "2026-08-09T14:56:18",
+  "synced_at": "2026-08-10T07:02:55",
+  "source_updated_at": "2026-08-10T07:02:53",
   "count": 20,
   "items": [
     {
@@ -85,7 +85,7 @@
       "perf_12m": 258.6,
       "dist_from_52w_high": -2.9,
       "avg_dollar_vol": 3985029198,
-      "theme": "AI 데이터센터 서버",
+      "theme": "AI 서버",
       "sector": null
     },
     {
@@ -388,7 +388,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-07-31",
       "close": 80.38,
