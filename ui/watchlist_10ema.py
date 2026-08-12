@@ -56,11 +56,18 @@ def _process_one(ticker: str, market: str) -> dict | None:
         if adr < 6.0:
             return None
 
+        # 150일 or 200일 이평선 아래 종목 제외
+        last_close = float(df['Close'].iloc[-1])
+        sma150 = df['Close'].rolling(150).mean().iloc[-1]
+        sma200 = df['Close'].rolling(200).mean().iloc[-1]
+        if (not pd.isna(sma150) and last_close < float(sma150)) or \
+           (not pd.isna(sma200) and last_close < float(sma200)):
+            return None
+
         pivot  = find_pivot_candle(df)
         state  = classify_case(df, pivot)
         name   = get_stock_name(ticker, market)
 
-        last_close = float(df['Close'].iloc[-1])
         prev_close = float(df['Close'].iloc[-2])
         change_pct = (last_close - prev_close) / prev_close * 100
 
@@ -108,7 +115,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 7  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 8  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -129,10 +136,10 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
 
 
 def render_10ema_tab(market: str, label: str):
-    from data.universe import get_kr_universe, get_us_universe
+    from data.universe import get_kr_universe, get_us_universe, get_us_10ema_universe
 
     with st.spinner(f'{label} 유니버스 로딩 중...'):
-        tickers = get_us_universe() if market == 'US' else get_kr_universe(market)
+        tickers = get_us_10ema_universe() if market == 'US' else get_kr_universe(market)
 
     if not tickers:
         st.warning('유니버스를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.')

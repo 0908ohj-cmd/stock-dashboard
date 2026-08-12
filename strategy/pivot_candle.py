@@ -120,7 +120,19 @@ def find_pivot_candle(
     if not candidates:
         return None
 
-    best_i, best_vr = max(candidates, key=lambda x: x[1])
+    # 저가가 이후 한 번이라도 종가 기준으로 뚫린 기준봉은 무효화
+    valid = []
+    for i, vr in candidates:
+        pivot_low = float(stock_df['Low'].iloc[i])
+        after = stock_df.iloc[i + 1:]
+        if not (after['Close'] < pivot_low).any():
+            valid.append((i, vr))
+
+    if not valid:
+        return None
+
+    # 가장 최근 유효 기준봉 선택
+    best_i, best_vr = valid[-1]
     row = stock_df.iloc[best_i]
     high  = float(row['High'])
     low   = float(row['Low'])

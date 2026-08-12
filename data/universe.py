@@ -1,6 +1,9 @@
+import pathlib
 import pandas as pd
 import streamlit as st
 from datetime import date, timedelta
+
+_SAVED_DIR = pathlib.Path(__file__).resolve().parent / 'saved'
 
 
 def _prev_weekday(d: date, max_tries: int = 10) -> str:
@@ -148,3 +151,31 @@ def get_us_universe() -> list:
         tickers.update(_US_FALLBACK)
 
     return sorted(tickers)
+
+
+@st.cache_data(ttl=86400)
+def get_us_10ema_universe() -> list:
+    """미장 10EMA 고변동성 성장주 유니버스.
+
+    GitHub Actions 주간 배치가 빌드한 us_10ema.tickers를 우선 사용.
+    파일이 없으면 FDR NASDAQ 목록에서 즉석 필터링 후 반환.
+    """
+    path = _SAVED_DIR / 'us_10ema.tickers'
+    if path.exists():
+        tickers = [t for t in path.read_text(encoding='utf-8').splitlines() if t.strip()]
+        if tickers:
+            return tickers
+
+    # 파일 없으면 즉석 빌드 (배치 미실행 환경 대응)
+    try:
+        from scripts.build_us_growth_universe import build
+        tickers = build()
+        if tickers:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('\n'.join(tickers), encoding='utf-8')
+            return tickers
+    except Exception:
+        pass
+
+    # 최후 fallback: 기존 US 유니버스
+    return get_us_universe()

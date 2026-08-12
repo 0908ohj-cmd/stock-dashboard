@@ -2,8 +2,9 @@ name: 스냅샷 수집
 
 on:
   schedule:
-    - cron: '45 6 * * 1-5'   # 15:45 KST 월~금 → KR (cron 상습 지연 감안, 마감 직후로 앞당김)
+    - cron: '45 6 * * 1-5'   # 15:45 KST 월~금 → KR
     - cron: '0 22 * * 1-5'   # 07:00 KST 화~토 → US
+    - cron: '0 20 * * 0'     # 05:00 KST 일요일 → 미장 10EMA 유니버스 주간 빌드
   workflow_dispatch:
     inputs:
       markets:
@@ -37,20 +38,31 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
+            echo "build_universe=false" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "45 6 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
+            echo "build_universe=false" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 20 * * 0" ]; then
+            echo "markets=none" >> "$GITHUB_OUTPUT"
+            echo "build_universe=true" >> "$GITHUB_OUTPUT"
           else
             echo "markets=us" >> "$GITHUB_OUTPUT"
+            echo "build_universe=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 스냅샷 수집
+        if: steps.target.outputs.markets != 'none'
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
+
+      - name: 미장 10EMA 유니버스 빌드
+        if: steps.target.outputs.build_universe == 'true'
+        run: python scripts/build_us_growth_universe.py
 
       - name: 커밋 & push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ohlcv
+          git add data/ohlcv data/saved/us_10ema.tickers
           git diff --cached --quiet && { echo "변경 없음"; exit 0; }
           git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F)"
           git pull --rebase origin main
