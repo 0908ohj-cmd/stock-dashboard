@@ -56,10 +56,10 @@ def _is_aligned(ema10: pd.Series, ema21: pd.Series, ema50: pd.Series, idx: int) 
     return float(ema10.iloc[idx]) > float(ema21.iloc[idx]) > float(ema50.iloc[idx])
 
 
-def _broke_120d_high(df: pd.DataFrame, idx: int) -> bool:
-    if idx < 120:
+def _broke_60d_high(df: pd.DataFrame, idx: int) -> bool:
+    if idx < 60:
         return False
-    prior_high = float(df['High'].iloc[idx - 120:idx].max())
+    prior_high = float(df['High'].iloc[idx - 60:idx].max())
     return float(df['Close'].iloc[idx]) > prior_high
 
 
@@ -86,7 +86,7 @@ def find_pivot_candle(
 ) -> dict | None:
     """
     최근 lookback 거래일 내 기준봉 탐지.
-    조건: 거래량 300%+, 종가 레인지 상위 30%, 저항 돌파(120일 고점 or VCP 박스), 정배열.
+    조건: 거래량 300%+, 종가 레인지 상위 30%, 저항 돌파(60일 고점 or VCP 박스), 정배열.
     복수 후보 시 거래량비율 최고 봉 반환.
     """
     if len(stock_df) < 70:
@@ -96,7 +96,7 @@ def find_pivot_candle(
     ema21 = calc_ema(stock_df, 21)
     ema50 = stock_df['Close'].rolling(50).mean()
 
-    start_idx = max(120, len(stock_df) - lookback)
+    start_idx = max(60, len(stock_df) - lookback)
     candidates = []
 
     for i in range(start_idx, len(stock_df) - 1):  # 오늘(마지막 봉) 제외
@@ -106,7 +106,7 @@ def find_pivot_candle(
         row = stock_df.iloc[i]
         if not _close_in_top30(row):
             continue
-        if not (_broke_120d_high(stock_df, i) or _broke_vcp_box(stock_df, i)):
+        if not (_broke_60d_high(stock_df, i) or _broke_vcp_box(stock_df, i)):
             continue
         if pd.isna(ema50.iloc[i]):
             continue

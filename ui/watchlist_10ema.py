@@ -116,7 +116,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 9  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 10  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -193,7 +193,7 @@ def render_10ema_tab(market: str, label: str):
         st.caption('기준봉이란?')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① 거래량 (손바뀜)**  \n평소 대비 1.5배+ 폭발 — 구간 내 물린 매물이 새 매수자로 교체되는 손바뀜 발생')
-        c2.markdown('**② 저항 돌파**  \n120일 고점(약 6개월) 또는 VCP 박스 상단 돌파 — 6개월치 매물대를 뚫어내는 지점. 52주 신고가 돌파 시 오버행 없어 가장 강력')
+        c2.markdown('**② 저항 돌파**  \n60일 고점(약 3개월) 또는 VCP 박스 상단 돌파 — 3개월치 매물대를 뚫어내는 지점. 52주 신고가 돌파 시 오버행 없어 가장 강력')
         c3.markdown('**③ 종가 위치**  \n당일 고저 범위의 상단 70%+ 마감 (윗꼬리 없이 강하게 닫힘)')
         c4.markdown('**④ 이평선**  \n10EMA · 21EMA · 50MA 정배열 상태에서 발생해야 유효 — 이 봉의 **고가 = 타점**')
 
