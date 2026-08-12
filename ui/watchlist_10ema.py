@@ -4,7 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from strategy.trading_days import trading_days_after
-from data.fetcher import fetch_daily, get_stock_name
+from data.fetcher import get_stock_name
+from data.store import load_daily
 from data.sector import get_sectors
 from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
@@ -47,7 +48,7 @@ def _ma_score(df: pd.DataFrame, close: float) -> int:
 
 def _process_one(ticker: str, market: str) -> dict | None:
     try:
-        df = fetch_daily(ticker, market=market, days=300)
+        df = load_daily(ticker, market=market)
         if df.empty or len(df) < 70:
             return None
 
