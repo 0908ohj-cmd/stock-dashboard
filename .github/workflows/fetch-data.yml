@@ -2,9 +2,8 @@ name: 스냅샷 수집
 
 on:
   schedule:
-    - cron: '45 6 * * 1-5'   # 15:45 KST 월~금 → KR
-    - cron: '0 22 * * 1-5'   # 07:00 KST 화~토 → US
-    - cron: '0 20 * * 0'     # 05:00 KST 일요일 → 미장 10EMA 유니버스 주간 빌드
+    - cron: '45 6 * * 1-5'   # 15:45 KST 월~금 → KR 스냅샷 + 국장 유니버스 갱신
+    - cron: '0 22 * * 1-5'   # 07:00 KST 화~토 → US 스냅샷 + 미장 유니버스 갱신
   workflow_dispatch:
     inputs:
       markets:
@@ -38,29 +37,28 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
-            echo "build_universe=false" >> "$GITHUB_OUTPUT"
+            echo "build_kr=false" >> "$GITHUB_OUTPUT"
+            echo "build_us=false" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "45 6 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
-            echo "build_universe=false" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 20 * * 0" ]; then
-            echo "markets=none" >> "$GITHUB_OUTPUT"
-            echo "build_universe=true" >> "$GITHUB_OUTPUT"
+            echo "build_kr=true" >> "$GITHUB_OUTPUT"
+            echo "build_us=false" >> "$GITHUB_OUTPUT"
           else
             echo "markets=us" >> "$GITHUB_OUTPUT"
-            echo "build_universe=false" >> "$GITHUB_OUTPUT"
+            echo "build_kr=false" >> "$GITHUB_OUTPUT"
+            echo "build_us=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: 스냅샷 수집
-        if: steps.target.outputs.markets != 'none'
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
-      - name: 미장 10EMA 유니버스 빌드
-        if: steps.target.outputs.build_universe == 'true'
-        run: python scripts/build_us_growth_universe.py
-
-      - name: 국장 10EMA 유니버스 빌드
-        if: steps.target.outputs.build_universe == 'true'
+      - name: 국장 10EMA 유니버스 갱신
+        if: steps.target.outputs.build_kr == 'true'
         run: python scripts/build_kr_10ema_universe.py
+
+      - name: 미장 10EMA 유니버스 갱신
+        if: steps.target.outputs.build_us == 'true'
+        run: python scripts/build_us_growth_universe.py
 
       - name: 커밋 & push
         run: |
