@@ -136,10 +136,10 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
 
 
 def render_10ema_tab(market: str, label: str):
-    from data.universe import get_kr_universe, get_us_universe, get_us_10ema_universe
+    from data.universe import get_kr_10ema_universe, get_us_10ema_universe
 
     with st.spinner(f'{label} 유니버스 로딩 중...'):
-        tickers = get_us_10ema_universe() if market == 'US' else get_kr_universe(market)
+        tickers = get_us_10ema_universe() if market == 'US' else get_kr_10ema_universe(market)
 
     if not tickers:
         st.warning('유니버스를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.')

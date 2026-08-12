@@ -154,6 +154,24 @@ def get_us_universe() -> list:
 
 
 @st.cache_data(ttl=86400)
+def get_kr_10ema_universe(market: str) -> list:
+    """국장 10EMA 고변동성 성장주 유니버스.
+
+    GitHub Actions 주간 배치가 빌드한 kosdaq/kospi_10ema.tickers를 우선 사용.
+    파일이 없으면 기존 get_kr_universe() fallback.
+    """
+    filename = 'kosdaq_10ema.tickers' if 'KOSDAQ' in market else 'kospi_10ema.tickers'
+    path = _SAVED_DIR / filename
+    if path.exists():
+        tickers = [t for t in path.read_text(encoding='utf-8').splitlines() if t.strip()]
+        if tickers:
+            return tickers
+
+    # 파일 없으면 기존 유니버스 fallback
+    return get_kr_universe(market)
+
+
+@st.cache_data(ttl=86400)
 def get_us_10ema_universe() -> list:
     """미장 10EMA 고변동성 성장주 유니버스.
 

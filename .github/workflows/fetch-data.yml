@@ -58,11 +58,15 @@ jobs:
         if: steps.target.outputs.build_universe == 'true'
         run: python scripts/build_us_growth_universe.py
 
+      - name: 국장 10EMA 유니버스 빌드
+        if: steps.target.outputs.build_universe == 'true'
+        run: python scripts/build_kr_10ema_universe.py
+
       - name: 커밋 & push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ohlcv data/saved/us_10ema.tickers
+          git add data/ohlcv data/saved/us_10ema.tickers data/saved/kosdaq_10ema.tickers data/saved/kospi_10ema.tickers
           git diff --cached --quiet && { echo "변경 없음"; exit 0; }
           git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F)"
           git pull --rebase origin main
