@@ -45,6 +45,23 @@ def _records_to_df(rec: dict) -> pd.DataFrame:
     }, index=pd.DatetimeIndex(pd.to_datetime(rec['dates'])))
 
 
+def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int) -> pd.DataFrame:
+    """새 수집분에 빠진 과거 거래일을 기존 레코드에서 보존 (일시 결손 방어).
+
+    2026-08-12 배치에서 yfinance가 KOSPI 3거래일(찐반등봉 포함)을 빠뜨린 응답을 줬고,
+    통째 교체 저장이 멀쩡하던 과거 데이터를 소실시켰다 → 날짜 기준 병합으로 방어.
+    - 겹치는 날짜는 새 값 우선
+    - 새 수집분 마지막 날짜 이후의 기존 행은 되살리지 않는다 (당일 패치 잔재 영구화 방지)
+    - 마지막 날짜 기준 window_days(캘린더) 롤링 윈도우로 트림 (무한 증식 방지)
+    """
+    if old_rec:
+        old_df = _records_to_df(old_rec)
+        old_df = old_df[old_df.index <= new_df.index.max()]
+        new_df = new_df.combine_first(old_df)
+    cutoff = new_df.index.max() - pd.Timedelta(days=window_days)
+    return new_df[new_df.index >= cutoff]
+
+
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
 # 파일 mtime이 바뀌면(배치 재배포·재수집) 자동 무효화. Streamlit rerun 간에도 유지.
 _snap_cache: dict = {}
@@ -163,6 +180,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     tickers = list(dict.fromkeys(tickers))   # 순서 보존 dedupe — 파일 중복 라인 방어
     fetch = fetch_fn or fetch_daily
     data, last_date = {}, None
+    old_data = load_snapshot(market).get('data', {})   # 날짜 병합용 (일시 결손 방어)
 
     def _try(t) -> bool:
         nonlocal last_date
@@ -170,7 +188,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = fetch(t, market=market, days=STOCK_DAYS)
             if df.empty:
                 return False
-            data[t] = _df_to_records(df)
+            data[t] = _df_to_records(_merge_history(df, old_data.get(t), STOCK_DAYS))
             d = df.index[-1].strftime('%Y-%m-%d')
             last_date = max(last_date, d) if last_date else d
             return True
@@ -186,7 +204,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = bulk.get(t)
             if df is not None and not df.empty:
                 try:
-                    data[t] = _df_to_records(df)
+                    data[t] = _df_to_records(_merge_history(df, old_data.get(t), STOCK_DAYS))
                     d = df.index[-1].strftime('%Y-%m-%d')
                     last_date = max(last_date, d) if last_date else d
                 except Exception:
@@ -258,7 +276,7 @@ def refetch_indices(markets: str = 'all') -> dict:
             continue
         if df.empty:
             continue
-        merged[name] = _df_to_records(df)
+        merged[name] = _df_to_records(_merge_history(df, merged.get(name), INDEX_DAYS))
 
     last_date = None
     for rec in merged.values():

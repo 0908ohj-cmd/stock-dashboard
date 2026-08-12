@@ -199,6 +199,82 @@ def test_refetch_indices_keeps_old_when_all_fail(tmp_store, monkeypatch):
     assert 'KOSPI' in saved['data']                               # 기존 데이터 보존
 
 
+# ── 일시 결손 병합 방어 (2026-08-12 KOSPI 3거래일 소실 사건) ─────
+# yfinance가 일시적으로 일부 거래일을 빠뜨린 응답을 주면, 통째 교체 저장이
+# 멀쩡하던 과거 데이터(찐반등봉 등)까지 소실시킨다 → 날짜 기준 병합으로 방어.
+
+def _df_from(dates: list, closes: list) -> pd.DataFrame:
+    idx = pd.DatetimeIndex(pd.to_datetime(dates))
+    return pd.DataFrame({
+        'Open':   closes,
+        'High':   [c + 1 for c in closes],
+        'Low':    [c - 1 for c in closes],
+        'Close':  closes,
+        'Volume': [1000.0] * len(dates),
+    }, index=idx)
+
+
+def test_refetch_indices_preserves_dates_missing_from_new_fetch(tmp_store, monkeypatch):
+    """새 수집분이 중간 거래일을 빠뜨려도 기존 스냅샷의 그 날짜는 보존된다."""
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [200.0, 202.0, 203.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    rec = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))['data']['KOSPI']
+    assert rec['dates'] == ['2026-07-20', '2026-07-21', '2026-07-22', '2026-07-23']
+    assert rec['close'][0] == 200.0    # 겹치는 날짜는 새 값 우선
+    assert rec['close'][1] == 101.0    # 결손 날짜는 기존 값 보존
+
+
+def test_refetch_indices_does_not_revive_rows_after_new_last_date(tmp_store, monkeypatch):
+    """새 수집분 마지막 날짜 이후의 기존 행은 되살리지 않는다 (당일 패치 잔재 영구화 방지)."""
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-23'], [100.0, 103.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [200.0, 201.0, 202.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    rec = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))['data']['KOSPI']
+    assert rec['dates'] == ['2026-07-20', '2026-07-21', '2026-07-22']
+
+
+def test_refetch_indices_trims_rolling_window(tmp_store, monkeypatch):
+    """병합 후에도 마지막 날짜 기준 INDEX_DAYS 롤링 윈도우를 유지한다 (무한 증식 방지)."""
+    stale_date = '2025-06-01'   # INDEX_DAYS(400일)보다 오래된 날짜
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from([stale_date, '2026-07-21'], [50.0, 101.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    rec = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))['data']['KOSPI']
+    assert rec['dates'] == ['2026-07-20', '2026-07-21', '2026-07-22']
+
+
+def test_build_snapshot_preserves_dates_missing_from_new_fetch(tmp_store):
+    """종목 스냅샷도 동일 방어 — 069500 34거래일 소실 사건."""
+    old = {'market': 'KR_KOSPI', 'data': {'005930': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
+    (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])   # 07-21 결손
+
+    snap = store.build_market_snapshot('KR_KOSPI', ['005930'],
+                                       fetch_fn=lambda t, market, days: new_df.copy(),
+                                       throttle_sec=0)
+
+    rec = snap['data']['005930']
+    assert rec['dates'] == ['2026-07-20', '2026-07-21', '2026-07-22']
+    assert rec['close'][1] == 101.0    # 결손 날짜는 기존 값 보존
+
+
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──
 
 def _write_meta(tmp_store, market, fetched_at):
