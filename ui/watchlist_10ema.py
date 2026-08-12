@@ -183,7 +183,7 @@ def render_10ema_tab(market: str, label: str):
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 없음</div>
-    <div style="font-size:0.85em;line-height:1.6">최근 3개월 내<br>기준봉 미탐지</div>
+    <div style="font-size:0.85em;line-height:1.6">최근 6개월 내<br>기준봉 미탐지</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -192,7 +192,7 @@ def render_10ema_tab(market: str, label: str):
         st.caption('기준봉이란?')
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown('**① 거래량 (손바뀜)**  \n평소 대비 1.5배+ 폭발 — 구간 내 물린 매물이 새 매수자로 교체되는 손바뀜 발생')
-        c2.markdown('**② 저항 돌파**  \n60일 고점 또는 VCP 박스 상단 돌파 — 3개월치 매물대를 뚫어내는 지점. 52주 신고가 돌파 시 오버행 없어 가장 강력')
+        c2.markdown('**② 저항 돌파**  \n120일 고점(약 6개월) 또는 VCP 박스 상단 돌파 — 6개월치 매물대를 뚫어내는 지점. 52주 신고가 돌파 시 오버행 없어 가장 강력')
         c3.markdown('**③ 종가 위치**  \n당일 고저 범위의 상단 70%+ 마감 (윗꼬리 없이 강하게 닫힘)')
         c4.markdown('**④ 이평선**  \n10EMA · 21EMA · 50MA 정배열 상태에서 발생해야 유효 — 이 봉의 **고가 = 타점**')
 
@@ -205,7 +205,7 @@ def render_10ema_tab(market: str, label: str):
             '| 타점 | 기준봉 고가 — ORH 매수 진입가 | — |\n'
             '| 현재→타점% | 현재가 대비 타점까지 남은 거리 | **−5% 이내** 주목 |\n'
             '| 횡보일수 | 기준봉 이후 경과 거래일 | 3~40일 |\n'
-            '| 이전상승% | 기준봉 전 3개월 저점→고가 상승폭 (Prior Move) | **30%+** 필수 |\n'
+            '| 이전상승% | 기준봉 전 65거래일 저점→고가 상승폭 (Prior Move) | **30%+** 필수 |\n'
             '| ADR% | 최근 20일 평균 일일 변동폭 | **6%+** 필터 적용 |'
         )
 
