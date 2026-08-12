@@ -49,9 +49,6 @@ jobs:
             echo "build_us=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 스냅샷 수집
-        run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
-
       - name: 국장 10EMA 유니버스 갱신
         if: steps.target.outputs.build_kr == 'true'
         run: python scripts/build_kr_10ema_universe.py
@@ -59,6 +56,9 @@ jobs:
       - name: 미장 10EMA 유니버스 갱신
         if: steps.target.outputs.build_us == 'true'
         run: python scripts/build_us_growth_universe.py
+
+      - name: 스냅샷 수집
+        run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
       - name: 커밋 & push
         run: |
