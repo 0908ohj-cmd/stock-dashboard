@@ -45,7 +45,8 @@ def _records_to_df(rec: dict) -> pd.DataFrame:
     }, index=pd.DatetimeIndex(pd.to_datetime(rec['dates'])))
 
 
-def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int) -> pd.DataFrame:
+def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
+                   label: str | None = None) -> pd.DataFrame:
     """새 수집분에 빠진 과거 거래일을 기존 레코드에서 보존 (일시 결손 방어).
 
     2026-08-12 배치에서 yfinance가 KOSPI 3거래일(찐반등봉 포함)을 빠뜨린 응답을 줬고,
@@ -53,12 +54,26 @@ def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int)
     - 겹치는 날짜는 새 값 우선
     - 새 수집분 마지막 날짜 이후의 기존 행은 되살리지 않는다 (당일 패치 잔재 영구화 방지)
     - 마지막 날짜 기준 window_days(캘린더) 롤링 윈도우로 트림 (무한 증식 방지)
+    - label 지정 시 보존이 실제 발동하면 로그 출력 (배치 로그에서 수집 이상 가시화).
+      단, 윈도우 경계에서 매일 하루씩 밀려나는 선두 rolloff(1~2일)는 로그하지 않는다 —
+      중간 결손 또는 선두 3일 이상 결손만 이상 신호로 본다.
     """
+    new_min, new_max = new_df.index.min(), new_df.index.max()
     if old_rec:
         old_df = _records_to_df(old_rec)
-        old_df = old_df[old_df.index <= new_df.index.max()]
+        old_df = old_df[old_df.index <= new_max]
+        preserved = old_df.index.difference(new_df.index)
         new_df = new_df.combine_first(old_df)
-    cutoff = new_df.index.max() - pd.Timedelta(days=window_days)
+    else:
+        preserved = pd.DatetimeIndex([])
+    cutoff = new_max - pd.Timedelta(days=window_days)
+    preserved = preserved[preserved >= cutoff]
+    interior = preserved[preserved > new_min]
+    leading  = preserved[preserved < new_min]
+    if label and (len(interior) or len(leading) >= 3):
+        dates = [d.strftime('%Y-%m-%d') for d in preserved]
+        shown = ', '.join(dates[:5]) + (f' 외 {len(dates) - 5}일' if len(dates) > 5 else '')
+        print(f'[{label}] 새 수집분에서 {len(dates)}거래일 결손 → 기존 값 보존: {shown}')
     return new_df[new_df.index >= cutoff]
 
 
@@ -188,7 +203,8 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = fetch(t, market=market, days=STOCK_DAYS)
             if df.empty:
                 return False
-            data[t] = _df_to_records(_merge_history(df, old_data.get(t), STOCK_DAYS))
+            data[t] = _df_to_records(
+                _merge_history(df, old_data.get(t), STOCK_DAYS, label=f'{market}:{t}'))
             d = df.index[-1].strftime('%Y-%m-%d')
             last_date = max(last_date, d) if last_date else d
             return True
@@ -204,7 +220,8 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = bulk.get(t)
             if df is not None and not df.empty:
                 try:
-                    data[t] = _df_to_records(_merge_history(df, old_data.get(t), STOCK_DAYS))
+                    data[t] = _df_to_records(
+                        _merge_history(df, old_data.get(t), STOCK_DAYS, label=f'{market}:{t}'))
                     d = df.index[-1].strftime('%Y-%m-%d')
                     last_date = max(last_date, d) if last_date else d
                 except Exception:
@@ -276,7 +293,8 @@ def refetch_indices(markets: str = 'all') -> dict:
             continue
         if df.empty:
             continue
-        merged[name] = _df_to_records(_merge_history(df, merged.get(name), INDEX_DAYS))
+        merged[name] = _df_to_records(
+            _merge_history(df, merged.get(name), INDEX_DAYS, label=name))
 
     last_date = None
     for rec in merged.values():

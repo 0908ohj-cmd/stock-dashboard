@@ -275,6 +275,65 @@ def test_build_snapshot_preserves_dates_missing_from_new_fetch(tmp_store):
     assert rec['close'][1] == 101.0    # 결손 날짜는 기존 값 보존
 
 
+def test_refetch_indices_logs_preserved_dates(tmp_store, monkeypatch, capsys):
+    """병합이 결손 날짜를 보존하면 배치 로그에 남긴다 — 조용한 덮어쓰기 방지."""
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [200.0, 202.0, 203.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    out = capsys.readouterr().out
+    assert 'KOSPI' in out
+    assert '2026-07-21' in out
+
+
+def test_build_snapshot_logs_preserved_dates(tmp_store, capsys):
+    old = {'market': 'KR_KOSPI', 'data': {'005930': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
+    (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])
+
+    store.build_market_snapshot('KR_KOSPI', ['005930'],
+                                fetch_fn=lambda t, market, days: new_df.copy(),
+                                throttle_sec=0)
+
+    out = capsys.readouterr().out
+    assert '005930' in out
+    assert '2026-07-21' in out
+
+
+def test_merge_silent_when_nothing_preserved(tmp_store, monkeypatch, capsys):
+    """새 수집분이 온전하면(결손 없음) 아무것도 출력하지 않는다."""
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [200.0, 201.0, 202.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    assert capsys.readouterr().out == ''
+
+
+def test_merge_silent_on_window_edge_rolloff(tmp_store, monkeypatch, capsys):
+    """수집 윈도우 경계에서 하루씩 밀려나는 선두 날짜(rolloff)는 보존하되 로그하지 않는다 —
+    매일 발생하는 자연 현상이라 로그하면 진짜 결손 경보가 묻힌다."""
+    old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
+        _df_from(['2026-07-19', '2026-07-20', '2026-07-21'], [99.0, 100.0, 101.0]))}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [200.0, 201.0, 202.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
+
+    store.refetch_indices()
+
+    assert capsys.readouterr().out == ''
+    rec = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))['data']['KOSPI']
+    assert rec['dates'][0] == '2026-07-19'   # 데이터는 윈도우 트림 전까지 보존
+
+
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──
 
 def _write_meta(tmp_store, market, fetched_at):
