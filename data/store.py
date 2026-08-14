@@ -45,36 +45,57 @@ def _records_to_df(rec: dict) -> pd.DataFrame:
     }, index=pd.DatetimeIndex(pd.to_datetime(rec['dates'])))
 
 
+_LOG_RECENT_DAYS = 30   # 이보다 오래된 결손은 로그하지 않는다 — 소스가 영영 안 주는 날짜가
+                        # 매 배치마다 재로그돼 진짜 이상 신호를 묻는 것을 막는다
+
+
 def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
                    label: str | None = None) -> pd.DataFrame:
-    """새 수집분에 빠진 과거 거래일을 기존 레코드에서 보존 (일시 결손 방어).
+    """새 수집분에 빠진 거래일을 기존 레코드에서 보존 (일시 결손 방어).
 
     2026-08-12 배치에서 yfinance가 KOSPI 3거래일(찐반등봉 포함)을 빠뜨린 응답을 줬고,
     통째 교체 저장이 멀쩡하던 과거 데이터를 소실시켰다 → 날짜 기준 병합으로 방어.
-    - 겹치는 날짜는 새 값 우선
-    - 새 수집분 마지막 날짜 이후의 기존 행은 되살리지 않는다 (당일 패치 잔재 영구화 방지)
+    - 겹치는 날짜는 새 수집분 행을 통째로 채택. 셀 단위 병합(combine_first)은 새 수집분의
+      NaN을 옛값으로 메워 Close > High 같은 모순 행을 만들므로 쓰지 않는다
+    - 꼬리가 잘린 응답도 중간 결손과 동일하게 취급해 기존 최신 거래일을 보존한다
     - 마지막 날짜 기준 window_days(캘린더) 롤링 윈도우로 트림 (무한 증식 방지)
-    - label 지정 시 보존이 실제 발동하면 로그 출력 (배치 로그에서 수집 이상 가시화).
-      단, 윈도우 경계에서 매일 하루씩 밀려나는 선두 rolloff(1~2일)는 로그하지 않는다 —
-      중간 결손 또는 선두 3일 이상 결손만 이상 신호로 본다.
+    - label 지정 시 이상 결손만 로그. 수집 윈도우가 앞으로 밀리며 빠지는 선두
+      rolloff는 정상이므로 제외한다 (휴일 클러스터 뒤엔 여러 날이 한꺼번에 밀린다)
     """
-    new_min, new_max = new_df.index.min(), new_df.index.max()
+    new_df = new_df[~new_df.index.duplicated(keep='last')]
+    if new_df.empty:
+        return new_df
+
+    fetch_min = new_df.index.min()
+    preserved = pd.DatetimeIndex([])
     if old_rec:
-        old_df = _records_to_df(old_rec)
-        old_df = old_df[old_df.index <= new_max]
+        old_df    = _records_to_df(old_rec)
+        old_df    = old_df[~old_df.index.duplicated(keep='last')]
         preserved = old_df.index.difference(new_df.index)
-        new_df = new_df.combine_first(old_df)
-    else:
-        preserved = pd.DatetimeIndex([])
-    cutoff = new_max - pd.Timedelta(days=window_days)
-    preserved = preserved[preserved >= cutoff]
-    interior = preserved[preserved > new_min]
-    leading  = preserved[preserved < new_min]
-    if label and (len(interior) or len(leading) >= 3):
-        dates = [d.strftime('%Y-%m-%d') for d in preserved]
-        shown = ', '.join(dates[:5]) + (f' 외 {len(dates) - 5}일' if len(dates) > 5 else '')
-        print(f'[{label}] 새 수집분에서 {len(dates)}거래일 결손 → 기존 값 보존: {shown}')
-    return new_df[new_df.index >= cutoff]
+        new_df    = pd.concat([new_df, old_df.loc[preserved]]).sort_index()
+
+    cutoff = new_df.index.max() - pd.Timedelta(days=window_days)
+    merged = new_df[new_df.index >= cutoff]
+
+    if label:
+        gaps = preserved[(preserved > fetch_min) & (preserved >= cutoff)]
+        gaps = gaps[gaps >= merged.index.max() - pd.Timedelta(days=_LOG_RECENT_DAYS)]
+        if len(gaps):
+            dates = [d.strftime('%Y-%m-%d') for d in gaps]
+            shown = ', '.join(dates[:5]) + (f' 외 {len(dates) - 5}일' if len(dates) > 5 else '')
+            print(f'[{label}] 새 수집분에서 {len(dates)}거래일 결손 → 기존 값 보존: {shown}')
+    return merged
+
+
+def _safe_merge(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
+                label: str) -> pd.DataFrame:
+    """병합 실패가 수집분 자체를 잃게 만들면 안 된다 — 손실 방어 로직이 손실의 원인이
+    되는 것을 막는 최후 방어선. 예외 시 새 수집분을 그대로 쓴다."""
+    try:
+        return _merge_history(new_df, old_rec, window_days, label=label)
+    except Exception as e:
+        print(f'[{label}] 병합 실패({type(e).__name__}: {e}) — 새 수집분만 저장')
+        return new_df
 
 
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
@@ -204,7 +225,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             if df.empty:
                 return False
             data[t] = _df_to_records(
-                _merge_history(df, old_data.get(t), STOCK_DAYS, label=f'{market}:{t}'))
+                _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}'))
             d = df.index[-1].strftime('%Y-%m-%d')
             last_date = max(last_date, d) if last_date else d
             return True
@@ -221,7 +242,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             if df is not None and not df.empty:
                 try:
                     data[t] = _df_to_records(
-                        _merge_history(df, old_data.get(t), STOCK_DAYS, label=f'{market}:{t}'))
+                        _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}'))
                     d = df.index[-1].strftime('%Y-%m-%d')
                     last_date = max(last_date, d) if last_date else d
                 except Exception:
@@ -294,7 +315,7 @@ def refetch_indices(markets: str = 'all') -> dict:
         if df.empty:
             continue
         merged[name] = _df_to_records(
-            _merge_history(df, merged.get(name), INDEX_DAYS, label=name))
+            _safe_merge(df, merged.get(name), INDEX_DAYS, name))
 
     last_date = None
     for rec in merged.values():

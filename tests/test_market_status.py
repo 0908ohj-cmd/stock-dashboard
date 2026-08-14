@@ -146,6 +146,38 @@ def test_second_failed_jjin_reports_latest_failure():
     assert status['failed_jjin_date'] == b2_date
 
 
+_RECOV = [(104, 112), (112, 118), (118, 124)]        # EMA21 위로 회복
+# B1 실패창 안 3번째 봉이 찐반등 조건 충족 (EMA21 아래에서 마감 → B1은 여전히 실패)
+_WIN_CAND = [(107, 102), (102, 99), (99, 107), (107, 104), (104, 101), (101, 100)]
+
+
+def test_normal_state_reports_new_jjin_not_failed_one():
+    """EMA21 회복 후 보고되는 찐반등은 실패한 첫 반등이 아니라 마지막 유효 반등이어야 한다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + _POST + _B2 + _RECOV)
+    b2_date = df.index[len(_UP) + len(_DOWN) + len(_B1) + len(_WIN5) + len(_POST)]
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] == b2_date
+
+
+def test_new_jjin_inside_failed_window_is_detected():
+    """실패한 찐반등의 확인 대기창(DAY3~7) 안에서 나온 새 찐반등도 감지돼야 한다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN_CAND)
+    cand_date = df.index[len(_UP) + len(_DOWN) + len(_B1) + 2]
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['jjin_date'] == cand_date
+
+
+def test_get_market_status_survives_duplicate_dates():
+    """중복 날짜 인덱스에서도 크래시하지 않는다 (스냅샷 병합 잔재 방어)."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5)
+    jjin_date = df.index[len(_UP) + len(_DOWN)]
+    df = pd.concat([df, df.loc[[jjin_date]]]).sort_index()
+    status = get_market_status(df)
+    assert status['state'] in ('normal', 'correction', 'early_signal')
+
+
 def test_jjin_bounce_skips_incomplete_ohlc_row():
     """Close만 있고 OHL이 NaN인 불완전 행(지수 패치 잔재 등)을 찐반등으로 오검출하면 안 된다."""
     dates = pd.date_range('2026-01-01', periods=35, freq='B')

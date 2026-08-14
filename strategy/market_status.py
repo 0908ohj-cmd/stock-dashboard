@@ -137,7 +137,10 @@ def _jjin_failure_date(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
     - 종가 < 찐반등 저가: 그날 즉시 실패 (기간 무관)
     - window 거래일 내 EMA21 위 종가 없음: window+1번째 거래일에 확정
       (window일 당일(DAY7)에는 아직 실패 판정 안 함)"""
-    jjin_low = float(index_df.loc[jjin_date, 'Low'])
+    if jjin_date not in index_df.index:
+        return None
+    low = index_df.loc[jjin_date, 'Low']
+    jjin_low = float(low.iloc[-1] if isinstance(low, pd.Series) else low)   # 중복 날짜 방어
     after = index_df[index_df.index > jjin_date]
     recovered = False
     for i, (idx, row) in enumerate(after.iterrows()):
@@ -149,6 +152,29 @@ def _jjin_failure_date(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
         if i == window and not recovered:
             return idx
     return None
+
+
+def _resolve_jjin(index_df: pd.DataFrame, ema21: pd.Series,
+                  last_start: pd.Timestamp) -> tuple[dict | None, pd.Timestamp | None]:
+    """실패한 찐반등을 건너뛰며 현재 유효한 후보를 찾는다 → (찐반등 | None, 마지막 실패일 | None).
+
+    실패 확정일이 아니라 실패 후보의 '다음 거래일'부터 재탐색한다 — 실패 후보의 확인
+    대기창(DAY3~7) 안에서 나온 새 찐반등도 놓치지 않기 위함.
+    """
+    search_start = None
+    last_failed  = None
+    for _ in range(len(index_df)):        # 후보 날짜가 매 회 엄격히 증가하므로 실제로는 조기 종료
+        jjin = detect_jjin_bounce(index_df, start=search_start)
+        if jjin is None or jjin['date'] < last_start:
+            return None, last_failed
+        if _jjin_failure_date(index_df, jjin['date'], ema21, window=5) is None:
+            return jjin, last_failed
+        last_failed = jjin['date']
+        nxt = int(index_df.index.searchsorted(jjin['date'], side='right'))
+        if nxt >= len(index_df):
+            return None, last_failed
+        search_start = index_df.index[nxt]
+    return None, last_failed
 
 
 def get_market_status(index_df: pd.DataFrame) -> dict:
@@ -170,7 +196,6 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     below        = index_df['Close'] < ema21
     transitions  = below.astype(int).diff()
     bd_starts    = transitions[transitions == 1].index
-    rec_dates    = transitions[transitions == -1].index
     is_below_now = bool(below.iloc[-1])
 
     if len(bd_starts) == 0:
@@ -180,47 +205,29 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
 
     base['correction_start'] = last_start
 
+    # 실패한 찐반등은 건너뛰고 유효 후보를 찾는다 — EMA21 회복 여부와 무관하게 적용해야
+    # '실패한 반등이 이후의 진짜 반등을 가리는' 문제가 두 분기 모두에서 사라진다
+    jjin, last_failed = _resolve_jjin(index_df, ema21, last_start)
+
     if not is_below_now:
+        # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         base['state'] = 'normal'
-
-        # EMA21 위 연속 거래일 카운트
-        consecutive_above = 0
-        for i in range(len(index_df) - 1, -1, -1):
-            if float(index_df['Close'].iloc[i]) < float(ema21.iloc[i]):
-                break
-            consecutive_above += 1
-
-        # 찐반등 탐색 (EMA21 회복 기간 무관)
-        jjin = detect_jjin_bounce(index_df)
-        if jjin and jjin['date'] >= last_start:
+        if jjin:
             base['jjin_date']  = jjin['date']
             base['jjin_pct']   = jjin['pct']
             base['jjin_stars'] = jjin['stars']
-        # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         return base
 
-    # 지수가 EMA21 아래인 상태 — 실패한 찐반등은 건너뛰고 다음 후보를 계속 탐색
-    # (실패에 갇히면 신저가 없이 나온 새 찐반등이 영원히 감지되지 않는다)
-    search_start = None
-    last_failed  = None
-    while True:
-        jjin = detect_jjin_bounce(index_df, start=search_start)
-        if jjin is None or jjin['date'] < last_start:
-            base['state']            = 'correction'
-            base['failed_jjin_date'] = last_failed
-            return base
+    if jjin is None:
+        base['state']            = 'correction'
+        base['failed_jjin_date'] = last_failed
+        return base
 
-        failure_date = _jjin_failure_date(index_df, jjin['date'], ema21, window=5)
-        if failure_date is None:
-            # 찐반등 감지, 아직 확인 대기 중
-            base.update({
-                'state':       'early_signal',
-                'jjin_date':   jjin['date'],
-                'jjin_pct':    jjin['pct'],
-                'jjin_stars':  jjin['stars'],
-            })
-            return base
-
-        # 실패 확정일부터(포함) 새 후보 탐색 — 확정일 자체가 새 찐반등일 수 있다
-        last_failed  = jjin['date']
-        search_start = failure_date
+    # 찐반등 감지, 아직 확인 대기 중
+    base.update({
+        'state':       'early_signal',
+        'jjin_date':   jjin['date'],
+        'jjin_pct':    jjin['pct'],
+        'jjin_stars':  jjin['stars'],
+    })
+    return base
