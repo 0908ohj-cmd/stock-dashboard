@@ -183,7 +183,9 @@
     "010060": "태양광",
     "OUST": "자율주행·센서",
     "KOSPI": "지수",
-    "KOSDAQ": "지수"
+    "KOSDAQ": "지수",
+    "QQQ": "지수",
+    "IXIC": "지수"
   },
   "theme_to_weekly_sectors": {
     "데이터센터 인프라": [

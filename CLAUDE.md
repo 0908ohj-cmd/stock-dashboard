@@ -54,7 +54,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 ### 캐싱
 
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
-- 파일 기반: `sector_cache.json`(섹터), `data/kr_names.json`(KR 종목명 번들)
+- 파일 기반: `theme_cache.json`(테마 캐시, repo 루트 — `scripts/refresh_sectors.sh`로 로컬 갱신 후 커밋), `data/themes.json`(테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
 
 ### 알아둘 것
