@@ -13,9 +13,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from data import store
 
 TICKER_FILES = {
-    'KR_KOSPI':  'kospi.tickers',
-    'KR_KOSDAQ': 'kosdaq.tickers',
-    'US':        'us.tickers',
+    'KR_KOSPI':  ['kospi.tickers',  'kospi_10ema.tickers'],
+    'KR_KOSDAQ': ['kosdaq.tickers', 'kosdaq_10ema.tickers'],
+    'US':        ['us.tickers',     'us_10ema.tickers'],
 }
 MARKET_GROUPS = {
     'kr':  ['KR_KOSPI', 'KR_KOSDAQ'],
@@ -26,11 +26,18 @@ MIN_SUCCESS_RATE = 0.7
 
 
 def load_tickers(market: str) -> list:
-    path = (pathlib.Path(__file__).resolve().parent.parent
-            / 'data' / 'saved' / TICKER_FILES[market])
-    if not path.exists():
-        return []
-    return [t for t in path.read_text(encoding='utf-8').splitlines() if t.strip()]
+    saved = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'saved'
+    seen, result = set(), []
+    for filename in TICKER_FILES[market]:
+        path = saved / filename
+        if not path.exists():
+            continue
+        for t in path.read_text(encoding='utf-8').splitlines():
+            t = t.strip()
+            if t and t not in seen:
+                seen.add(t)
+                result.append(t)
+    return result
 
 
 def run_market(market: str) -> bool:

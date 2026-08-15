@@ -120,7 +120,25 @@ def find_pivot_candle(
     if not candidates:
         return None
 
-    best_i, best_vr = max(candidates, key=lambda x: x[1])
+    # 저가가 이후 한 번이라도 종가 기준으로 뚫린 기준봉은 무효화
+    valid = []
+    for i, vr in candidates:
+        pivot_low = float(stock_df['Low'].iloc[i])
+        after = stock_df.iloc[i + 1:]
+        if not (after['Close'] < pivot_low).any():
+            valid.append((i, vr))
+
+    if not valid:
+        return None
+
+    # 10거래일 이내 연속 피벗은 같은 클러스터로 묶어 첫 번째 봉 우선
+    # 클러스터 간(>10일)에는 가장 최근 클러스터 선택
+    clustered = [valid[0]]
+    for cur_i, cur_vr in valid[1:]:
+        if cur_i - clustered[-1][0] > 10:
+            clustered.append((cur_i, cur_vr))
+
+    best_i, best_vr = clustered[-1]
     row = stock_df.iloc[best_i]
     high  = float(row['High'])
     low   = float(row['Low'])
