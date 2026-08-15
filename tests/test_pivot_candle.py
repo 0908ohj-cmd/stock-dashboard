@@ -61,8 +61,12 @@ def test_no_pivot_when_close_not_in_top30pct():
     assert find_pivot_candle(df, lookback=5) is None
 
 
-def test_picks_highest_vol_ratio_among_candidates():
-    """조건 충족 후보 2개 → 거래량 비율 더 높은 것 선택"""
+def test_picks_first_bar_within_cluster_even_if_later_bar_has_more_volume():
+    """10거래일 이내 연속 후보는 같은 상승 흐름 → 거래량이 더 큰 후행봉이 아니라 첫 봉 선택.
+
+    타점이 기준봉 고가라 후행봉을 고르면 실제보다 높은 자리에서 진입하게 된다
+    (TWST 8/10 오선택 사례 → 4c62b9e에서 클러스터 필터 도입).
+    """
     base = [70 + i * 0.5 for i in range(78)]   # 70 → 108.5 (+55%)
     b1   = base[-1] * 1.05
     b2   = b1 * 1.05
@@ -71,9 +75,32 @@ def test_picks_highest_vol_ratio_among_candidates():
     lows    = [c * 0.99 for c in base] + [b1*0.92,  b1*0.99,  b1*0.99,  b2*0.92,  b2*0.99]
     volumes = [1_000_000] * 78 + [4_000_000, 1_000_000, 1_000_000, 6_000_000, 1_000_000]
     df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
+
     result = find_pivot_candle(df, lookback=10)
+
     assert result is not None
-    assert result['vol_ratio'] >= 5.0
+    assert result['date'] == df.index[78]        # 후행봉(81, 거래량 6배)이 아니라 첫 봉
+    assert result['high'] == pytest.approx(b1 * 1.005)
+
+
+def test_picks_latest_cluster_when_candidates_far_apart():
+    """10거래일을 넘겨 떨어진 후보는 별개 흐름 → 거래량과 무관하게 최신 클러스터 선택."""
+    base = [70 + i * 0.5 for i in range(78)]
+    b1   = base[-1] * 1.05
+    mid  = [b1 * 1.01 + i * 0.1 for i in range(12)]   # b1 저가 위에서 12봉 횡보
+    b2   = mid[-1] * 1.06
+    closes  = base + [b1] + mid + [b2, b2 * 0.995]
+    highs   = ([c * 1.01 for c in base] + [b1 * 1.005]
+               + [c * 1.005 for c in mid] + [b2 * 1.005, b2 * 1.01])
+    lows    = ([c * 0.99 for c in base] + [b1 * 0.92]
+               + [c * 0.995 for c in mid] + [b2 * 0.92, b2 * 0.99])
+    volumes = [1_000_000] * 78 + [6_000_000] + [1_000_000] * 12 + [4_000_000, 1_000_000]
+    df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
+
+    result = find_pivot_candle(df, lookback=20)
+
+    assert result is not None
+    assert result['date'] == df.index[91]        # 거래량 더 큰 b1(78)이 아니라 최신 b2
 
 
 def test_no_pivot_when_no_resistance_breakout():
