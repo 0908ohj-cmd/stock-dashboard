@@ -10,6 +10,7 @@ from data.sector import get_sectors
 from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
+from ui import tv_export
 
 # 정렬 우선순위: 셋업 → 형성중 → 이탈류 → 없음
 STATE_ORDER = {'셋업': 0, '형성중': 1, '돌파완료': 2, '10EMA이탈': 3, '중간선이탈': 4, '저가이탈': 5, '없음': 6}
@@ -139,6 +140,10 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
 def render_10ema_tab(market: str, label: str):
     from data.universe import get_kr_10ema_universe, get_us_10ema_universe
 
+    # 스캔 전에 비워둔다 — 유니버스 로딩 실패 등으로 빠져나가도 직전 실행에서 남은
+    # 셋업 목록이 세션에 살아남아 파일에 실리는 일이 없어야 한다
+    tv_export.register_ema10(market, [])
+
     with st.spinner(f'{label} 유니버스 로딩 중...'):
         tickers = get_us_10ema_universe() if market == 'US' else get_kr_10ema_universe(market)
 
@@ -225,6 +230,10 @@ def render_10ema_tab(market: str, label: str):
     # 상단 요약 메트릭
     setup_rows  = [r for r in rows if r['상태'] == '셋업']
     near_rows   = [r for r in setup_rows if abs(r['현재→타점%'] or 99) <= 5]
+
+    # 화면 표시 필터(형성중 포함·이탈 보기)와 무관하게 셋업 완성만 내보낸다 —
+    # TradingView로 넘길 목록은 지켜볼 종목이 아니라 진입 후보다
+    tv_export.register_ema10(market, [r['Ticker'] for r in setup_rows])
     m1, m2, m3 = st.columns(3)
     m1.metric('🎯 셋업 완성', f'{len(setup_rows)}개')
     m2.metric('⚡ 타점 5% 이내', f'{len(near_rows)}개')

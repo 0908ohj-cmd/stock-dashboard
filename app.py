@@ -13,6 +13,7 @@ from ui.watchlist import (
 )
 from ui.watchlist_10ema import render_10ema_tab
 from ui.leaderboard import render_leaderboard_section
+from ui import tv_export
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
 
@@ -165,6 +166,12 @@ if _any:
         use_container_width=True,
     )
 
+# ── TradingView 내보내기 자리 ─────────────────────────────
+# 내용은 탭이 전부 돌아간 뒤(스크립트 맨 아래) 이 슬롯에 채워 넣는다. 사이드바가
+# 탭보다 먼저 실행되므로, 여기서 만들지 않으면 버튼이 사이드바 대신 본문 끝에 그려진다.
+st.sidebar.divider()
+_tv_export_slot = st.sidebar.empty()
+
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
     for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq), ('US', us_tickers)]:
@@ -185,6 +192,8 @@ st.divider()
 # 통째로 재실행하므로, 뒤에 두면 앞 탭들이 수백 종목 시세를 받는 동안(캐시가 비면
 # 10분 이상) 이 줄에 도달하지 못해 화면이 빈 채로 남는다. 여기선 파일만 읽어 즉시 뜬다.
 render_leaderboard_section()
+# 리더보드는 화면의 시장 선택과 무관하게 US·KR 양쪽을 내보낸다 (JSON 읽기라 비용 없음)
+tv_export.register_leaderboard()
 st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
@@ -205,4 +214,9 @@ with tab_10ema_kosdaq:
     render_10ema_tab('KR_KOSDAQ', '10EMA 코스닥')
 with tab_10ema_us:
     render_10ema_tab('US', '10EMA 나스닥')
+
+# ── TradingView 내보내기 ──────────────────────────────────
+# 반드시 모든 탭 뒤에서 호출한다 — 탭들이 등록해 둔 후보 목록을 여기서 모은다.
+# 그려지는 위치는 위에서 잡아둔 사이드바 슬롯이다.
+tv_export.render_sidebar_export(_tv_export_slot)
 
