@@ -169,13 +169,29 @@ def test_new_jjin_inside_failed_window_is_detected():
     assert status['jjin_date'] == cand_date
 
 
-def test_get_market_status_survives_duplicate_dates():
-    """중복 날짜 인덱스에서도 크래시하지 않는다 (스냅샷 병합 잔재 방어)."""
+@pytest.mark.parametrize('offset', [0, 2])
+def test_get_market_status_survives_duplicate_dates(offset):
+    """중복 날짜 인덱스에서도 크래시하지 않는다 — 찐반등일 자체든 그 이후 날짜든."""
     df = _oc_df(_UP + _DOWN + _B1 + _WIN5)
-    jjin_date = df.index[len(_UP) + len(_DOWN)]
-    df = pd.concat([df, df.loc[[jjin_date]]]).sort_index()
+    dup_date = df.index[len(_UP) + len(_DOWN) + offset]
+    df = pd.concat([df, df.loc[[dup_date]]]).sort_index()
     status = get_market_status(df)
     assert status['state'] in ('normal', 'correction', 'early_signal')
+
+
+def test_failed_jjin_reported_after_ema21_recovery():
+    """EMA21 회복 후에도 '반등이 있었으나 실패' 이력은 남아야 한다 —
+    '찐반등 미확인'으로 표시되면 분석가가 반등 시도 자체가 없었다고 오해한다."""
+    # B1은 5거래일 내 EMA21 미회복으로 실패 → 이후 ADR 미달의 완만한 상승으로만 회복
+    # (새 찐반등 후보 없이 EMA21 위로 올라오는 경우)
+    gradual = [(100, 101), (101, 102), (102, 103), (103, 104), (104, 105),
+               (105, 106), (106, 107), (107, 108), (108, 109)]
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + gradual)
+    b1_date = df.index[len(_UP) + len(_DOWN)]
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] is None
+    assert status['failed_jjin_date'] == b1_date
 
 
 def test_jjin_bounce_skips_incomplete_ohlc_row():

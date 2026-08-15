@@ -217,19 +217,21 @@ def _df_from(dates: list, closes: list) -> pd.DataFrame:
     }, index=idx)
 
 
+# 겹치는 날짜의 종가는 옛/새 스냅샷이 같은 스케일이어야 한다 — 크게 벌리면 병합 로직이
+# 분할·배당 재조정으로 판정해 보존을 건너뛴다(test_merge_skips_when_source_rescaled_prices).
 def test_refetch_indices_preserves_dates_missing_from_new_fetch(tmp_store, monkeypatch):
     """새 수집분이 중간 거래일을 빠뜨려도 기존 스냅샷의 그 날짜는 보존된다."""
     old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [200.0, 202.0, 203.0])
+    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [100.1, 102.1, 103.0])
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
 
     rec = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))['data']['KOSPI']
     assert rec['dates'] == ['2026-07-20', '2026-07-21', '2026-07-22', '2026-07-23']
-    assert rec['close'][0] == 200.0    # 겹치는 날짜는 새 값 우선
+    assert rec['close'][0] == 100.1    # 겹치는 날짜는 새 값 우선
     assert rec['close'][1] == 101.0    # 결손 날짜는 기존 값 보존
 
 
@@ -238,7 +240,7 @@ def test_refetch_indices_preserves_truncated_tail(tmp_store, monkeypatch, capsys
     old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-21'], [200.0, 201.0])   # 07-22 절단
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.1, 101.1])   # 07-22 절단
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -253,14 +255,14 @@ def test_refetch_indices_preserves_truncated_tail(tmp_store, monkeypatch, capsys
 def test_merge_preserves_whole_rows_not_cells(tmp_store):
     """새 수집분의 NaN 셀을 옛값으로 채우면 Close>High 같은 모순 행이 생긴다 — 행 단위 보존."""
     old = store._df_to_records(_df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))
-    new_df = _df_from(['2026-07-20', '2026-07-21'], [200.0, 201.0])
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.1, 101.1])
     new_df.loc[pd.Timestamp('2026-07-21'), ['Open', 'High', 'Low']] = float('nan')
 
     merged = store._merge_history(new_df, old, 400)
 
     row = merged.loc[pd.Timestamp('2026-07-21')]
     assert pd.isna(row['High'])                 # 새 수집분의 NaN이 그대로 남아야
-    assert float(row['Close']) == 201.0
+    assert float(row['Close']) == 101.1
 
 
 def test_merge_dedupes_duplicate_dates(tmp_store):
@@ -295,7 +297,7 @@ def test_merge_does_not_log_long_stale_gaps(tmp_store, monkeypatch, capsys):
     old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
         _df_from(['2026-01-05', '2026-07-20'], [50.0, 100.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-21'], [200.0, 201.0])
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.1, 101.0])
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -325,7 +327,7 @@ def test_build_snapshot_preserves_dates_missing_from_new_fetch(tmp_store):
     old = {'market': 'KR_KOSPI', 'data': {'005930': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
     (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])   # 07-21 결손
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [100.1, 102.0])   # 07-21 결손
 
     snap = store.build_market_snapshot('KR_KOSPI', ['005930'],
                                        fetch_fn=lambda t, market, days: new_df.copy(),
@@ -341,7 +343,7 @@ def test_refetch_indices_logs_preserved_dates(tmp_store, monkeypatch, capsys):
     old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [200.0, 202.0, 203.0])
+    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [100.1, 102.1, 103.0])
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -355,7 +357,7 @@ def test_build_snapshot_logs_preserved_dates(tmp_store, capsys):
     old = {'market': 'KR_KOSPI', 'data': {'005930': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
     (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [100.1, 102.0])
 
     store.build_market_snapshot('KR_KOSPI', ['005930'],
                                 fetch_fn=lambda t, market, days: new_df.copy(),
@@ -371,7 +373,7 @@ def test_merge_silent_when_nothing_preserved(tmp_store, monkeypatch, capsys):
     old = {'market': 'indices', 'data': {'KOSPI': store._df_to_records(
         _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [200.0, 201.0, 202.0])
+    new_df = _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.1, 101.1, 102.0])
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -386,7 +388,7 @@ def test_merge_silent_on_window_edge_rolloff(tmp_store, monkeypatch, capsys):
         _df_from(['2026-07-13', '2026-07-14', '2026-07-15', '2026-07-20'],
                  [96.0, 97.0, 98.0, 100.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-21'], [200.0, 201.0])
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.1, 101.0])
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -402,7 +404,7 @@ def test_merge_log_counts_only_anomalous_gaps(tmp_store, monkeypatch, capsys):
         _df_from(['2026-07-13', '2026-07-14', '2026-07-20', '2026-07-21', '2026-07-22'],
                  [96.0, 97.0, 100.0, 101.0, 102.0]))}}
     (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-    new_df = _df_from(['2026-07-20', '2026-07-22'], [200.0, 202.0])   # 07-21만 진짜 결손
+    new_df = _df_from(['2026-07-20', '2026-07-22'], [100.1, 102.1])   # 07-21만 진짜 결손
     monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: new_df.copy())
 
     store.refetch_indices()
@@ -411,6 +413,141 @@ def test_merge_log_counts_only_anomalous_gaps(tmp_store, monkeypatch, capsys):
     assert '1거래일 결손' in out
     assert '2026-07-21' in out
     assert '2026-07-13' not in out   # rolloff는 개수·목록 양쪽에서 빠진다
+
+
+def test_merge_skips_when_source_rescaled_prices(tmp_store, capsys):
+    """분할·배당 재조정으로 소스 시세 스케일이 바뀌면 보존 행이 유령봉이 된다 → 병합 생략."""
+    old = store._df_to_records(_df_from(['2026-07-20', '2026-07-21', '2026-07-22'],
+                                        [200.0, 202.0, 204.0]))
+    new_df = _df_from(['2026-07-20', '2026-07-22', '2026-07-23'], [100.0, 102.0, 103.0])
+
+    merged = store._merge_history(new_df, old, 400, label='AAPL')
+
+    assert 202.0 not in [float(x) for x in merged['Close']]
+    assert list(merged.index.strftime('%Y-%m-%d')) == ['2026-07-20', '2026-07-22', '2026-07-23']
+    assert '재조정' in capsys.readouterr().out
+
+
+def test_merge_rejects_fetch_missing_columns(tmp_store):
+    """컬럼이 빠진 수집분은 병합으로 메우지 않는다 — NaN 거래량이 스냅샷에 굳는다."""
+    old = store._df_to_records(_df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0]))
+    new_df = _df_from(['2026-07-22', '2026-07-23'], [102.0, 103.0]).drop(columns=['Volume'])
+
+    with pytest.raises(KeyError):
+        store._merge_history(new_df, old, 400)
+
+
+def test_bulk_column_gap_demotes_to_individual_fetch(tmp_store):
+    """컬럼 누락 벌크 응답은 개별 폴백으로 강등돼야 한다 (NaN 저장 금지)."""
+    old = {'market': 'US', 'data': {'AAPL': store._df_to_records(
+        _df_from(['2026-07-20'], [100.0]))}}
+    (tmp_store / 'US.json').write_text(json.dumps(old), encoding='utf-8')
+    bad = _df_from(['2026-07-21'], [101.0]).drop(columns=['Volume'])
+
+    snap = store.build_market_snapshot(
+        'US', ['AAPL'],
+        fetch_fn=lambda t, market, days: _df_from(['2026-07-21'], [101.0]),
+        throttle_sec=0)
+    assert snap['failed'] == []          # 개별 폴백은 정상 응답
+
+    import data.store as s
+    orig_bulk, orig_single = s.fetch_daily_bulk_us, s.fetch_daily
+    try:
+        s.fetch_daily_bulk_us = lambda tickers, days: {'AAPL': bad}
+        s.fetch_daily = lambda t, market, days: pd.DataFrame()   # 개별 폴백도 실패시켜 강등 확인
+        snap2 = store.build_market_snapshot('US', ['AAPL'], throttle_sec=0)
+    finally:
+        s.fetch_daily_bulk_us, s.fetch_daily = orig_bulk, orig_single
+    assert snap2['failed'] == ['AAPL']
+    assert snap2['ticker_count'] == 0
+    # 기존 히스토리로 되돌아갈 뿐, NaN 거래량 레코드로 저장되지 않는다
+    assert snap2['data']['AAPL']['dates'] == ['2026-07-20']
+    assert snap2['data']['AAPL']['volume'] == [1000.0]
+
+
+def test_safe_merge_fallback_still_dedupes(tmp_store, capsys):
+    """병합이 예외로 폴백해도 중복 날짜는 스냅샷에 굳으면 안 된다."""
+    broken = {'dates': ['2026-07-20'], 'open': [1.0], 'high': [1.0], 'low': [1.0], 'close': [1.0]}
+    dup = pd.concat([_df_from(['2026-07-20', '2026-07-21'], [10.0, 11.0]),
+                     _df_from(['2026-07-21'], [99.0])]).sort_index()
+
+    out = store._safe_merge(dup, broken, 400, 'T')
+
+    assert not out.index.duplicated().any()
+
+
+def test_build_snapshot_last_date_reflects_preserved_tail(tmp_store):
+    """꼬리 절단을 병합으로 살렸으면 last_trading_date도 살아난 날짜를 따라야 한다."""
+    old = {'market': 'KR_KOSPI', 'data': {'005930': store._df_to_records(
+        _df_from(['2026-07-20', '2026-07-21', '2026-07-22'], [100.0, 101.0, 102.0]))}}
+    (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.1, 101.1])
+
+    snap = store.build_market_snapshot('KR_KOSPI', ['005930'],
+                                       fetch_fn=lambda t, market, days: new_df.copy(),
+                                       throttle_sec=0)
+
+    assert snap['data']['005930']['dates'][-1] == '2026-07-22'
+    assert snap['last_trading_date'] == '2026-07-22'
+
+
+def test_merge_drops_far_future_rows_and_keeps_window(tmp_store):
+    """미래로 오염된 기존 행이 롤링 윈도우 기준을 밀어 실데이터를 깎으면 안 된다."""
+    old = store._df_to_records(_df_from(['2026-01-05', '2026-07-20', '2027-01-01'],
+                                        [50.0, 100.0, 999.0]))
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0])
+
+    merged = store._merge_history(new_df, old, 350)
+
+    got = list(merged.index.strftime('%Y-%m-%d'))
+    assert '2027-01-01' not in got     # 오염 행 제거
+    assert '2026-01-05' in got         # 윈도우 안 실데이터 유지
+
+
+def test_merge_handles_tz_aware_fetch(tmp_store):
+    """tz-aware 인덱스로 바뀌어도 병합이 죽지 않는다 (죽으면 손실 방어가 통째로 꺼진다)."""
+    new_df = _df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0])
+    new_df.index = new_df.index.tz_localize('UTC')
+    old = store._df_to_records(_df_from(['2026-07-19', '2026-07-20'], [99.0, 100.0]))
+
+    merged = store._merge_history(new_df.copy(), old, 400, label='T')
+
+    assert list(merged.index.strftime('%Y-%m-%d')) == ['2026-07-19', '2026-07-20', '2026-07-21']
+    assert store._merge_history(new_df.copy(), None, 400, label='T') is not None
+
+
+def test_merge_logs_collapsed_fetch_window(tmp_store, capsys):
+    """수집 범위가 통째로 쪼그라들면(350일→10일) 데이터는 살아도 경보는 나가야 한다."""
+    old_dates = [str(d.date()) for d in pd.bdate_range('2026-01-01', periods=150)]
+    old = store._df_to_records(_df_from(old_dates, [100.0] * 150))
+    new_dates = old_dates[-10:]
+    new_df = _df_from(new_dates, [100.0] * 10)
+
+    store._merge_history(new_df, old, 350, label='T')
+
+    assert '수집 범위 축소' in capsys.readouterr().out
+
+
+def test_failed_tickers_keep_previous_history(tmp_store):
+    """수집 실패 티커의 기존 히스토리를 통째로 버리지 않는다 — 날짜 결손보다 큰 손실."""
+    old = {'market': 'KR_KOSPI', 'data': {
+        '005930': store._df_to_records(_df_from(['2026-07-20', '2026-07-21'], [100.0, 101.0])),
+        '000660': store._df_to_records(_df_from(['2026-07-20', '2026-07-21'], [50.0, 51.0])),
+    }}
+    (tmp_store / 'KR_KOSPI.json').write_text(json.dumps(old), encoding='utf-8')
+
+    def flaky(t, market, days):
+        if t == '000660':
+            return pd.DataFrame()
+        return _df_from(['2026-07-22'], [102.0])
+
+    snap = store.build_market_snapshot('KR_KOSPI', ['005930', '000660'],
+                                       fetch_fn=flaky, throttle_sec=0)
+
+    assert snap['failed'] == ['000660']
+    assert snap['ticker_count'] == 1            # 성공률 게이트 분모는 왜곡되지 않는다
+    assert '000660' in snap['data']             # 기존 히스토리는 보존
+    assert snap['data']['000660']['dates'] == ['2026-07-20', '2026-07-21']
 
 
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──

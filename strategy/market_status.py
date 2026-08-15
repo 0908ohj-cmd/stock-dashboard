@@ -139,15 +139,19 @@ def _jjin_failure_date(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
       (window일 당일(DAY7)에는 아직 실패 판정 안 함)"""
     if jjin_date not in index_df.index:
         return None
-    low = index_df.loc[jjin_date, 'Low']
-    jjin_low = float(low.iloc[-1] if isinstance(low, pd.Series) else low)   # 중복 날짜 방어
+
+    def _scalar(v):
+        """중복 날짜가 섞이면 .loc/[]가 Series를 반환한다 — 마지막 값으로 축약."""
+        return float(v.iloc[-1] if isinstance(v, pd.Series) else v)
+
+    jjin_low = _scalar(index_df.loc[jjin_date, 'Low'])
     after = index_df[index_df.index > jjin_date]
     recovered = False
     for i, (idx, row) in enumerate(after.iterrows()):
         close = float(row['Close'])
         if close < jjin_low:
             return idx
-        if i < window and close > float(ema21[idx]):
+        if i < window and idx in ema21.index and close > _scalar(ema21[idx]):
             recovered = True
         if i == window and not recovered:
             return idx
@@ -212,6 +216,9 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     if not is_below_now:
         # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         base['state'] = 'normal'
+        # 실패 이력도 함께 전달 — 없으면 UI가 '찐반등 미확인'으로 표시해
+        # 반등 시도 자체가 없었던 것처럼 읽힌다
+        base['failed_jjin_date'] = last_failed
         if jjin:
             base['jjin_date']  = jjin['date']
             base['jjin_pct']   = jjin['pct']

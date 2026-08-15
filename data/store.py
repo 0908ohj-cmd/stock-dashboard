@@ -47,6 +47,34 @@ def _records_to_df(rec: dict) -> pd.DataFrame:
 
 _LOG_RECENT_DAYS = 30   # 이보다 오래된 결손은 로그하지 않는다 — 소스가 영영 안 주는 날짜가
                         # 매 배치마다 재로그돼 진짜 이상 신호를 묻는 것을 막는다
+_TAIL_GRACE_DAYS = 7    # 꼬리 절단 보존 한도. 이보다 미래의 기존 행은 오염으로 보고 버린다 —
+                        # 남겨두면 롤링 윈도우 기준일을 밀어 실데이터를 깎는다
+_RESCALE_TOL = 0.005    # 겹치는 날짜 종가 괴리 허용치 (분할·배당 재조정 감지)
+_COLLAPSE_RATIO = 0.5   # 수집 행수가 기존의 이 비율 미만이면 '범위 축소'로 경보
+_OHLCV_COLS = ('Open', 'High', 'Low', 'Close', 'Volume')
+
+
+def _tz_naive(idx: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """tz-aware 인덱스를 naive로 통일 — 섞이면 모든 날짜 비교가 TypeError로 죽는다."""
+    idx = pd.DatetimeIndex(idx)
+    return idx.tz_localize(None) if idx.tz is not None else idx
+
+
+def _price_scale_changed(old_df: pd.DataFrame, new_df: pd.DataFrame) -> bool:
+    """소스가 과거 시세를 재조정했는지(분할·배당) 겹치는 날짜 종가비의 중앙값으로 판정.
+
+    auto_adjust=True라 배당·분할 때마다 전 구간이 재조정된다. 재조정 후 옛 스케일 행을
+    보존하면 +102%/-50% 유령봉이 되어 ADR·EMA21·찐반등 판정을 통째로 오염시킨다.
+    """
+    common = old_df.index.intersection(new_df.index)
+    if len(common) == 0:
+        return False                      # 비교 불가 — 보존 유지 (판단 보류)
+    o = old_df.loc[common, 'Close'].astype(float)
+    n = new_df.loc[common, 'Close'].astype(float)
+    valid = (o > 0) & n.notna()
+    if not valid.any():
+        return False
+    return bool(abs(float((n[valid] / o[valid]).median()) - 1) > _RESCALE_TOL)
 
 
 def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
@@ -61,23 +89,47 @@ def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
     - 마지막 날짜 기준 window_days(캘린더) 롤링 윈도우로 트림 (무한 증식 방지)
     - label 지정 시 이상 결손만 로그. 수집 윈도우가 앞으로 밀리며 빠지는 선두
       rolloff는 정상이므로 제외한다 (휴일 클러스터 뒤엔 여러 날이 한꺼번에 밀린다)
+
+    컬럼이 빠진 수집분은 병합으로 메우지 않고 KeyError를 낸다 — 옛 컬럼으로 채우면
+    NaN 거래량이 스냅샷에 굳고, 벌크 경로가 개별 폴백으로 강등되지 못한다.
     """
+    missing_cols = [c for c in _OHLCV_COLS if c not in new_df.columns]
+    if missing_cols:
+        raise KeyError(f'수집분 컬럼 누락: {missing_cols}')
+
+    new_df = new_df.copy()
+    new_df.index = _tz_naive(new_df.index)
     new_df = new_df[~new_df.index.duplicated(keep='last')]
     if new_df.empty:
         return new_df
 
-    fetch_min = new_df.index.min()
-    preserved = pd.DatetimeIndex([])
+    fetch_min, fetch_max = new_df.index.min(), new_df.index.max()
+    fetch_rows = len(new_df)
+    preserved  = new_df.index[:0]       # 같은 dtype의 빈 인덱스 (비교 시 dtype 충돌 방지)
+    old_rows   = 0
     if old_rec:
-        old_df    = _records_to_df(old_rec)
-        old_df    = old_df[~old_df.index.duplicated(keep='last')]
+        old_df = _records_to_df(old_rec)
+        old_df.index = _tz_naive(old_df.index)
+        old_df = old_df[~old_df.index.duplicated(keep='last')]
+        if _price_scale_changed(old_df, new_df):
+            if label:
+                print(f'[{label}] 시세 재조정 감지 — 병합 생략(수집분으로 전체 교체)')
+            old_df = old_df.iloc[:0]
+        # 꼬리 유예를 넘는 미래 행은 오염 — 남기면 아래 cutoff 기준일을 밀어 실데이터를 깎는다
+        old_df    = old_df[old_df.index <= fetch_max + pd.Timedelta(days=_TAIL_GRACE_DAYS)]
+        old_rows  = len(old_df)
         preserved = old_df.index.difference(new_df.index)
         new_df    = pd.concat([new_df, old_df.loc[preserved]]).sort_index()
 
-    cutoff = new_df.index.max() - pd.Timedelta(days=window_days)
+    # 기준일은 수집분의 마지막 날짜 — 보존 행이 기준일을 좌우하면 오염에 취약해진다
+    cutoff = max(fetch_max, new_df.index.max()) - pd.Timedelta(days=window_days)
     merged = new_df[new_df.index >= cutoff]
 
     if label:
+        # 수집 범위가 통째로 쪼그라든 경우 — 데이터는 보존되지만 소스 이상이므로 경보.
+        # 선두 rolloff 제외 규칙에 걸려 아래 결손 로그로는 안 잡힌다
+        if old_rows and fetch_rows < old_rows * _COLLAPSE_RATIO:
+            print(f'[{label}] 수집 범위 축소 — 기존 {old_rows}행 → 수집 {fetch_rows}행')
         gaps = preserved[(preserved > fetch_min) & (preserved >= cutoff)]
         gaps = gaps[gaps >= merged.index.max() - pd.Timedelta(days=_LOG_RECENT_DAYS)]
         if len(gaps):
@@ -95,7 +147,11 @@ def _safe_merge(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
         return _merge_history(new_df, old_rec, window_days, label=label)
     except Exception as e:
         print(f'[{label}] 병합 실패({type(e).__name__}: {e}) — 새 수집분만 저장')
-        return new_df
+        # 폴백 경로에서도 중복 날짜는 걸러야 한다 — 스냅샷에 굳으면 .loc이 Series를
+        # 반환해 전략 계층이 크래시한다
+        new_df = new_df.copy()
+        new_df.index = _tz_naive(new_df.index)
+        return new_df[~new_df.index.duplicated(keep='last')]
 
 
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
@@ -224,9 +280,10 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = fetch(t, market=market, days=STOCK_DAYS)
             if df.empty:
                 return False
-            data[t] = _df_to_records(
-                _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}'))
-            d = df.index[-1].strftime('%Y-%m-%d')
+            merged = _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}')
+            data[t] = _df_to_records(merged)
+            # 병합 후 프레임 기준 — 꼬리 절단을 보존으로 살린 날짜가 반영돼야 한다
+            d = merged.index[-1].strftime('%Y-%m-%d')
             last_date = max(last_date, d) if last_date else d
             return True
         except Exception:
@@ -241,9 +298,9 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = bulk.get(t)
             if df is not None and not df.empty:
                 try:
-                    data[t] = _df_to_records(
-                        _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}'))
-                    d = df.index[-1].strftime('%Y-%m-%d')
+                    merged = _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}')
+                    data[t] = _df_to_records(merged)
+                    d = merged.index[-1].strftime('%Y-%m-%d')
                     last_date = max(last_date, d) if last_date else d
                 except Exception:
                     misses.append(t)
@@ -271,11 +328,19 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
                 if throttle_sec:
                     time.sleep(max(throttle_sec, 0.5))
 
+    fresh_count = len(data)   # 성공률 게이트 분모용 — 아래 보존분은 포함하지 않는다
+
+    # 수집 실패 티커의 기존 히스토리를 통째로 버리지 않는다. 날짜 결손보다 큰 손실이고
+    # (350일 전량), 이게 없으면 앱이 종목마다 실시간 폴백을 돌아 첫 로딩이 느려진다.
+    for t in failed:
+        if old_data.get(t):
+            data[t] = old_data[t]
+
     return {
         'market': market,
         'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
         'last_trading_date': last_date,
-        'ticker_count': len(data),
+        'ticker_count': fresh_count,
         'failed': failed,
         'data': data,
     }
@@ -314,8 +379,11 @@ def refetch_indices(markets: str = 'all') -> dict:
             continue
         if df.empty:
             continue
-        merged[name] = _df_to_records(
-            _safe_merge(df, merged.get(name), INDEX_DAYS, name))
+        try:
+            merged[name] = _df_to_records(
+                _safe_merge(df, merged.get(name), INDEX_DAYS, name))
+        except Exception as e:   # 지수 1개의 변환 실패가 나머지 지수까지 미저장시키면 안 된다
+            print(f'[{name}] 레코드 변환 실패({type(e).__name__}: {e}) — 기존 값 유지')
 
     last_date = None
     for rec in merged.values():
