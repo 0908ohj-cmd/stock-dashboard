@@ -42,7 +42,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 지수 상태 머신 `strategy/market_status.py:get_market_status`가 중심:
 
 - `normal` → 지수 종가 EMA21 이탈 시 `correction`(DAY1) → 찐반등(장중 저가 EMA21 아래 + 양봉 상승폭 ≥ ADR + 직전 음봉 바디의 50% 이상 커버) 감지 시 `early_signal`(DAY2) → 이후 DAY3~5 (`strategy/phases.py`)
-- 찐반등 실패 판정: 3거래일 내 EMA21 미회복 또는 찐반등 저점 아래 종가 → `correction` 복귀
+- 찐반등 실패 판정: 5거래일 내 EMA21 미회복(6번째 거래일에 확정) 또는 찐반등 저점 아래 종가(당일 즉시) → `correction` 복귀. 실패한 후보의 **다음 거래일부터 새 찐반등을 다시 탐색**하므로, 실패가 이후의 유효한 반등을 가리지 않는다
 - 종목 지표: 조정 구간 RS(`strategy/rs_correction.py` — 전고점~찐반등일 지수 대비 초과수익), 3종 RS(`strategy/indicators.py` — 초과수익률·RS Line 기울기·IBD식 등급), 스윙 등급(`strategy/swing_grade.py`)
 - 스윙 등급: 사용자가 지정한 스윙로우 날짜들의 저가 시퀀스를 신고(3)/고(2)/저(1)/신저(0)로 레이블 → 최근 구간 가중 4진수 점수 → S / A++~B-- / C / F. 전이 제약 DFS(`_achievable_intermediate_scores`)로 달성 가능한 점수만 순위화
 - ADR 필터: KR ≥ 2%, US ≥ 4%
