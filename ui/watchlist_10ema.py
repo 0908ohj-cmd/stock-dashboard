@@ -116,7 +116,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 10  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 11  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -127,6 +127,11 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
             result = future.result()
             if result is not None:
                 rows.append(result)
+
+    # 섹터는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
+    sectors = get_sectors([r['Ticker'] for r in rows], market)
+    for r in rows:
+        r['섹터'] = sectors.get(r['Ticker'], '기타')
 
     rows.sort(key=lambda r: (
         STATE_ORDER.get(r['상태'], 99),
@@ -258,6 +263,7 @@ def render_10ema_tab(market: str, label: str):
         '👑': '👑' if r['Ticker'] in crown else '',
         '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
+        '섹터':           r['섹터'],
         '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],
         '현재→타점%':     r['현재→타점%'],
@@ -280,6 +286,7 @@ def render_10ema_tab(market: str, label: str):
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
+    gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
     gb.configure_column('기준봉일', filter='agTextColumnFilter', flex=1)
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
