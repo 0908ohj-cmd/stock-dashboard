@@ -6,6 +6,7 @@ from strategy.tv_export import (
     build_section,
     export_filename,
     order_sections,
+    summarize_sections,
     to_tv_symbol,
 )
 
@@ -141,6 +142,33 @@ def test_unknown_keys_are_kept_at_the_end():
 
 def test_leaderboards_precede_watchlist_sections():
     assert SECTION_ORDER.index('leaderboard_us') < SECTION_ORDER.index('trend_KR_KOSPI')
+
+
+# ── summarize_sections ────────────────────────────────────
+def test_summary_lists_each_section_with_its_count():
+    # 버튼 툴팁용 — 누르기 전에 무엇이 담겼는지 보이게 한다
+    summary = summarize_sections([
+        ('👑 리더보드 US', ['NVDA', 'AMD'], 'US'),
+        ('🇰🇷 코스피 후보', ['005930'], 'KR_KOSPI'),
+    ])
+    assert summary == '👑 리더보드 US 2개\n🇰🇷 코스피 후보 1개'
+
+
+def test_summary_counts_only_usable_tickers():
+    summary = summarize_sections([('👑 리더보드 US', ['NVDA', '', None], 'US')])
+    assert summary == '👑 리더보드 US 1개'
+
+
+def test_summary_leaves_out_empty_sections():
+    summary = summarize_sections([
+        ('👑 리더보드 US', ['NVDA'], 'US'),
+        ('🇰🇷 코스닥 후보', [], 'KR_KOSDAQ'),
+    ])
+    assert summary == '👑 리더보드 US 1개'
+
+
+def test_summary_of_nothing_is_empty_string():
+    assert summarize_sections([]) == ''
 
 
 # ── export_filename ───────────────────────────────────────

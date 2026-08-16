@@ -166,12 +166,6 @@ if _any:
         use_container_width=True,
     )
 
-# ── TradingView 내보내기 자리 ─────────────────────────────
-# 내용은 탭이 전부 돌아간 뒤(스크립트 맨 아래) 이 슬롯에 채워 넣는다. 사이드바가
-# 탭보다 먼저 실행되므로, 여기서 만들지 않으면 버튼이 사이드바 대신 본문 끝에 그려진다.
-st.sidebar.divider()
-_tv_export_slot = st.sidebar.empty()
-
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
     for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq), ('US', us_tickers)]:
@@ -197,7 +191,13 @@ tv_export.register_leaderboard()
 st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
-st.subheader('와치리스트')
+# 제목 오른쪽에 TradingView 내보내기 버튼을 나란히 둔다. 내용은 탭이 전부 돌아간 뒤
+# (스크립트 맨 아래) 이 슬롯에 채워 넣는다 — 여기서 바로 그리면 탭이 아직 후보를
+# 등록하기 전이라 빈 목록으로 그려진다.
+_title_col, _tv_export_col = st.columns([3, 1], vertical_alignment='bottom')
+with _title_col:
+    st.subheader('와치리스트')
+_tv_export_slot = _tv_export_col.empty()
 tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
     '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
     '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
@@ -217,6 +217,6 @@ with tab_10ema_us:
 
 # ── TradingView 내보내기 ──────────────────────────────────
 # 반드시 모든 탭 뒤에서 호출한다 — 탭들이 등록해 둔 후보 목록을 여기서 모은다.
-# 그려지는 위치는 위에서 잡아둔 사이드바 슬롯이다.
-tv_export.render_sidebar_export(_tv_export_slot)
+# 그려지는 위치는 위에서 잡아둔 와치리스트 제목 옆 슬롯이다.
+tv_export.render_export_button(_tv_export_slot)
 

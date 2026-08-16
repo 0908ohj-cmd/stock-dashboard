@@ -1,8 +1,8 @@
-"""📤 TradingView 내보내기 — 각 탭이 등록한 후보 목록을 사이드바에서 txt 한 장으로 묶는다.
+"""📤 TradingView 내보내기 — 각 탭이 등록한 후보 목록을 txt 한 장으로 묶는다.
 
-탭이 자기 후보를 `register_*`로 세션에 등록하고, 사이드바 버튼이 그것을 모은다.
-사이드바를 탭보다 먼저 그리는 구조라(app.py 위→아래 실행) 버튼은 `st.empty()`
-슬롯에 자리만 잡아두고, 탭이 다 돌아간 뒤 그 자리에 채워 넣는다.
+탭이 자기 후보를 `register_*`로 세션에 등록하고, 와치리스트 제목 옆 버튼이 그것을
+모은다. 버튼이 탭보다 위에 있는 구조라(app.py 위→아래 실행) `st.empty()` 슬롯에
+자리만 잡아두고, 탭이 다 돌아간 뒤 그 자리에 채워 넣는다.
 
 문자열 조립 자체는 `strategy/tv_export.py`(Streamlit 무의존)에 있다.
 """
@@ -12,7 +12,9 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from data import leaderboard_store
-from strategy.tv_export import build_export, export_filename, order_sections
+from strategy.tv_export import (
+    build_export, export_filename, order_sections, summarize_sections,
+)
 
 # 배포 컨테이너(Streamlit Cloud)는 UTC다 — 그대로 쓰면 파일명 스탬프가 9시간 어긋난다
 KST = ZoneInfo('Asia/Seoul')
@@ -69,38 +71,37 @@ def register_leaderboard() -> None:
         _register(f'leaderboard_{market}', title, tickers, market)
 
 
-def render_sidebar_export(slot=None) -> None:
-    """모아둔 섹션을 다운로드 버튼으로. `slot`은 사이드바에 미리 잡아둔 st.empty()."""
+def render_export_button(slot=None) -> None:
+    """모아둔 섹션을 다운로드 버튼으로. `slot`은 와치리스트 제목 옆에 잡아둔 st.empty()."""
     container = slot.container() if slot is not None else st.container()
     with container:
-        st.markdown('**📤 TradingView 내보내기**')
-
         sections = order_sections(st.session_state.get(_REGISTRY_KEY, {}))
         body = build_export(sections)
 
-        if not body:
-            st.caption('내보낼 종목이 없습니다 — 탭 분석이 끝나면 여기에 표시됩니다.')
-            return
+        # 담긴 내역은 툴팁으로 — 제목 옆 좁은 자리라 목록을 펼치면 화면을 밀어낸다
+        summary = summarize_sections(sections)
 
-        # 무엇이 담겼는지 눌러보기 전에 보이게 한다. 탭이 아직 계산 중이면
-        # 그 섹션은 목록에 없으므로, 이 숫자가 곧 파일 내용이다.
-        lines = [
-            f'· {title} {len([t for t in tickers if t])}개'
-            for title, tickers, _ in sections if any(tickers)
-        ]
-        # 줄 끝 두 칸 + 개행이 markdown의 줄바꿈 — '\n\n'로 이으면 문단이 갈려 간격이 벌어진다
-        st.caption('  \n'.join(lines))
+        # 내보내기 · 갱신 두 버튼을 한 줄에. 갱신은 아이콘만이라 폭이 훨씬 작다
+        btn_col, refresh_col = st.columns([4, 1], vertical_alignment='bottom')
 
-        st.download_button(
-            '⬇️ TradingView WL 내려받기',
-            data=body,
-            file_name=export_filename(datetime.now(KST)),
-            mime='text/plain',
-            use_container_width=True,
-            help='TradingView 워치리스트 → 가져오기에 그대로 올릴 수 있는 txt',
-        )
-        # 후보 필터를 바꾼 직후엔 위 목록이 한 박자 늦는다(필터는 탭 안 fragment만
-        # 다시 그린다) — 이 버튼이 전체 재실행을 걸어 목록을 지금 화면과 맞춘다
-        if st.button('🔄 목록 갱신', use_container_width=True,
-                     help='후보 필터를 바꿨다면 눌러서 내보낼 목록을 맞추세요'):
-            st.rerun()
+        with btn_col:
+            if not body:
+                st.button('📤 TradingView 내보내기', disabled=True,
+                          use_container_width=True,
+                          help='탭 분석이 끝나면 활성화됩니다')
+            else:
+                st.download_button(
+                    '📤 TradingView 내보내기',
+                    data=body,
+                    file_name=export_filename(datetime.now(KST)),
+                    mime='text/plain',
+                    use_container_width=True,
+                    help=f'TradingView 워치리스트 → 가져오기에 그대로 올릴 수 있는 txt\n\n{summary}',
+                )
+
+        with refresh_col:
+            # 후보 필터를 바꾼 직후엔 목록이 한 박자 늦는다(필터는 탭 안 fragment만
+            # 다시 그린다) — 이 버튼이 전체 재실행을 걸어 목록을 지금 화면과 맞춘다
+            if st.button('🔄', use_container_width=True,
+                         help='후보 필터를 바꿨다면 눌러서 내보낼 목록을 맞추세요'):
+                st.rerun()

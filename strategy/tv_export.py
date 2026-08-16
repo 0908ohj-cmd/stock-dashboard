@@ -49,20 +49,39 @@ def to_tv_symbol(ticker, market: str) -> str | None:
     return symbol
 
 
-def build_section(title: str, tickers: Iterable, market: str) -> str | None:
-    """한 섹션을 `###제목,SYM1,SYM2` 한 줄로. 담을 심볼이 없으면 None.
+def _symbols(tickers: Iterable, market: str) -> list:
+    """쓸 수 있는 심볼만 입력 순서대로. 중복은 첫 자리를 남기고 지운다.
 
-    빈 섹션에서 None을 돌려주는 게 핵심이다 — `###제목`만 남은 줄을 내보내면
-    TradingView 쪽에 빈 그룹이 생긴다.
+    파일에 나가는 목록과 화면에 세어 보이는 개수가 갈리지 않도록 양쪽이 이 함수를 쓴다.
     """
     symbols = []
     for t in tickers:
         symbol = to_tv_symbol(t, market)
         if symbol and symbol not in symbols:
             symbols.append(symbol)
+    return symbols
+
+
+def build_section(title: str, tickers: Iterable, market: str) -> str | None:
+    """한 섹션을 `###제목,SYM1,SYM2` 한 줄로. 담을 심볼이 없으면 None.
+
+    빈 섹션에서 None을 돌려주는 게 핵심이다 — `###제목`만 남은 줄을 내보내면
+    TradingView 쪽에 빈 그룹이 생긴다.
+    """
+    symbols = _symbols(tickers, market)
     if not symbols:
         return None
     return ','.join([f'###{title}', *symbols])
+
+
+def summarize_sections(sections: Iterable[tuple[str, Iterable, str]]) -> str:
+    """`제목 N개` 줄 묶음 — 버튼을 누르기 전에 무엇이 담겼는지 보여주는 용도."""
+    lines = []
+    for title, tickers, market in sections:
+        count = len(_symbols(tickers, market))
+        if count:
+            lines.append(f'{title} {count}개')
+    return '\n'.join(lines)
 
 
 def build_export(sections: Iterable[tuple[str, Iterable, str]]) -> str:
