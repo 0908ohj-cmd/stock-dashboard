@@ -103,6 +103,45 @@ def test_picks_latest_cluster_when_candidates_far_apart():
     assert result['date'] == df.index[91]        # 거래량 더 큰 b1(78)이 아니라 최신 b2
 
 
+def test_pivot_invalidated_when_low_broken_by_later_close():
+    """기준봉 저가가 이후 종가로 뚫리면 무효 — 손절선이 이미 깨진 자리를 타점으로 줄 수 없다."""
+    base = [70 + i * 0.5 for i in range(78)]
+    b1     = base[-1] * 1.05
+    b1_low = b1 * 0.92
+    broke  = b1_low * 0.98                       # 기준봉 저가 아래 종가
+    closes  = base + [b1, broke, broke]
+    highs   = [c * 1.01 for c in base] + [b1 * 1.005, b1_low, b1_low]
+    lows    = [c * 0.99 for c in base] + [b1_low, broke * 0.99, broke * 0.99]
+    volumes = [1_000_000] * 78 + [4_000_000, 1_000_000, 1_000_000]
+    df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
+
+    assert find_pivot_candle(df, lookback=10) is None
+
+
+def test_falls_back_to_earlier_cluster_when_latest_is_invalidated():
+    """최신 클러스터가 무효화되면 살아남은 이전 클러스터를 쓴다 (무효화 → 클러스터 순서)."""
+    base = [70 + i * 0.5 for i in range(78)]
+    b1     = base[-1] * 1.05
+    mid    = [b1 * 1.01 + i * 0.1 for i in range(12)]
+    b2     = mid[-1] * 1.06
+    b1_low, b2_low = b1 * 0.92, b2 * 0.92
+    broke  = (b1_low + b2_low) / 2               # b2 저가 아래·b1 저가 위 → b2만 무효
+    assert b1_low < broke < b2_low               # 픽스처 전제 명시
+    closes  = base + [b1] + mid + [b2, broke, broke * 1.001]
+    highs   = ([c * 1.01 for c in base] + [b1 * 1.005] + [c * 1.005 for c in mid]
+               + [b2 * 1.005, broke * 1.01, broke * 1.01])
+    lows    = ([c * 0.99 for c in base] + [b1_low] + [c * 0.995 for c in mid]
+               + [b2_low, broke * 0.99, broke * 0.99])
+    volumes = ([1_000_000] * 78 + [4_000_000] + [1_000_000] * 12
+               + [4_000_000, 1_000_000, 1_000_000])
+    df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
+
+    result = find_pivot_candle(df, lookback=25)
+
+    assert result is not None
+    assert result['date'] == df.index[78]        # 최신 b2(91)는 무효 → b1로 폴백
+
+
 def test_no_pivot_when_no_resistance_breakout():
     """60일 고점 돌파 없음 + 횡보 박스 아님 → 기준봉 없음"""
     closes  = [110.0] * 40 + [105.0] * 33 + [106.0, 106.0]
