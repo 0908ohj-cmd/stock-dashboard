@@ -9,7 +9,8 @@ from data.fetcher import (
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
 from data import store
-from data.sector import get_sectors
+from data.sector import get_sectors, get_major_themes
+from data.yf_sector import get_yf_sectors, resolve_sector
 from data import leaderboard_store
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs, _index_peak_date
@@ -122,8 +123,14 @@ def _build_rows(
         except Exception:
             continue
 
-    sectors = get_sectors(list(stock_cache.keys()), market)
-    rows    = []
+    # 섹터(yfinance 산업분류)와 테마(LLM)는 축이 다르다 — 두 컬럼으로 나란히 쓴다.
+    # yfinance가 industry를 안 주는 종목은 LLM 대분류로 섹터를 메운다.
+    _tickers = list(stock_cache.keys())
+    themes   = get_sectors(_tickers, market)
+    majors   = get_major_themes(_tickers)
+    yf_secs  = get_yf_sectors(_tickers, market)
+    sectors  = {t: resolve_sector(yf_secs.get(t, ''), majors.get(t, '')) for t in _tickers}
+    rows     = []
 
     for ticker, (df, adr_val) in stock_cache.items():
         try:
@@ -167,7 +174,8 @@ def _build_rows(
             rows.append({
                 'Ticker':      ticker,
                 '종목명':      name,
-                '섹터':        sectors.get(ticker, '기타'),
+                '섹터':        sectors.get(ticker, '-'),
+                '테마':        themes.get(ticker, '기타'),
                 'ADR':         adr_val,
                 'Close':       round(last_close, 2),
                 '등락%':       round(change_pct, 2),
@@ -513,6 +521,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         **(({'등급': f"{r['등급']}|{r['패턴']}"} if show_grade else {})),
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '섹터':          r['섹터'],
+        '테마':          r['테마'],
         'Close':         r['Close'],
         '등락%':         r['등락%'],
         '조정RS%':       r['조정RS%'],
@@ -568,6 +577,7 @@ function(valueA, valueB) {
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
+    gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
     gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('조정RS%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
@@ -622,7 +632,8 @@ function(valueA, valueB) {
                             f'<span style="color:#888;font-size:0.82em;margin-left:6px">{pattern}</span>',
                             unsafe_allow_html=True,
                         )
-                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
+                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; {r['테마']} "
+                               f"&nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
                     st.caption(
                         f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
                         f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "

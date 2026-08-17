@@ -68,6 +68,20 @@ def get_sectors(tickers: list, market: str) -> dict:
     return result
 
 
+def get_major_themes(tickers: list) -> dict:
+    """{ticker: LLM 대분류(theme)}. 캐시만 읽고 분류를 트리거하지 않는다.
+
+    표시용은 detail(get_sectors)이지만, yfinance가 industry를 주지 않는 종목의 '섹터' 컬럼을
+    메우는 데 이 대분류가 쓰인다(data.yf_sector.resolve_sector).
+    """
+    cache = theme_classifier._load_cache()
+    result = {}
+    for ticker in tickers:
+        entry = cache.get(ticker)
+        result[ticker] = entry.get('theme', '') if isinstance(entry, dict) else ''
+    return result
+
+
 def get_sectors_cached_only(tickers: list, market: str) -> dict:
     """캐시에 있는 라벨만 반환, 미캐시는 '기타' — 분류(subprocess·네트워크)를 절대
     트리거하지 않으므로 as-of 재계산처럼 블로킹이 허용되지 않는 경로에서 사용."""

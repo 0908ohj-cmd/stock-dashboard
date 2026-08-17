@@ -101,3 +101,19 @@ def test_cached_only_never_classifies(tmp_path, monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
     result = sector.get_sectors_cached_only(['000660', '005930', 'KOSPI'], 'KR_KOSPI')
     assert result == {'000660': 'HBM', '005930': '기타', 'KOSPI': '지수'}
+import json
+import data.sector as sector
+from data import theme_classifier
+
+
+def test_get_major_themes_캐시만_읽는다(tmp_path, monkeypatch):
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text(json.dumps({
+        '005930': {'theme': '메모리 반도체', 'detail': 'HBM·AI 메모리', 'updated': '2026-01-01T00:00:00'},
+    }, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+
+    result = sector.get_major_themes(['005930', '없는티커'])
+    assert result == {'005930': '메모리 반도체', '없는티커': ''}
