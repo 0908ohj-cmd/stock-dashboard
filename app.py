@@ -191,13 +191,17 @@ tv_export.register_leaderboard()
 st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
-# 제목 오른쪽에 TradingView 내보내기 버튼을 나란히 둔다. 내용은 탭이 전부 돌아간 뒤
-# (스크립트 맨 아래) 이 슬롯에 채워 넣는다 — 여기서 바로 그리면 탭이 아직 후보를
-# 등록하기 전이라 빈 목록으로 그려진다.
-_title_col, _tv_export_col = st.columns([3, 1], vertical_alignment='bottom')
+# 제목 바로 오른쪽에 TradingView 내보내기 버튼을 붙인다. 마지막 컬럼은 순전히 여백 —
+# 이게 없으면 버튼이 화면 폭 전체로 늘어나 제목에서 멀찍이 떨어진다.
+_title_col, _tv_export_col, _ = st.columns([2, 3, 9], vertical_alignment='bottom')
 with _title_col:
     st.subheader('와치리스트')
 _tv_export_slot = _tv_export_col.empty()
+
+# 1차 렌더 — 아래 탭들의 10EMA 스캔은 수 분이 걸린다. 탭 뒤에서만 그리면 그동안
+# 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 직전 실행 기준 목록으로 먼저
+# 자리를 채워 둔다. 스크립트 맨 아래에서 최신 목록으로 덮어쓴다.
+tv_export.render_export_button(_tv_export_slot, key='early', pending=True)
 tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
     '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
     '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
@@ -215,8 +219,8 @@ with tab_10ema_kosdaq:
 with tab_10ema_us:
     render_10ema_tab('US', '10EMA 나스닥')
 
-# ── TradingView 내보내기 ──────────────────────────────────
-# 반드시 모든 탭 뒤에서 호출한다 — 탭들이 등록해 둔 후보 목록을 여기서 모은다.
-# 그려지는 위치는 위에서 잡아둔 와치리스트 제목 옆 슬롯이다.
-tv_export.render_export_button(_tv_export_slot)
+# ── TradingView 내보내기 (2차 렌더) ───────────────────────
+# 탭들이 등록해 둔 최신 후보로 위 슬롯을 덮어쓴다. 이 호출을 탭 앞으로 옮기면
+# 후보가 등록되기 전이라 목록이 비고, 지우면 1차 렌더의 직전 실행 목록에 머문다.
+tv_export.render_export_button(_tv_export_slot, key='final')
 

@@ -71,8 +71,18 @@ def register_leaderboard() -> None:
         _register(f'leaderboard_{market}', title, tickers, market)
 
 
-def render_export_button(slot=None) -> None:
-    """모아둔 섹션을 다운로드 버튼으로. `slot`은 와치리스트 제목 옆에 잡아둔 st.empty()."""
+def render_export_button(slot=None, key: str = 'final', pending: bool = False) -> None:
+    """모아둔 섹션을 다운로드 버튼으로. `slot`은 와치리스트 제목 옆에 잡아둔 st.empty().
+
+    **두 번 불린다.** Streamlit은 스크립트를 위에서 아래로 실행하는데, 10EMA 탭들의
+    유니버스 스캔은 수 분이 걸린다 — 탭 뒤에서만 그리면 그동안 이 자리가 통째로
+    비어 버린다(버튼이 아예 없는 것처럼 보인다). 그래서 탭보다 먼저 `pending=True`로
+    비활성 로딩 버튼을 그려 자리를 채우고, 탭이 다 돌아간 뒤 같은 슬롯을 활성
+    버튼으로 덮어쓴다.
+
+    두 호출이 한 실행 안에 공존하므로 위젯 `key`가 서로 달라야 한다 — 같으면
+    Streamlit이 DuplicateWidgetID로 앱을 통째로 죽인다.
+    """
     container = slot.container() if slot is not None else st.container()
     with container:
         sections = order_sections(st.session_state.get(_REGISTRY_KEY, {}))
@@ -85,10 +95,20 @@ def render_export_button(slot=None) -> None:
         btn_col, refresh_col = st.columns([4, 1], vertical_alignment='bottom')
 
         with btn_col:
-            if not body:
+            if pending:
+                # 아직 탭들이 후보를 등록하는 중이다. 이 시점의 목록은 리더보드 정도만
+                # 찬 반쪽짜리라, 내주는 것보다 잠가 두는 편이 낫다 — 사용자가 모르고
+                # 받아 가면 후보가 통째로 빠진 파일을 TradingView에 올리게 된다.
+                # 탭이 끝나면 2차 렌더가 이 자리를 활성 버튼으로 덮어쓴다.
+                st.button('⏳ 후보 분석 중…', disabled=True,
+                          use_container_width=True,
+                          key=f'tv_export_dl_{key}',
+                          help='탭 분석이 끝나면 내보내기가 활성화됩니다')
+            elif not body:
                 st.button('📤 TradingView 내보내기', disabled=True,
                           use_container_width=True,
-                          help='탭 분석이 끝나면 활성화됩니다')
+                          key=f'tv_export_dl_{key}',
+                          help='내보낼 종목이 없습니다')
             else:
                 st.download_button(
                     '📤 TradingView 내보내기',
@@ -96,12 +116,16 @@ def render_export_button(slot=None) -> None:
                     file_name=export_filename(datetime.now(KST)),
                     mime='text/plain',
                     use_container_width=True,
+                    key=f'tv_export_dl_{key}',
                     help=f'TradingView 워치리스트 → 가져오기에 그대로 올릴 수 있는 txt\n\n{summary}',
                 )
 
         with refresh_col:
             # 후보 필터를 바꾼 직후엔 목록이 한 박자 늦는다(필터는 탭 안 fragment만
-            # 다시 그린다) — 이 버튼이 전체 재실행을 걸어 목록을 지금 화면과 맞춘다
+            # 다시 그린다) — 이 버튼이 전체 재실행을 걸어 목록을 지금 화면과 맞춘다.
+            # 분석 중에 누르면 처음부터 다시 도는 꼴이라 그동안은 같이 잠근다.
             if st.button('🔄', use_container_width=True,
+                         disabled=pending,
+                         key=f'tv_export_refresh_{key}',
                          help='후보 필터를 바꿨다면 눌러서 내보낼 목록을 맞추세요'):
                 st.rerun()
