@@ -1,304 +1,93 @@
+"""
+섹터(테마) 어댑터 — data.theme_classifier로 위임하고 WL 표시용 detail만 추출.
+(stockEdge watchlist/theme_classifier.py와 같은 역할. 구 자체 프롬프트·yfinance/pykrx
+폴백은 폐기 — 폴백 라벨이 캐시에 영구 고착되는 오염의 원인이었다.)
+"""
 import json
-import os
-import shutil
-import subprocess
 from pathlib import Path
 
-_ROOT = Path(__file__).parent.parent
-_CACHE_FILE = _ROOT / 'sector_cache.json'
+from data import theme_classifier
 
+_NAMES_FILE = Path(__file__).parent / 'kr_names.json'
 
-def _load_cache() -> dict:
-    if _CACHE_FILE.exists():
-        try:
-            return json.loads(_CACHE_FILE.read_text(encoding='utf-8'))
-        except Exception:
-            return {}
-    return {}
-
-
-def _save_cache(cache: dict) -> None:
-    _CACHE_FILE.write_text(
-        json.dumps(cache, ensure_ascii=False, indent=2), encoding='utf-8'
-    )
-
-
-# 레거시 Windows 경로 — 환경변수·PATH에서 못 찾을 때의 마지막 폴백
-_CLAUDE_EXE_FALLBACK = (
-    r"C:\Users\PC\AppData\Roaming\npm\node_modules"
-    r"\@anthropic-ai\claude-code\bin\claude.exe"
-)
-
-
-def _resolve_claude_exe() -> str | None:
-    """claude CLI 경로 결정: CLAUDE_CLI_PATH env → PATH → 레거시 Windows 경로."""
-    env_path = os.environ.get('CLAUDE_CLI_PATH', '')
-    if env_path and Path(env_path).exists():
-        return env_path
-    found = shutil.which('claude')
-    if found:
-        return found
-    if Path(_CLAUDE_EXE_FALLBACK).exists():
-        return _CLAUDE_EXE_FALLBACK
-    return None
-
-_SECTOR_PROMPT = (
-    "이 회사를 주식 투자 테마 관점에서 분류해줘. "
-    "구체적인 섹터 라벨 하나만 한국어로 답해. 절대 다른 말 하지 말고 라벨만. "
-    "최대한 세분화해서 분류해. 예시 목록:\n"
-    "\n"
-    "[반도체]\n"
-    "반도체 전공정 장비, 반도체 후공정 장비, 반도체 후공정(패키징·OSAT), "
-    "반도체 소재·부품, 메모리 반도체, 시스템 반도체, 파운드리, "
-    "팹리스(반도체 설계), 반도체 테스트·검사, AI GPU, HBM\n"
-    "\n"
-    "[2차전지]\n"
-    "배터리 셀, 배터리 양극재, 배터리 음극재, 배터리 전해질, "
-    "배터리 분리막, 배터리 부품·소재, 배터리 장비, 배터리 재활용\n"
-    "\n"
-    "[AI·SW·IT]\n"
-    "AI 소프트웨어, AI 인프라, 데이터센터 인프라, 데이터센터 운영, "
-    "클라우드 서비스, 네트워크 장비, 사이버보안, 핀테크, 게임, "
-    "엔터테인먼트·미디어, IT 서비스·SI\n"
-    "\n"
-    "[바이오·헬스케어]\n"
-    "바이오 신약, 의료기기, 진단·검사, CMO·CDMO, 의료 AI\n"
-    "\n"
-    "[자동차·모빌리티]\n"
-    "완성차, 자동차 부품, 전기차 부품, 자율주행, 로보틱스\n"
-    "\n"
-    "[에너지·인프라]\n"
-    "전력 인프라, 신재생에너지, 원전, 수소, 방위산업, 우주항공\n"
-    "\n"
-    "[디스플레이·광학]\n"
-    "OLED 디스플레이, LCD 디스플레이, 디스플레이 부품·소재, 광학 부품\n"
-    "\n"
-    "[기타]\n"
-    "철강·금속, 화학, 식품·음료, 유통·물류, 건설·부동산, 금융·보험, "
-    "통신, 섬유·의복, 소재·화학\n"
-)
-
-
-def _classify(summary: str) -> str:
-    claude_exe = _resolve_claude_exe()
-    if not claude_exe:
-        raise RuntimeError('claude CLI not found')
-    result = subprocess.run(
-        [claude_exe, '-p', _SECTOR_PROMPT + f"\n회사 설명:\n{summary[:800]}\n\n섹터 라벨:"],
-        capture_output=True,
-        timeout=60,
-        stdin=subprocess.DEVNULL,
-    )
-    label = result.stdout.decode('utf-8', errors='replace').strip()
-    label = label.split('\n')[0].strip().strip('"').strip("'").strip('*').strip('-').strip()
-    if not label or len(label) > 40:
-        raise ValueError(f'invalid label: {label[:60]!r}')
-    return label
-
-
-def _get_kr_name(ticker: str) -> str:
-    """pykrx로 한국어 종목명 조회."""
-    try:
-        from pykrx import stock as pykrx_stock
-        name = pykrx_stock.get_market_ticker_name(ticker)
-        if name:
-            return name
-    except Exception:
-        pass
-    return ''
-
-
-_KRX_SECTOR_MAP = {
-    '음식료품': '식품·음료', '섬유의복': '섬유·의복', '종이목재': '종이·목재',
-    '화학': '화학', '의약품': '바이오·제약', '비금속광물': '소재',
-    '철강금속': '철강·금속', '기계': '기계', '전기전자': '전기·전자',
-    '의료정밀': '의료·정밀기기', '운수장비': '자동차·운송장비',
-    '유통업': '유통', '전기가스업': '유틸리티', '건설업': '건설',
-    '운수창고업': '운송·물류', '통신업': '통신', '금융업': '금융',
-    '은행': '은행', '증권': '증권', '보험': '보험',
-    '서비스업': '서비스', '제조업': '제조',
-}
-
-_YF_INDUSTRY_MAP = {
-    # 반도체
-    'Semiconductors': '반도체 소재·부품',
-    'Semiconductor Equipment & Materials': '반도체 전공정 장비',
-    'Semiconductor Equipment': '반도체 전공정 장비',
-    'Electronic Components': '반도체 소재·부품',
-    'Electronic Equipment & Instruments': '반도체 테스트·검사',
-    # 2차전지·에너지
-    'Electrical Equipment & Parts': '전력 인프라',
-    'Specialty Chemicals': '배터리 소재·화학',
-    'Chemicals': '화학',
-    # IT·소프트웨어
-    'Software—Application': 'AI 소프트웨어',
-    'Software—Infrastructure': 'IT 인프라·SW',
-    'Information Technology Services': 'IT 서비스·SI',
-    'Internet Content & Information': '인터넷·플랫폼',
-    'Computer Hardware': 'IT 하드웨어',
-    'Communication Equipment': '네트워크 장비',
-    'Data Storage': '데이터센터 인프라',
-    # 바이오·헬스케어
-    'Biotechnology': '바이오 신약',
-    'Drug Manufacturers—General': '바이오 신약',
-    'Drug Manufacturers—Specialty & Generic': 'CMO·CDMO',
-    'Medical Devices': '의료기기',
-    'Medical Instruments & Supplies': '의료기기',
-    'Diagnostics & Research': '진단·검사',
-    'Health Information Services': '의료 AI',
-    # 자동차·모빌리티
-    'Auto Parts': '자동차 부품',
-    'Auto Manufacturers': '완성차',
-    'Auto & Truck Dealerships': '자동차 유통',
-    # 산업재
-    'Aerospace & Defense': '방위산업',
-    'Industrial Machinery': '산업 기계',
-    'Farm & Heavy Construction Machinery': '건설 기계',
-    'Specialty Industrial Machinery': '반도체 전공정 장비',
-    # 디스플레이
-    'Consumer Electronics': 'OLED 디스플레이',
-    # 기타
-    'Steel': '철강·금속', 'Aluminum': '철강·금속',
-    'Gold': '소재', 'Silver': '소재',
-    'Oil & Gas E&P': '에너지', 'Oil & Gas Integrated': '에너지',
-    'Banks—Regional': '은행', 'Banks—Diversified': '은행',
-    'Insurance—Life': '보험', 'Insurance—Property & Casualty': '보험',
-    'Capital Markets': '증권', 'Asset Management': '금융',
-    'Entertainment': '엔터테인먼트·미디어',
-    'Electronic Gaming & Multimedia': '게임',
-    'Telecom Services': '통신',
-    'Real Estate—General': '건설·부동산',
-    'Residential Construction': '건설·부동산',
-    'Grocery Stores': '식품·음료', 'Packaged Foods': '식품·음료',
-    'Apparel Manufacturing': '섬유·의복',
-}
-
-_YF_SECTOR_MAP = {
-    'Technology': 'IT·기술', 'Healthcare': '헬스케어', 'Financials': '금융',
-    'Consumer Discretionary': '소비재', 'Consumer Staples': '필수소비재',
-    'Industrials': '산업재', 'Energy': '에너지', 'Materials': '소재',
-    'Real Estate': '부동산', 'Utilities': '유틸리티',
-    'Communication Services': '통신·미디어',
-}
-
-
-def _fallback_sector(ticker: str, market: str) -> str:
-    """Claude 분류 실패 시 pykrx/yfinance 섹터 데이터로 대체."""
-    import yfinance as yf
-
-    if market.startswith('KR'):
-        try:
-            from pykrx import stock as pykrx_stock
-            from datetime import date
-            today = date.today().strftime('%Y%m%d')
-            df = pykrx_stock.get_market_sector_all(today, market='KOSPI' if market == 'KR_KOSPI' else 'KOSDAQ')
-            if ticker in df.index:
-                krx_sector = df.loc[ticker, '섹터'] if '섹터' in df.columns else ''
-                if krx_sector and krx_sector in _KRX_SECTOR_MAP:
-                    return _KRX_SECTOR_MAP[krx_sector]
-                if krx_sector:
-                    return krx_sector
-        except Exception:
-            pass
-
-    suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
-    try:
-        info     = yf.Ticker(ticker + suffix).info
-        industry = info.get('industry', '')
-        sector   = info.get('sector', '')
-        # industry 세분화 매핑 우선
-        if industry in _YF_INDUSTRY_MAP:
-            return _YF_INDUSTRY_MAP[industry]
-        if sector in _YF_SECTOR_MAP:
-            return _YF_SECTOR_MAP[sector]
-        if industry:
-            return industry
-        if sector:
-            return sector
-    except Exception:
-        pass
-
-    return '기타'
-
-
-def _build_summary(ticker: str, market: str) -> str:
-    """분류에 쓸 설명 문자열 구성. 한국어명 + yfinance 설명 조합."""
-    import yfinance as yf
-
-    parts = []
-
-    if market.startswith('KR'):
-        kr_name = _get_kr_name(ticker)
-        if kr_name:
-            parts.append(f"회사명: {kr_name}")
-
-    suffix = '.KS' if market == 'KR_KOSPI' else ('.KQ' if market == 'KR_KOSDAQ' else '')
-    try:
-        info = yf.Ticker(ticker + suffix).info
-        biz = info.get('longBusinessSummary', '')
-        if biz:
-            parts.append(biz[:600])
-        elif info.get('shortName'):
-            parts.append(f"영문명: {info['shortName']}")
-    except Exception:
-        pass
-
-    return '\n'.join(parts) if parts else ticker
-
-
-# 이번 프로세스에서 분류를 시도한 키 — '기타'(실패)의 반복 재시도를 세션 내에서만 막고,
-# 재시작하면 다시 기회를 준다 (디스크에 '기타'를 영속화하면 일시 장애가 영구 고착됨)
+# 이번 프로세스에서 분류를 시도한 티커 — 실패('기타')의 반복 재시도를 세션 내에서만 막고,
+# 재시작하면 다시 기회를 준다 (실패는 디스크에 저장되지 않으므로)
 _SESSION_ATTEMPTED: set = set()
 
 
+def _load_themes() -> tuple[list, dict]:
+    data = json.loads(theme_classifier._THEMES_FILE.read_text(encoding='utf-8'))
+    return data['known_themes'], dict(data.get('ticker_overrides', {}))
+
+
+def _kr_names(tickers: list) -> dict:
+    """번들 kr_names.json에서 종목명 힌트 추출 (미보유 종목은 힌트 없이 진행)."""
+    try:
+        bundle = json.loads(_NAMES_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        bundle = {}
+    return {t: bundle[t] for t in tickers if t in bundle}
+
+
+def _label(entry) -> str:
+    if not isinstance(entry, dict):
+        return '기타'
+    return entry.get('detail') or entry.get('theme') or '기타'
+
+
 def get_sectors(tickers: list, market: str) -> dict:
+    """{ticker: 표시 라벨(detail 우선, theme 폴백)}.
+
+    캐시 보유분은 TTL과 무관하게 사용(렌더 무블로킹 — 갱신은 scripts/refresh_sectors.sh 몫),
+    미보유분만 분류를 시도한다. claude CLI가 없는 환경(배포 서버)에서는 분류가 즉시
+    실패해 '기타'로 표시된다.
     """
-    각 티커의 섹터 라벨 반환 {ticker: sector}.
-    캐시에 없는(또는 '기타'로 남은) 종목만 세션당 1회 분류 시도, 성공한 라벨만 저장.
-    """
-    cache = _load_cache()
+    cache = theme_classifier._load_cache()
+    themes, overrides = _load_themes()
     result = {}
-    to_fetch = []
+    to_classify = []
 
     for ticker in tickers:
-        cache_key = f"{ticker}|{market}"
-        cached = cache.get(cache_key)
-        if cached and cached != '기타':
-            result[ticker] = cached
-        elif cache_key in _SESSION_ATTEMPTED:
-            # 미존재(None)든 빈 문자열이든 세션 내 실패 종목은 '기타'로 표시 (의도적 or)
-            result[ticker] = cached or '기타'
+        entry = cache.get(ticker)
+        if ticker in overrides:
+            result[ticker] = overrides[ticker]
+        elif isinstance(entry, dict) and (entry.get('detail') or entry.get('theme')):
+            result[ticker] = _label(entry)
+        elif ticker in _SESSION_ATTEMPTED:
+            result[ticker] = '기타'
         else:
-            to_fetch.append(ticker)
+            to_classify.append(ticker)
 
-    newly_classified = False
-    for ticker in to_fetch:
-        cache_key = f"{ticker}|{market}"
-        _SESSION_ATTEMPTED.add(cache_key)
+    if to_classify:
+        _SESSION_ATTEMPTED.update(to_classify)
+        names = _kr_names(to_classify) if market.startswith('KR') else None
+        full = theme_classifier.classify(to_classify, themes, overrides=overrides, names=names)
+        for ticker in to_classify:
+            result[ticker] = _label(full.get(ticker))
 
-        sector = ''
-        try:
-            summary = _build_summary(ticker, market)
-            sector = _classify(summary)
-        except Exception:
-            pass
+    return result
 
-        if not sector:
-            sector = _fallback_sector(ticker, market)
 
-        if sector and sector != '기타':
-            cache[cache_key] = sector
-            newly_classified = True
-        result[ticker] = sector or '기타'
+def get_major_themes(tickers: list) -> dict:
+    """{ticker: LLM 대분류(theme)}. 캐시만 읽고 분류를 트리거하지 않는다.
 
-    if newly_classified:
-        _save_cache(cache)
-
+    표시용은 detail(get_sectors)이지만, yfinance가 industry를 주지 않는 종목의 '섹터' 컬럼을
+    메우는 데 이 대분류가 쓰인다(data.yf_sector.resolve_sector).
+    """
+    cache = theme_classifier._load_cache()
+    result = {}
+    for ticker in tickers:
+        entry = cache.get(ticker)
+        result[ticker] = entry.get('theme', '') if isinstance(entry, dict) else ''
     return result
 
 
 def get_sectors_cached_only(tickers: list, market: str) -> dict:
     """캐시에 있는 라벨만 반환, 미캐시는 '기타' — 분류(subprocess·네트워크)를 절대
     트리거하지 않으므로 as-of 재계산처럼 블로킹이 허용되지 않는 경로에서 사용."""
-    cache = _load_cache()
-    return {t: cache.get(f"{t}|{market}") or '기타' for t in tickers}
+    cache = theme_classifier._load_cache()
+    _, overrides = _load_themes()
+    return {
+        t: overrides[t] if t in overrides else _label(cache.get(t))
+        for t in tickers
+    }

@@ -1,67 +1,119 @@
 import json
 import data.sector as sector
-
-
-def _raise(msg):
-    raise AssertionError(msg)
+from data import theme_classifier
 
 
 def _setup(tmp_path, monkeypatch, cache_content: dict):
-    cache_file = tmp_path / 'sector_cache.json'
-    cache_file.write_text(json.dumps(cache_content), encoding='utf-8')
-    monkeypatch.setattr(sector, '_CACHE_FILE', cache_file)
-    monkeypatch.setattr(sector, '_SESSION_ATTEMPTED', set(), raising=False)
-    monkeypatch.setattr(sector, '_build_summary', lambda t, m: 'dummy')
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text(json.dumps(cache_content, ensure_ascii=False), encoding='utf-8')
+    themes_file = tmp_path / 'themes.json'
+    themes_file.write_text(json.dumps({
+        'known_themes': [{'name': '메모리 반도체', 'description': '...'}],
+        'ticker_overrides': {'KOSPI': '지수'},
+    }, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(theme_classifier, '_THEMES_FILE', themes_file)
+    monkeypatch.setattr(sector, '_SESSION_ATTEMPTED', set())
     return cache_file
 
 
-def test_gita_result_is_not_persisted(tmp_path, monkeypatch):
-    """일시적 실패로 나온 '기타'는 디스크 캐시에 저장하지 않는다 — 재시작 시 재분류 기회."""
-    cache_file = _setup(tmp_path, monkeypatch, {})
-    monkeypatch.setattr(sector, '_classify', lambda s: _raise('CLI 없음'))
-    monkeypatch.setattr(sector, '_fallback_sector', lambda t, m: '기타')
-
-    result = sector.get_sectors(['005930'], 'KR_KOSPI')
-
-    assert result == {'005930': '기타'}
-    assert '005930|KR_KOSPI' not in json.loads(cache_file.read_text(encoding='utf-8'))
+def test_cache_hit_returns_detail_ttl_ignored(tmp_path, monkeypatch):
+    """캐시 보유분은 updated가 아무리 오래돼도(TTL 무시) 그대로 쓴다 — 렌더 무블로킹."""
+    _setup(tmp_path, monkeypatch, {
+        '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2020-01-01T00:00:00'},
+    })
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    assert sector.get_sectors(['000660'], 'KR_KOSPI') == {'000660': 'HBM'}
 
 
-def test_gita_not_retried_within_session(tmp_path, monkeypatch):
-    """같은 프로세스 안에서는 '기타' 종목을 반복 재분류(60초 타임아웃)하지 않는다."""
+def test_detail_missing_falls_back_to_theme(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch, {
+        '000660': {'theme': '메모리 반도체', 'detail': '', 'updated': '2026-01-01T00:00:00'},
+    })
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    assert sector.get_sectors(['000660'], 'KR_KOSPI') == {'000660': '메모리 반도체'}
+
+
+def test_only_uncached_passed_to_classify(tmp_path, monkeypatch):
+    """미캐시 종목만 classify로 넘어간다."""
+    _setup(tmp_path, monkeypatch, {
+        '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2026-01-01T00:00:00'},
+    })
+    calls = []
+
+    def fake_classify(tickers, themes, overrides=None, names=None):
+        calls.append(list(tickers))
+        return {t: {'theme': '메모리 반도체', 'detail': 'DRAM'} for t in tickers}
+
+    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
+    result = sector.get_sectors(['000660', '005930'], 'KR_KOSPI')
+    assert calls == [['005930']]
+    assert result == {'000660': 'HBM', '005930': 'DRAM'}
+
+
+def test_failure_shows_gita_and_not_retried_within_session(tmp_path, monkeypatch):
+    """분류 실패는 '기타' 표시 + 세션 내 재시도 금지 (rerun마다 subprocess 반복 방지)."""
     _setup(tmp_path, monkeypatch, {})
     calls = []
 
-    def _classify_fail(summary):
-        calls.append(1)
-        raise RuntimeError('CLI 없음')
+    def fake_classify(tickers, themes, overrides=None, names=None):
+        calls.append(list(tickers))
+        return {t: {'theme': '기타', 'detail': ''} for t in tickers}
 
-    monkeypatch.setattr(sector, '_classify', _classify_fail)
-    monkeypatch.setattr(sector, '_fallback_sector', lambda t, m: '기타')
-
-    sector.get_sectors(['005930'], 'KR_KOSPI')
-    sector.get_sectors(['005930'], 'KR_KOSPI')
-
+    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
+    assert sector.get_sectors(['005930'], 'KR_KOSPI') == {'005930': '기타'}
+    assert sector.get_sectors(['005930'], 'KR_KOSPI') == {'005930': '기타'}
     assert len(calls) == 1
 
 
-def test_legacy_cached_gita_retried_and_upgraded(tmp_path, monkeypatch):
-    """과거에 '기타'로 저장된 종목은 세션당 1회 재분류를 시도하고, 성공하면 승격 저장한다."""
-    cache_file = _setup(tmp_path, monkeypatch, {'005930|KR_KOSPI': '기타'})
-    monkeypatch.setattr(sector, '_classify', lambda s: '반도체 소재·부품')
-
-    result = sector.get_sectors(['005930'], 'KR_KOSPI')
-
-    assert result == {'005930': '반도체 소재·부품'}
-    assert json.loads(cache_file.read_text(encoding='utf-8'))['005930|KR_KOSPI'] == '반도체 소재·부품'
+def test_override_bypasses_classify(tmp_path, monkeypatch):
+    """지수 티커 등 ticker_overrides는 LLM 호출 없이 즉시 라벨."""
+    _setup(tmp_path, monkeypatch, {})
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    assert sector.get_sectors(['KOSPI'], 'KR_KOSPI') == {'KOSPI': '지수'}
 
 
-def test_cached_only_lookup_never_classifies(tmp_path, monkeypatch):
-    """as-of 빌드용 캐시 전용 조회 — 미캐시 종목이어도 분류(subprocess/네트워크)를 트리거하지 않는다."""
-    _setup(tmp_path, monkeypatch, {'005930|KR_KOSPI': '반도체 소재·부품'})
-    monkeypatch.setattr(sector, '_classify', lambda s: _raise('_classify 호출됨'))
-    monkeypatch.setattr(sector, '_fallback_sector', lambda t, m: _raise('_fallback 호출됨'))
+def test_kr_names_hint_passed(tmp_path, monkeypatch):
+    """KR 마켓이면 kr_names.json 번들의 종목명이 names 힌트로 전달된다."""
+    _setup(tmp_path, monkeypatch, {})
+    names_file = tmp_path / 'kr_names.json'
+    names_file.write_text(json.dumps({'005930': '삼성전자'}, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(sector, '_NAMES_FILE', names_file)
+    seen = {}
 
-    result = sector.get_sectors_cached_only(['005930', '000660'], 'KR_KOSPI')
+    def fake_classify(tickers, themes, overrides=None, names=None):
+        seen['names'] = names
+        return {t: {'theme': '메모리 반도체', 'detail': 'DRAM'} for t in tickers}
 
-    assert result == {'005930': '반도체 소재·부품', '000660': '기타'}
+    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
+    sector.get_sectors(['005930'], 'KR_KOSPI')
+    assert seen['names'] == {'005930': '삼성전자'}
+
+
+def test_cached_only_never_classifies(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch, {
+        '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2026-01-01T00:00:00'},
+    })
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    result = sector.get_sectors_cached_only(['000660', '005930', 'KOSPI'], 'KR_KOSPI')
+    assert result == {'000660': 'HBM', '005930': '기타', 'KOSPI': '지수'}
+import json
+import data.sector as sector
+from data import theme_classifier
+
+
+def test_get_major_themes_캐시만_읽는다(tmp_path, monkeypatch):
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text(json.dumps({
+        '005930': {'theme': '메모리 반도체', 'detail': 'HBM·AI 메모리', 'updated': '2026-01-01T00:00:00'},
+    }, ensure_ascii=False), encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+
+    result = sector.get_major_themes(['005930', '없는티커'])
+    assert result == {'005930': '메모리 반도체', '없는티커': ''}

@@ -6,7 +6,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
 from data.store import load_daily
-from data.sector import get_sectors
+from data.sector import get_sectors, get_major_themes
+from data.yf_sector import get_yf_sectors, resolve_sector
 from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
@@ -117,7 +118,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 10  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 12  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -128,6 +129,17 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
             result = future.result()
             if result is not None:
                 rows.append(result)
+
+    # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
+    tickers = [r['Ticker'] for r in rows]
+    themes = get_sectors(tickers, market)
+    majors = get_major_themes(tickers)
+    yf_secs = get_yf_sectors(tickers, market)
+    for r in rows:
+        t = r['Ticker']
+        # yfinance가 industry를 안 주는 종목은 LLM 대분류로 섹터를 메운다
+        r['섹터'] = resolve_sector(yf_secs.get(t, ''), majors.get(t, ''))
+        r['테마'] = themes.get(t, '기타')
 
     rows.sort(key=lambda r: (
         STATE_ORDER.get(r['상태'], 99),
@@ -267,6 +279,8 @@ def render_10ema_tab(market: str, label: str):
         '👑': '👑' if r['Ticker'] in crown else '',
         '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
+        '섹터':           r['섹터'],
+        '테마':           r['테마'],
         '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],
         '현재→타점%':     r['현재→타점%'],
@@ -289,6 +303,8 @@ def render_10ema_tab(market: str, label: str):
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
+    gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
+    gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
     gb.configure_column('기준봉일', filter='agTextColumnFilter', flex=1)
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
