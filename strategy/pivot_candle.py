@@ -74,10 +74,54 @@ def _broke_vcp_box(df: pd.DataFrame, idx: int,
         if lo == 0:
             continue
         if (hi - lo) / lo * 100 <= max_range_pct:
-            box_top = float(window['Close'].max())
-            if float(df['Close'].iloc[idx]) > box_top:
+            # 박스 저항선은 고가(hi)다. 종가최대를 쓰면 윗꼬리로 만들어진 실제 고점
+            # 아래에서 마감해도 돌파로 잡혀 유령 기준봉·유령 타점이 생긴다
+            if float(df['Close'].iloc[idx]) > hi:
                 return True
     return False
+
+
+_CLUSTER_GAP = 10   # 직전 후보와 이 거래일 이내면 같은 상승 흐름으로 본다
+
+
+def _cluster_candidates(candidates: list, max_gap: int = _CLUSTER_GAP) -> list:
+    """직전 후보와 max_gap 거래일 이내로 이어지는 후보들을 한 클러스터로 묶는다.
+
+    간격을 클러스터 첫 봉이 아니라 '직전 후보'에서 재야 78/85/92처럼 7거래일씩
+    연쇄하는 한 흐름이 둘로 갈리지 않는다.
+    """
+    clusters = [[candidates[0]]]
+    for cand in candidates[1:]:
+        if cand[0] - clusters[-1][-1][0] > max_gap:
+            clusters.append([cand])
+        else:
+            clusters[-1].append(cand)
+    return clusters
+
+
+def _low_broken_after(df: pd.DataFrame, idx: int) -> bool:
+    """기준봉 저가가 이후 종가로 뚫렸는지 — 손절선이 이미 깨진 자리다."""
+    pivot_low = float(df['Low'].iloc[idx])
+    return bool((df['Close'].iloc[idx + 1:] < pivot_low).any())
+
+
+def _pivot_result(df: pd.DataFrame, cand: tuple, cluster_end_idx: int,
+                  invalidated: bool = False) -> dict:
+    i, vr = cand
+    row   = df.iloc[i]
+    high, low, close = float(row['High']), float(row['Low']), float(row['Close'])
+    return {
+        'date':      df.index[i],
+        'vol_ratio': round(vr, 2),
+        'high':      high,
+        'low':       low,
+        'midline':   round((high + low) / 2, 4),
+        'close':     close,
+        # 같은 흐름의 마지막 후보 — 과열(돌파완료) 판정을 여기서부터 센다
+        'cluster_end': df.index[cluster_end_idx],
+        # 저가가 이미 뚫린 기준봉. None으로 지우면 '없음'으로 표시돼 저가이탈이 가려진다
+        'invalidated': invalidated,
+    }
 
 
 def find_pivot_candle(
@@ -86,8 +130,15 @@ def find_pivot_candle(
 ) -> dict | None:
     """
     최근 lookback 거래일 내 기준봉 탐지.
-    조건: 거래량 300%+, 종가 레인지 상위 30%, 저항 돌파(60일 고점 or VCP 박스), 정배열.
-    복수 후보 시 거래량비율 최고 봉 반환.
+    조건: 거래량 150%+(1.5배), 종가 레인지 상위 30%, 저항 돌파(60일 고점 or VCP 박스), 정배열.
+    복수 후보 시 (거래량비율로 고르지 않는다 — 타점이 기준봉 고가라 같은 흐름
+    안에서는 첫 봉이 낮은 진입가를 준다):
+      1) 전체 후보를 클러스터로 묶는다. 무효화를 먼저 걸러내면 버려진 후보 유무가
+         살아남은 후보 간 선택을 뒤집으므로 순서가 중요하다
+      2) 최신 클러스터부터 거슬러 올라가며, 저가가 살아있는 첫 봉을 쓴다
+      3) 살아있는 후보가 하나도 없으면 가장 최근 후보를 invalidated로 돌려준다
+         (None을 주면 저가를 깬 종목이 '기준봉 미탐지'로 보인다)
+    후보 자체가 없을 때만 None.
     """
     if len(stock_df) < 70:
         return None
@@ -120,66 +171,51 @@ def find_pivot_candle(
     if not candidates:
         return None
 
-    # 저가가 이후 한 번이라도 종가 기준으로 뚫린 기준봉은 무효화
-    valid = []
-    for i, vr in candidates:
-        pivot_low = float(stock_df['Low'].iloc[i])
-        after = stock_df.iloc[i + 1:]
-        if not (after['Close'] < pivot_low).any():
-            valid.append((i, vr))
+    # 클러스터를 '전체 후보'로 먼저 묶는다 — 무효화를 앞세우면 결과에 없는 후보가
+    # 경계를 옮겨 살아남은 후보 간 선택을 뒤집는다
+    clusters = _cluster_candidates(candidates)
 
-    if not valid:
-        return None
+    for cluster in reversed(clusters):          # 최신 클러스터부터
+        alive = [c for c in cluster if not _low_broken_after(stock_df, c[0])]
+        if alive:
+            return _pivot_result(stock_df, alive[0], cluster[-1][0])
 
-    # 10거래일 이내 연속 피벗은 같은 클러스터로 묶어 첫 번째 봉 우선
-    # 클러스터 간(>10일)에는 가장 최근 클러스터 선택
-    clustered = [valid[0]]
-    for cur_i, cur_vr in valid[1:]:
-        if cur_i - clustered[-1][0] > 10:
-            clustered.append((cur_i, cur_vr))
-
-    best_i, best_vr = clustered[-1]
-    row = stock_df.iloc[best_i]
-    high  = float(row['High'])
-    low   = float(row['Low'])
-    close = float(row['Close'])
-    return {
-        'date':      stock_df.index[best_i],
-        'vol_ratio': round(best_vr, 2),
-        'high':      high,
-        'low':       low,
-        'midline':   round((high + low) / 2, 4),
-        'close':     close,
-    }
+    # 살아남은 후보 없음 → 가장 최근 후보를 무효 표시로 반환 (저가이탈 표시용)
+    last = candidates[-1]
+    return _pivot_result(stock_df, last, last[0], invalidated=True)
 
 
 def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'없음' | '이탈' | '중간선이탈' | '10EMA이탈' | '형성중' | '셋업'
+    """'없음' | '저가이탈' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중' | '셋업'
 
     셋업: 기준봉 고가 부근 타이트 횡보 — 쿨라매기 브레이크아웃 직전
     형성중: 기준봉 있으나 셋업 조건 미충족 (베이스 무르익는 중)
+    돌파완료: 타점을 이미 크게/오래 벗어남 → 추격 불가
     중간선이탈: 기준봉 (고+저)/2 아래 터치 → 셋업 무효
     10EMA이탈: 10EMA 아래 연속 2일 → 셋업 무효
-    이탈: 기준봉 저가 하방
-    없음: 최근 63일 내 기준봉 미탐지
+    저가이탈: 기준봉 저가 하방 (기준봉이 이미 무효화된 경우 포함)
+    없음: 최근 lookback(기본 63) 거래일 내 기준봉 후보 자체가 없음
     """
     if pivot is None:
         return '없음'
 
     current_close = float(stock_df['Close'].iloc[-1])
 
-    if current_close < pivot['low']:
+    if pivot.get('invalidated') or current_close < pivot['low']:
         return '저가이탈'
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 
-    # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과)
+    # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과).
+    # 누적일은 클러스터가 끝난 뒤부터 센다 — 같은 흐름 안의 후행봉은 기준봉 고가 위에서
+    # 마감하는 게 정상이라, 첫 봉부터 세면 갓 완성된 셋업이 돌파완료로 뒤집힌다
+    after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
     if not since_pivot.empty:
         adr = float(((stock_df['High'] - stock_df['Low']) / stock_df['Close'] * 100).rolling(20).mean().iloc[-1])
-        days_above = int((since_pivot['Close'] > pivot['high']).sum())
+        days_above = int((after_cluster['Close'] > pivot['high']).sum())
         if current_close > pivot['high'] * (1 + adr * 1.5 / 100) or days_above > 5:
             return '돌파완료'
 
@@ -203,7 +239,7 @@ def classify_case(
         max_high         = float(since_pivot['High'].max())
         ever_above       = max_high > pivot['high']
         not_overextended = max_high <= pivot['high'] * 1.10
-        days_above_high  = int((since_pivot['Close'] > pivot['high']).sum())
+        days_above_high  = int((after_cluster['Close'] > pivot['high']).sum())
         brief_stay       = days_above_high <= 5
         back_near        = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
         if ever_above and not_overextended and brief_stay and back_near:

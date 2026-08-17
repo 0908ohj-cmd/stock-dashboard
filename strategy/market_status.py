@@ -6,7 +6,8 @@ def _ema21(index_df: pd.DataFrame) -> pd.Series:
     return calc_ema(index_df, 21)
 
 
-def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
+def detect_jjin_bounce(index_df: pd.DataFrame,
+                       start: pd.Timestamp | None = None) -> dict | None:
     """
     찐반등 감지 — 가장 최근 조정 시작일 이후 첫 번째 조건 충족일 반환.
     조건:
@@ -14,6 +15,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
       2. 당일 양봉, 상승폭 >= ADR(20일)
       3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.5
     거래량 별: 조정 구간(EMA21 이탈일 ~ 전날) 평균 대비 비율
+    start: 이 날짜(포함)부터만 탐색 — 실패한 찐반등 이후 새 후보 탐색용.
     """
     if len(index_df) < 22:
         return None
@@ -37,6 +39,8 @@ def detect_jjin_bounce(index_df: pd.DataFrame) -> dict | None:
     correction_slice = index_df.iloc[last_start_loc:]
     lowest_low_loc   = last_start_loc + int(correction_slice['Low'].argmin())
     start_loc        = max(lowest_low_loc, 2)
+    if start is not None:
+        start_loc = max(start_loc, int(index_df.index.searchsorted(start)))
 
     for i in range(start_loc, len(index_df)):
         row  = index_df.iloc[i]
@@ -127,36 +131,62 @@ def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp
     return None
 
 
-def _jjin_failed(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
-                  ema21: pd.Series, window: int = 5) -> bool:
-    """jjin_date 이후 window 거래일이 모두 지난 후에도 EMA21 위로 종가 못 닫혔으면 True.
-    window 일 당일(DAY7)에는 아직 실패 판정 안 함 → day8(window+1)부터 판정."""
-    after = index_df[index_df.index > jjin_date]
-    if len(after) <= window:
-        return False  # window일 이하 → 대기 중 (DAY3~5 진행 중)
-    for idx, row in after.head(window).iterrows():
-        if idx in ema21.index and float(row['Close']) > float(ema21[idx]):
-            return False  # window 내 EMA21 위로 닫힘 → 성공
-    return True  # 실패
-
-
-def _jjin_engulfed(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> bool:
-    """찐반등 저점 아래 종가 등장 시 True → 즉시 DAY1 복귀."""
+def _jjin_failure_date(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
+                       ema21: pd.Series, window: int = 5) -> pd.Timestamp | None:
+    """찐반등 실패가 확정된 날짜 반환. 실패 아니거나 아직 대기 중이면 None.
+    - 종가 < 찐반등 저가: 그날 즉시 실패 (기간 무관)
+    - window 거래일 내 EMA21 위 종가 없음: window+1번째 거래일에 확정
+      (window일 당일(DAY7)에는 아직 실패 판정 안 함)"""
     if jjin_date not in index_df.index:
-        return False
-    jjin_low = float(index_df.loc[jjin_date, 'Low'])
+        return None
+
+    def _scalar(v):
+        """중복 날짜가 섞이면 .loc/[]가 Series를 반환한다 — 마지막 값으로 축약."""
+        return float(v.iloc[-1] if isinstance(v, pd.Series) else v)
+
+    jjin_low = _scalar(index_df.loc[jjin_date, 'Low'])
     after = index_df[index_df.index > jjin_date]
-    for _, row in after.iterrows():
-        if float(row['Close']) < jjin_low:
-            return True
-    return False
+    recovered = False
+    for i, (idx, row) in enumerate(after.iterrows()):
+        close = float(row['Close'])
+        if close < jjin_low:
+            return idx
+        if i < window and idx in ema21.index and close > _scalar(ema21[idx]):
+            recovered = True
+        if i == window and not recovered:
+            return idx
+    return None
+
+
+def _resolve_jjin(index_df: pd.DataFrame, ema21: pd.Series,
+                  last_start: pd.Timestamp) -> tuple[dict | None, pd.Timestamp | None]:
+    """실패한 찐반등을 건너뛰며 현재 유효한 후보를 찾는다 → (찐반등 | None, 마지막 실패일 | None).
+
+    실패 확정일이 아니라 실패 후보의 '다음 거래일'부터 재탐색한다 — 실패 후보의 확인
+    대기창(DAY3~7) 안에서 나온 새 찐반등도 놓치지 않기 위함.
+    """
+    search_start = None
+    last_failed  = None
+    for _ in range(len(index_df)):        # 후보 날짜가 매 회 엄격히 증가하므로 실제로는 조기 종료
+        jjin = detect_jjin_bounce(index_df, start=search_start)
+        if jjin is None or jjin['date'] < last_start:
+            return None, last_failed
+        if _jjin_failure_date(index_df, jjin['date'], ema21, window=5) is None:
+            return jjin, last_failed
+        last_failed = jjin['date']
+        nxt = int(index_df.index.searchsorted(jjin['date'], side='right'))
+        if nxt >= len(index_df):
+            return None, last_failed
+        search_start = index_df.index[nxt]
+    return None, last_failed
 
 
 def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
     state: 'normal' | 'correction' | 'early_signal'
-    찐반등 감지 후 5거래일 내 EMA21 미회복 시 실패로 판정, 조정 상태로 복귀.
+    찐반등 감지 후 5거래일 내 EMA21 미회복(또는 저점 이탈) 시 실패 판정 → 조정 복귀.
+    실패 확정일 이후의 새 찐반등 후보는 다시 탐색한다.
     """
     base = {
         'state': 'normal', 'correction_start': None,
@@ -170,7 +200,6 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     below        = index_df['Close'] < ema21
     transitions  = below.astype(int).diff()
     bd_starts    = transitions[transitions == 1].index
-    rec_dates    = transitions[transitions == -1].index
     is_below_now = bool(below.iloc[-1])
 
     if len(bd_starts) == 0:
@@ -180,44 +209,28 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
 
     base['correction_start'] = last_start
 
+    # 실패한 찐반등은 건너뛰고 유효 후보를 찾는다 — EMA21 회복 여부와 무관하게 적용해야
+    # '실패한 반등이 이후의 진짜 반등을 가리는' 문제가 두 분기 모두에서 사라진다
+    jjin, last_failed = _resolve_jjin(index_df, ema21, last_start)
+
     if not is_below_now:
+        # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         base['state'] = 'normal'
-
-        # EMA21 위 연속 거래일 카운트
-        consecutive_above = 0
-        for i in range(len(index_df) - 1, -1, -1):
-            if float(index_df['Close'].iloc[i]) < float(ema21.iloc[i]):
-                break
-            consecutive_above += 1
-
-        # 찐반등 탐색 (EMA21 회복 기간 무관)
-        jjin = detect_jjin_bounce(index_df)
-        if jjin and jjin['date'] >= last_start:
+        # 실패 이력도 함께 전달 — 없으면 UI가 '찐반등 미확인'으로 표시해
+        # 반등 시도 자체가 없었던 것처럼 읽힌다
+        base['failed_jjin_date'] = last_failed
+        if jjin:
             base['jjin_date']  = jjin['date']
             base['jjin_pct']   = jjin['pct']
             base['jjin_stars'] = jjin['stars']
-        # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
         return base
 
-    # 지수가 EMA21 아래인 상태
-    jjin = detect_jjin_bounce(index_df)
-    if jjin is None or jjin['date'] < last_start:
-        base['state'] = 'correction'
-        return base
-
-    # 찐반등 후 3거래일 내 EMA21 회복 실패 여부 확인
-    if _jjin_failed(index_df, jjin['date'], ema21, window=5):
+    if jjin is None:
         base['state']            = 'correction'
-        base['failed_jjin_date'] = jjin['date']
+        base['failed_jjin_date'] = last_failed
         return base
 
-    # 찐반등 저점 아래 종가 등장 → 기간 무관 즉시 DAY1 복귀
-    if _jjin_engulfed(index_df, jjin['date']):
-        base['state']            = 'correction'
-        base['failed_jjin_date'] = jjin['date']
-        return base
-
-    # 찐반등 감지, 아직 확인 대기 중 (3거래일 이내)
+    # 찐반등 감지, 아직 확인 대기 중
     base.update({
         'state':       'early_signal',
         'jjin_date':   jjin['date'],

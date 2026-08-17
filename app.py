@@ -13,6 +13,7 @@ from ui.watchlist import (
 )
 from ui.watchlist_10ema import render_10ema_tab
 from ui.leaderboard import render_leaderboard_section
+from ui import tv_export
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
 
@@ -185,10 +186,22 @@ st.divider()
 # 통째로 재실행하므로, 뒤에 두면 앞 탭들이 수백 종목 시세를 받는 동안(캐시가 비면
 # 10분 이상) 이 줄에 도달하지 못해 화면이 빈 채로 남는다. 여기선 파일만 읽어 즉시 뜬다.
 render_leaderboard_section()
+# 리더보드는 화면의 시장 선택과 무관하게 US·KR 양쪽을 내보낸다 (JSON 읽기라 비용 없음)
+tv_export.register_leaderboard()
 st.divider()
 
 # ── 와치리스트 ────────────────────────────────────────────
-st.subheader('와치리스트')
+# 제목 바로 오른쪽에 TradingView 내보내기 버튼을 붙인다. 마지막 컬럼은 순전히 여백 —
+# 이게 없으면 버튼이 화면 폭 전체로 늘어나 제목에서 멀찍이 떨어진다.
+_title_col, _tv_export_col, _ = st.columns([2, 3, 9], vertical_alignment='bottom')
+with _title_col:
+    st.subheader('와치리스트')
+_tv_export_slot = _tv_export_col.empty()
+
+# 1차 렌더 — 아래 탭들의 10EMA 스캔은 수 분이 걸린다. 탭 뒤에서만 그리면 그동안
+# 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 직전 실행 기준 목록으로 먼저
+# 자리를 채워 둔다. 스크립트 맨 아래에서 최신 목록으로 덮어쓴다.
+tv_export.render_export_button(_tv_export_slot, key='early', pending=True)
 tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
     '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
     '📈 10EMA 코스피', '📈 10EMA 코스닥', '📈 10EMA 나스닥'
@@ -205,4 +218,9 @@ with tab_10ema_kosdaq:
     render_10ema_tab('KR_KOSDAQ', '10EMA 코스닥')
 with tab_10ema_us:
     render_10ema_tab('US', '10EMA 나스닥')
+
+# ── TradingView 내보내기 (2차 렌더) ───────────────────────
+# 탭들이 등록해 둔 최신 후보로 위 슬롯을 덮어쓴다. 이 호출을 탭 앞으로 옮기면
+# 후보가 등록되기 전이라 목록이 비고, 지우면 1차 렌더의 직전 실행 목록에 머문다.
+tv_export.render_export_button(_tv_export_slot, key='final')
 

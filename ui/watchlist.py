@@ -16,6 +16,7 @@ from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs, _index_peak_date
 from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
+from ui import tv_export
 
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
@@ -242,10 +243,14 @@ def _status_banner(status: dict, label: str):
         st.warning(f"🔴 **{label} 조정 중** ({' | '.join(parts)})")
     else:  # normal
         if status.get('correction_start') and not status.get('jjin_date'):
-            cdate = status['correction_start'].date()
-            pdate = status.get('peak_date')
+            cdate  = status['correction_start'].date()
+            pdate  = status.get('peak_date')
+            failed = status.get('failed_jjin_date')
             peak_str = f"RS 기산점: {pdate.date()} | " if pdate else ''
-            st.warning(f"🟡 **{label} EMA21 회복** ({peak_str}이탈일: {cdate} | 찐반등 미확인)")
+            # 실패 이력이 있으면 '미확인'이 아니라 '실패' — 반등 시도 자체가 없었던 것처럼
+            # 읽히면 분석가가 조정 국면을 잘못 해석한다
+            tail = f"{failed.date()} 반등 실패" if failed else '찐반등 미확인'
+            st.warning(f"🟡 **{label} EMA21 회복** ({peak_str}이탈일: {cdate} | {tail})")
         elif status.get('jjin_date'):
             jdate = status['jjin_date'].date()
             st.success(f"✅ **{label} 정상** (찐반등 확인 {jdate})")
@@ -254,6 +259,10 @@ def _status_banner(status: dict, label: str):
 
 
 def render_watchlist_tab(tickers: list, market: str, label: str):
+    # export 섹션을 먼저 비운다 — 아래 어느 경로로 빠져나가든(업로드 없음, 분석 불가)
+    # 직전 실행에서 남은 후보가 세션에 살아남아 파일에 실리는 일이 없어야 한다
+    tv_export.register_trend(market, [])
+
     if not tickers:
         st.info(f'사이드바에서 {label} CSV를 업로드해 주세요.')
         return
@@ -677,6 +686,11 @@ function(valueA, valueB) {
                 if not top_candidates else []
             )
             has_candidates = bool(top_candidates or fallback)
+
+            # 화면에 실제로 뜨는 목록 그대로 내보낸다 (필터 결과 = 후보 카드 = txt)
+            tv_export.register_trend(
+                market, [r['Ticker'] for r in (top_candidates or fallback)]
+            )
 
             if jjin_date_str:
                 ref_date   = jjin_date_str

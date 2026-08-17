@@ -107,6 +107,93 @@ def test_get_market_status_early_signal():
     assert status['jjin_pct'] > 0
 
 
+# ── 실패한 찐반등이 이후의 새 찐반등을 가리면 안 된다 ─────────────
+# detect_jjin_bounce가 조정 최저점 이후 '첫 번째' 반등만 반환하면, 그 반등이
+# 실패 판정된 뒤 신저가 없이 나온 새 반등은 영원히 감지되지 않는다.
+
+def _oc_df(pairs):
+    opens  = [o for o, _ in pairs]
+    closes = [c for _, c in pairs]
+    highs  = [max(o, c) * 1.005 for o, c in pairs]
+    lows   = [min(o, c) * 0.995 for o, c in pairs]
+    return _make_df(closes, opens=opens, highs=highs, lows=lows)
+
+
+_UP    = [(100 + i, 100 + i) for i in range(25)]
+_DOWN  = list(zip([127, 124, 121, 118, 115, 112, 109, 106, 103, 100],
+                  [124, 121, 118, 115, 112, 109, 106, 103, 100, 97]))
+_B1    = [(97, 105)]                                       # 첫 찐반등
+_WIN5  = [(107, 104), (106, 103), (105, 102), (104, 101), (103, 100)]  # 5거래일 미회복 → 실패
+_POST  = [(102, 99), (100, 97)]                            # 실패 확정 후 조정 지속 (신저가 없음)
+_B2    = [(97, 104)]                                       # 새 찐반등 (+7.2% ≥ ADR)
+
+
+def test_new_jjin_detected_after_failed_jjin_without_new_low():
+    """첫 찐반등 실패 후 신저가 없이 나온 새 찐반등 → early_signal로 전환돼야 한다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + _POST + _B2)
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['jjin_date'] == df.index[-1]
+
+
+def test_second_failed_jjin_reports_latest_failure():
+    """새 찐반등도 실패하면 correction 복귀 + 최근 실패일 보고."""
+    b2_fail = [(106, 103), (105, 102), (104, 101), (103, 100), (102, 99), (101, 98)]
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + _POST + _B2 + b2_fail)
+    b2_date = df.index[-(len(b2_fail) + 1)]
+    status = get_market_status(df)
+    assert status['state'] == 'correction'
+    assert status['failed_jjin_date'] == b2_date
+
+
+_RECOV = [(104, 112), (112, 118), (118, 124)]        # EMA21 위로 회복
+# B1 실패창 안 3번째 봉이 찐반등 조건 충족 (EMA21 아래에서 마감 → B1은 여전히 실패)
+_WIN_CAND = [(107, 102), (102, 99), (99, 107), (107, 104), (104, 101), (101, 100)]
+
+
+def test_normal_state_reports_new_jjin_not_failed_one():
+    """EMA21 회복 후 보고되는 찐반등은 실패한 첫 반등이 아니라 마지막 유효 반등이어야 한다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + _POST + _B2 + _RECOV)
+    b2_date = df.index[len(_UP) + len(_DOWN) + len(_B1) + len(_WIN5) + len(_POST)]
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] == b2_date
+
+
+def test_new_jjin_inside_failed_window_is_detected():
+    """실패한 찐반등의 확인 대기창(DAY3~7) 안에서 나온 새 찐반등도 감지돼야 한다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN_CAND)
+    cand_date = df.index[len(_UP) + len(_DOWN) + len(_B1) + 2]
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['jjin_date'] == cand_date
+
+
+@pytest.mark.parametrize('offset', [0, 2])
+def test_get_market_status_survives_duplicate_dates(offset):
+    """중복 날짜 인덱스에서도 크래시하지 않는다 — 찐반등일 자체든 그 이후 날짜든."""
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5)
+    dup_date = df.index[len(_UP) + len(_DOWN) + offset]
+    df = pd.concat([df, df.loc[[dup_date]]]).sort_index()
+    status = get_market_status(df)
+    assert status['state'] in ('normal', 'correction', 'early_signal')
+
+
+def test_failed_jjin_reported_after_ema21_recovery():
+    """EMA21 회복 후에도 '반등이 있었으나 실패' 이력은 남아야 한다 —
+    '찐반등 미확인'으로 표시되면 분석가가 반등 시도 자체가 없었다고 오해한다."""
+    # B1은 5거래일 내 EMA21 미회복으로 실패 → 이후 ADR 미달의 완만한 상승으로만 회복
+    # (새 찐반등 후보 없이 EMA21 위로 올라오는 경우)
+    gradual = [(100, 101), (101, 102), (102, 103), (103, 104), (104, 105),
+               (105, 106), (106, 107), (107, 108), (108, 109)]
+    df = _oc_df(_UP + _DOWN + _B1 + _WIN5 + gradual)
+    b1_date = df.index[len(_UP) + len(_DOWN)]
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] is None
+    assert status['failed_jjin_date'] == b1_date
+
+
 def test_jjin_bounce_skips_incomplete_ohlc_row():
     """Close만 있고 OHL이 NaN인 불완전 행(지수 패치 잔재 등)을 찐반등으로 오검출하면 안 된다."""
     dates = pd.date_range('2026-01-01', periods=35, freq='B')

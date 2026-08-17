@@ -42,7 +42,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 지수 상태 머신 `strategy/market_status.py:get_market_status`가 중심:
 
 - `normal` → 지수 종가 EMA21 이탈 시 `correction`(DAY1) → 찐반등(장중 저가 EMA21 아래 + 양봉 상승폭 ≥ ADR + 직전 음봉 바디의 50% 이상 커버) 감지 시 `early_signal`(DAY2) → 이후 DAY3~5 (`strategy/phases.py`)
-- 찐반등 실패 판정: 3거래일 내 EMA21 미회복 또는 찐반등 저점 아래 종가 → `correction` 복귀
+- 찐반등 실패 판정: 5거래일 내 EMA21 미회복(6번째 거래일에 확정) 또는 찐반등 저점 아래 종가(당일 즉시) → `correction` 복귀. 실패한 후보의 **다음 거래일부터 새 찐반등을 다시 탐색**하므로, 실패가 이후의 유효한 반등을 가리지 않는다
 - 종목 지표: 조정 구간 RS(`strategy/rs_correction.py` — 전고점~찐반등일 지수 대비 초과수익), 3종 RS(`strategy/indicators.py` — 초과수익률·RS Line 기울기·IBD식 등급), 스윙 등급(`strategy/swing_grade.py`)
 - 스윙 등급: 사용자가 지정한 스윙로우 날짜들의 저가 시퀀스를 신고(3)/고(2)/저(1)/신저(0)로 레이블 → 최근 구간 가중 4진수 점수 → S / A++~B-- / C / F. 전이 제약 DFS(`_achievable_intermediate_scores`)로 달성 가능한 점수만 순위화
 - ADR 필터: KR ≥ 2%, US ≥ 4%
@@ -50,6 +50,16 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 ### 10EMA 전략 (10EMA 탭 — `ui/watchlist_10ema.py` + `strategy/pivot_candle.py`)
 
 기준봉(거래량 급증 + 60일 신고가 돌파 + 10>21>50 정배열 + 종가 상단 30% + 사전 30% 상승) 탐지 → 상태 분류(셋업/형성중/돌파완료/각종 이탈) → 타점(기준봉 고가)·손절(중간선)·리스크% 산출. ADR ≥ 6% 필터, ThreadPoolExecutor로 병렬 수집.
+
+### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
+
+`와치리스트` 제목 오른쪽의 `📤 TradingView 내보내기` 버튼 하나로 각 탭의 후보를 TradingView 워치리스트 import용 txt로 내보낸다. 포맷은 **한 줄 = 한 섹션**, 줄 맨 앞 `###제목` 뒤에 심볼을 콤마로 잇는다 (KR은 `KRX:` 접두, US는 무접두).
+
+- 담기는 것: 리더보드 US·KR(랭킹 순) → 추세추종 3탭의 **매수 후보**(화면 필터 통과분) → 10EMA 3탭의 **셋업 완성** 종목. 순서는 `SECTION_ORDER`가 고정
+- 각 탭은 렌더 첫머리에서 `register_*(market, [])`로 자기 섹션을 **먼저 비운다** — 조기 return 경로에서 직전 실행의 후보가 세션에 남아 파일에 실리는 것을 막는 장치라 제거하지 말 것
+- 버튼은 탭보다 위에 있으므로 `app.py`가 제목 옆 컬럼에 `st.empty()` 슬롯만 잡아두고, **모든 탭 뒤**에서 `render_export_button(slot)`으로 채운다. 이 호출 순서가 뒤집히면 버튼이 빈 목록으로 그려진다
+- 담긴 섹션·종목 수는 버튼 툴팁(`summarize_sections`)으로 보여준다 — 제목 옆 좁은 자리라 목록을 펼치면 화면을 밀어낸다
+- 후보 필터는 `@st.fragment` 안이라 필터만 바꾸면 버튼이 한 박자 늦는다 — 옆의 `🔄` 버튼이 전체 재실행을 걸어 맞춘다
 
 ### 캐싱
 
