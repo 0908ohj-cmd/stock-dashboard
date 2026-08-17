@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import pytest
-from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
+from strategy.pivot_candle import (find_pivot_candle, classify_case,
+                                   calc_10ema_slope, _broke_vcp_box)
 
 
 def _make_df(closes, highs=None, lows=None, volumes=None, start='2026-01-01'):
@@ -132,38 +133,114 @@ def test_picks_latest_cluster_when_candidates_far_apart():
     assert result['date'] == df.index[PIVOT_BASE_LEN + 13]     # 거래량 큰 b1이 아니라 최신 b2
 
 
-def test_cluster_boundary_is_measured_from_cluster_head_not_previous_candidate():
-    """현행 경계 규칙 고정: 간격을 '직전 후보'가 아니라 '클러스터 첫 봉'에서 잰다.
-
-    후보 78/85/92는 이웃 간격이 모두 7거래일이라 연쇄로 보면 한 흐름이지만,
-    첫 봉 기준이면 92-78=14 > 10이라 {78}/{92}로 갈려 92가 선택된다.
-    어느 쪽이 의도인지는 미확정이라 고치지 않고 현행 동작만 박아둔다 —
-    연쇄 방식으로 바꾸면 이 테스트가 깨져 변경이 의도적임을 드러낸다.
-    """
+def _chain_df(spike_offsets, n_bars, spike_pct=1.05, drift=1.002):
+    """spike_offsets 위치에 기준봉을 두고 나머지는 완만히 오르는 프레임."""
     bars, price = [], BASE_TOP
-    for offset in range(16):
-        is_spike = (PIVOT_BASE_LEN + offset) in (78, 85, 92)
-        price *= 1.05 if is_spike else 1.002
+    for offset in range(n_bars):
+        is_spike = offset in spike_offsets
+        price *= spike_pct if is_spike else drift
         bars.append((price, is_spike))
-    df = _pivot_df(bars)
+    return _pivot_df(bars)
+
+
+def test_cluster_chains_through_consecutive_candidates():
+    """간격은 '직전 후보'에서 잰다 — 7거래일씩 이어지는 78/85/92는 한 흐름이다.
+
+    클러스터 첫 봉에서 재면 92-78=14 > 10이라 둘로 갈려 92가 잡히고,
+    타점이 기준봉 고가라 첫 봉(78) 대비 훨씬 높은 자리에서 진입하게 된다.
+    """
+    df = _chain_df({0, 7, 14}, 16)             # 베이스 이후 0/7/14 = 78/85/92번봉
 
     result = find_pivot_candle(df, lookback=20)
 
     assert result is not None
-    assert result['date'] == df.index[92]      # 연쇄로 묶였다면 78이어야 한다
+    assert result['date'] == df.index[PIVOT_BASE_LEN]      # 92가 아니라 첫 봉 78
+    assert result['high'] < float(df['High'].iloc[92])     # 더 낮은 진입가
 
 
-def test_pivot_invalidated_when_low_broken_by_later_close():
-    """기준봉 저가가 이후 종가로 뚫리면 무효 — 손절선이 이미 깨진 자리를 타점으로 줄 수 없다.
+def test_overextension_counted_after_cluster_ends_not_from_head():
+    """과열(돌파완료) 판정은 클러스터가 끝난 뒤부터 센다.
 
-    주의: 이 규칙 때문에 저가를 깬 종목은 pivot=None이 되어 classify_case가
-    '저가이탈'이 아니라 '없음'을 돌려준다(=UI에 기준봉 미탐지로 표시). 별도 이슈.
+    클러스터 내부 후행봉들은 기준봉 고가 위에서 마감하는 게 정상인데, 첫 봉부터
+    세면 그 봉들이 전부 '고가 위 종가'로 잡혀 갓 완성된 셋업이 돌파완료로 뒤집힌다.
     """
-    b1     = BASE_TOP * 1.05
-    broke  = b1 * 0.92 * 0.98                  # 기준봉 저가 아래 종가
+    # 78 기준봉 → 6봉 위에서 횡보 → 85 기준봉 → 2봉 되돌림(78 고가 바로 위)
+    b1 = BASE_TOP * 1.03
+    bars = [(b1, True)] + [(b1 * (1.004 + i * 0.001), False) for i in range(6)]
+    bars += [(b1 * 1.03, True), (b1 * 1.008, False), (b1 * 1.006, False)]
+    df = _pivot_df(bars)
+
+    pivot = find_pivot_candle(df, lookback=20)
+    assert pivot is not None
+    assert pivot['date'] == df.index[PIVOT_BASE_LEN]
+    assert pivot['cluster_end'] == df.index[PIVOT_BASE_LEN + 7]
+
+    since_head    = df[df.index > pivot['date']]
+    after_cluster = df[df.index > pivot['cluster_end']]
+    assert int((since_head['Close'] > pivot['high']).sum()) > 5      # 첫 봉 기준이면 과열
+    assert int((after_cluster['Close'] > pivot['high']).sum()) <= 5  # 클러스터 후 기준이면 아님
+    # 가격 이격(ADR 1.5배)은 걸리지 않는 자리 — 순수하게 누적일 기준만 검증
+    assert classify_case(df, pivot) == '셋업'
+
+
+def test_broken_pivot_reports_downbreak_not_missing():
+    """저가가 뚫린 기준봉은 '없음'이 아니라 '저가이탈'로 보고한다.
+
+    무효 후보를 None으로 지워버리면 방금 손절선을 깬 종목이 '기준봉 미탐지'로
+    보여 UI의 저가이탈 배지가 영영 뜨지 않는다.
+    """
+    b1    = BASE_TOP * 1.05
+    broke = b1 * 0.92 * 0.98                   # 기준봉 저가 아래 종가
     df = _pivot_df([(b1, True), (broke, False), (broke, False)])
 
-    assert find_pivot_candle(df, lookback=10) is None
+    pivot = find_pivot_candle(df, lookback=10)
+
+    assert pivot is not None
+    assert pivot['invalidated'] is True
+    assert pivot['date'] == df.index[PIVOT_BASE_LEN]
+    assert classify_case(df, pivot) == '저가이탈'
+
+
+def test_no_pivot_at_all_still_reports_missing():
+    """후보 자체가 없으면 여전히 None → '없음' (저가이탈과 구분)."""
+    df = _make_breakout_df(STEEP_BASE, breakout_close=120.0, today_close=120.0,
+                           breakout_vol=1_200_000)
+    assert find_pivot_candle(df, lookback=5) is None
+    assert classify_case(df, None) == '없음'
+
+
+def test_vcp_box_breakout_uses_box_high_not_max_close():
+    """박스 저항선은 고가다 — 종가최대를 쓰면 실제 고점 아래에서도 돌파로 잡힌다."""
+    n = 30
+    closes = [100.0] * n
+    highs  = [100.0] * n
+    lows   = [100.0] * n
+    for i in range(n - 6, n - 1):              # 박스 5봉: 고가 105(윗꼬리), 종가 101
+        closes[i], highs[i], lows[i] = 101.0, 105.0, 100.0
+    closes[-1], highs[-1], lows[-1] = 102.0, 102.5, 101.0   # 오늘 종가 102 < 박스 고가 105
+    df = _make_df(closes, highs=highs, lows=lows)
+
+    assert _broke_vcp_box(df, n - 1) is False
+
+
+def test_invalidated_candidate_does_not_re_anchor_cluster():
+    """무효 후보가 클러스터 경계를 바꾸면 안 된다 — 버려진 봉이 답을 뒤집는다.
+
+    후보 78/86/94(각 8거래일). 86이 무효일 때 무효화를 먼저 걸러내면 78과 94가
+    16거래일 차로 갈려 94가 선택되지만, 전체 후보로 묶으면 한 흐름이라 78이다.
+    """
+    df = _chain_df({0, 8, 16}, 18)
+    mid_idx = PIVOT_BASE_LEN + 8
+    mid_low = float(df['Low'].iloc[mid_idx])
+    # 86번봉 저가만 종가로 뚫어 무효화 (78 저가는 더 아래라 살아남는다)
+    head_low = float(df['Low'].iloc[PIVOT_BASE_LEN])
+    assert head_low < mid_low
+    df.iloc[mid_idx + 1, df.columns.get_loc('Close')] = mid_low * 0.995
+
+    result = find_pivot_candle(df, lookback=25)
+
+    assert result is not None
+    assert result['date'] == df.index[PIVOT_BASE_LEN]      # 94가 아니라 78
 
 
 def test_falls_back_to_earlier_cluster_when_latest_is_invalidated():
