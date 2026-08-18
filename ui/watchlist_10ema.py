@@ -164,6 +164,22 @@ def render_10ema_tab(market: str, label: str):
         return
 
     with st.expander('사용 가이드', expanded=False):
+        st.caption('PP 시장 최소 조건')
+        st.markdown("""
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">📈 지수 조건</div>
+    <div style="font-size:0.85em;line-height:1.8">10EMA &gt; 21EMA<br>10EMA · 21EMA 기울기 모두 양수</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 지수 현황에서 ✅ PP 거래 가능 확인</div>
+  </div>
+  <div style="border:1px solid #9b59b655;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">📐 개별주 조건</div>
+    <div style="font-size:0.85em;line-height:1.8">10EMA &gt; 21EMA &gt; 50SMA 정배열<br>(기준봉 탐지 조건에 내장)</div>
+    <div style="color:#9b59b6;font-size:0.82em;margin-top:8px">→ 조건 미충족 종목은 스캔에서 자동 제외</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+        st.divider()
         st.caption('상태')
         st.markdown("""
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
