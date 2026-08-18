@@ -57,7 +57,7 @@ def render_index_panel():
             if phase == 'Normal':
                 status = get_market_status(df)
                 if status.get('jjin_date'):
-                    icon = '✅'
+                    icon = '🟢'
                     desc = f"정상 (찐반등 확인 {status['jjin_date'].date()})"
                 elif status.get('correction_start'):
                     icon = '🟡'
