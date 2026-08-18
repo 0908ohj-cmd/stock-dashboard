@@ -9,7 +9,7 @@ INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ']
 PHASE_COLORS = {
     'DAY1': '🔴',
     'DAY2': '🟡',
-    'DAY3': '🟢', 'DAY4': '🟢', 'DAY5': '🟢', 'DAY6': '🟢', 'DAY7': '🟢',
+    'DAY3': '🔵', 'DAY4': '🔵', 'DAY5': '🔵', 'DAY6': '🔵', 'DAY7': '🔵',
     'Normal': '⚪',
 }
 
