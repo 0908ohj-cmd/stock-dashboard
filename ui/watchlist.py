@@ -272,7 +272,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         # ① DAY 카운팅
         st.caption('DAY 카운팅 & 복귀 조건')
         st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
     <div style="font-size:0.85em;line-height:1.6">조정 중<br>EMA21 아래 · 찐반등 대기</div>
@@ -287,10 +287,20 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일<br>매수 유효 구간</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
+  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🟢 정상</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 확인 후 EMA21 회복<br>매수 유효 환경</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 셋업 종목 진입 가능</div>
+  </div>
   <div style="border:1px solid #55555555;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">⚫ EMA21 회복</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 없이 EMA21 위 복귀<br>Gray Zone · 관망</div>
-    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 유지</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 없이 EMA21 위 복귀<br>Gray Zone</div>
+    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 관망</div>
+  </div>
+  <div style="border:1px solid #aaaaaa55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">⚪ 관망</div>
+    <div style="font-size:0.85em;line-height:1.6">EMA21 이탈 이력 없음<br>장기 상승장 지속</div>
+    <div style="color:#aaa;font-size:0.82em;margin-top:8px">→ 정상 유지 중</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -880,7 +890,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
         # ① DAY 카운팅
         st.caption('DAY 카운팅 & 복귀 조건')
         st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
     <div style="font-size:0.85em;line-height:1.6">조정 중<br>EMA21 아래 · 찐반등 대기</div>
@@ -895,10 +905,20 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
     <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일<br>매수 유효 구간</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
+  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🟢 정상</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 확인 후 EMA21 회복<br>매수 유효 환경</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 셋업 종목 진입 가능</div>
+  </div>
   <div style="border:1px solid #55555555;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">⚫ EMA21 회복</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 없이 EMA21 위 복귀<br>Gray Zone · 관망</div>
-    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 유지</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 없이 EMA21 위 복귀<br>Gray Zone</div>
+    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 관망</div>
+  </div>
+  <div style="border:1px solid #aaaaaa55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">⚪ 관망</div>
+    <div style="font-size:0.85em;line-height:1.6">EMA21 이탈 이력 없음<br>장기 상승장 지속</div>
+    <div style="color:#aaa;font-size:0.82em;margin-top:8px">→ 정상 유지 중</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
