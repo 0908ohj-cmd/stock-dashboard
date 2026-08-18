@@ -143,9 +143,11 @@ def find_pivot_candle(
     if len(stock_df) < 70:
         return None
 
-    ema10 = calc_ema(stock_df, 10)
-    ema21 = calc_ema(stock_df, 21)
-    ema50 = stock_df['Close'].rolling(50).mean()
+    ema10  = calc_ema(stock_df, 10)
+    ema21  = calc_ema(stock_df, 21)
+    ema50  = stock_df['Close'].rolling(50).mean()
+    sma150 = stock_df['Close'].rolling(150).mean()
+    sma200 = stock_df['Close'].rolling(200).mean()
 
     start_idx = max(60, len(stock_df) - lookback)
     candidates = []
@@ -162,6 +164,12 @@ def find_pivot_candle(
         if pd.isna(ema50.iloc[i]):
             continue
         if not _is_aligned(ema10, ema21, ema50, i):
+            continue
+        # 장기 이평선 위 — 장기 하락 중 단기 반등 종목 제외
+        close_i = float(row['Close'])
+        if not pd.isna(sma150.iloc[i]) and close_i < float(sma150.iloc[i]):
+            continue
+        if not pd.isna(sma200.iloc[i]) and close_i < float(sma200.iloc[i]):
             continue
         # 쿨라매기 조건: 기준봉 이전 65거래일(3개월) 내 30%+ 상승 구간 존재
         if not _has_prior_move(stock_df, i, float(row['High'])):

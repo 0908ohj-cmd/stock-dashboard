@@ -174,7 +174,7 @@ def render_10ema_tab(market: str, label: str):
   </div>
   <div style="border:1px solid #9b59b655;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">📐 개별주 조건</div>
-    <div style="font-size:0.85em;line-height:1.8">10EMA &gt; 21EMA &gt; 50SMA 정배열<br>(기준봉 탐지 조건에 내장)</div>
+    <div style="font-size:0.85em;line-height:1.8">10EMA &gt; 21EMA &gt; 50SMA 정배열<br>종가 &gt; 150SMA · 200SMA<br>(기준봉 탐지 조건에 내장)</div>
     <div style="color:#9b59b6;font-size:0.82em;margin-top:8px">→ 조건 미충족 종목은 스캔에서 자동 제외</div>
   </div>
 </div>
