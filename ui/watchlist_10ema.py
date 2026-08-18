@@ -170,7 +170,7 @@ def render_10ema_tab(market: str, label: str):
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">📈 지수 조건</div>
     <div style="font-size:0.85em;line-height:1.8">10EMA &gt; 21EMA<br>10EMA · 21EMA 기울기 모두 양수</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 지수 현황에서 ✅ PP 거래 가능 확인</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 지수 현황에서 ✅ 10EMA (PP) 거래 가능 확인</div>
   </div>
   <div style="border:1px solid #9b59b655;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">📐 개별주 조건</div>
