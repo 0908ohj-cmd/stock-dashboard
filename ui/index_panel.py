@@ -2,6 +2,7 @@ import streamlit as st
 from data import store
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
+from strategy.market_status import get_market_status
 
 INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ']
 
@@ -13,7 +14,7 @@ PHASE_COLORS = {
 }
 
 PHASE_DESC = {
-    'DAY1': '조정 중 (지수 EMA21 아래)',   # 당일 봉 모양이 아니라 조정 국면 표시
+    'DAY1': '조정 중 (지수 EMA21 아래)',
     'DAY2': '찐반등 감지 → 와치리스트 체크',
     'DAY3': '매수 유효 1일차',
     'DAY4': '매수 유효 2일차',
@@ -51,6 +52,16 @@ def render_index_panel():
             phase = get_phase_label(df, adr)
             icon = PHASE_COLORS.get(phase, '⚪')
             desc = PHASE_DESC.get(phase, '')
+
+            # Normal일 때 찐반등 여부로 세분화 — 와치리스트 배너와 일치
+            if phase == 'Normal':
+                status = get_market_status(df)
+                if status.get('jjin_date'):
+                    icon = '✅'
+                    desc = f"정상 (찐반등 확인 {status['jjin_date'].date()})"
+                elif status.get('correction_start'):
+                    icon = '🟡'
+                    desc = 'EMA21 회복 (찐반등 미확인)'
 
             last = float(df['Close'].iloc[-1])
             prev = float(df['Close'].iloc[-2])
