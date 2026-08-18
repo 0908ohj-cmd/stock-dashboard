@@ -1,8 +1,21 @@
 import streamlit as st
 from data import store
-from strategy.indicators import calc_adr
+from strategy.indicators import calc_adr, calc_ema
 from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
+
+
+def _pp_ok(df) -> bool:
+    """PP 거래 가능 조건: 지수 10EMA > 21EMA, 두 EMA 모두 기울기 양수 (5일 기준)."""
+    if len(df) < 26:
+        return False
+    ema10 = calc_ema(df, 10)
+    ema21 = calc_ema(df, 21)
+    if float(ema10.iloc[-1]) <= float(ema21.iloc[-1]):
+        return False
+    slope10 = float(ema10.iloc[-1]) - float(ema10.iloc[-6])
+    slope21 = float(ema21.iloc[-1]) - float(ema21.iloc[-6])
+    return slope10 > 0 and slope21 > 0
 
 INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ']
 
@@ -72,4 +85,5 @@ def render_index_panel():
                 value=f'{last:,.2f}',
                 delta=f'{delta_pct:+.2f}%',
             )
-            st.caption(f'ADR {adr:.2f}%  |  **{phase}** {desc}')
+            pp = '✅ PP 거래 가능' if _pp_ok(df) else '❌ PP 거래 불가'
+            st.caption(f'ADR {adr:.2f}%  |  **{phase}** {desc}  |  {pp}')

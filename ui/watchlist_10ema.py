@@ -252,10 +252,9 @@ def render_10ema_tab(market: str, label: str):
     m3.metric('📊 스캔', f'{len(tickers)}개')
 
     # 표시 필터
-    col_a, col_b, col_c = st.columns(3)
-    show_forming  = col_a.checkbox('🟡 형성중 포함',        value=False, key=f'show_forming_{market}')
-    show_failed   = col_b.checkbox('🔴 이탈 종목 보기',     value=False, key=f'show_failed_{market}')
-    only_aligned3 = col_c.checkbox('📐 10>21>50 정배열만', value=False, key=f'aligned3_{market}')
+    col_a, col_b = st.columns(2)
+    show_forming  = col_a.checkbox('🟡 형성중 포함',    value=False, key=f'show_forming_{market}')
+    show_failed   = col_b.checkbox('🔴 이탈 종목 보기', value=False, key=f'show_failed_{market}')
 
     if show_failed and show_forming:
         display_rows = rows
@@ -265,9 +264,6 @@ def render_10ema_tab(market: str, label: str):
         display_rows = [r for r in rows if r['상태'] in ('셋업', '형성중')]
     else:
         display_rows = setup_rows
-
-    if only_aligned3:
-        display_rows = [r for r in display_rows if r.get('정배열3', False)]
 
     if not display_rows:
         st.info('현재 셋업 완성 종목 없음. "형성중 포함"을 체크하면 더 넓게 볼 수 있습니다.')
