@@ -164,7 +164,7 @@ def render_10ema_tab(market: str, label: str):
         return
 
     with st.expander('사용 가이드', expanded=False):
-        st.caption('PP 시장 최소 조건')
+        st.caption('10EMA (PP) 시장 최소 조건')
         st.markdown("""
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
