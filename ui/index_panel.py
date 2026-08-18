@@ -61,7 +61,7 @@ def render_index_panel():
                     desc = f"정상 (찐반등 확인 {status['jjin_date'].date()})"
                 elif status.get('correction_start'):
                     icon = '⚫'
-                    desc = 'EMA21 위 · 찐반등 미확인'
+                    desc = '정상 (찐반등 미확인)'
 
             last = float(df['Close'].iloc[-1])
             prev = float(df['Close'].iloc[-2])
