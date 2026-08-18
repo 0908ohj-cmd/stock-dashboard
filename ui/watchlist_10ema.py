@@ -180,7 +180,7 @@ def render_10ema_tab(market: str, label: str):
 </div>
 """, unsafe_allow_html=True)
         st.divider()
-        st.caption('상태')
+        st.caption('종목 상태 분류')
         st.markdown("""
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
