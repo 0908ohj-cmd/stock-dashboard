@@ -275,7 +275,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
-    <div style="font-size:0.85em;line-height:1.6">조정 중 · EMA21 아래</div>
+    <div style="font-size:0.85em;line-height:1.6">EMA21 아래 · 조정 중</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 찐반등 봉 출현 대기</div>
   </div>
   <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
@@ -285,7 +285,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 · 매수 유효</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 동안 매수 유효</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
@@ -889,7 +889,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
-    <div style="font-size:0.85em;line-height:1.6">조정 중 · EMA21 아래</div>
+    <div style="font-size:0.85em;line-height:1.6">EMA21 아래 · 조정 중</div>
     <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 찐반등 봉 출현 대기</div>
   </div>
   <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
@@ -899,7 +899,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 · 매수 유효</div>
+    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 동안 매수 유효</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
