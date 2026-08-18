@@ -250,7 +250,7 @@ def _status_banner(status: dict, label: str):
             # 실패 이력이 있으면 '미확인'이 아니라 '실패' — 반등 시도 자체가 없었던 것처럼
             # 읽히면 분석가가 조정 국면을 잘못 해석한다
             tail = f"{failed.date()} 반등 실패" if failed else '찐반등 미확인'
-            st.warning(f"⚫ **{label} EMA21 회복** ({peak_str}이탈일: {cdate} | {tail})")
+            st.warning(f"⚫ **{label} 정상** ({peak_str}이탈일: {cdate} | {tail})")
         elif status.get('jjin_date'):
             jdate = status['jjin_date'].date()
             st.success(f"🟢 **{label} 정상** (찐반등 확인 {jdate})")
