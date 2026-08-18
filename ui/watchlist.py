@@ -295,7 +295,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   <div style="border:1px solid #55555555;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">⚫ 정상</div>
     <div style="font-size:0.85em;line-height:1.6">EMA21 위 · 찐반등 미확인</div>
-    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 관망 (Gray Zone)</div>
+    <div style="color:gray;font-size:0.82em;margin-top:8px">→ Gray Zone</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -908,7 +908,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
   <div style="border:1px solid #55555555;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">⚫ 정상</div>
     <div style="font-size:0.85em;line-height:1.6">EMA21 위 · 찐반등 미확인</div>
-    <div style="color:gray;font-size:0.82em;margin-top:8px">→ 찐반등 확인 전까지 관망 (Gray Zone)</div>
+    <div style="color:gray;font-size:0.82em;margin-top:8px">→ Gray Zone</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
