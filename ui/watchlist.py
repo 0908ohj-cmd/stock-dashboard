@@ -253,9 +253,9 @@ def _status_banner(status: dict, label: str):
             st.warning(f"🟡 **{label} EMA21 회복** ({peak_str}이탈일: {cdate} | {tail})")
         elif status.get('jjin_date'):
             jdate = status['jjin_date'].date()
-            st.success(f"✅ **{label} 정상** (찐반등 확인 {jdate})")
+            st.success(f"🟢 **{label} 정상** (찐반등 확인 {jdate})")
         else:
-            st.info(f"✅ **{label} 정상** (21EMA 위)")
+            st.info(f"🟢 **{label} 정상** (21EMA 위)")
 
 
 def render_watchlist_tab(tickers: list, market: str, label: str):
@@ -491,7 +491,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
         if len(swing_dates_valid) >= 2:
             swing_dates_str = ','.join(sorted(set(swing_dates_valid)))
-            st.caption(f'✅ {len(swing_dates_valid)}개 저점 날짜 설정됨 — 등급순 정렬 활성화')
+            st.caption(f'🟢 {len(swing_dates_valid)}개 저점 날짜 설정됨 — 등급순 정렬 활성화')
         elif len(swing_dates_valid) == 1:
             swing_dates_str = None
             st.caption('날짜를 2개 이상 선택해야 등급이 계산됩니다.')
