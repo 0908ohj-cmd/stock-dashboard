@@ -85,5 +85,5 @@ def render_index_panel():
                 value=f'{last:,.2f}',
                 delta=f'{delta_pct:+.2f}%',
             )
-            pp = '✅ 10EMA(PP) 거래 가능' if _pp_ok(df) else '❌ 10EMA(PP) 거래 불가'
+            pp = '✅ 10EMA (PP) 거래 가능' if _pp_ok(df) else '❌ 10EMA (PP) 거래 불가'
             st.caption(f'ADR {adr:.2f}%  |  **{phase}** {desc}  |  {pp}')
