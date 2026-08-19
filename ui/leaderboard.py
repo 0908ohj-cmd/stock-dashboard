@@ -112,6 +112,9 @@ def _render_body():
         # 시장 구분은 KR에서만 의미가 있다 — US는 전 종목이 'US'라 컬럼이 노이즈다
         **({'시장': _fmt_market(it.get('market'))} if is_kr else {}),
         '소스':      _fmt_sources(it.get('sources')),
+        # 섹터(무슨 업인가)와 테마(왜 지금 사는가)는 별개 축이다. 둘 다 상류
+        # 파이프라인이 만들어 보낸 값을 그대로 표시만 한다 — 여기서 재분류하지 않는다.
+        '섹터':      it.get('sector') or '-',
         '테마':      it.get('theme') or '기타',
         '종가':      it.get('close'),
         'RS':        it.get('rs_rating'),
@@ -159,6 +162,7 @@ function(params) {
     if is_kr:
         gb.configure_column('시장', filter='agSetColumnFilter', maxWidth=110)
     gb.configure_column('소스', filter='agSetColumnFilter', minWidth=110, flex=1)
+    gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'],
                         valueFormatter=close_fmt, flex=1)

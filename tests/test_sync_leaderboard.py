@@ -58,6 +58,7 @@ US_SOURCE = {
             'weighted_perf': 0.5563, 'dist_from_52w_high': -8.2,
             'dist_from_52w_low': 286.2, 'dollar_vol_w': 18879041930,
             'adr': 7.4, 'base_len_argmax': 38, 'theme': 'AI 서버 인프라',
+            'sector': '컴퓨터·서버',
         },
     ],
 }
@@ -95,11 +96,19 @@ def test_normalize_us_거래대금이_없으면_null():
     assert sync.normalize_us(payload)[0]['avg_dollar_vol'] is None
 
 
-def test_normalize_us_이름은_빈문자열_섹터는_null():
+def test_normalize_us_이름은_빈문자열_섹터는_소스값():
+    """US 소스엔 종목명이 없지만 섹터는 있다 — 섹터는 그대로 실어 보낸다."""
     items = sync.normalize_us(US_SOURCE)
     assert items[0]['name'] == ''
-    assert items[0]['sector'] is None
+    assert items[0]['sector'] == '컴퓨터·서버'
     assert items[0]['market'] == 'US'
+
+
+def test_normalize_us_섹터가_없는_구소스는_null():
+    """섹터 도입(2026-08-17) 전 스냅샷이나 유예 승계 항목엔 sector 키가 아예 없다."""
+    payload = {'updated_at': 'x', 'items': [
+        {k: v for k, v in US_SOURCE['items'][0].items() if k != 'sector'}]}
+    assert sync.normalize_us(payload)[0]['sector'] is None
 
 
 def test_normalize_us_필드_보존():

@@ -68,7 +68,7 @@ def normalize_us(payload: dict) -> list:
             market='US',
             added_at=it.get('added_at'),
             avg_dollar_vol=round(dvw / 5) if dvw is not None else None,   # 0도 유효한 값
-            sector=None,
+            sector=it.get('sector'),     # 섹터 도입 전 스냅샷엔 키가 없다 → None
         ))
     return out
 
