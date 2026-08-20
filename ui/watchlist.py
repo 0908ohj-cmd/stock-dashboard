@@ -215,22 +215,11 @@ def _build_rows(
     return rows
 
 
-def _status_banner(status: dict, label: str):
+def _status_banner(status: dict, label: str, phase_label: str = 'Normal'):
     state = status['state']
-    if state == 'early_signal':
-        vol_stars = '🔥' * status['jjin_stars']  # ⚡와 구분: 거래량 강도
-        jdate = status['jjin_date'].date() if status['jjin_date'] else ''
-        pdate = status.get('peak_date')
-        cdate = status['correction_start'].date() if status['correction_start'] else ''
-        meta_parts = []
-        if pdate:
-            meta_parts.append(f"RS 기산점: {pdate.date()}")
-        if cdate:
-            meta_parts.append(f"이탈일: {cdate}")
-        meta_parts.append(f"찐반등일: {jdate}")
-        meta = f"({' | '.join(meta_parts)})"
-        st.success(f"⚡ **{label} 찐반등 감지!** &nbsp; **+{status['jjin_pct']}%** &nbsp; {vol_stars}\n\n{meta}")
-    elif state == 'correction':
+    _DAY_LABELS = ('DAY2', 'DAY3', 'DAY4', 'DAY5', 'DAY6', 'DAY7')
+
+    if state == 'correction':
         cdate  = status['correction_start'].date() if status['correction_start'] else ''
         pdate  = status.get('peak_date')
         failed = status.get('failed_jjin_date')
@@ -241,14 +230,26 @@ def _status_banner(status: dict, label: str):
         if failed:
             parts.append(f"{failed.date()} 반등 실패")
         st.warning(f"🔴 **{label} 조정 중** ({' | '.join(parts)})")
-    else:  # normal
+    elif phase_label in _DAY_LABELS:
+        # DAY2~7: early_signal이든 찐반등 당일 EMA21 즉시 회복이든 동일하게 표시
+        vol_stars = '🔥' * status.get('jjin_stars', 0)
+        jdate = status['jjin_date'].date() if status.get('jjin_date') else ''
+        pdate = status.get('peak_date')
+        cdate = status['correction_start'].date() if status.get('correction_start') else ''
+        meta_parts = []
+        if pdate:
+            meta_parts.append(f"RS 기산점: {pdate.date()}")
+        if cdate:
+            meta_parts.append(f"이탈일: {cdate}")
+        meta_parts.append(f"찐반등일: {jdate}")
+        meta = f"({' | '.join(meta_parts)})"
+        st.success(f"⚡ **{label} {phase_label} 찐반등 감지!** &nbsp; **+{status.get('jjin_pct', 0)}%** &nbsp; {vol_stars}\n\n{meta}")
+    else:  # Normal — DAY 윈도우(7일) 완전히 지난 후
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate  = status['correction_start'].date()
             pdate  = status.get('peak_date')
             failed = status.get('failed_jjin_date')
             peak_str = f"RS 기산점: {pdate.date()} | " if pdate else ''
-            # 실패 이력이 있으면 '미확인'이 아니라 '실패' — 반등 시도 자체가 없었던 것처럼
-            # 읽히면 분석가가 조정 국면을 잘못 해석한다
             tail = f"{failed.date()} 반등 실패" if failed else '찐반등 미확인'
             st.warning(f"⚫ **{label} 정상** ({peak_str}이탈일: {cdate} | {tail})")
         elif status.get('jjin_date'):
@@ -442,15 +443,25 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     # 고점 날짜 계산해서 status에 추가 (배너용)
     cs = status['correction_start']
+    index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
+    _idx = _fetch_index_cached(index_name)
     if cs:
-        index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-        _idx = _fetch_index_cached(index_name)
         status = {**status, 'peak_date': _index_peak_date(_idx, cs) if not _idx.empty else None}
 
     cs = status['correction_start']
     jd = status['jjin_date']
     correction_start_str = str(cs.date()) if cs else None
     jjin_date_str        = str(jd.date()) if jd else None
+
+    # phase_label 계산 — state='normal'이어도 찐반등이 최근 5거래일 내면 DAY2~7 표시
+    _state = status['state']
+    if _state == 'correction':
+        _phase_label = 'DAY1'
+    elif jd is not None and not _idx.empty:
+        _days = trading_days_after(_idx, jd)
+        _phase_label = f'DAY{min(_days + 2, 7)}' if _days <= 5 else 'Normal'
+    else:
+        _phase_label = 'Normal'
 
     # RS 기산점 커스텀 설정 (사용 가이드 바로 아래)
     auto_peak = status.get('peak_date')
@@ -509,7 +520,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         else:
             swing_dates_str = None
 
-    _status_banner(status, label)
+    _status_banner(status, label, _phase_label)
 
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(

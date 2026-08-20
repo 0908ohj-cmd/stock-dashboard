@@ -1,8 +1,8 @@
 import streamlit as st
 from data import store
 from strategy.indicators import calc_adr, calc_ema
+from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
-from strategy.trading_days import trading_days_after
 
 
 def _pp_ok(df) -> bool:
@@ -61,33 +61,20 @@ def render_index_panel():
                 st.caption('데이터 로드 실패')
                 continue
 
-            adr = calc_adr(df)
-            status = get_market_status(df)
-            state  = status['state']
+            adr   = calc_adr(df)
+            phase = get_phase_label(df, adr)
+            icon  = PHASE_COLORS.get(phase, '⚪')
+            desc  = PHASE_DESC.get(phase, '')
 
-            # get_market_status state를 1차 판단 기준으로 사용 — 와치리스트 배너와 동일한 로직
-            if state == 'normal':
+            # Normal일 때 찐반등 여부로 세분화 — DAY2~7은 get_phase_label이 이미 처리
+            if phase == 'Normal':
+                status = get_market_status(df)
                 if status.get('jjin_date'):
-                    icon  = '🟢'
-                    phase = 'Normal'
-                    desc  = f"정상 (찐반등 확인 {status['jjin_date'].date()})"
-                else:
-                    icon  = '⚫'
-                    phase = 'Normal'
-                    desc  = '정상 (찐반등 미확인)'
-            elif state == 'correction':
-                icon  = '🔴'
-                phase = 'DAY1'
-                desc  = PHASE_DESC['DAY1']
-            elif state == 'early_signal':
-                days_since = trading_days_after(df, status['jjin_date'])
-                phase = f'DAY{min(days_since + 2, 7)}'
-                icon  = PHASE_COLORS.get(phase, '⚪')
-                desc  = PHASE_DESC.get(phase, '')
-            else:
-                icon  = '⚪'
-                phase = 'Normal'
-                desc  = ''
+                    icon = '🟢'
+                    desc = f"정상 (찐반등 확인 {status['jjin_date'].date()})"
+                elif status.get('correction_start'):
+                    icon = '⚫'
+                    desc = '정상 (찐반등 미확인)'
 
             last = float(df['Close'].iloc[-1])
             prev = float(df['Close'].iloc[-2])
