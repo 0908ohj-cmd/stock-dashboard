@@ -197,9 +197,10 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'없음' | '저가이탈' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중' | '셋업'
+    """'없음' | '저가이탈' | 'PP눌림' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중' | '셋업'
 
-    셋업: 기준봉 고가 부근 타이트 횡보 — 쿨라매기 브레이크아웃 직전
+    셋업: 기준봉 고가 부근 타이트 횡보 — 케이스2, 렐볼 브레이크아웃 대기
+    PP눌림: 기준봉 고가 돌파 후 10EMA 근처로 풀백 — 케이스1, 10EMA 지지 진입
     형성중: 기준봉 있으나 셋업 조건 미충족 (베이스 무르익는 중)
     돌파완료: 타점을 이미 크게/오래 벗어남 → 추격 불가
     중간선이탈: 기준봉 (고+저)/2 아래 터치 → 셋업 무효
@@ -216,6 +217,16 @@ def classify_case(
         return '저가이탈'
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
+
+    # PP 케이스 1: 기준봉 고가 돌파 후 10EMA 풀백 — 돌파완료 전에 먼저 체크해야 구제됨
+    # 10EMA가 기준봉 고가보다 2%+ 위에 있어야 함 — 잠깐 돌파 후 고가 부근 복귀(셋업A)와 구분
+    if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
+        _ema10 = float(calc_ema(stock_df, 10).iloc[-1])
+        _ema21 = float(calc_ema(stock_df, 21).iloc[-1])
+        if (_ema10 > _ema21
+                and _ema10 > pivot['high'] * 1.02
+                and _ema10 * 0.97 <= current_close <= _ema10 * 1.03):
+            return 'PP눌림'
 
     # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과).
     # 누적일은 클러스터가 끝난 뒤부터 센다 — 같은 흐름 안의 후행봉은 기준봉 고가 위에서
