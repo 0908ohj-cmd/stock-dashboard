@@ -220,12 +220,16 @@ def classify_case(
 
     # PP 케이스 1: 기준봉 고가 돌파 후 10EMA 풀백 — 돌파완료 전에 먼저 체크해야 구제됨
     # 10EMA가 기준봉 고가보다 2%+ 위에 있어야 함 — 잠깐 돌파 후 고가 부근 복귀(셋업A)와 구분
+    # days_above <= 20 — 너무 오래 올라간 건(~1달 초과) 돌파완료로 복귀
     if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
         _ema10 = float(calc_ema(stock_df, 10).iloc[-1])
         _ema21 = float(calc_ema(stock_df, 21).iloc[-1])
+        _after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
+        _days_above = int((_after_cluster['Close'] > pivot['high']).sum())
         if (_ema10 > _ema21
                 and _ema10 > pivot['high'] * 1.02
-                and _ema10 * 0.97 <= current_close <= _ema10 * 1.03):
+                and _ema10 * 0.97 <= current_close <= _ema10 * 1.03
+                and _days_above <= 20):
             return 'PP눌림'
 
     # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과).
