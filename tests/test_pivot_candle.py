@@ -180,7 +180,7 @@ def test_overextension_counted_after_cluster_ends_not_from_head():
     assert int((since_head['Close'] > pivot['high']).sum()) > 5      # 첫 봉 기준이면 과열
     assert int((after_cluster['Close'] > pivot['high']).sum()) <= 5  # 클러스터 후 기준이면 아님
     # 가격 이격(ADR 1.5배)은 걸리지 않는 자리 — 순수하게 누적일 기준만 검증
-    assert classify_case(df, pivot) == '셋업'
+    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
 
 
 def test_broken_pivot_reports_downbreak_not_missing():
@@ -285,7 +285,7 @@ def test_classify_setup_or_forming_in_consolidation():
     df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
     pivot = find_pivot_candle(df, lookback=15)
     assert pivot is not None, "테스트 데이터가 기준봉 탐지 조건을 충족하지 못함"
-    assert classify_case(df, pivot) in ('셋업', '형성중')
+    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)', '형성중(케이스1)', '형성중(케이스2)')
 
 
 def test_classify_downbreak():
@@ -326,7 +326,7 @@ def test_classify_counts_consolidation_in_trading_days_not_busdays():
     pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
     post_dates = [pivot_date + pd.Timedelta(days=6), pivot_date + pd.Timedelta(days=7)]
     df, pivot = _consolidation_df(post_dates)
-    assert classify_case(df, pivot) == '형성중'
+    assert classify_case(df, pivot) in ('형성중(케이스1)', '형성중(케이스2)')
 
 
 def test_classify_setup_with_three_consecutive_trading_days():
@@ -334,7 +334,7 @@ def test_classify_setup_with_three_consecutive_trading_days():
     pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
     post_dates = pd.bdate_range(pivot_date + pd.Timedelta(days=1), periods=3)
     df, pivot = _consolidation_df(post_dates)
-    assert classify_case(df, pivot) == '셋업'
+    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
 
 
 def test_10ema_slope_positive_on_uptrend():

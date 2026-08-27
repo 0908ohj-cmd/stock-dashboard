@@ -197,11 +197,12 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'없음' | '저가이탈' | 'PP눌림' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중' | '셋업'
+    """'없음' | '저가이탈' | '셋업(케이스1)' | '형성중(케이스1)' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중(케이스2)' | '셋업(케이스2)'
 
-    셋업: 기준봉 고가 부근 타이트 횡보 — 케이스2, 렐볼 브레이크아웃 대기
-    PP눌림: 기준봉 고가 돌파 후 10EMA 근처로 풀백 — 케이스1, 10EMA 지지 진입
-    형성중: 기준봉 있으나 셋업 조건 미충족 (베이스 무르익는 중)
+    셋업(케이스2): 기준봉 고가 부근 타이트 횡보 — 렐볼 브레이크아웃 대기
+    셋업(케이스1): 기준봉 고가 돌파 후 10EMA ±3% 풀백 — 10EMA 지지 진입
+    형성중(케이스2): 기준봉 있으나 셋업(케이스2) 조건 미충족 (베이스 무르익는 중)
+    형성중(케이스1): 고가 돌파 이력 있고 10EMA 위 — 아직 10EMA까지 풀백 미진입 (대기)
     돌파완료: 타점을 이미 크게/오래 벗어남 → 추격 불가
     중간선이탈: 기준봉 (고+저)/2 아래 터치 → 셋업 무효
     10EMA이탈: 10EMA 아래 연속 2일 → 셋업 무효
@@ -218,19 +219,19 @@ def classify_case(
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 
-    # PP 케이스 1: 기준봉 고가 돌파 후 10EMA 풀백 — 돌파완료 전에 먼저 체크해야 구제됨
-    # 10EMA가 기준봉 고가보다 2%+ 위에 있어야 함 — 잠깐 돌파 후 고가 부근 복귀(셋업A)와 구분
-    # days_above <= 20 — 너무 오래 올라간 건(~1달 초과) 돌파완료로 복귀
+    # 케이스1 계열: 기준봉 고가 돌파 이력 있고 10EMA>pivot*1.02 + days_above<=20
+    # - 셋업(케이스1): 현재가 10EMA ±3% 이내 → 진입 타이밍
+    # - 형성중(케이스1): 현재가 아직 10EMA 위 → 풀백 대기
     if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
         _ema10 = float(calc_ema(stock_df, 10).iloc[-1])
         _ema21 = float(calc_ema(stock_df, 21).iloc[-1])
         _after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
         _days_above = int((_after_cluster['Close'] > pivot['high']).sum())
-        if (_ema10 > _ema21
-                and _ema10 > pivot['high'] * 1.02
-                and _ema10 * 0.97 <= current_close <= _ema10 * 1.03
-                and _days_above <= 20):
-            return 'PP눌림'
+        if _ema10 > _ema21 and _ema10 > pivot['high'] * 1.02 and _days_above <= 20:
+            if _ema10 * 0.97 <= current_close <= _ema10 * 1.03:
+                return '셋업(케이스1)'
+            if current_close > _ema10 * 1.03:
+                return '형성중(케이스1)'
 
     # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과).
     # 누적일은 클러스터가 끝난 뒤부터 센다 — 같은 흐름 안의 후행봉은 기준봉 고가 위에서
@@ -266,9 +267,9 @@ def classify_case(
         brief_stay       = days_above_high <= 5
         back_near        = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
         if ever_above and not_overextended and brief_stay and back_near:
-            return '셋업'
+            return '셋업(케이스2)'
 
-    # 셋업 B: 기준봉 고가 아래 타이트 횡보 — 거래량 수축 + EMA 서핑
+    # 셋업(케이스2) B: 기준봉 고가 아래 타이트 횡보 — 거래량 수축 + EMA 서핑
     in_range   = pivot['midline'] <= current_close <= pivot['high'] * 1.03
     valid_days = 3 <= days_since <= 40
     slope_up   = calc_10ema_slope(stock_df) > 0
@@ -286,6 +287,6 @@ def classify_case(
             recent_avg = float(since_pivot['Volume'].tail(min(3, len(since_pivot))).mean())
             vol_dry_up = consol_avg <= pre_vol_avg * 0.8 and recent_avg <= consol_avg
         if vol_dry_up:
-            return '셋업'
+            return '셋업(케이스2)'
 
-    return '형성중'
+    return '형성중(케이스2)'
