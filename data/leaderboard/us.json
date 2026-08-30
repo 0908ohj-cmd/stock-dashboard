@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-08-30T09:47:11",
-  "source_updated_at": "2026-08-30T09:47:08",
+  "synced_at": "2026-08-31T08:56:44",
+  "source_updated_at": "2026-08-31T08:56:41",
   "count": 20,
   "items": [
     {
@@ -106,7 +106,7 @@
       "perf_12m": 146.9,
       "dist_from_52w_high": -9.0,
       "avg_dollar_vol": 1051811295,
-      "theme": "AI 데이터센터 인프라",
+      "theme": "AI 데이터센터",
       "sector": "컴퓨터·서버"
     },
     {
@@ -211,7 +211,7 @@
       "perf_12m": 308.0,
       "dist_from_52w_high": -10.3,
       "avg_dollar_vol": 154912524,
-      "theme": "의류 브랜드 턴어라운드",
+      "theme": "브랜드 재창조",
       "sector": "의류·신발 유통"
     },
     {
