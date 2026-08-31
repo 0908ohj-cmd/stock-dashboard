@@ -234,19 +234,10 @@ def classify_case(
     ever_above = not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any())
 
     if ever_above:
-        # 돌파완료: 기준봉 이후 10EMA 위 종가 최대 연속일 >= 10 → 진입 기회 이미 지남
-        # 현재 trailing streak가 아닌 최대값 기준 — 잠깐 10EMA 아래 와도 리셋 안 됨
+        # 돌파완료: 기준봉 이후 10EMA 위 종가 누적일(연속 아님) >= 10 → 진입 기회 이미 지남
         if ema10_since is not None:
             above_ema = since_pivot['Close'] > ema10_since
-            max_streak = current_streak = 0
-            for v in above_ema.to_numpy():
-                if v:
-                    current_streak += 1
-                    if current_streak > max_streak:
-                        max_streak = current_streak
-                else:
-                    current_streak = 0
-            if max_streak >= 10:
+            if int(above_ema.sum()) >= 10:
                 return '돌파완료'
         return '셋업(케이스1)'
 
