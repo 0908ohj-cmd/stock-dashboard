@@ -205,16 +205,20 @@ def render_10ema_tab(market: str, label: str):
   <div style="border:1px solid #e6780055;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1) — 10EMA 풀백</div>
     <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 돌파 후 상승 → 10EMA까지 풀백 시 진입<br>
+      기준봉 고가 돌파 후 10EMA까지 풀백 시 진입<br>
       <b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5 ADR<br>
       <b>현재→타점%</b> = 현재가와 10EMA 사이 거리
     </div>
-    <div style="color:#e67800;font-size:0.82em;margin-top:8px">→ 10EMA 터치 + 5분봉 양봉 확인 후 진입<br>현재→타점% 0%에 가까울수록 진입 타이밍</div>
+    <div style="color:#e67800;font-size:0.82em;margin-top:8px">
+      ① 현재→타점% 0% 근접 (10EMA ±3% 이내) 시 관심<br>
+      ② 장중 10EMA 터치 확인<br>
+      ③ 5분봉 양봉 기준봉 형성 시 진입
+    </div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2) — 브레이크아웃</div>
     <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 미돌파 · 고가 아래 베이스 형성 중<br>
+      기준봉 고가 아래 베이스 형성 → 고가 돌파 시 진입<br>
       <b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%<br>
       <b>현재→타점%</b> = 현재가와 기준봉 고가 사이 거리
     </div>
