@@ -368,7 +368,7 @@ def render_10ema_tab(market: str, label: str):
 
     def fmt_price(v):
         if market == 'US':
-            return f"${v:,.2f}"
+            return f"\\${v:,.2f}"  # \$ → Streamlit 마크다운 LaTeX 파싱 방지
         return f"₩{v:,.0f}"
 
     # 셋업(케이스1) 배너 — 10EMA 3% 이내 ⚡, 그 외 📌
