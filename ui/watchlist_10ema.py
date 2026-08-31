@@ -359,28 +359,34 @@ def render_10ema_tab(market: str, label: str):
         fit_columns_on_grid_load=True,
     )
 
-    # 셋업(케이스1) 배너 — 10EMA 3% 이내만 강조
+    currency = '$' if market == 'US' else '₩'
+    def fmt_price(v):
+        return f"{currency}{v:,.0f}" if market != 'US' else f"{currency}{v:,.2f}"
+
+    # 셋업(케이스1) 배너 — 10EMA 3% 이내 ⚡, 그 외 📌
     if case1_rows:
         lines = []
         for r in case1_rows:
             pct = r['현재→타점%'] or 0
             flag = '⚡' if abs(pct) <= 3 else '📌'
             lines.append(
-                f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
-                f"10EMA **{r['타점']}** &nbsp;|&nbsp; "
+                f"{flag} **{r['Ticker']}** &nbsp;|&nbsp; "
+                f"{r['기준봉일']} &nbsp;|&nbsp; "
+                f"타점 **{fmt_price(r['타점'])}** &nbsp;|&nbsp; "
                 f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
             )
         st.warning('🟠 **셋업(케이스1)** — 10EMA 풀백 진입 (⚡ = 10EMA ±3% 이내)  \n' + '  \n'.join(lines), icon=None)
 
-    # 셋업(케이스2) 배너 — 타점 5% 이내 강조
+    # 셋업(케이스2) 배너 — 타점 5% 이내 ⚡, 그 외 📌
     if case2_rows:
         lines = []
         for r in case2_rows:
             pct = r['현재→타점%'] or 0
             flag = '⚡' if abs(pct) <= 5 else '📌'
             lines.append(
-                f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
-                f"타점 **{r['타점']}** &nbsp;|&nbsp; "
+                f"{flag} **{r['Ticker']}** &nbsp;|&nbsp; "
+                f"{r['기준봉일']} &nbsp;|&nbsp; "
+                f"타점 **{fmt_price(r['타점'])}** &nbsp;|&nbsp; "
                 f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
             )
         st.success('🟢 **셋업(케이스2)** — 브레이크아웃 대기 (⚡ = 타점 5% 이내)  \n' + '  \n'.join(lines), icon=None)
