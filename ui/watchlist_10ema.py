@@ -231,21 +231,26 @@ def render_10ema_tab(market: str, label: str):
     </div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">
+  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+    <div style="font-weight:700;margin-bottom:6px">🔵 돌파완료</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉 이후 10EMA 위<br>종가 누적 10거래일 이상</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">진입 기회 지남 → 관망</div>
+  </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 10EMA이탈</div>
     <div style="font-size:0.85em;line-height:1.6">10EMA 아래<br>연속 2거래일</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
+    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 중간선이탈</div>
     <div style="font-size:0.85em;line-height:1.6">기준봉 중간선 아래<br>연속 2거래일</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
+    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 저가이탈</div>
     <div style="font-size:0.85em;line-height:1.6">기준봉 저가<br>하방 이탈</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">-> 셋업 무효</div>
+    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 없음</div>
