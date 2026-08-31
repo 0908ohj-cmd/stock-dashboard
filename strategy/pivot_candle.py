@@ -197,10 +197,11 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈'
+    """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈' | '돌파완료'
 
-    셋업(케이스1): 기준봉 고가 돌파 이력 있음 + 이탈 없음 → 10EMA 풀백 진입 대기
+    셋업(케이스1): 기준봉 고가 돌파 이력 있음 + 이탈 없음 + 10EMA 위 연속 10일 미만 → 10EMA 풀백 진입 대기
     셋업(케이스2): 고가 미돌파 + 이탈 없음 → 브레이크아웃 대기
+    돌파완료: 케이스1 territory에서 10EMA 위 종가 10거래일 이상 연속 → 진입 기회 지남
     중간선이탈: 기준봉 중간선 아래 연속 2거래일 → 셋업 무효
     10EMA이탈: 10EMA 아래 연속 2거래일 → 셋업 무효
     저가이탈: 기준봉 저가 하방 (무효화 포함)
@@ -222,14 +223,31 @@ def classify_case(
         if (below_mid & below_mid.shift(1)).any():
             return '중간선이탈'
 
-    if len(since_pivot) >= 2:
-        ema10_since = calc_ema(stock_df, 10).loc[since_pivot.index]
-        below = since_pivot['Close'] < ema10_since
-        if (below & below.shift(1)).any():
+    ema10_since = calc_ema(stock_df, 10).loc[since_pivot.index] if not since_pivot.empty else None
+
+    if len(since_pivot) >= 2 and ema10_since is not None:
+        below_ema = since_pivot['Close'] < ema10_since
+        if (below_ema & below_ema.shift(1)).any():
             return '10EMA이탈'
 
-    # 케이스1: 기준봉 고가 돌파 이력 있음 (ever_above)
-    if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
+    # 케이스1 territory: ever_above=True (기준봉 고가 돌파 이력)
+    ever_above = not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any())
+
+    if ever_above:
+        # 돌파완료: 기준봉 이후 10EMA 위 종가 최대 연속일 >= 10 → 진입 기회 이미 지남
+        # 현재 trailing streak가 아닌 최대값 기준 — 잠깐 10EMA 아래 와도 리셋 안 됨
+        if ema10_since is not None:
+            above_ema = since_pivot['Close'] > ema10_since
+            max_streak = current_streak = 0
+            for v in above_ema.to_numpy():
+                if v:
+                    current_streak += 1
+                    if current_streak > max_streak:
+                        max_streak = current_streak
+                else:
+                    current_streak = 0
+            if max_streak >= 10:
+                return '돌파완료'
         return '셋업(케이스1)'
 
     # 케이스2: 고가 미돌파

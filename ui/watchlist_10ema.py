@@ -18,15 +18,17 @@ from ui import tv_export
 STATE_ORDER = {
     '셋업(케이스1)': 0,
     '셋업(케이스2)': 1,
-    '10EMA이탈':     2,
-    '중간선이탈':    3,
-    '저가이탈':      4,
-    '없음':          5,
+    '돌파완료':      2,
+    '10EMA이탈':     3,
+    '중간선이탈':    4,
+    '저가이탈':      5,
+    '없음':          6,
 }
 
 STATE_BADGE = {
     '셋업(케이스1)': '🟠 셋업(케이스1)',
     '셋업(케이스2)': '🟢 셋업(케이스2)',
+    '돌파완료':      '🔵 돌파완료',
     '10EMA이탈':     '🔴 10EMA이탈',
     '중간선이탈':    '🔴 중간선이탈',
     '저가이탈':      '🔴 저가이탈',
@@ -137,7 +139,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 16  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 17  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
