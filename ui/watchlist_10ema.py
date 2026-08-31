@@ -205,7 +205,7 @@ def render_10ema_tab(market: str, label: str):
   <div style="border:1px solid #e6780055;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1) — 10EMA 풀백</div>
     <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 돌파 후 10EMA까지 풀백 시 진입<br>
+      기준봉 고가 돌파 → 10EMA까지 풀백 시 진입<br>
       <b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5 ADR<br>
       <b>현재→타점%</b> = 현재가와 10EMA 사이 거리
     </div>
