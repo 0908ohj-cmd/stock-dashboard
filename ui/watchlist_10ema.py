@@ -105,9 +105,9 @@ def _process_one(ticker: str, market: str) -> dict | None:
                 risk_pct       = round(adr * 0.5, 1)
                 near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
             else:
-                # 케이스2: 타점=기준봉 고가, 손절=중간선
+                # 케이스2: 타점=기준봉 고가, 손절=기준봉 저가 -2%
                 entry_price    = round(pivot['high'], 2)
-                stop_price     = round(pivot['midline'], 2)
+                stop_price     = round(pivot['low'] * 0.98, 2)
                 risk_pct       = round((entry_price - stop_price) / entry_price * 100, 1)
                 near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
         else:
@@ -203,14 +203,22 @@ def render_10ema_tab(market: str, label: str):
         st.markdown("""
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e6780055;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1)</div>
-    <div style="font-size:0.85em;line-height:1.6">기준봉 고가 돌파 이력 있음<br>타점 = 10EMA · 손절 = 10EMA−0.5ADR</div>
-    <div style="color:#e67800;font-size:0.82em;margin-top:8px">→ 10EMA 풀백 시 5분봉 양봉 확인 후 진입<br>현재→타점% 작을수록 진입 근접</div>
+    <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1) — 10EMA 풀백</div>
+    <div style="font-size:0.85em;line-height:1.6">
+      기준봉 고가 돌파 후 상승 → 10EMA까지 풀백 시 진입<br>
+      <b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5 ADR<br>
+      <b>현재→타점%</b> = 현재가와 10EMA 사이 거리
+    </div>
+    <div style="color:#e67800;font-size:0.82em;margin-top:8px">→ 10EMA 터치 + 5분봉 양봉 확인 후 진입<br>현재→타점% 0%에 가까울수록 진입 타이밍</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2)</div>
-    <div style="font-size:0.85em;line-height:1.6">기준봉 고가 미돌파 · 베이스 형성 중<br>타점 = 기준봉 고가 · 손절 = 중간선</div>
-    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 렐볼 터질 때 5분봉 기준봉 진입<br>현재→타점% 작을수록 진입 근접</div>
+    <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2) — 브레이크아웃</div>
+    <div style="font-size:0.85em;line-height:1.6">
+      기준봉 고가 미돌파 · 고가 아래 베이스 형성 중<br>
+      <b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%<br>
+      <b>현재→타점%</b> = 현재가와 기준봉 고가 사이 거리
+    </div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 렐볼 터지며 고가 돌파 시 5분봉 기준봉 진입<br>현재→타점% 0%에 가까울수록 진입 타이밍</div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
@@ -278,11 +286,11 @@ def render_10ema_tab(market: str, label: str):
     # 화면 표시 필터(형성중 포함·이탈 보기)와 무관하게 진입 후보(셋업 케이스1+2)만 내보낸다
     tv_export.register_ema10(market, [r['Ticker'] for r in entry_rows])
     m1, m2, m3, m4 = st.columns(4)
-    near1_rows = [r for r in case1_rows if abs(r['현재→타점%'] or 99) <= 3]
-    m1.metric('🟠 케이스1', f'{len(case1_rows)}개', delta=f'10EMA ±3% 이내 {len(near1_rows)}개')
-    m2.metric('🟢 케이스2', f'{len(case2_rows)}개', delta=f'타점 5% 이내 {len(near_rows)}개')
+    ital_cnt = len([r for r in rows if r['상태'] not in ('셋업(케이스1)', '셋업(케이스2)')])
+    m1.metric('🟠 케이스1', f'{len(case1_rows)}개')
+    m2.metric('🟢 케이스2', f'{len(case2_rows)}개')
     m3.metric('📊 스캔', f'{len(tickers)}개')
-    m4.metric('🔴 이탈', f'{len([r for r in rows if r["상태"] not in ("셋업(케이스1)", "셋업(케이스2)")])}개')
+    m4.metric('🔴 이탈', f'{ital_cnt}개')
 
     # 표시 필터
     show_failed = st.checkbox('🔴 이탈/돌파완료 보기', value=False, key=f'show_failed_{market}')
