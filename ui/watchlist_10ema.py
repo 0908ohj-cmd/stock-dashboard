@@ -218,7 +218,7 @@ def render_10ema_tab(market: str, label: str):
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2) — 브레이크아웃</div>
     <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 아래 베이스 형성 → 고가 돌파 시 진입<br>
+      기준봉 고가 아래 베이스 형성 → 기준봉 고가 돌파 시 진입<br>
       <b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%<br>
       <b>현재→타점%</b> = 현재가와 기준봉 고가 사이 거리
     </div>
