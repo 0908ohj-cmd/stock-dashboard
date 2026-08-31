@@ -197,17 +197,14 @@ def classify_case(
     stock_df: pd.DataFrame,
     pivot: dict | None,
 ) -> str:
-    """'없음' | '저가이탈' | '셋업(케이스1)' | '형성중(케이스1)' | '중간선이탈' | '10EMA이탈' | '돌파완료' | '형성중(케이스2)' | '셋업(케이스2)'
+    """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈'
 
-    셋업(케이스2): 기준봉 고가 부근 타이트 횡보 — 렐볼 브레이크아웃 대기
-    셋업(케이스1): 기준봉 고가 돌파 후 10EMA ±3% 풀백 — 10EMA 지지 진입
-    형성중(케이스2): 기준봉 있으나 셋업(케이스2) 조건 미충족 (베이스 무르익는 중)
-    형성중(케이스1): 고가 돌파 이력 있고 10EMA 위 — 아직 10EMA까지 풀백 미진입 (대기)
-    돌파완료: 타점을 이미 크게/오래 벗어남 → 추격 불가
-    중간선이탈: 기준봉 (고+저)/2 아래 터치 → 셋업 무효
-    10EMA이탈: 10EMA 아래 연속 2일 → 셋업 무효
-    저가이탈: 기준봉 저가 하방 (기준봉이 이미 무효화된 경우 포함)
-    없음: 최근 lookback(기본 63) 거래일 내 기준봉 후보 자체가 없음
+    셋업(케이스1): 기준봉 고가 돌파 이력 있음 + 이탈 없음 → 10EMA 풀백 진입 대기
+    셋업(케이스2): 고가 미돌파 + 이탈 없음 → 브레이크아웃 대기
+    중간선이탈: 기준봉 중간선 아래 연속 2거래일 → 셋업 무효
+    10EMA이탈: 10EMA 아래 연속 2거래일 → 셋업 무효
+    저가이탈: 기준봉 저가 하방 (무효화 포함)
+    없음: lookback(기본 63) 거래일 내 기준봉 후보 없음
     """
     if pivot is None:
         return '없음'
@@ -219,31 +216,7 @@ def classify_case(
 
     since_pivot = stock_df[stock_df.index > pivot['date']]
 
-    # 케이스1 계열: 기준봉 고가 돌파 이력 있고 10EMA>pivot*1.02 + days_above<=20
-    # - 셋업(케이스1): 현재가 10EMA ±3% 이내 → 진입 타이밍
-    # - 형성중(케이스1): 현재가 아직 10EMA 위 → 풀백 대기
-    if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
-        _ema10 = float(calc_ema(stock_df, 10).iloc[-1])
-        _ema21 = float(calc_ema(stock_df, 21).iloc[-1])
-        _after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
-        _days_above = int((_after_cluster['Close'] > pivot['high']).sum())
-        if _ema10 > _ema21 and _ema10 > pivot['high'] * 1.02 and _days_above <= 20:
-            if _ema10 * 0.97 <= current_close <= _ema10 * 1.03:
-                return '셋업(케이스1)'
-            if current_close > _ema10 * 1.03:
-                return '형성중(케이스1)'
-
-    # 이미 타점을 크게 돌파 → 추격 불가 (ADR 1.5배 초과 or 기준봉 고가 위 누적 5거래일 초과).
-    # 누적일은 클러스터가 끝난 뒤부터 센다 — 같은 흐름 안의 후행봉은 기준봉 고가 위에서
-    # 마감하는 게 정상이라, 첫 봉부터 세면 갓 완성된 셋업이 돌파완료로 뒤집힌다
-    after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
-    if not since_pivot.empty:
-        adr = float(((stock_df['High'] - stock_df['Low']) / stock_df['Close'] * 100).rolling(20).mean().iloc[-1])
-        days_above = int((after_cluster['Close'] > pivot['high']).sum())
-        if current_close > pivot['high'] * (1 + adr * 1.5 / 100) or days_above > 5:
-            return '돌파완료'
-
-    # 연속 2거래일 중간선 아래 → 이탈 (1회는 허용)
+    # 이탈 계열 — 케이스1/2 공통, 먼저 체크
     if len(since_pivot) >= 2:
         below_mid = since_pivot['Close'] < pivot['midline']
         if (below_mid & below_mid.shift(1)).any():
@@ -255,38 +228,9 @@ def classify_case(
         if (below & below.shift(1)).any():
             return '10EMA이탈'
 
-    # 기준봉 이후 실제 거래일 수 — busday는 휴장일을 거래일로 세버림
-    days_since = len(since_pivot)
+    # 케이스1: 기준봉 고가 돌파 이력 있음 (ever_above)
+    if not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any()):
+        return '셋업(케이스1)'
 
-    # 셋업 A: 잠깐 돌파 후 기준봉 고가 부근 복귀 (재진입 기회)
-    if days_since <= 30 and not since_pivot.empty:
-        max_high         = float(since_pivot['High'].max())
-        ever_above       = max_high > pivot['high']
-        not_overextended = max_high <= pivot['high'] * 1.10
-        days_above_high  = int((after_cluster['Close'] > pivot['high']).sum())
-        brief_stay       = days_above_high <= 5
-        back_near        = pivot['high'] * 0.97 <= current_close <= pivot['high'] * 1.05
-        if ever_above and not_overextended and brief_stay and back_near:
-            return '셋업(케이스2)'
-
-    # 셋업(케이스2) B: 기준봉 고가 아래 타이트 횡보 — 거래량 수축 + EMA 서핑
-    in_range   = pivot['midline'] <= current_close <= pivot['high'] * 1.03
-    valid_days = 3 <= days_since <= 40
-    slope_up   = calc_10ema_slope(stock_df) > 0
-    ema10_now  = float(calc_ema(stock_df, 10).iloc[-1])
-    above_ema  = current_close > ema10_now
-    base_tight = _base_is_tight(since_pivot, pivot['high'])
-
-    if in_range and valid_days and slope_up and above_ema and base_tight:
-        pivot_pos   = stock_df.index.get_loc(pivot['date'])
-        pre_vol_avg = float(stock_df['Volume'].iloc[max(0, pivot_pos - 20):pivot_pos].mean())
-        if since_pivot.empty or pre_vol_avg == 0:
-            vol_dry_up = True
-        else:
-            consol_avg = float(since_pivot['Volume'].mean())
-            recent_avg = float(since_pivot['Volume'].tail(min(3, len(since_pivot))).mean())
-            vol_dry_up = consol_avg <= pre_vol_avg * 0.8 and recent_avg <= consol_avg
-        if vol_dry_up:
-            return '셋업(케이스2)'
-
-    return '형성중(케이스2)'
+    # 케이스2: 고가 미돌파
+    return '셋업(케이스2)'

@@ -13,29 +13,24 @@ from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
 from ui import tv_export
 
-# 정렬 우선순위: 셋업(케이스1) → 셋업(케이스2) → 형성중(케이스1) → 형성중(케이스2) → 이탈류 → 없음
+# 정렬: 케이스1 → 케이스2 → 이탈류 → 없음
+# 케이스1 내부: 현재→타점%(10EMA 거리) 오름차순 — 가까울수록 위
 STATE_ORDER = {
-    '셋업(케이스1)':   0,
-    '셋업(케이스2)':   1,
-    '형성중(케이스1)': 2,
-    '형성중(케이스2)': 3,
-    '돌파완료':        4,
-    '10EMA이탈':       5,
-    '중간선이탈':      6,
-    '저가이탈':        7,
-    '없음':            8,
+    '셋업(케이스1)': 0,
+    '셋업(케이스2)': 1,
+    '10EMA이탈':     2,
+    '중간선이탈':    3,
+    '저가이탈':      4,
+    '없음':          5,
 }
 
 STATE_BADGE = {
-    '셋업(케이스1)':   '🟠 셋업(케이스1)',
-    '셋업(케이스2)':   '🟢 셋업(케이스2)',
-    '형성중(케이스1)': '🟡 형성중(케이스1)',
-    '형성중(케이스2)': '🟡 형성중(케이스2)',
-    '돌파완료':        '🔵 돌파완료',
-    '10EMA이탈':       '🔴 10EMA이탈',
-    '중간선이탈':      '🔴 중간선이탈',
-    '저가이탈':        '🔴 저가이탈',
-    '없음':            '🔴 없음',
+    '셋업(케이스1)': '🟠 셋업(케이스1)',
+    '셋업(케이스2)': '🟢 셋업(케이스2)',
+    '10EMA이탈':     '🔴 10EMA이탈',
+    '중간선이탈':    '🔴 중간선이탈',
+    '저가이탈':      '🔴 저가이탈',
+    '없음':          '🔴 없음',
 }
 
 # UI 시장 코드 → 리더보드 시장 코드
@@ -71,10 +66,18 @@ def _process_one(ticker: str, market: str) -> dict | None:
         if adr < 6.0:
             return None
 
-        # 150일 or 200일 이평선 아래 종목 제외
+        # 현재 시점 이평선 필터
         last_close = float(df['Close'].iloc[-1])
-        sma150 = df['Close'].rolling(150).mean().iloc[-1]
-        sma200 = df['Close'].rolling(200).mean().iloc[-1]
+        ema10_v = float(calc_ema(df, 10).iloc[-1])
+        ema21_v = float(calc_ema(df, 21).iloc[-1])
+        sma50_v = df['Close'].rolling(50).mean().iloc[-1]
+        sma150  = df['Close'].rolling(150).mean().iloc[-1]
+        sma200  = df['Close'].rolling(200).mean().iloc[-1]
+
+        # 10EMA > 21EMA > 50SMA 정배열 미충족 제외
+        if pd.isna(sma50_v) or not (ema10_v > ema21_v > float(sma50_v)):
+            return None
+        # 종가 > 150SMA · 200SMA 미충족 제외
         if (not pd.isna(sma150) and last_close < float(sma150)) or \
            (not pd.isna(sma200) and last_close < float(sma200)):
             return None
@@ -86,9 +89,6 @@ def _process_one(ticker: str, market: str) -> dict | None:
         prev_close = float(df['Close'].iloc[-2])
         change_pct = (last_close - prev_close) / prev_close * 100
 
-        ema10_v = float(calc_ema(df, 10).iloc[-1])
-        ema21_v = float(calc_ema(df, 21).iloc[-1])
-
         pivot_date_str = str(pivot['date'].date()) if pivot else ''
         pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
         days_since     = trading_days_after(df, pivot['date']) if pivot else 0
@@ -98,21 +98,21 @@ def _process_one(ticker: str, market: str) -> dict | None:
             start_pos  = max(0, pivot_pos - 65)
             prior_low  = float(df['Low'].iloc[start_pos:pivot_pos].min()) if pivot_pos > 0 else 0.0
             prior_move_pct = round((pivot['high'] / prior_low - 1) * 100, 0) if prior_low > 0 else 0.0
-            if state == 'PP눌림':
-                # 케이스1: 타점=10EMA, 손절=10EMA-0.5ADR
+            if state == '셋업(케이스1)':
+                # 타점=10EMA, 손절=10EMA-0.5ADR
                 entry_price    = round(ema10_v, 2)
                 stop_price     = round(ema10_v * (1 - adr * 0.5 / 100), 2)
                 risk_pct       = round(adr * 0.5, 1)
                 near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
             else:
+                # 케이스2: 타점=기준봉 고가, 손절=중간선
                 entry_price    = round(pivot['high'], 2)
                 stop_price     = round(pivot['midline'], 2)
                 risk_pct       = round((entry_price - stop_price) / entry_price * 100, 1)
                 near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
         else:
             entry_price = stop_price = risk_pct = near_entry_pct = prior_move_pct = 0.0
-        sma50_v = df['Close'].rolling(50).mean().iloc[-1]
-        aligned3 = (not pd.isna(sma50_v)) and (ema10_v > ema21_v > float(sma50_v))
+        aligned3 = True  # _process_one 진입 시점에 이미 정배열 체크 완료
 
         return {
             'Ticker':        ticker,
@@ -137,7 +137,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 14  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 16  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -201,35 +201,19 @@ def render_10ema_tab(market: str, label: str):
         st.divider()
         st.caption('종목 상태 분류')
         st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px">
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
   <div style="border:1px solid #e6780055;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1)</div>
-    <div style="font-size:0.85em;line-height:1.6">고가 돌파 후 10EMA ±3% 풀백<br>10EMA>21EMA · 고가위 ≤20일</div>
-    <div style="color:#e67800;font-size:0.82em;margin-top:8px">→ 10EMA 터치+5분봉 양봉 확인 후 진입</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉 고가 돌파 이력 있음<br>타점 = 10EMA · 손절 = 10EMA−0.5ADR</div>
+    <div style="color:#e67800;font-size:0.82em;margin-top:8px">→ 10EMA 풀백 시 5분봉 양봉 확인 후 진입<br>현재→타점% 작을수록 진입 근접</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2)</div>
-    <div style="font-size:0.85em;line-height:1.6">타이트 횡보 3~40일<br>거래량 수축 · 10EMA 서핑</div>
-    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 렐볼 터질 때 5분봉 기준봉 진입</div>
-  </div>
-  <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟡 형성중(케이스1)</div>
-    <div style="font-size:0.85em;line-height:1.6">고가 돌파 이력 있음<br>아직 10EMA까지 풀백 미진입</div>
-    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 10EMA 근접 시 케이스1 전환</div>
-  </div>
-  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔵 돌파완료</div>
-    <div style="font-size:0.85em;line-height:1.6">ADR 1.5배+ 초과<br>or 고가 위 누적 5거래일</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추격 불가</div>
+    <div style="font-size:0.85em;line-height:1.6">기준봉 고가 미돌파 · 베이스 형성 중<br>타점 = 기준봉 고가 · 손절 = 중간선</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 렐볼 터질 때 5분봉 기준봉 진입<br>현재→타점% 작을수록 진입 근접</div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;margin-bottom:8px">
-  <div style="border:1px solid #f1c40f33;border-radius:8px;padding:10px 14px">
-    <div style="font-weight:700;margin-bottom:4px">🟡 형성중(케이스2)</div>
-    <div style="font-size:0.85em">기준봉은 있으나 횡보 조건 미충족 — 지켜볼 종목</div>
-  </div>
-</div>
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 10EMA이탈</div>
     <div style="font-size:0.85em;line-height:1.6">10EMA 아래<br>연속 2거래일</div>
@@ -294,28 +278,19 @@ def render_10ema_tab(market: str, label: str):
     # 화면 표시 필터(형성중 포함·이탈 보기)와 무관하게 진입 후보(셋업 케이스1+2)만 내보낸다
     tv_export.register_ema10(market, [r['Ticker'] for r in entry_rows])
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric('🟠 셋업(케이스1)', f'{len(case1_rows)}개')
-    m2.metric('🟢 셋업(케이스2)', f'{len(case2_rows)}개')
-    m3.metric('⚡ 케이스2 타점 5%이내', f'{len(near_rows)}개')
-    m4.metric('📊 스캔', f'{len(tickers)}개')
+    near1_rows = [r for r in case1_rows if abs(r['현재→타점%'] or 99) <= 3]
+    m1.metric('🟠 케이스1', f'{len(case1_rows)}개', delta=f'10EMA ±3% 이내 {len(near1_rows)}개')
+    m2.metric('🟢 케이스2', f'{len(case2_rows)}개', delta=f'타점 5% 이내 {len(near_rows)}개')
+    m3.metric('📊 스캔', f'{len(tickers)}개')
+    m4.metric('🔴 이탈', f'{len([r for r in rows if r["상태"] not in ("셋업(케이스1)", "셋업(케이스2)")])}개')
 
     # 표시 필터
-    col_a, col_b = st.columns(2)
-    show_forming  = col_a.checkbox('🟡 형성중 포함',    value=False, key=f'show_forming_{market}')
-    show_failed   = col_b.checkbox('🔴 이탈 종목 보기', value=False, key=f'show_failed_{market}')
+    show_failed = st.checkbox('🔴 이탈/돌파완료 보기', value=False, key=f'show_failed_{market}')
 
-    _FORMING = ('형성중(케이스1)', '형성중(케이스2)')
-    if show_failed and show_forming:
-        display_rows = rows
-    elif show_failed:
-        display_rows = [r for r in rows if r['상태'] not in _FORMING]
-    elif show_forming:
-        display_rows = [r for r in rows if r['상태'] in ('셋업(케이스1)', '셋업(케이스2)', '형성중(케이스1)', '형성중(케이스2)')]
-    else:
-        display_rows = entry_rows
+    display_rows = rows if show_failed else entry_rows
 
     if not display_rows:
-        st.info('현재 셋업 완성 종목 없음. "형성중 포함"을 체크하면 더 넓게 볼 수 있습니다.')
+        st.info('현재 셋업 종목 없음.')
         return
 
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
@@ -368,18 +343,20 @@ def render_10ema_tab(market: str, label: str):
         fit_columns_on_grid_load=True,
     )
 
-    # 셋업(케이스1) 배너
+    # 셋업(케이스1) 배너 — 10EMA 3% 이내만 강조
     if case1_rows:
         lines = []
         for r in case1_rows:
+            pct = r['현재→타점%'] or 0
+            flag = '⚡' if abs(pct) <= 3 else '📌'
             lines.append(
-                f"🟠 **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
-                f"10EMA진입 **{r['타점']}** &nbsp;|&nbsp; "
-                f"손절 **{r['손절']}** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
+                f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
+                f"10EMA **{r['타점']}** &nbsp;|&nbsp; "
+                f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
             )
-        st.warning('🟠 **셋업(케이스1)** — 10EMA 터치+5분봉 양봉 확인 후 진입  \n' + '  \n'.join(lines), icon=None)
+        st.warning('🟠 **셋업(케이스1)** — 10EMA 풀백 진입 (⚡ = 10EMA ±3% 이내)  \n' + '  \n'.join(lines), icon=None)
 
-    # 셋업(케이스2) 배너
+    # 셋업(케이스2) 배너 — 타점 5% 이내 강조
     if case2_rows:
         lines = []
         for r in case2_rows:
@@ -387,6 +364,7 @@ def render_10ema_tab(market: str, label: str):
             flag = '⚡' if abs(pct) <= 5 else '📌'
             lines.append(
                 f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
-                f"타점 **{r['타점']}** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
+                f"타점 **{r['타점']}** &nbsp;|&nbsp; "
+                f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
             )
-        st.success('🟢 **셋업(케이스2)** (⚡ = 타점 5% 이내)  \n' + '  \n'.join(lines), icon=None)
+        st.success('🟢 **셋업(케이스2)** — 브레이크아웃 대기 (⚡ = 타점 5% 이내)  \n' + '  \n'.join(lines), icon=None)

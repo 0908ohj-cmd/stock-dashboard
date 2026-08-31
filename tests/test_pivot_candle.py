@@ -159,10 +159,11 @@ def test_cluster_chains_through_consecutive_candidates():
 
 
 def test_overextension_counted_after_cluster_ends_not_from_head():
-    """과열(돌파완료) 판정은 클러스터가 끝난 뒤부터 센다.
+    """클러스터 이후에도 고가 위 이력이 있으면 케이스1로 분류된다.
 
-    클러스터 내부 후행봉들은 기준봉 고가 위에서 마감하는 게 정상인데, 첫 봉부터
-    세면 그 봉들이 전부 '고가 위 종가'로 잡혀 갓 완성된 셋업이 돌파완료로 뒤집힌다.
+    클러스터 내부 후행봉들은 기준봉 고가 위에서 마감이 정상.
+    ever_above 판정은 since_pivot 전체를 보므로, 클러스터 봉들도 포함해서
+    ever_above=True → 셋업(케이스1)이 맞다.
     """
     # 78 기준봉 → 6봉 위에서 횡보 → 85 기준봉 → 2봉 되돌림(78 고가 바로 위)
     b1 = BASE_TOP * 1.03
@@ -177,10 +178,10 @@ def test_overextension_counted_after_cluster_ends_not_from_head():
 
     since_head    = df[df.index > pivot['date']]
     after_cluster = df[df.index > pivot['cluster_end']]
-    assert int((since_head['Close'] > pivot['high']).sum()) > 5      # 첫 봉 기준이면 과열
-    assert int((after_cluster['Close'] > pivot['high']).sum()) <= 5  # 클러스터 후 기준이면 아님
-    # 가격 이격(ADR 1.5배)은 걸리지 않는 자리 — 순수하게 누적일 기준만 검증
-    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
+    assert int((since_head['Close'] > pivot['high']).sum()) > 5      # 첫 봉 기준이면 > 5
+    assert int((after_cluster['Close'] > pivot['high']).sum()) >= 1  # 클러스터 후에도 고가 위 이력 있음
+    # 현재가가 아직 고가 위 → 돌파완료 아닌 셋업(케이스1); 고가 아래 복귀했다면 돌파완료
+    assert classify_case(df, pivot) == '셋업(케이스1)'
 
 
 def test_broken_pivot_reports_downbreak_not_missing():
@@ -285,7 +286,7 @@ def test_classify_setup_or_forming_in_consolidation():
     df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
     pivot = find_pivot_candle(df, lookback=15)
     assert pivot is not None, "테스트 데이터가 기준봉 탐지 조건을 충족하지 못함"
-    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)', '형성중(케이스1)', '형성중(케이스2)')
+    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
 
 
 def test_classify_downbreak():
@@ -326,7 +327,7 @@ def test_classify_counts_consolidation_in_trading_days_not_busdays():
     pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
     post_dates = [pivot_date + pd.Timedelta(days=6), pivot_date + pd.Timedelta(days=7)]
     df, pivot = _consolidation_df(post_dates)
-    assert classify_case(df, pivot) in ('형성중(케이스1)', '형성중(케이스2)')
+    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
 
 
 def test_classify_setup_with_three_consecutive_trading_days():
