@@ -370,7 +370,7 @@ def render_10ema_tab(market: str, label: str):
             pct = r['현재→타점%'] or 0
             flag = '⚡' if abs(pct) <= 3 else '📌'
             lines.append(
-                f"{flag} **{r['Ticker']}** &nbsp;|&nbsp; "
+                f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
                 f"{r['기준봉일']} &nbsp;|&nbsp; "
                 f"타점 **{fmt_price(r['타점'])}** &nbsp;|&nbsp; "
                 f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
@@ -384,7 +384,7 @@ def render_10ema_tab(market: str, label: str):
             pct = r['현재→타점%'] or 0
             flag = '⚡' if abs(pct) <= 5 else '📌'
             lines.append(
-                f"{flag} **{r['Ticker']}** &nbsp;|&nbsp; "
+                f"{flag} **{r['Ticker']}** {r['종목명']} &nbsp;|&nbsp; "
                 f"{r['기준봉일']} &nbsp;|&nbsp; "
                 f"타점 **{fmt_price(r['타점'])}** &nbsp;|&nbsp; "
                 f"현재→타점 **{pct:+.1f}%** &nbsp;|&nbsp; ADR **{r['ADR%']}%**"
