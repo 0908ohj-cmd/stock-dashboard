@@ -249,6 +249,20 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
         return result   # 파일/메타 없음 → 경고하지 않음 (스펙 8절)
     fetched_at = datetime.fromisoformat(fetched_at_s)
     result['fetched_at'] = fetched_at
+
+    # ① last_trading_date 기준 우선 판정: 4 달력일 이내면 신선
+    #    배치가 예정보다 일찍 돌았거나 재실행 타이밍이 달라도 false alarm 방지.
+    #    4일 = 주말(2) + 공휴일 최대(2) 커버. 5일 이상 갭은 진짜 배치 실패.
+    last_td_s = snap.get('last_trading_date')
+    if last_td_s:
+        try:
+            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
+            if (now.date() - last_td).days <= 4:
+                return result   # is_stale=False 그대로 반환
+        except ValueError:
+            pass
+
+    # ② fetched_at 기반 fallback (last_trading_date 없거나 5일+ 경과)
     if market == 'indices':   # 지수는 KR·US 두 배치 모두가 갱신 → 더 최근 기한 적용
         deadline = max(_last_deadline(_BATCH_SCHEDULE['KR'], now),
                        _last_deadline(_BATCH_SCHEDULE['US'], now))
