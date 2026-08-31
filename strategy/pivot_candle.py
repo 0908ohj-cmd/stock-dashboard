@@ -154,7 +154,7 @@ def find_pivot_candle(
 
     for i in range(start_idx, len(stock_df) - 1):  # 오늘(마지막 봉) 제외
         vr = _vol_ratio_at(stock_df, i)
-        if vr < 1.5:  # 쿨라매기 기준: 거래량 1.5배+ (이전 3배 기준에서 완화)
+        if vr < 2.0:  # 거래량 2배+ 기준
             continue
         row = stock_df.iloc[i]
         if not _close_in_top30(row):
