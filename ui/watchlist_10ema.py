@@ -218,7 +218,11 @@ def render_10ema_tab(market: str, label: str):
       <b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%<br>
       <b>현재→타점%</b> = 현재가와 기준봉 고가 사이 거리
     </div>
-    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 렐볼 터지며 고가 돌파 시 5분봉 기준봉 진입<br>현재→타점% 0%에 가까울수록 진입 타이밍</div>
+    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">
+      ① 현재→타점% 0% 근접 (타점 5% 이내) 시 관심<br>
+      ② 장중 렐볼 급증 + 기준봉 고가 돌파 확인<br>
+      ③ 5분봉 기준봉 형성 시 진입
+    </div>
   </div>
 </div>
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
