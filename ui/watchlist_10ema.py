@@ -233,11 +233,12 @@ def render_10ema_tab(market: str, label: str):
         )
         _mc1, _mc2 = st.columns(2)
         _mc1.markdown(
-            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(230,120,0,0.3)">'
+            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(230,120,0,0.3);'
+            'min-height:420px;display:flex;flex-direction:column">'
             '<div style="background:linear-gradient(90deg,#ff8c00,#cc5500);padding:10px 16px">'
             '<span style="font-weight:700;color:#fff;font-size:0.92em">🟠 케이스1 — 10EMA 풀백</span>'
             '</div>'
-            '<div style="padding:14px 16px">'
+            '<div style="padding:14px 16px;flex:1;display:flex;flex-direction:column">'
 
             '<div style="font-size:0.75em;color:#e67800;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 확정 조건</div>'
             '<div style="font-size:0.84em;line-height:1.85;margin-bottom:12px">'
@@ -249,12 +250,12 @@ def render_10ema_tab(market: str, label: str):
             '<div style="font-size:0.75em;color:#e67800;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 진입 전략</div>'
             '<div style="font-size:0.83em;margin-bottom:8px">'
             '<b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5×ADR</div>'
-            '<div style="font-size:0.82em;line-height:2.0">'
+            '<div style="font-size:0.82em;line-height:2.0;margin-bottom:0">'
             '<b style="color:#e67800">①</b> 현재→타점% ±3% 이내 시 관심<br>'
             '<b style="color:#e67800">②</b> 장중 10EMA 터치 확인<br>'
             '<b style="color:#e67800">③</b> 5분봉 양봉 기준봉 형성 시 진입</div>'
 
-            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px"></div>'
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px;margin-top:auto"></div>'
 
             '<div style="font-size:0.82em;background:rgba(52,152,219,0.12);border-radius:6px;padding:7px 10px">'
             '🔵 <b>돌파완료</b>: 10EMA 위 종가 누적 10거래일 이상 (연속 아님)</div>'
@@ -263,11 +264,12 @@ def render_10ema_tab(market: str, label: str):
             unsafe_allow_html=True,
         )
         _mc2.markdown(
-            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(46,204,113,0.3)">'
+            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(46,204,113,0.3);'
+            'min-height:420px;display:flex;flex-direction:column">'
             '<div style="background:linear-gradient(90deg,#27ae60,#1a7a43);padding:10px 16px">'
             '<span style="font-weight:700;color:#fff;font-size:0.92em">🟢 케이스2 — 브레이크아웃</span>'
             '</div>'
-            '<div style="padding:14px 16px">'
+            '<div style="padding:14px 16px;flex:1;display:flex;flex-direction:column">'
 
             '<div style="font-size:0.75em;color:#2ecc71;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 확정 조건</div>'
             '<div style="font-size:0.84em;line-height:1.85;margin-bottom:6px">'
@@ -282,12 +284,12 @@ def render_10ema_tab(market: str, label: str):
             '<div style="font-size:0.75em;color:#2ecc71;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 진입 전략</div>'
             '<div style="font-size:0.83em;margin-bottom:8px">'
             '<b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%</div>'
-            '<div style="font-size:0.82em;line-height:2.0">'
+            '<div style="font-size:0.82em;line-height:2.0;margin-bottom:0">'
             '<b style="color:#2ecc71">①</b> 현재→타점% 5% 이내 시 관심<br>'
             '<b style="color:#2ecc71">②</b> 렐볼 급증 + 기준봉 고가 돌파 확인<br>'
             '<b style="color:#2ecc71">③</b> 5분봉 기준봉 형성 시 진입</div>'
 
-            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px"></div>'
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px;margin-top:auto"></div>'
 
             '<div style="font-size:0.82em;background:rgba(52,152,219,0.12);border-radius:6px;padding:7px 10px">'
             '🔵 <b>돌파완료</b>: 케이스2 확정 이후 이틀 연속 기준봉 고가 위 종가</div>'
