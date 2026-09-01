@@ -5,7 +5,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
-from data.store import load_daily, get_freshness
+from data.store import load_daily, get_freshness, refetch_market
 from data.sector import get_sectors, get_major_themes
 from data.yf_sector import get_yf_sectors, resolve_sector
 from data import leaderboard_store
@@ -350,6 +350,8 @@ def render_10ema_tab(market: str, label: str):
 
         st.divider()
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
+            with st.spinner(f'{label} 시세 재수집 중... ({len(tickers)}개 종목)'):
+                refetch_market(market, tickers)
             _build_10ema_rows.clear()
             st.rerun()
 
