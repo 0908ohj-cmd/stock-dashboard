@@ -291,16 +291,15 @@ def render_10ema_tab(market: str, label: str):
         )
         _gc2.markdown(
             '<div style="border:2px solid #e74c3c;border-radius:8px;padding:12px 14px">'
-            '<div style="font-weight:700;color:#2ecc71;margin-bottom:4px">'
-            '🟢 케이스2 확정</div>'
-            '<div style="font-size:0.78em;color:#e74c3c;margin-bottom:8px">'
+            '<div style="font-size:0.78em;color:#e74c3c;margin-bottom:10px;font-weight:700">'
             '⚡ 전환이 일어나는 유일한 순간</div>'
-            '<div style="font-size:0.84em;line-height:2.0">'
+            '<div style="font-size:0.84em;line-height:1.9;margin-bottom:6px">'
             'D+1 종가 <b>&#62; 기준봉 고가</b><br>'
-            'D+2 종가 <b>≤ 기준봉 고가</b></div>'
-            '<div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">'
-            '→ D+1엔 케이스1 잠정이었다가<br>'
-            '→ D+2에 고가 아래 복귀 → 케이스2 전환</div>'
+            '<span style="color:#e67800;font-size:0.92em">→ 🟠 케이스1 잠정으로 표시</span></div>'
+            '<div style="border-top:1px solid #555;margin:8px 0"></div>'
+            '<div style="font-size:0.84em;line-height:1.9;margin-bottom:6px">'
+            'D+2 종가 <b>≤ 기준봉 고가</b><br>'
+            '<span style="color:#2ecc71;font-size:0.92em">→ 🟢 케이스2 확정으로 전환</span></div>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -313,16 +312,6 @@ def render_10ema_tab(market: str, label: str):
             '→ D+1부터 고가 못 넘음<br>'
             '→ 즉시 케이스2 확정<br>'
             '→ 브레이크아웃 대기</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="border:1px dashed #e67800;border-radius:8px;'
-            'padding:10px 14px;margin-top:8px;font-size:0.84em">'
-            '<b style="color:#e67800">🟠 케이스1 잠정</b>'
-            ' — D+1 종가 &#62; 기준봉 고가이나 D+2 아직 미도래<br>'
-            '<span style="color:#aaa;font-size:0.9em">'
-            'D+2 결과 확인 전까지 케이스1로 표시. D+2가 고가 아래 마감하면 케이스2로 전환.</span>'
             '</div>',
             unsafe_allow_html=True,
         )
