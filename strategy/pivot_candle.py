@@ -199,11 +199,16 @@ def classify_case(
 ) -> str:
     """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈' | '돌파완료'
 
-    셋업(케이스1): 기준봉 고가 돌파 이력 있음 + 이탈 없음 + 10EMA 위 연속 10일 미만 → 10EMA 풀백 진입 대기
-    셋업(케이스2): 고가 미돌파 + 이탈 없음 → 브레이크아웃 대기
-    돌파완료: 케이스1 territory에서 10EMA 위 종가 10거래일 이상 연속 → 진입 기회 지남
-    중간선이탈: 기준봉 중간선 아래 연속 2거래일 → 셋업 무효
-    10EMA이탈: 10EMA 아래 연속 2거래일 → 셋업 무효
+    케이스1/2는 cluster_end 이후 첫 2거래일로 확정, 이후 전환 없음:
+      Day1 > 고가 + Day2 > 고가 → 케이스1 (확정)
+      Day1 > 고가 + Day2 ≤ 고가 → 케이스2 (확정)
+      Day1 ≤ 고가            → 케이스2 (확정)
+      Day1 > 고가, Day2 미도래  → 케이스1 (잠정)
+
+    돌파완료(케이스1): 기준봉 이후 10EMA 위 종가 누적 10일+
+    돌파완료(케이스2): after_cluster 내 이틀 연속 기준봉 고가 위 종가
+    중간선이탈: 중간선 아래 연속 2거래일
+    10EMA이탈: 10EMA 아래 연속 2거래일
     저가이탈: 기준봉 저가 하방 (무효화 포함)
     없음: lookback(기본 63) 거래일 내 기준봉 후보 없음
     """
@@ -230,18 +235,32 @@ def classify_case(
         if (below_ema & below_ema.shift(1)).any():
             return '10EMA이탈'
 
-    # 케이스1 territory: 클러스터 이후 고가 돌파 이력
-    # since_pivot이 아닌 after_cluster 기준 — 클러스터 봉은 고가 위 마감이 정상이라 제외
+    # 케이스1/2 확정: cluster_end 이후 첫 2거래일로 판정
     after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
-    ever_above = not after_cluster.empty and bool((after_cluster['Close'] > pivot['high']).any())
 
-    if ever_above:
-        # 돌파완료: 기준봉 이후 10EMA 위 종가 누적일(연속 아님) >= 10 → 진입 기회 이미 지남
+    if after_cluster.empty:
+        is_case1 = False
+    else:
+        day1_above = float(after_cluster['Close'].iloc[0]) > pivot['high']
+        if day1_above:
+            if len(after_cluster) == 1:
+                is_case1 = True  # Day2 미도래 — 케이스1 잠정
+            else:
+                is_case1 = float(after_cluster['Close'].iloc[1]) > pivot['high']
+        else:
+            is_case1 = False
+
+    if is_case1:
+        # 케이스1 돌파완료: 기준봉 이후 10EMA 위 종가 누적 >= 10
         if ema10_since is not None:
             above_ema = since_pivot['Close'] > ema10_since
             if int(above_ema.sum()) >= 10:
                 return '돌파완료'
         return '셋업(케이스1)'
 
-    # 케이스2: 고가 미돌파
+    # 케이스2 돌파완료: after_cluster 내 이틀 연속 기준봉 고가 위 종가
+    if not after_cluster.empty:
+        above_high = after_cluster['Close'] > pivot['high']
+        if (above_high & above_high.shift(1)).any():
+            return '돌파완료'
     return '셋업(케이스2)'

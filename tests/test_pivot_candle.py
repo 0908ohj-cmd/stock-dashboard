@@ -159,11 +159,10 @@ def test_cluster_chains_through_consecutive_candidates():
 
 
 def test_overextension_counted_after_cluster_ends_not_from_head():
-    """클러스터 이후에도 고가 위 이력이 있으면 케이스1로 분류된다.
+    """cluster_end 이후 첫 2일이 모두 고가 위 → 케이스1로 분류된다.
 
-    클러스터 내부 후행봉들은 기준봉 고가 위에서 마감이 정상.
-    ever_above 판정은 since_pivot 전체를 보므로, 클러스터 봉들도 포함해서
-    ever_above=True → 셋업(케이스1)이 맞다.
+    클러스터 내부 봉은 고가 위 마감이 정상이라 케이스 판정에서 제외.
+    after_cluster Day1·Day2 가 모두 pivot_high 위 → is_case1=True → 셋업(케이스1).
     """
     # 78 기준봉 → 6봉 위에서 횡보 → 85 기준봉 → 2봉 되돌림(78 고가 바로 위)
     b1 = BASE_TOP * 1.03
