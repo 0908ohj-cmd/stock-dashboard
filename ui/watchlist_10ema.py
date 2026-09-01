@@ -234,7 +234,7 @@ def render_10ema_tab(market: str, label: str):
 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 돌파완료</div>
-    <div style="font-size:0.85em;line-height:1.6">기준봉 이후 10EMA 위<br>종가 누적 10거래일 이상</div>
+    <div style="font-size:0.85em;line-height:1.6">케이스1: 10EMA 위 종가 누적 10일+<br>케이스2: 이틀 연속 기준봉 고가 위 종가</div>
     <div style="color:#3498db;font-size:0.82em;margin-top:8px">진입 기회 지남 → 관망</div>
   </div>
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
@@ -255,6 +255,90 @@ def render_10ema_tab(market: str, label: str):
   <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔴 없음</div>
     <div style="font-size:0.85em;line-height:1.6">최근 6개월 내<br>기준봉 미탐지</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        st.divider()
+        st.caption('케이스 확정 규칙 — 기준봉 이후 단 2거래일로 확정, 이후 절대 전환 없음')
+        st.markdown("""
+<div style="margin-bottom:10px">
+  <!-- 타임라인 -->
+  <div style="display:flex;align-items:center;gap:0;margin-bottom:16px;font-size:0.82em;flex-wrap:wrap;gap:4px">
+    <div style="background:#44475a;border-radius:6px;padding:6px 12px;font-weight:700">기준봉</div>
+    <div style="color:#888;padding:0 4px">──▶</div>
+    <div style="background:#1a1a2e;border:1px solid #e6780077;border-radius:6px;padding:6px 12px"><b>D+1</b> 종가 vs 기준봉 고가</div>
+    <div style="color:#888;padding:0 4px">──▶</div>
+    <div style="background:#1a1a2e;border:1px solid #e6780077;border-radius:6px;padding:6px 12px"><b>D+2</b> 종가 vs 기준봉 고가</div>
+    <div style="color:#888;padding:0 4px">──▶</div>
+    <div style="background:#1a1a2e;border:1px solid #ffffff33;border-radius:6px;padding:6px 12px;color:#ccc">케이스 <b>확정</b> (이후 불변)</div>
+  </div>
+
+  <!-- 케이스 확정 표 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px">
+
+    <div style="border:1px solid #e6780066;border-radius:8px;padding:12px 14px">
+      <div style="font-weight:700;color:#e67800;margin-bottom:8px">🟠 케이스1 확정</div>
+      <div style="font-size:0.84em;line-height:1.9">
+        D+1 종가 <b>&gt; 기준봉 고가</b><br>
+        D+2 종가 <b>&gt; 기준봉 고가</b>
+      </div>
+      <div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">
+        → 기준봉 고가 위에서 이틀 연속 유지<br>
+        → 10EMA 풀백 진입 전략
+      </div>
+    </div>
+
+    <div style="border:2px solid #e74c3c99;border-radius:8px;padding:12px 14px">
+      <div style="font-weight:700;color:#2ecc71;margin-bottom:4px">🟢 케이스2 확정 <span style="color:#e74c3c;font-size:0.78em;vertical-align:middle">← 전환 발생</span></div>
+      <div style="font-size:0.78em;color:#e74c3c;margin-bottom:8px">⚡ 케이스 전환이 일어나는 유일한 순간</div>
+      <div style="font-size:0.84em;line-height:1.9">
+        D+1 종가 <b>&gt; 기준봉 고가</b><br>
+        D+2 종가 <b>≤ 기준봉 고가</b>
+      </div>
+      <div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">
+        → D+1엔 케이스1 잠정이었다가<br>
+        &nbsp;&nbsp; D+2에 고가 아래로 복귀 → 케이스2 전환
+      </div>
+    </div>
+
+    <div style="border:1px solid #2ecc7166;border-radius:8px;padding:12px 14px">
+      <div style="font-weight:700;color:#2ecc71;margin-bottom:8px">🟢 케이스2 확정</div>
+      <div style="font-size:0.84em;line-height:1.9">
+        D+1 종가 <b>≤ 기준봉 고가</b>
+      </div>
+      <div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">
+        → D+1부터 고가 못 넘음<br>
+        → 즉시 케이스2 확정<br>
+        → 브레이크아웃 대기
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 잠정 케이스1 -->
+  <div style="border:1px dashed #e6780055;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.84em">
+    <b style="color:#e67800">🟠 케이스1 잠정</b> — D+1 종가 &gt; 기준봉 고가, 아직 D+2 미도래<br>
+    <span style="color:#aaa;font-size:0.9em">D+2 결과가 나오면 케이스1 확정 또는 케이스2 전환. 그 전까지 케이스1로 표시.</span>
+  </div>
+
+  <!-- 돌파완료 조건 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+      <div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스1</div>
+      <div style="font-size:0.84em;line-height:1.8">
+        기준봉 이후 <b>10EMA 위 종가 누적 10거래일 이상</b><br>
+        (연속 아님, 누적 합산)
+      </div>
+      <div style="font-size:0.8em;color:#aaa;margin-top:8px">→ 풀백 진입 기회 이미 지남 → 관망</div>
+    </div>
+    <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
+      <div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스2</div>
+      <div style="font-size:0.84em;line-height:1.8">
+        케이스2 확정 이후 <b>이틀 연속 기준봉 고가 위 종가</b>
+      </div>
+      <div style="font-size:0.8em;color:#aaa;margin-top:8px">→ 브레이크아웃 완성 → 관망</div>
+    </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
