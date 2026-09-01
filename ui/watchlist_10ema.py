@@ -346,25 +346,25 @@ def render_10ema_tab(market: str, label: str):
             ('ADR%',       '최근 20일 평균 일일 변동폭',                                '6%+ 필터'),
         ]
         _tbl = (
-            '<table style="width:100%;border-collapse:collapse;font-size:0.84em">'
+            '<table style="width:100%;border-collapse:collapse;font-size:0.85em">'
             '<thead>'
-            '<tr style="border-bottom:2px solid rgba(255,255,255,0.15)">'
-            '<th style="padding:8px 12px;text-align:left;font-weight:600;color:#aaa;width:16%">컬럼</th>'
-            '<th style="padding:8px 12px;text-align:left;font-weight:600;color:#aaa">설명</th>'
-            '<th style="padding:8px 12px;text-align:center;font-weight:600;color:#aaa;width:15%">기준</th>'
+            '<tr style="border-bottom:2px solid rgba(255,255,255,0.2)">'
+            '<th style="padding:9px 12px;text-align:left;font-weight:600;color:#bbb;width:16%">컬럼</th>'
+            '<th style="padding:9px 12px;text-align:left;font-weight:600;color:#bbb">설명</th>'
+            '<th style="padding:9px 12px;text-align:center;font-weight:600;color:#bbb;width:15%">기준</th>'
             '</tr>'
             '</thead><tbody>'
         )
         for i, (_n, _d, _c) in enumerate(_col_rows):
-            _bg = 'rgba(255,255,255,0.03)' if i % 2 == 0 else 'transparent'
+            _bg = 'rgba(255,255,255,0.04)' if i % 2 == 0 else 'transparent'
             _crit = (
-                f'<span style="background:rgba(255,255,255,0.1);color:#ddd;'
-                f'border-radius:4px;padding:2px 8px;font-size:0.8em">{_c}</span>'
-            ) if _c else '<span style="color:#555">—</span>'
+                f'<span style="background:rgba(255,255,255,0.12);color:#e0e0e0;'
+                f'border-radius:4px;padding:2px 8px;font-size:0.85em;font-weight:500">{_c}</span>'
+            ) if _c else '<span style="color:#666">—</span>'
             _tbl += (
-                f'<tr style="background:{_bg};border-bottom:1px solid rgba(255,255,255,0.06)">'
-                f'<td style="padding:9px 12px;font-weight:600;color:#ddd">{_n}</td>'
-                f'<td style="padding:9px 12px;color:#999">{_d}</td>'
+                f'<tr style="background:{_bg};border-bottom:1px solid rgba(255,255,255,0.08)">'
+                f'<td style="padding:9px 12px;font-weight:600;color:#e0e0e0">{_n}</td>'
+                f'<td style="padding:9px 12px;color:#c0c0c0">{_d}</td>'
                 f'<td style="padding:9px 12px;text-align:center">{_crit}</td>'
                 '</tr>'
             )
