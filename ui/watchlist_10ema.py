@@ -201,66 +201,7 @@ def render_10ema_tab(market: str, label: str):
 </div>
 """, unsafe_allow_html=True)
         st.divider()
-        st.caption('종목 상태 분류')
-        st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
-  <div style="border:1px solid #e6780055;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟠 셋업(케이스1) — 10EMA 풀백</div>
-    <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 돌파 → 10EMA까지 풀백 시 진입<br>
-      <b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5 ADR<br>
-      <b>현재→타점%</b> = 현재가와 10EMA 사이 거리
-    </div>
-    <div style="color:#e67800;font-size:0.82em;margin-top:8px">
-      ① 현재→타점% 0% 근접 (10EMA ±3% 이내) 시 관심<br>
-      ② 장중 10EMA 터치 확인<br>
-      ③ 5분봉 양봉 기준봉 형성 시 진입
-    </div>
-  </div>
-  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟢 셋업(케이스2) — 브레이크아웃</div>
-    <div style="font-size:0.85em;line-height:1.6">
-      기준봉 고가 아래 베이스 형성 → 기준봉 고가 돌파 시 진입<br>
-      <b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%<br>
-      <b>현재→타점%</b> = 현재가와 기준봉 고가 사이 거리
-    </div>
-    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">
-      ① 현재→타점% 0% 근접 (타점 5% 이내) 시 관심<br>
-      ② 장중 렐볼 급증 + 기준봉 고가 돌파 확인<br>
-      ③ 5분봉 기준봉 형성 시 진입
-    </div>
-  </div>
-</div>
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">
-  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔵 돌파완료</div>
-    <div style="font-size:0.85em;line-height:1.6">케이스1: 10EMA 위 종가 누적 10일+<br>케이스2: 이틀 연속 기준봉 고가 위 종가</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">진입 기회 지남 → 관망</div>
-  </div>
-  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 10EMA이탈</div>
-    <div style="font-size:0.85em;line-height:1.6">10EMA 아래<br>연속 2거래일</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
-  </div>
-  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 중간선이탈</div>
-    <div style="font-size:0.85em;line-height:1.6">기준봉 중간선 아래<br>연속 2거래일</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
-  </div>
-  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 저가이탈</div>
-    <div style="font-size:0.85em;line-height:1.6">기준봉 저가<br>하방 이탈</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 셋업 무효</div>
-  </div>
-  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 없음</div>
-    <div style="font-size:0.85em;line-height:1.6">최근 6개월 내<br>기준봉 미탐지</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-        st.divider()
-        st.caption('케이스 확정 규칙 — 기준봉 이후 단 2거래일로 확정, 이후 절대 전환 없음')
+        st.caption('종목 분류 & 셋업 가이드 — 기준봉 이후 단 2거래일로 케이스 확정, 이후 절대 전환 없음')
         st.markdown(
             '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:18px">'
 
@@ -290,72 +231,88 @@ def render_10ema_tab(market: str, label: str):
             '</div>',
             unsafe_allow_html=True,
         )
-        _gc1, _gc2, _gc3 = st.columns(3)
-        _gc1.markdown(
-            '<div style="border:1px solid #e67800;border-radius:8px;padding:12px 14px">'
-            '<div style="font-weight:700;color:#e67800;margin-bottom:8px">🟠 케이스1 확정</div>'
-            '<div style="font-size:0.84em;line-height:2.0">'
-            'D+1 종가 <b>&#62; 기준봉 고가</b><br>'
-            'D+2 종가 <b>&#62; 기준봉 고가</b></div>'
-            '<div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">'
-            '→ 고가 위에서 이틀 연속 유지<br>→ 10EMA 풀백 진입 전략</div>'
-            '</div>',
+        _mc1, _mc2 = st.columns(2)
+        _mc1.markdown(
+            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(230,120,0,0.3)">'
+            '<div style="background:linear-gradient(90deg,#ff8c00,#cc5500);padding:10px 16px">'
+            '<span style="font-weight:700;color:#fff;font-size:0.92em">🟠 케이스1 — 10EMA 풀백</span>'
+            '</div>'
+            '<div style="padding:14px 16px">'
+
+            '<div style="font-size:0.75em;color:#e67800;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 확정 조건</div>'
+            '<div style="font-size:0.84em;line-height:1.85;margin-bottom:12px">'
+            'D+1 종가 &#62; 기준봉 고가<br>'
+            'D+2 종가 &#62; 기준봉 고가</div>'
+
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:12px"></div>'
+
+            '<div style="font-size:0.75em;color:#e67800;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 진입 전략</div>'
+            '<div style="font-size:0.83em;margin-bottom:8px">'
+            '<b>타점</b> = 10EMA &nbsp;·&nbsp; <b>손절</b> = 10EMA − 0.5×ADR</div>'
+            '<div style="font-size:0.82em;line-height:2.0">'
+            '<b style="color:#e67800">①</b> 현재→타점% ±3% 이내 시 관심<br>'
+            '<b style="color:#e67800">②</b> 장중 10EMA 터치 확인<br>'
+            '<b style="color:#e67800">③</b> 5분봉 양봉 기준봉 형성 시 진입</div>'
+
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px"></div>'
+
+            '<div style="font-size:0.82em;background:rgba(52,152,219,0.12);border-radius:6px;padding:7px 10px">'
+            '🔵 <b>돌파완료</b>: 10EMA 위 종가 누적 10거래일 이상 (연속 아님)</div>'
+
+            '</div></div>',
             unsafe_allow_html=True,
         )
-        _gc2.markdown(
-            '<div style="border:2px solid #e74c3c;border-radius:8px;padding:12px 14px">'
-            '<div style="font-size:0.78em;color:#e74c3c;margin-bottom:10px;font-weight:700">'
-            '⚡ 전환이 일어나는 유일한 순간</div>'
-            '<div style="font-size:0.84em;line-height:1.9;margin-bottom:6px">'
-            'D+1 종가 <b>&#62; 기준봉 고가</b><br>'
-            '<span style="color:#e67800;font-size:0.92em">→ 🟠 케이스1 잠정으로 표시</span></div>'
-            '<div style="border-top:1px solid #555;margin:8px 0"></div>'
-            '<div style="font-size:0.84em;line-height:1.9;margin-bottom:6px">'
-            'D+2 종가 <b>≤ 기준봉 고가</b><br>'
-            '<span style="color:#2ecc71;font-size:0.92em">→ 🟢 케이스2 확정으로 전환</span></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        _gc3.markdown(
-            '<div style="border:1px solid #2ecc71;border-radius:8px;padding:12px 14px">'
-            '<div style="font-weight:700;color:#2ecc71;margin-bottom:8px">🟢 케이스2 확정</div>'
-            '<div style="font-size:0.84em;line-height:2.0">'
-            'D+1 종가 <b>≤ 기준봉 고가</b></div>'
-            '<div style="font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.6">'
-            '→ D+1부터 고가 못 넘음<br>'
-            '→ 즉시 케이스2 확정<br>'
-            '→ 브레이크아웃 대기</div>'
-            '</div>',
+        _mc2.markdown(
+            '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(46,204,113,0.3)">'
+            '<div style="background:linear-gradient(90deg,#27ae60,#1a7a43);padding:10px 16px">'
+            '<span style="font-weight:700;color:#fff;font-size:0.92em">🟢 케이스2 — 브레이크아웃</span>'
+            '</div>'
+            '<div style="padding:14px 16px">'
+
+            '<div style="font-size:0.75em;color:#2ecc71;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 확정 조건</div>'
+            '<div style="font-size:0.84em;line-height:1.85;margin-bottom:6px">'
+            'D+1 종가 ≤ 기준봉 고가 → 즉시 확정<br>'
+            'D+1 &#62; 고가 + D+2 ≤ 고가 → 전환 확정</div>'
+            '<div style="font-size:0.79em;background:rgba(231,76,60,0.1);'
+            'border-left:3px solid #e74c3c;padding:5px 9px;margin-bottom:12px;border-radius:0 5px 5px 0">'
+            '⚡ D+1엔 케이스1 잠정 표시 → D+2 고가 아래 마감 시 케이스2 전환 (전환의 유일한 순간)</div>'
+
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin-bottom:12px"></div>'
+
+            '<div style="font-size:0.75em;color:#2ecc71;font-weight:700;letter-spacing:0.07em;margin-bottom:5px">▸ 진입 전략</div>'
+            '<div style="font-size:0.83em;margin-bottom:8px">'
+            '<b>타점</b> = 기준봉 고가 &nbsp;·&nbsp; <b>손절</b> = 기준봉 저가 − 2%</div>'
+            '<div style="font-size:0.82em;line-height:2.0">'
+            '<b style="color:#2ecc71">①</b> 현재→타점% 5% 이내 시 관심<br>'
+            '<b style="color:#2ecc71">②</b> 렐볼 급증 + 기준봉 고가 돌파 확인<br>'
+            '<b style="color:#2ecc71">③</b> 5분봉 기준봉 형성 시 진입</div>'
+
+            '<div style="border-top:1px solid rgba(255,255,255,0.08);margin:12px 0 10px"></div>'
+
+            '<div style="font-size:0.82em;background:rgba(52,152,219,0.12);border-radius:6px;padding:7px 10px">'
+            '🔵 <b>돌파완료</b>: 케이스2 확정 이후 이틀 연속 기준봉 고가 위 종가</div>'
+
+            '</div></div>',
             unsafe_allow_html=True,
         )
         st.write('')
-        _dc1, _dc2 = st.columns(2)
-        _dc1.markdown(
-            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px;'
-            'min-height:130px;display:flex;flex-direction:column;justify-content:space-between">'
-            '<div>'
-            '<div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스1</div>'
-            '<div style="font-size:0.84em;line-height:1.8">'
-            '기준봉 이후 <b>10EMA 위 종가 누적 10거래일 이상</b> (연속 아님)</div>'
-            '</div>'
-            '<div style="font-size:0.8em;color:#aaa;margin-top:8px">'
-            '→ 풀백 진입 기회 이미 지남 → 관망</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        _dc2.markdown(
-            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px;'
-            'min-height:130px;display:flex;flex-direction:column;justify-content:space-between">'
-            '<div>'
-            '<div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스2</div>'
-            '<div style="font-size:0.84em;line-height:1.8">'
-            '케이스2 확정 이후 <b>이틀 연속 기준봉 고가 위 종가</b></div>'
-            '</div>'
-            '<div style="font-size:0.8em;color:#aaa;margin-top:8px">'
-            '→ 브레이크아웃 완성 → 관망</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        _it1, _it2, _it3, _it4 = st.columns(4)
+        for _col, _title, _body in [
+            (_it1, '🔴 10EMA이탈',  '10EMA 아래 연속 2거래일'),
+            (_it2, '🔴 중간선이탈', '기준봉 중간선 아래 연속 2거래일'),
+            (_it3, '🔴 저가이탈',   '기준봉 저가 하방 이탈'),
+            (_it4, '⚫ 없음',        '최근 6개월 내 기준봉 미탐지'),
+        ]:
+            _col.markdown(
+                '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(180,50,50,0.25)">'
+                '<div style="background:linear-gradient(90deg,#922b21,#641a14);padding:7px 12px">'
+                f'<span style="font-weight:700;color:#fff;font-size:0.81em">{_title}</span>'
+                '</div>'
+                f'<div style="padding:10px 12px;font-size:0.82em;line-height:1.7">{_body}<br>'
+                '<span style="color:#aaa;font-size:0.9em">→ 셋업 무효</span></div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
         st.caption('기준봉이란?')
