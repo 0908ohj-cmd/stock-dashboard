@@ -317,25 +317,62 @@ def render_10ema_tab(market: str, label: str):
             )
 
         st.divider()
-        st.caption('기준봉이란?')
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown('**① 거래량 (손바뀜)**  \n평소 대비 1.5배+ 폭발 — 구간 내 물린 매물이 새 매수자로 교체되는 손바뀜 발생')
-        c2.markdown('**② 저항 돌파**  \n60일 고점(약 3개월) 또는 VCP 박스 상단 돌파 — 3개월치 매물대를 뚫어내는 지점. 52주 신고가 돌파 시 오버행 없어 가장 강력')
-        c3.markdown('**③ 종가 위치**  \n당일 고저 범위의 상단 70%+ 마감 (윗꼬리 없이 강하게 닫힘)')
-        c4.markdown('**④ 이평선**  \n10EMA · 21EMA · 50MA 정배열 상태에서 발생해야 유효 — 이 봉의 **고가 = 타점**')
+        st.caption('기준봉이란? — 탐지 조건 4가지를 모두 충족해야 유효')
+        _p1, _p2, _p3, _p4 = st.columns(4)
+        for _col, _num, _title, _desc, _tag in [
+            (_p1, '①', '거래량 손바뀜',  '평소 대비 <b>2배+</b> 폭발 — 물린 매물이 새 매수자로 교체되는 손바뀜 발생', None),
+            (_p2, '②', '저항 돌파',      '<b>60일 신고가</b> 또는 VCP 박스 상단 돌파. 52주 신고가 돌파 시 오버행 없어 가장 강력', None),
+            (_p3, '③', '종가 위치',      '당일 레인지 <b>상단 70%+</b> 마감 — 윗꼬리 없이 강하게 닫혀야 유효', None),
+            (_p4, '④', '이평선 정배열',  '10EMA &#62; 21EMA &#62; 50MA 정배열 + 장기 이평선(150/200) 위 종가', '고가 = 타점'),
+        ]:
+            _tag_html = (
+                f'<div style="margin-top:10px">'
+                f'<span style="background:#e67800;color:#fff;border-radius:4px;'
+                f'padding:2px 8px;font-size:0.78em;font-weight:700">{_tag}</span></div>'
+            ) if _tag else ''
+            _col.markdown(
+                '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(180,100,0,0.25)">'
+                '<div style="background:linear-gradient(90deg,#aa4400,#7a2e00);padding:8px 12px">'
+                f'<span style="font-weight:700;color:#fff;font-size:0.83em">{_num} {_title}</span>'
+                '</div>'
+                f'<div style="padding:11px 13px;font-size:0.82em;line-height:1.75">{_desc}{_tag_html}</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
         st.caption('컬럼 설명')
-        st.markdown(
-            '| 컬럼 | 설명 | 기준 |\n'
-            '|------|------|------|\n'
-            '| 기준봉일 | 기준봉 발생 날짜 | — |\n'
-            '| 타점 | 기준봉 고가 — ORH 매수 진입가 | — |\n'
-            '| 현재→타점% | 현재가 대비 타점까지 남은 거리 | **−5% 이내** 주목 |\n'
-            '| 횡보일수 | 기준봉 이후 경과 거래일 | 3~40일 |\n'
-            '| 이전상승% | 기준봉 전 65거래일 저점→고가 상승폭 (Prior Move) | **30%+** 필수 |\n'
-            '| ADR% | 최근 20일 평균 일일 변동폭 | **6%+** 필터 적용 |'
+        _badge = lambda txt, color='#e67800': (
+            f'<span style="background:{color};color:#fff;border-radius:4px;'
+            f'padding:2px 8px;font-size:0.78em;font-weight:700;white-space:nowrap">{txt}</span>'
         )
+        _rows = [
+            ('기준봉일',    '기준봉 발생 날짜',                                         '—'),
+            ('타점',        '기준봉 고가 — ORH 매수 진입가',                            '—'),
+            ('현재→타점%',  '현재가 대비 타점까지 남은 거리 (음수 = 타점 아래 = 진입 가능)',  _badge('−5% 이내')),
+            ('횡보일수',    '기준봉 이후 경과 거래일 수',                               '3 ~ 40일'),
+            ('이전상승%',   '기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move)',        _badge('30%+ 필수')),
+            ('ADR%',        '최근 20일 평균 일일 변동폭',                               _badge('6%+ 필터')),
+        ]
+        _tbl = (
+            '<table style="width:100%;border-collapse:collapse;font-size:0.84em">'
+            '<thead><tr style="background:linear-gradient(90deg,#2a2a2a,#1a1a1a)">'
+            '<th style="padding:9px 13px;text-align:left;color:#888;font-weight:600;width:18%">컬럼</th>'
+            '<th style="padding:9px 13px;text-align:left;color:#888;font-weight:600">설명</th>'
+            '<th style="padding:9px 13px;text-align:center;color:#888;font-weight:600;width:18%">기준</th>'
+            '</tr></thead><tbody>'
+        )
+        for i, (_col_name, _desc, _crit) in enumerate(_rows):
+            _bg = 'background:rgba(255,255,255,0.02)' if i % 2 == 0 else ''
+            _tbl += (
+                f'<tr style="{_bg};border-top:1px solid rgba(255,255,255,0.05)">'
+                f'<td style="padding:9px 13px;font-weight:600;color:#e67800">{_col_name}</td>'
+                f'<td style="padding:9px 13px;color:#ccc">{_desc}</td>'
+                f'<td style="padding:9px 13px;text-align:center">{_crit}</td>'
+                '</tr>'
+            )
+        _tbl += '</tbody></table>'
+        st.markdown(_tbl, unsafe_allow_html=True)
 
         st.divider()
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
