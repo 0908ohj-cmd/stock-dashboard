@@ -346,30 +346,26 @@ def render_10ema_tab(market: str, label: str):
             ('ADR%',       '최근 20일 평균 일일 변동폭',                                '6%+ 필터'),
         ]
         _tbl = (
-            '<table style="width:100%;border-collapse:collapse;font-size:0.84em;'
-            'border:1px solid rgba(30,80,140,0.25);border-radius:8px;overflow:hidden">'
+            '<table style="width:100%;border-collapse:collapse;font-size:0.84em">'
             '<thead>'
-            '<tr style="background:linear-gradient(90deg,#1e3a5a,#111d2e)">'
-            '<th style="padding:10px 14px;text-align:left;color:#7aabda;font-weight:600;'
-            'width:16%;letter-spacing:0.03em">컬럼</th>'
-            '<th style="padding:10px 14px;text-align:left;color:#7aabda;font-weight:600;'
-            'letter-spacing:0.03em">설명</th>'
-            '<th style="padding:10px 14px;text-align:center;color:#7aabda;font-weight:600;'
-            'width:16%;letter-spacing:0.03em">기준</th>'
+            '<tr style="border-bottom:2px solid rgba(255,255,255,0.15)">'
+            '<th style="padding:8px 12px;text-align:left;font-weight:600;color:#aaa;width:16%">컬럼</th>'
+            '<th style="padding:8px 12px;text-align:left;font-weight:600;color:#aaa">설명</th>'
+            '<th style="padding:8px 12px;text-align:center;font-weight:600;color:#aaa;width:15%">기준</th>'
             '</tr>'
             '</thead><tbody>'
         )
         for i, (_n, _d, _c) in enumerate(_col_rows):
-            _bg = 'rgba(30,80,140,0.06)' if i % 2 == 0 else 'transparent'
+            _bg = 'rgba(255,255,255,0.03)' if i % 2 == 0 else 'transparent'
             _crit = (
-                f'<span style="background:rgba(30,80,140,0.45);color:#a8c8f0;'
-                f'border-radius:4px;padding:2px 9px;font-size:0.8em;font-weight:600">{_c}</span>'
+                f'<span style="background:rgba(255,255,255,0.1);color:#ddd;'
+                f'border-radius:4px;padding:2px 8px;font-size:0.8em">{_c}</span>'
             ) if _c else '<span style="color:#555">—</span>'
             _tbl += (
-                f'<tr style="background:{_bg};border-top:1px solid rgba(30,80,140,0.15)">'
-                f'<td style="padding:10px 14px;font-weight:700;color:#a8c8f0">{_n}</td>'
-                f'<td style="padding:10px 14px;color:#ccc">{_d}</td>'
-                f'<td style="padding:10px 14px;text-align:center">{_crit}</td>'
+                f'<tr style="background:{_bg};border-bottom:1px solid rgba(255,255,255,0.06)">'
+                f'<td style="padding:9px 12px;font-weight:600;color:#ddd">{_n}</td>'
+                f'<td style="padding:9px 12px;color:#999">{_d}</td>'
+                f'<td style="padding:9px 12px;text-align:center">{_crit}</td>'
                 '</tr>'
             )
         _tbl += '</tbody></table>'
