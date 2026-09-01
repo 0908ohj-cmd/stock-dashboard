@@ -318,21 +318,27 @@ def render_10ema_tab(market: str, label: str):
         st.write('')
         _dc1, _dc2 = st.columns(2)
         _dc1.markdown(
-            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px">'
+            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px;'
+            'min-height:130px;display:flex;flex-direction:column;justify-content:space-between">'
+            '<div>'
             '<div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스1</div>'
             '<div style="font-size:0.84em;line-height:1.8">'
             '기준봉 이후 <b>10EMA 위 종가 누적 10거래일 이상</b><br>'
             '(연속 아님, 누적 합산)</div>'
+            '</div>'
             '<div style="font-size:0.8em;color:#aaa;margin-top:8px">'
             '→ 풀백 진입 기회 이미 지남 → 관망</div>'
             '</div>',
             unsafe_allow_html=True,
         )
         _dc2.markdown(
-            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px">'
+            '<div style="border:1px solid #3498db;border-radius:8px;padding:12px 14px;'
+            'min-height:130px;display:flex;flex-direction:column;justify-content:space-between">'
+            '<div>'
             '<div style="font-weight:700;color:#3498db;margin-bottom:8px">🔵 돌파완료 — 케이스2</div>'
             '<div style="font-size:0.84em;line-height:1.8">'
             '케이스2 확정 이후 <b>이틀 연속 기준봉 고가 위 종가</b></div>'
+            '</div>'
             '<div style="font-size:0.8em;color:#aaa;margin-top:8px">'
             '→ 브레이크아웃 완성 → 관망</div>'
             '</div>',
