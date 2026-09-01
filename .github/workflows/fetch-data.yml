@@ -60,6 +60,11 @@ jobs:
       - name: 스냅샷 수집
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
+      - name: 셋업 알람 이메일
+        env:
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: python scripts/notify_setups.py
+
       - name: 커밋 & push
         run: |
           git config user.name "github-actions[bot]"
