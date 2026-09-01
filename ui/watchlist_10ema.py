@@ -319,56 +319,51 @@ def render_10ema_tab(market: str, label: str):
         st.divider()
         st.caption('기준봉이란? — 탐지 조건 4가지를 모두 충족해야 유효')
         _p1, _p2, _p3, _p4 = st.columns(4)
-        for _col, _num, _title, _desc, _tag in [
-            (_p1, '①', '거래량 손바뀜',  '평소 대비 <b>2배+</b> 폭발 — 물린 매물이 새 매수자로 교체되는 손바뀜 발생', None),
-            (_p2, '②', '저항 돌파',      '<b>60일 신고가</b> 또는 VCP 박스 상단 돌파. 52주 신고가 돌파 시 오버행 없어 가장 강력', None),
-            (_p3, '③', '종가 위치',      '당일 레인지 <b>상단 70%+</b> 마감 — 윗꼬리 없이 강하게 닫혀야 유효', None),
-            (_p4, '④', '이평선 정배열',  '10EMA &#62; 21EMA &#62; 50MA 정배열 + 장기 이평선(150/200) 위 종가', '고가 = 타점'),
+        for _col, _num, _title, _desc in [
+            (_p1, '①', '거래량 손바뀜',  '평소 대비 <b>2배+</b> 폭발 — 물린 매물이 새 매수자로 교체되는 손바뀜 발생'),
+            (_p2, '②', '저항 돌파',      '<b>60일 신고가</b> 또는 VCP 박스 상단 돌파. 52주 신고가 돌파 시 오버행 없어 가장 강력'),
+            (_p3, '③', '종가 위치',      '당일 레인지 <b>상단 70%+</b> 마감 — 윗꼬리 없이 강하게 닫혀야 유효'),
+            (_p4, '④', '이평선 정배열',  '10EMA &#62; 21EMA &#62; 50MA 정배열 + 장기 이평선(150/200) 위 종가'),
         ]:
-            _tag_html = (
-                f'<div style="margin-top:10px">'
-                f'<span style="background:#e67800;color:#fff;border-radius:4px;'
-                f'padding:2px 8px;font-size:0.78em;font-weight:700">{_tag}</span></div>'
-            ) if _tag else ''
             _col.markdown(
-                '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(180,100,0,0.25)">'
-                '<div style="background:linear-gradient(90deg,#aa4400,#7a2e00);padding:8px 12px">'
+                '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(30,80,140,0.35)">'
+                '<div style="background:linear-gradient(90deg,#1e4d7b,#0f2d4a);padding:8px 12px">'
                 f'<span style="font-weight:700;color:#fff;font-size:0.83em">{_num} {_title}</span>'
                 '</div>'
-                f'<div style="padding:11px 13px;font-size:0.82em;line-height:1.75">{_desc}{_tag_html}</div>'
+                f'<div style="padding:11px 13px;font-size:0.82em;line-height:1.75">{_desc}</div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
 
         st.divider()
         st.caption('컬럼 설명')
-        _badge = lambda txt, color='#e67800': (
-            f'<span style="background:{color};color:#fff;border-radius:4px;'
-            f'padding:2px 8px;font-size:0.78em;font-weight:700;white-space:nowrap">{txt}</span>'
+        _badge = lambda txt: (
+            f'<span style="background:rgba(30,80,140,0.5);color:#a8c8f0;border-radius:4px;'
+            f'padding:2px 8px;font-size:0.78em;font-weight:600;white-space:nowrap">{txt}</span>'
         )
         _rows = [
-            ('기준봉일',    '기준봉 발생 날짜',                                         '—'),
-            ('타점',        '기준봉 고가 — ORH 매수 진입가',                            '—'),
-            ('현재→타점%',  '현재가 대비 타점까지 남은 거리 (음수 = 타점 아래 = 진입 가능)',  _badge('−5% 이내')),
-            ('횡보일수',    '기준봉 이후 경과 거래일 수',                               '3 ~ 40일'),
-            ('이전상승%',   '기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move)',        _badge('30%+ 필수')),
-            ('ADR%',        '최근 20일 평균 일일 변동폭',                               _badge('6%+ 필터')),
+            ('기준봉일',    '기준봉 발생 날짜',                                           '—'),
+            ('타점',        '기준봉 고가 — ORH 매수 진입가',                              '—'),
+            ('현재→타점%',  '현재가 대비 타점까지 남은 거리 (음수 = 타점 아래)',           _badge('−5% 이내')),
+            ('횡보일수',    '기준봉 이후 경과 거래일 수',                                 '3 ~ 40일'),
+            ('이전상승%',   '기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move)',          _badge('30%+ 필수')),
+            ('ADR%',        '최근 20일 평균 일일 변동폭',                                 _badge('6%+ 필터')),
         ]
         _tbl = (
             '<table style="width:100%;border-collapse:collapse;font-size:0.84em">'
-            '<thead><tr style="background:linear-gradient(90deg,#2a2a2a,#1a1a1a)">'
-            '<th style="padding:9px 13px;text-align:left;color:#888;font-weight:600;width:18%">컬럼</th>'
-            '<th style="padding:9px 13px;text-align:left;color:#888;font-weight:600">설명</th>'
-            '<th style="padding:9px 13px;text-align:center;color:#888;font-weight:600;width:18%">기준</th>'
+            '<thead><tr style="background:linear-gradient(90deg,#1e3a5a,#111d2e)">'
+            '<th style="padding:9px 13px;text-align:left;color:#7aabda;font-weight:600;width:18%">컬럼</th>'
+            '<th style="padding:9px 13px;text-align:left;color:#7aabda;font-weight:600">설명</th>'
+            '<th style="padding:9px 13px;text-align:center;color:#7aabda;font-weight:600;width:18%">기준</th>'
             '</tr></thead><tbody>'
         )
         for i, (_col_name, _desc, _crit) in enumerate(_rows):
             _bg = 'background:rgba(255,255,255,0.02)' if i % 2 == 0 else ''
             _tbl += (
                 f'<tr style="{_bg};border-top:1px solid rgba(255,255,255,0.05)">'
-                f'<td style="padding:9px 13px;font-weight:600;color:#e67800">{_col_name}</td>'
+                f'<td style="padding:9px 13px;font-weight:600;color:#a8c8f0">{_col_name}</td>'
                 f'<td style="padding:9px 13px;color:#ccc">{_desc}</td>'
-                f'<td style="padding:9px 13px;text-align:center">{_crit}</td>'
+                f'<td style="padding:9px 13px;text-align:center;color:#aaa">{_crit}</td>'
                 '</tr>'
             )
         _tbl += '</tbody></table>'
