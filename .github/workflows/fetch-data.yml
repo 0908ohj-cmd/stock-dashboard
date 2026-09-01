@@ -62,7 +62,8 @@ jobs:
 
       - name: 셋업 알람 이메일
         env:
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NAVER_EMAIL: ${{ secrets.NAVER_EMAIL }}
+          NAVER_PASSWORD: ${{ secrets.NAVER_PASSWORD }}
         run: python scripts/notify_setups.py
 
       - name: 커밋 & push

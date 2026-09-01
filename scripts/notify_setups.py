@@ -2,7 +2,10 @@
 """10EMA PP 셋업 알람 — GitHub Actions 배치 수집 후 실행.
 
 셋업(케이스1/케이스2) 종목이 있으면 이메일 발송.
-환경변수 GMAIL_APP_PASSWORD 없으면 조용히 종료.
+GitHub Secrets 필요:
+  NAVER_EMAIL    — 네이버 이메일 전체 주소 (예: yourId@naver.com)
+  NAVER_PASSWORD — 네이버 비밀번호
+미설정 시 조용히 종료.
 """
 import os
 import pathlib
@@ -20,7 +23,6 @@ from strategy.pivot_candle import classify_case, find_pivot_candle
 MARKETS = ['KR_KOSPI', 'KR_KOSDAQ', 'US']
 MARKET_LABELS = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
 SETUP_STATES = {'셋업(케이스1)', '셋업(케이스2)'}
-SENDER = '0908ohj@gmail.com'
 RECEIVER = '0908ohj@gmail.com'
 
 
@@ -98,9 +100,10 @@ def _build_html(all_setups: dict) -> str:
 
 
 def main() -> None:
-    password = os.environ.get('GMAIL_APP_PASSWORD', '')
-    if not password:
-        print('[notify] GMAIL_APP_PASSWORD 미설정 — 건너뜀')
+    sender = os.environ.get('NAVER_EMAIL', '')
+    password = os.environ.get('NAVER_PASSWORD', '')
+    if not sender or not password:
+        print('[notify] NAVER_EMAIL / NAVER_PASSWORD 미설정 — 건너뜀')
         return
 
     all_setups: dict[str, list] = {}
@@ -118,15 +121,13 @@ def main() -> None:
 
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
-    msg['From'] = SENDER
+    msg['From'] = sender
     msg['To'] = RECEIVER
     msg.attach(MIMEText(_build_html(all_setups), 'html', 'utf-8'))
 
-    with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.login(SENDER, password)
-        smtp.sendmail(SENDER, RECEIVER, msg.as_string())
+    with smtplib.SMTP_SSL('smtp.naver.com', 465) as smtp:
+        smtp.login(sender, password)
+        smtp.sendmail(sender, RECEIVER, msg.as_string())
 
     total = sum(len(v) for v in all_setups.values())
     print(f'[notify] 이메일 발송 완료 — {total}개 셋업 ({subject})')
