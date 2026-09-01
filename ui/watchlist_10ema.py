@@ -262,18 +262,31 @@ def render_10ema_tab(market: str, label: str):
         st.divider()
         st.caption('케이스 확정 규칙 — 기준봉 이후 단 2거래일로 확정, 이후 절대 전환 없음')
         st.markdown(
-            '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;'
-            'font-size:0.83em;margin-bottom:14px">'
-            '<div style="background:#555;border-radius:6px;padding:5px 11px;font-weight:700">기준봉</div>'
-            '<div style="color:#888">──▶</div>'
-            '<div style="border:1px solid #e67800;border-radius:6px;padding:5px 11px">'
-            '<b>D+1</b> 종가 vs 기준봉 고가</div>'
-            '<div style="color:#888">──▶</div>'
-            '<div style="border:1px solid #e67800;border-radius:6px;padding:5px 11px">'
-            '<b>D+2</b> 종가 vs 기준봉 고가</div>'
-            '<div style="color:#888">──▶</div>'
-            '<div style="border:1px solid #888;border-radius:6px;padding:5px 11px">'
-            '케이스 <b>확정</b> (이후 불변)</div>'
+            '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:18px">'
+
+            '<div style="background:linear-gradient(135deg,#ff8c00,#e65c00);color:#fff;'
+            'border-radius:20px;padding:7px 18px;font-weight:700;font-size:0.86em;'
+            'box-shadow:0 3px 10px rgba(230,90,0,0.45);letter-spacing:0.03em">📊 기준봉</div>'
+
+            '<div style="color:#e67800;font-size:1.5em;line-height:1;font-weight:700">➔</div>'
+
+            '<div style="border:2px solid #e67800;border-radius:20px;padding:6px 18px;'
+            'font-size:0.85em;background:rgba(230,120,0,0.1)">'
+            '<b style="color:#e67800">D+1</b>&nbsp;종가 vs 기준봉 고가</div>'
+
+            '<div style="color:#e67800;font-size:1.5em;line-height:1;font-weight:700">➔</div>'
+
+            '<div style="border:2px solid #e67800;border-radius:20px;padding:6px 18px;'
+            'font-size:0.85em;background:rgba(230,120,0,0.1)">'
+            '<b style="color:#e67800">D+2</b>&nbsp;종가 vs 기준봉 고가</div>'
+
+            '<div style="color:#aaa;font-size:1.5em;line-height:1;font-weight:700">➔</div>'
+
+            '<div style="background:linear-gradient(135deg,#1a6b3c,#0d4a2a);color:#fff;'
+            'border-radius:20px;padding:7px 18px;font-size:0.86em;font-weight:700;'
+            'box-shadow:0 3px 10px rgba(20,100,50,0.4);letter-spacing:0.03em">'
+            '🔒 케이스 확정 (이후 불변)</div>'
+
             '</div>',
             unsafe_allow_html=True,
         )
