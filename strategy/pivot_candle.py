@@ -230,8 +230,10 @@ def classify_case(
         if (below_ema & below_ema.shift(1)).any():
             return '10EMA이탈'
 
-    # 케이스1 territory: ever_above=True (기준봉 고가 돌파 이력)
-    ever_above = not since_pivot.empty and bool((since_pivot['Close'] > pivot['high']).any())
+    # 케이스1 territory: 클러스터 이후 고가 돌파 이력
+    # since_pivot이 아닌 after_cluster 기준 — 클러스터 봉은 고가 위 마감이 정상이라 제외
+    after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
+    ever_above = not after_cluster.empty and bool((after_cluster['Close'] > pivot['high']).any())
 
     if ever_above:
         # 돌파완료: 기준봉 이후 10EMA 위 종가 누적일(연속 아님) >= 10 → 진입 기회 이미 지남
