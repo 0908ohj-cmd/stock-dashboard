@@ -337,33 +337,43 @@ def render_10ema_tab(market: str, label: str):
 
         st.divider()
         st.caption('컬럼 설명')
-        _col_data = [
-            ('기준봉일',   '기준봉 발생 날짜',                              None),
-            ('타점',       '기준봉 고가 — ORH 매수 진입가',                 None),
-            ('현재→타점%', '현재가 대비 타점까지 남은 거리\n음수 = 타점 아래 = 진입 가능 구간', '−5% 이내'),
-            ('횡보일수',   '기준봉 이후 경과 거래일 수',                    '3 ~ 40일'),
-            ('이전상승%',  '기준봉 전 65거래일 저점→고가\nPrior Move',      '30%+ 필수'),
-            ('ADR%',       '최근 20일 평균 일일 변동폭\n변동성 필터 기준',  '6%+ 필터'),
+        _col_rows = [
+            ('기준봉일',   '기준봉 발생 날짜',                                          ''),
+            ('타점',       '기준봉 고가 — ORH 매수 진입가',                             ''),
+            ('현재→타점%', '현재가 대비 타점까지 남은 거리 (음수 = 타점 아래 = 진입 가능)', '−5% 이내'),
+            ('횡보일수',   '기준봉 이후 경과 거래일 수',                                '3 ~ 40일'),
+            ('이전상승%',  '기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move)',         '30%+ 필수'),
+            ('ADR%',       '최근 20일 평균 일일 변동폭',                                '6%+ 필터'),
         ]
-        _row1 = st.columns(3)
-        _row2 = st.columns(3)
-        for _col, (_name, _desc, _crit) in zip(list(_row1) + list(_row2), _col_data):
-            _crit_html = (
-                f'<div style="margin-top:8px">'
-                f'<span style="background:rgba(30,80,140,0.55);color:#a8c8f0;'
-                f'border-radius:4px;padding:3px 9px;font-size:0.78em;font-weight:600">'
-                f'{_crit}</span></div>'
-            ) if _crit else ''
-            _lines = _desc.replace('\n', '<br>')
-            _col.markdown(
-                '<div style="border-radius:8px;border:1px solid rgba(30,80,140,0.3);'
-                'padding:12px 14px;height:100%">'
-                f'<div style="font-weight:700;color:#a8c8f0;font-size:0.92em;margin-bottom:6px">{_name}</div>'
-                f'<div style="font-size:0.81em;color:#bbb;line-height:1.7">{_lines}</div>'
-                f'{_crit_html}'
-                '</div>',
-                unsafe_allow_html=True,
+        _tbl = (
+            '<table style="width:100%;border-collapse:collapse;font-size:0.84em;'
+            'border:1px solid rgba(30,80,140,0.25);border-radius:8px;overflow:hidden">'
+            '<thead>'
+            '<tr style="background:linear-gradient(90deg,#1e3a5a,#111d2e)">'
+            '<th style="padding:10px 14px;text-align:left;color:#7aabda;font-weight:600;'
+            'width:16%;letter-spacing:0.03em">컬럼</th>'
+            '<th style="padding:10px 14px;text-align:left;color:#7aabda;font-weight:600;'
+            'letter-spacing:0.03em">설명</th>'
+            '<th style="padding:10px 14px;text-align:center;color:#7aabda;font-weight:600;'
+            'width:16%;letter-spacing:0.03em">기준</th>'
+            '</tr>'
+            '</thead><tbody>'
+        )
+        for i, (_n, _d, _c) in enumerate(_col_rows):
+            _bg = 'rgba(30,80,140,0.06)' if i % 2 == 0 else 'transparent'
+            _crit = (
+                f'<span style="background:rgba(30,80,140,0.45);color:#a8c8f0;'
+                f'border-radius:4px;padding:2px 9px;font-size:0.8em;font-weight:600">{_c}</span>'
+            ) if _c else '<span style="color:#555">—</span>'
+            _tbl += (
+                f'<tr style="background:{_bg};border-top:1px solid rgba(30,80,140,0.15)">'
+                f'<td style="padding:10px 14px;font-weight:700;color:#a8c8f0">{_n}</td>'
+                f'<td style="padding:10px 14px;color:#ccc">{_d}</td>'
+                f'<td style="padding:10px 14px;text-align:center">{_crit}</td>'
+                '</tr>'
             )
+        _tbl += '</tbody></table>'
+        st.markdown(_tbl, unsafe_allow_html=True)
 
         st.divider()
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
