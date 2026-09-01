@@ -100,10 +100,23 @@ def _build_html(all_setups: dict) -> str:
 
 
 def main() -> None:
+    test_mode = '--test' in sys.argv
     sender = os.environ.get('NAVER_EMAIL', '')
     password = os.environ.get('NAVER_PASSWORD', '')
     if not sender or not password:
         print('[notify] NAVER_EMAIL / NAVER_PASSWORD 미설정 — 건너뜀')
+        return
+
+    if test_mode:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = '[PP셋업] 테스트 이메일'
+        msg['From'] = sender
+        msg['To'] = RECEIVER
+        msg.attach(MIMEText('<html><body><h2>✅ 알람 설정 완료!</h2><p>이메일 발송이 정상적으로 작동합니다.</p></body></html>', 'html', 'utf-8'))
+        with smtplib.SMTP_SSL('smtp.naver.com', 465) as smtp:
+            smtp.login(sender, password)
+            smtp.sendmail(sender, RECEIVER, msg.as_string())
+        print('[notify] 테스트 이메일 발송 완료')
         return
 
     all_setups: dict[str, list] = {}

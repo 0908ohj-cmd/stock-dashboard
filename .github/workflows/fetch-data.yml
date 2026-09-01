@@ -11,6 +11,10 @@ on:
         type: choice
         options: [all, kr, us]
         default: all
+      test_notify:
+        description: '테스트 이메일만 발송 (수집 건너뜀)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -64,7 +68,12 @@ jobs:
         env:
           NAVER_EMAIL: ${{ secrets.NAVER_EMAIL }}
           NAVER_PASSWORD: ${{ secrets.NAVER_PASSWORD }}
-        run: python scripts/notify_setups.py
+        run: |
+          if [ "${{ inputs.test_notify }}" = "true" ]; then
+            python scripts/notify_setups.py --test
+          else
+            python scripts/notify_setups.py
+          fi
 
       - name: 커밋 & push
         run: |
