@@ -5,7 +5,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
-from data.store import load_daily
+from data.store import load_daily, get_freshness
 from data.sector import get_sectors, get_major_themes
 from data.yf_sector import get_yf_sectors, resolve_sector
 from data import leaderboard_store
@@ -352,6 +352,13 @@ def render_10ema_tab(market: str, label: str):
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
             _build_10ema_rows.clear()
             st.rerun()
+
+    fr = get_freshness(market)
+    if fr['fetched_at']:
+        st.caption(
+            f"📅 {fr['last_trading_date']} 장마감 기준 · "
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+        )
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
         rows = _build_10ema_rows(tuple(sorted(tickers)), market, _ROW_SCHEMA_VER)
