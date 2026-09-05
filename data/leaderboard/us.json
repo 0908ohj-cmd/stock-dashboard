@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-05T07:05:42",
-  "source_updated_at": "2026-09-05T07:05:39",
+  "synced_at": "2026-09-06T07:01:49",
+  "source_updated_at": "2026-09-06T07:01:47",
   "count": 20,
   "items": [
     {
@@ -21,7 +21,7 @@
       "perf_6m": 174.7,
       "perf_12m": 719.8,
       "dist_from_52w_high": -16.2,
-      "avg_dollar_vol": 42981993844,
+      "avg_dollar_vol": 42984763829,
       "theme": "HBM AI 메모리",
       "sector": "반도체"
     },
@@ -42,7 +42,7 @@
       "perf_6m": 259.5,
       "perf_12m": 319.1,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 3960846596,
+      "avg_dollar_vol": 3961946777,
       "theme": "AI 서버 인프라",
       "sector": "컴퓨터·서버"
     },
@@ -63,7 +63,7 @@
       "perf_6m": 57.8,
       "perf_12m": 521.0,
       "dist_from_52w_high": -16.3,
-      "avg_dollar_vol": 4206732803,
+      "avg_dollar_vol": 4206810914,
       "theme": "데이터센터 광통신",
       "sector": "전기설비"
     },
@@ -84,7 +84,7 @@
       "perf_6m": 126.7,
       "perf_12m": 12.8,
       "dist_from_52w_high": -2.6,
-      "avg_dollar_vol": 876512042,
+      "avg_dollar_vol": 876517027,
       "theme": "AI 에이전트 팀협업",
       "sector": "소프트웨어"
     },
@@ -106,7 +106,7 @@
       "perf_6m": 73.7,
       "perf_12m": 170.0,
       "dist_from_52w_high": -1.5,
-      "avg_dollar_vol": 221095797,
+      "avg_dollar_vol": 221099407,
       "theme": "정제 마진 확대",
       "sector": "정유"
     },
@@ -127,7 +127,7 @@
       "perf_6m": 76.1,
       "perf_12m": 60.1,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 228256680,
+      "avg_dollar_vol": 228262328,
       "theme": "럭셔리 소매 회복",
       "sector": "의류·신발 유통"
     },
@@ -148,7 +148,7 @@
       "perf_6m": 75.6,
       "perf_12m": 141.7,
       "dist_from_52w_high": -3.9,
-      "avg_dollar_vol": 138198261,
+      "avg_dollar_vol": 138198708,
       "theme": "엔터프라이즈 음성 AI",
       "sector": "소프트웨어"
     },
@@ -169,7 +169,7 @@
       "perf_6m": 76.9,
       "perf_12m": 120.9,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 922725346,
+      "avg_dollar_vol": 922729300,
       "theme": "저탄소 정유",
       "sector": "정유"
     },
@@ -190,8 +190,8 @@
       "perf_6m": 89.9,
       "perf_12m": 111.1,
       "dist_from_52w_high": -0.7,
-      "avg_dollar_vol": 282119614,
-      "theme": "재생디젤 정유사",
+      "avg_dollar_vol": 282121465,
+      "theme": "재생 연료 정유",
       "sector": "정유"
     },
     {
@@ -211,7 +211,7 @@
       "perf_6m": 148.4,
       "perf_12m": 129.2,
       "dist_from_52w_high": -13.1,
-      "avg_dollar_vol": 1087357006,
+      "avg_dollar_vol": 1087448319,
       "theme": "AI 데이터센터",
       "sector": "컴퓨터·서버"
     },
@@ -232,7 +232,7 @@
       "perf_6m": 66.5,
       "perf_12m": 143.6,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 1057879457,
+      "avg_dollar_vol": 1057917044,
       "theme": "재생 디젤·SAF 리더",
       "sector": "정유"
     },
@@ -253,7 +253,7 @@
       "perf_6m": 111.3,
       "perf_12m": 90.1,
       "dist_from_52w_high": -1.4,
-      "avg_dollar_vol": 567965860,
+      "avg_dollar_vol": 567971022,
       "theme": "AI 에이전트 신원보안",
       "sector": "소프트웨어"
     },
@@ -274,7 +274,7 @@
       "perf_6m": 133.0,
       "perf_12m": 75.5,
       "dist_from_52w_high": -1.6,
-      "avg_dollar_vol": 176709586,
+      "avg_dollar_vol": 176709693,
       "theme": "AI 건강보험 플랫폼",
       "sector": "건강보험 관리"
     },
@@ -296,7 +296,7 @@
       "perf_6m": 98.7,
       "perf_12m": 106.7,
       "dist_from_52w_high": -7.7,
-      "avg_dollar_vol": 2123511562,
+      "avg_dollar_vol": 2123536913,
       "theme": "에이전트 AI 방어",
       "sector": "소프트웨어"
     },
@@ -317,7 +317,7 @@
       "perf_6m": 55.6,
       "perf_12m": 99.6,
       "dist_from_52w_high": -0.4,
-      "avg_dollar_vol": 712224727,
+      "avg_dollar_vol": 712225437,
       "theme": "재생 연료 전환",
       "sector": "정유"
     },
@@ -339,7 +339,7 @@
       "perf_6m": 100.2,
       "perf_12m": 64.9,
       "dist_from_52w_high": -0.5,
-      "avg_dollar_vol": 181197503,
+      "avg_dollar_vol": 181197713,
       "theme": "AI 디지털 치료",
       "sector": "소프트웨어"
     },
@@ -361,7 +361,7 @@
       "perf_6m": 82.0,
       "perf_12m": 119.7,
       "dist_from_52w_high": -9.0,
-      "avg_dollar_vol": 493116299,
+      "avg_dollar_vol": 493136024,
       "theme": "음성 AI 에이전트",
       "sector": "소프트웨어"
     },
@@ -382,7 +382,7 @@
       "perf_6m": 75.2,
       "perf_12m": 94.6,
       "dist_from_52w_high": -14.0,
-      "avg_dollar_vol": 190345645,
+      "avg_dollar_vol": 190346145,
       "theme": "급여 선지급 핀테크",
       "sector": "대형은행"
     },
@@ -404,7 +404,7 @@
       "perf_6m": 75.7,
       "perf_12m": 79.3,
       "dist_from_52w_high": -8.3,
-      "avg_dollar_vol": 180140069,
+      "avg_dollar_vol": 180140561,
       "theme": "프랜차이즈 국제확장",
       "sector": "외식"
     },
@@ -425,7 +425,7 @@
       "perf_6m": 66.4,
       "perf_12m": 67.8,
       "dist_from_52w_high": -4.1,
-      "avg_dollar_vol": 279124189,
+      "avg_dollar_vol": 279128880,
       "theme": "AI 마케팅 에이전트",
       "sector": "소프트웨어"
     }
