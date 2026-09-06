@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-06T07:01:49",
-  "source_updated_at": "2026-09-06T07:01:47",
+  "synced_at": "2026-09-07T07:02:44",
+  "source_updated_at": "2026-09-07T07:02:42",
   "count": 20,
   "items": [
     {
@@ -149,7 +149,7 @@
       "perf_12m": 141.7,
       "dist_from_52w_high": -3.9,
       "avg_dollar_vol": 138198708,
-      "theme": "엔터프라이즈 음성 AI",
+      "theme": "AI 음성 에이전트",
       "sector": "소프트웨어"
     },
     {
