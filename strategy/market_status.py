@@ -68,9 +68,11 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
         )
 
         # 조건 3: 직전봉이 음봉이거나, 양봉이더라도 ADR/2 미만 상승 (지지부진)
-        prev_chg_pct = (float(prev['Close']) - float(prev2['Close'])) / float(prev2['Close']) * 100
-        if prev_chg_pct >= adr_val / 2:
-            continue
+        # EMA 돌파 케이스는 직전봉이 소폭 양봉이어도 인정 — 돌파 전날 소폭 반등은 자연스러운 현상
+        if not is_ema_cross:
+            prev_chg_pct = (float(prev['Close']) - float(prev2['Close'])) / float(prev2['Close']) * 100
+            if prev_chg_pct >= adr_val / 2:
+                continue
 
         prev_close = float(index_df.iloc[i - 1]['Close'])
         pct_chg    = (float(row['Close']) - prev_close) / prev_close * 100
