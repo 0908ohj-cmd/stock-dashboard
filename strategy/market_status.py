@@ -50,7 +50,12 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
         # False로 통과시켜 오검출되므로 명시적으로 제외
         if row[['Open', 'High', 'Low', 'Close']].isna().any():
             continue
-        if float(row['Low']) >= float(ema21.iloc[i]):
+        # 21EMA 아래에서 찐반등봉으로 올라탄 경우도 인정
+        # (직전 종가 < 21EMA → 당일 종가 > 21EMA 돌파 + 찐반등봉 요건 충족 시)
+        prev_was_below = float(prev['Close']) < float(ema21.iloc[i - 1])
+        curr_crosses_above = float(row['Close']) > float(ema21.iloc[i])
+        is_ema_cross = prev_was_below and curr_crosses_above
+        if float(row['Low']) >= float(ema21.iloc[i]) and not is_ema_cross:
             continue
         if float(row['Close']) < float(row['Open']):
             continue
