@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-07T07:02:44",
-  "source_updated_at": "2026-09-07T07:02:42",
+  "synced_at": "2026-09-08T07:02:02",
+  "source_updated_at": "2026-09-08T07:02:01",
   "count": 20,
   "items": [
     {
@@ -212,7 +212,7 @@
       "perf_12m": 129.2,
       "dist_from_52w_high": -13.1,
       "avg_dollar_vol": 1087448319,
-      "theme": "AI 데이터센터",
+      "theme": "AI 서버 인프라",
       "sector": "컴퓨터·서버"
     },
     {
