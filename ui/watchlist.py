@@ -693,17 +693,21 @@ function(valueA, valueB) {
             f_peak = fc4.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
             st.divider()
 
+            def _ma_ok(r):
+                # 이평선위치 == '지수정상': 지수가 모든 이평 위 → 테스트 대상 이평 없음 → 통과
+                return cand_ma_ok or r['이평선위치'] == '지수정상' or r['ma_above_count'] > 0
+
             top_candidates = [
                 r for r in cand_rows
                 if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+                and (not f_ma   or _ma_ok(r))
                 and (not f_vol  or (r['거래량비%'] or 0) >= 120)
                 and (not f_peak or (r['고점대비%'] or 0) >= -30)
             ]
             fallback = (
                 [r for r in cand_rows
                  if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                 and (not f_ma   or cand_ma_ok or r['ma_above_count'] > 0)
+                 and (not f_ma   or _ma_ok(r))
                  and (not f_peak or (r['고점대비%'] or 0) >= -35)][:5]
                 if not top_candidates else []
             )
