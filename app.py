@@ -2,6 +2,8 @@ import base64
 import hashlib
 import json
 import pathlib
+import subprocess
+import time
 import requests
 import streamlit as st
 from data.fetcher import parse_tradingview_csv, parse_ticker_txt
@@ -52,6 +54,24 @@ def _clear_analysis_caches() -> None:
     _fetch_index_cached.clear()
     _get_market_status_cached.clear()
     _load_index.clear()
+
+
+_REPO_ROOT = pathlib.Path(__file__).parent
+_last_auto_pull: list[float] = [0.0]  # 프로세스 레벨 싱글톤
+
+def _auto_pull_if_stale() -> bool:
+    """1시간마다 한 번 git pull. 새 커밋 있으면 캐시 클리어 후 True 반환."""
+    if time.time() - _last_auto_pull[0] < 3600:
+        return False
+    _last_auto_pull[0] = time.time()
+    try:
+        r = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            capture_output=True, text=True, timeout=30, cwd=_REPO_ROOT,
+        )
+        return bool(r.stdout and 'Already up to date' not in r.stdout)
+    except Exception:
+        return False
 
 st.set_page_config(
     page_title='Stock Watchlist',
@@ -165,6 +185,10 @@ if _any:
         mime='application/json',
         use_container_width=True,
     )
+
+# ── 자동 git pull (1시간마다, 새 데이터 있으면 캐시 클리어) ──
+if _auto_pull_if_stale():
+    _clear_analysis_caches()
 
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
