@@ -35,8 +35,14 @@ KO_LOCALE = {
 }
 
 
+@st.cache_data(ttl=120)
+def _snapshot_ts(market: str) -> str:
+    """스냅샷 fetched_at 타임스탬프 — 변경 시 _build_rows·_fetch_index 캐시 자동 무효화."""
+    return store.load_snapshot(market).get('fetched_at', '')
+
+
 @st.cache_data(ttl=1800)
-def _fetch_index_cached(name: str) -> pd.DataFrame:
+def _fetch_index_cached(name: str, _ts: str = '') -> pd.DataFrame:
     return store.load_index(name)
 
 
@@ -93,6 +99,7 @@ def _build_rows(
     custom_rs_start_str: str | None = None,
     as_of_date_str: str | None = None,
     swing_dates_str: str | None = None,   # 쉼표 구분 날짜: "2026-05-20,2026-06-08,..."
+    _snapshot_ts: str = '',               # 캐시 무효화 전용 — 스냅샷 갱신 시 자동 bust
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
@@ -439,12 +446,15 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if fr['is_stale']:
         st.warning('⚠️ 배치 수집이 실패한 것 같습니다 — 사이드바 [데이터 재수집]을 눌러 주세요.')
 
+    snap_ts = _snapshot_ts(market)
+    idx_ts  = _snapshot_ts('indices')
+
     status = _get_market_status_cached(market)
 
     # 고점 날짜 계산해서 status에 추가 (배너용)
     cs = status['correction_start']
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    _idx = _fetch_index_cached(index_name)
+    _idx = _fetch_index_cached(index_name, idx_ts)
     if cs:
         status = {**status, 'peak_date': _index_peak_date(_idx, cs) if not _idx.empty else None}
 
@@ -528,6 +538,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             correction_start_str, jjin_date_str,
             custom_rs_start_str, None,
             swing_dates_str,
+            snap_ts,
         )
 
     if not rows:
@@ -633,7 +644,7 @@ function(valueA, valueB) {
 
     # 핵심 후보: jjin_date 기준 고정 스냅샷 (고점대비%·이평선위치도 해당 날짜 기준)
     if jjin_date_str:
-        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str)
+        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str, snap_ts)
         cand_ma_ok = False  # jjin_date에 지수는 조정 중 → MA 위치 조건 항상 적용
     else:
         cand_rows  = rows
