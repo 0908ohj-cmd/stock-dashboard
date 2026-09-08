@@ -401,6 +401,8 @@ def render_10ema_tab(market: str, label: str):
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '섹터':           r['섹터'],
         '테마':           r['테마'],
+        'Close':          r['Close'],
+        '등락%':          r['등락%'],
         '기준봉일':       r['기준봉일'],
         '타점':           r['타점'],
         '현재→타점%':     r['현재→타점%'],
@@ -425,6 +427,8 @@ def render_10ema_tab(market: str, label: str):
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
     gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)
+    gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
+    gb.configure_column('등락%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('타점',  filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=price_fmt, flex=1)
     gb.configure_column('기준봉일', filter='agTextColumnFilter', flex=1)
     for col in ['현재→타점%', '이전상승%', '횡보일수', 'ADR%']:
