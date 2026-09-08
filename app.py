@@ -3,7 +3,7 @@ import hashlib
 import json
 import pathlib
 import subprocess
-import time
+from datetime import datetime, timezone, timedelta, time as dtime
 import requests
 import streamlit as st
 from data.fetcher import parse_tradingview_csv, parse_ticker_txt
@@ -57,13 +57,31 @@ def _clear_analysis_caches() -> None:
 
 
 _REPO_ROOT = pathlib.Path(__file__).parent
-_last_auto_pull: list[float] = [0.0]  # 프로세스 레벨 싱글톤
+_KST       = timezone(timedelta(hours=9))
+_last_auto_pull: list[float] = [0.0]  # 프로세스 레벨 싱글톤 (epoch)
+
+# GitHub Action 스냅샷 커밋 시각 (KST)
+_PULL_SCHEDULES = [dtime(15, 46), dtime(7, 1)]  # KR 15:45 / US 07:00 직후
+
+
+def _pull_due() -> bool:
+    """오늘 스케줄 시각 이후인데 아직 pull 안 한 슬롯이 있으면 True."""
+    now = datetime.now(_KST)
+    if now.weekday() >= 5:  # 주말
+        return False
+    last = _last_auto_pull[0]
+    for t in _PULL_SCHEDULES:
+        sched_ts = datetime.combine(now.date(), t, tzinfo=_KST).timestamp()
+        if now.timestamp() >= sched_ts > last:
+            return True
+    return False
+
 
 def _auto_pull_if_stale() -> bool:
-    """1시간마다 한 번 git pull. 새 커밋 있으면 캐시 클리어 후 True 반환."""
-    if time.time() - _last_auto_pull[0] < 3600:
+    """스케줄 시각 직후 한 번만 git pull. 새 커밋 있으면 True 반환."""
+    if not _pull_due():
         return False
-    _last_auto_pull[0] = time.time()
+    _last_auto_pull[0] = datetime.now(_KST).timestamp()
     try:
         r = subprocess.run(
             ['git', 'pull', 'origin', 'main'],
