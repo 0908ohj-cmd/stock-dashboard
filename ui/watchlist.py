@@ -547,7 +547,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     state = status['state']
     if correction_start_str:
-        if state == 'early_signal' and jjin_date_str:
+        if jjin_date_str and _phase_label.startswith('DAY'):
             end_str = '진행 중'
         else:
             end_str = jjin_date_str or '진행 중'
