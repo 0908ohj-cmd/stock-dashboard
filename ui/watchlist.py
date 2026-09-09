@@ -545,12 +545,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.warning('분석 가능한 종목이 없습니다.')
         return
 
-    state = status['state']
     if correction_start_str:
-        if jjin_date_str and _phase_label.startswith('DAY'):
-            end_str = '진행 중'
-        else:
-            end_str = jjin_date_str or '진행 중'
+        end_str = jjin_date_str or '진행 중'
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
         st.caption(f"📅 조정 구간: {start_str} ~ {end_str}")
