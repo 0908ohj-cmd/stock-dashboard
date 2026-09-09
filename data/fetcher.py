@@ -155,7 +155,9 @@ def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
         last_price = yf.Ticker(yf_ticker).fast_info.last_price
         if last_price and last_price > 0:
             last_close = float(df['Close'].iloc[-1])
-            if abs(last_price - last_close) / last_close > 0.001:
+            # NaN이거나 실제 차이가 있으면 패치
+            needs_patch = pd.isna(last_close) or abs(last_price - last_close) / last_close > 0.001
+            if needs_patch:
                 ts = pd.Timestamp(last_date if last_close_nan else yesterday)
                 df.loc[ts, 'Close'] = float(last_price)
                 df = df.sort_index()
