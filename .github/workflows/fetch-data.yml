@@ -51,10 +51,12 @@ jobs:
 
       - name: 국장 10EMA 유니버스 갱신
         if: steps.target.outputs.build_kr == 'true'
+        continue-on-error: true
         run: python scripts/build_kr_10ema_universe.py
 
       - name: 미장 10EMA 유니버스 갱신
         if: steps.target.outputs.build_us == 'true'
+        continue-on-error: true
         run: python scripts/build_us_growth_universe.py
 
       - name: 스냅샷 수집
