@@ -473,19 +473,32 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     else:
         _phase_label = 'Normal'
 
-    # RS 기산점 커스텀 설정 (사용 가이드 바로 아래)
+    # RS 구간 커스텀 설정 (기산점 + 찐반등일)
     auto_peak = status.get('peak_date')
-    with st.expander('⚙️ RS 기산점 설정', expanded=False):
-        st.caption(f'자동 기산점: {auto_peak.date() if auto_peak else "없음 (조정 미감지)"}')
-        custom_date = st.date_input(
-            '커스텀 기산점 날짜 (설정 시 자동 계산 비활성화)',
-            value=None,
-            key=f'rs_custom_{market}',
-            help='비워두면 자동으로 이탈일 이전 전고점을 기산점으로 사용합니다.',
-        )
-        custom_rs_start_str = str(custom_date) if custom_date else None
-        if custom_rs_start_str:
-            st.info(f'📌 커스텀 기산점 적용 중: {custom_rs_start_str}')
+    with st.expander('⚙️ RS 구간 설정', expanded=False):
+        col_rs_start, col_rs_end = st.columns(2)
+        with col_rs_start:
+            st.caption(f'자동 기산점: {auto_peak.date() if auto_peak else "없음 (조정 미감지)"}')
+            custom_date = st.date_input(
+                '기산점 수동 설정',
+                value=None,
+                key=f'rs_custom_{market}',
+                help='비워두면 자동으로 이탈일 이전 전고점을 기산점으로 사용합니다.',
+            )
+            custom_rs_start_str = str(custom_date) if custom_date else None
+            if custom_rs_start_str:
+                st.info(f'📌 기산점: {custom_rs_start_str}')
+        with col_rs_end:
+            st.caption(f'자동 찐반등일: {jd.date() if jd else "없음 (미감지)"}')
+            custom_jjin = st.date_input(
+                '찐반등일 수동 설정',
+                value=None,
+                key=f'jjin_custom_{market}',
+                help='비워두면 자동 감지된 찐반등일을 사용합니다.',
+            )
+            if custom_jjin:
+                jjin_date_str = str(custom_jjin)
+                st.info(f'📌 찐반등일: {jjin_date_str}')
 
     with st.expander('📊 Swing Low Grouping', expanded=False):
         st.caption('지수 저점 날짜를 선택하면 개별 종목의 상승 다이버전스 등급을 계산합니다.')
