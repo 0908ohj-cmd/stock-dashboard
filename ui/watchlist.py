@@ -775,7 +775,7 @@ function(valueA, valueB) {
                             r for r in rows
                             if r['Ticker'] not in seen
                             and (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                            and (not f_ma   or r['ma_above_count'] > 0)
+                            and (not f_ma   or r['이평선위치'] == '지수정상' or r['ma_above_count'] > 0)
                             and (not f_vol  or (r['거래량비%'] or 0) >= 120)
                             and (not f_peak or (r['고점대비%'] or 0) >= -30)
                         ]
