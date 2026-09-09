@@ -549,7 +549,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         end_str = jjin_date_str or '진행 중'
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
-        st.caption(f"📅 조정 구간: {start_str} ~ {end_str}")
+        st.caption(f"📅 조정RS 기준기간: {start_str} ~ {end_str}")
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
