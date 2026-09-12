@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-12T07:03:05",
-  "source_updated_at": "2026-09-12T07:03:01",
+  "synced_at": "2026-09-13T07:04:23",
+  "source_updated_at": "2026-09-13T07:04:20",
   "count": 20,
   "items": [
     {
@@ -22,7 +22,7 @@
       "perf_6m": 140.7,
       "perf_12m": 597.7,
       "dist_from_52w_high": -19.6,
-      "avg_dollar_vol": 39785948362,
+      "avg_dollar_vol": 39786860207,
       "theme": "HBM·DRAM 메모리",
       "sector": "반도체"
     },
@@ -43,7 +43,7 @@
       "perf_6m": 280.2,
       "perf_12m": 361.6,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 4353540604,
+      "avg_dollar_vol": 4354408040,
       "theme": "AI 서버",
       "sector": "컴퓨터·서버"
     },
@@ -65,8 +65,8 @@
       "perf_6m": 50.5,
       "perf_12m": 462.2,
       "dist_from_52w_high": -12.0,
-      "avg_dollar_vol": 4404430151,
-      "theme": "데이터센터 광통신",
+      "avg_dollar_vol": 4404504559,
+      "theme": "AI 광연결",
       "sector": "전기설비"
     },
     {
@@ -86,7 +86,7 @@
       "perf_6m": 190.4,
       "perf_12m": 159.3,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 1312148000,
+      "avg_dollar_vol": 1312216960,
       "theme": "AI 서버 인프라",
       "sector": "컴퓨터·서버"
     },
@@ -107,7 +107,7 @@
       "perf_6m": 75.4,
       "perf_12m": 338.0,
       "dist_from_52w_high": -20.3,
-      "avg_dollar_vol": 4234120367,
+      "avg_dollar_vol": 4234282424,
       "theme": "AI 데이터센터 전력",
       "sector": "반도체·전자 장비"
     },
@@ -128,7 +128,7 @@
       "perf_6m": 161.0,
       "perf_12m": 223.5,
       "dist_from_52w_high": -11.2,
-      "avg_dollar_vol": 13065278979,
+      "avg_dollar_vol": 13065512957,
       "theme": "AI 데이터센터 GPU",
       "sector": "반도체"
     },
@@ -149,7 +149,7 @@
       "perf_6m": 84.3,
       "perf_12m": 185.2,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 236944277,
+      "avg_dollar_vol": 236949006,
       "theme": "정제 마진 확대",
       "sector": "정유"
     },
@@ -171,7 +171,7 @@
       "perf_6m": 145.0,
       "perf_12m": 3.1,
       "dist_from_52w_high": -7.7,
-      "avg_dollar_vol": 808852459,
+      "avg_dollar_vol": 808853758,
       "theme": "AI 기반 엔터프라이즈 플랫폼",
       "sector": "소프트웨어"
     },
@@ -192,7 +192,7 @@
       "perf_6m": 83.0,
       "perf_12m": 161.9,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 112384357,
+      "avg_dollar_vol": 112384376,
       "theme": "정유 마진 개선",
       "sector": "정유"
     },
@@ -213,8 +213,8 @@
       "perf_6m": 100.5,
       "perf_12m": 171.0,
       "dist_from_52w_high": -4.3,
-      "avg_dollar_vol": 563947901,
-      "theme": "AI 광인터커넥트 칩",
+      "avg_dollar_vol": 563948997,
+      "theme": "스마트홈·IoT 연결성",
       "sector": "반도체"
     },
     {
@@ -234,8 +234,8 @@
       "perf_6m": 90.7,
       "perf_12m": 117.6,
       "dist_from_52w_high": -0.4,
-      "avg_dollar_vol": 288035457,
-      "theme": "재생 연료 정유",
+      "avg_dollar_vol": 288037427,
+      "theme": "저탄소 정유 전환",
       "sector": "정유"
     },
     {
@@ -256,7 +256,7 @@
       "perf_6m": 81.7,
       "perf_12m": 126.2,
       "dist_from_52w_high": -9.7,
-      "avg_dollar_vol": 129444587,
+      "avg_dollar_vol": 129445892,
       "theme": "AI 음성 에이전트",
       "sector": "소프트웨어"
     },
@@ -278,8 +278,8 @@
       "perf_6m": 110.9,
       "perf_12m": 84.6,
       "dist_from_52w_high": -3.8,
-      "avg_dollar_vol": 561206231,
-      "theme": "AI 에이전트 신원보안",
+      "avg_dollar_vol": 561221643,
+      "theme": "AI 에이전트 신원 보안",
       "sector": "소프트웨어"
     },
     {
@@ -300,7 +300,7 @@
       "perf_6m": 152.1,
       "perf_12m": 68.2,
       "dist_from_52w_high": -0.7,
-      "avg_dollar_vol": 178402737,
+      "avg_dollar_vol": 178403975,
       "theme": "디지털 의료보험",
       "sector": "건강보험 관리"
     },
@@ -321,7 +321,7 @@
       "perf_6m": 152.2,
       "perf_12m": 52.0,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 539918465,
+      "avg_dollar_vol": 539918588,
       "theme": "메디케어 어드밴티지",
       "sector": "건강보험 관리"
     },
@@ -343,7 +343,7 @@
       "perf_6m": 72.7,
       "perf_12m": 50.7,
       "dist_from_52w_high": -4.5,
-      "avg_dollar_vol": 224333997,
+      "avg_dollar_vol": 224334307,
       "theme": "럭셔리 캐주얼 재포지셔닝",
       "sector": "의류·신발 유통"
     },
@@ -364,7 +364,7 @@
       "perf_6m": 126.2,
       "perf_12m": 2.0,
       "dist_from_52w_high": -11.1,
-      "avg_dollar_vol": 414697295,
+      "avg_dollar_vol": 414703026,
       "theme": "게임 AI 광고",
       "sector": "소프트웨어"
     },
@@ -385,7 +385,7 @@
       "perf_6m": 91.4,
       "perf_12m": 31.4,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 558880172,
+      "avg_dollar_vol": 558884390,
       "theme": "AI PC 플랫폼",
       "sector": "IT 서비스"
     },
@@ -407,7 +407,7 @@
       "perf_6m": 52.6,
       "perf_12m": 41.9,
       "dist_from_52w_high": -4.5,
-      "avg_dollar_vol": 247961706,
+      "avg_dollar_vol": 247961818,
       "theme": "디지털 뱅킹 플랫폼",
       "sector": "소프트웨어"
     },
@@ -429,8 +429,8 @@
       "perf_6m": 99.3,
       "perf_12m": 57.7,
       "dist_from_52w_high": -4.6,
-      "avg_dollar_vol": 173625112,
-      "theme": "AI 디지털 치료",
+      "avg_dollar_vol": 173626098,
+      "theme": "AI 원격 의료",
       "sector": "소프트웨어"
     }
   ]
