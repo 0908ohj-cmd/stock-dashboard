@@ -222,6 +222,7 @@ _BATCH_SCHEDULE = {
     'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
 }
 _GRACE_HOURS = 6   # 배치 지연·재배포 여유
+_MAX_TRADING_GAP_DAYS = 4   # 주말(2) + 공휴일(2) 커버. 그 이상 벌어지면 소스가 낡은 것이다
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -261,7 +262,17 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     else:
         deadline = _last_deadline(
             _BATCH_SCHEDULE['KR' if market.startswith('KR') else 'US'], now)
-    result['is_stale'] = fetched_at < deadline
+    stale_by_batch = fetched_at < deadline
+    # 배치가 제때 돌았어도 소스가 옛 거래일 데이터를 주면 낡은 것이다 (스펙 §6.6)
+    stale_by_data = False
+    last_td_s = snap.get('last_trading_date')
+    if last_td_s:
+        try:
+            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
+            stale_by_data = (now.date() - last_td).days > _MAX_TRADING_GAP_DAYS
+        except ValueError:
+            pass
+    result['is_stale'] = stale_by_batch or stale_by_data
     return result
 
 
