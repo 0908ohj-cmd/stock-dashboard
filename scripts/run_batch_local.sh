@@ -23,6 +23,9 @@ LOG="$HOME/Library/Logs/stock-dashboard-batch.log"
 LOCKDIR="/tmp/stock-dashboard-batch.lock"
 PYTHON="/opt/homebrew/bin/python3"
 
+# 로그에 KRX 로그인 ID 등이 남으므로 소유자만 읽게 만든다
+umask 077
+
 mkdir -p "$(dirname "$LOG")"
 
 log() { echo "[$(date '+%F %T')] [$MARKET] $*" | tee -a "$LOG"; }
