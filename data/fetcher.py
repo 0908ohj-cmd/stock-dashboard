@@ -140,27 +140,21 @@ def fetch_intraday(ticker: str, market: str = 'US') -> pd.DataFrame:
 
 
 def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
-    """한국 지수 마지막 행 Close NaN이거나 전거래일 행이 없으면 fast_info로 채움."""
+    """한국 지수 마지막 행의 Close가 NaN이면 fast_info 현재가로 채운다.
+
+    없는 날짜를 새로 만들지 않는다 — fast_info.last_price는 현재가 한 점이라
+    Open/High/Low를 만들 수 없고, O/H/L이 NaN인 행은 찐반등 판정에서
+    통째로 건너뛰어져(strategy/market_status.py:detect_jjin_bounce) 그날을
+    판정 불능으로 만든다. 당일 행이 아예 없으면 다음 배치에 맡긴다.
+    """
     if df.empty or 'Close' not in df.columns:
         return df
-
-    yesterday = (datetime.today() - timedelta(days=1)).date()
-    last_date = df.index[-1].date()
-    last_close_nan = pd.isna(df['Close'].iloc[-1])
-
-    if not last_close_nan and last_date >= yesterday:
+    if not pd.isna(df['Close'].iloc[-1]):
         return df
-
     try:
         last_price = yf.Ticker(yf_ticker).fast_info.last_price
         if last_price and last_price > 0:
-            last_close = float(df['Close'].iloc[-1])
-            # NaN이거나 실제 차이가 있으면 패치
-            needs_patch = pd.isna(last_close) or abs(last_price - last_close) / last_close > 0.001
-            if needs_patch:
-                ts = pd.Timestamp(last_date if last_close_nan else yesterday)
-                df.loc[ts, 'Close'] = float(last_price)
-                df = df.sort_index()
+            df.loc[df.index[-1], 'Close'] = float(last_price)
     except Exception:
         pass
     return df
@@ -172,6 +166,19 @@ _KR_INDEX_PYKRX = {'^KS11': '1001', '^KQ11': '2001'}
 _KR_INDEX_FDR = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
 
 
+def _incomplete_ohlc_dates(d: pd.DataFrame) -> pd.Index:
+    """복구가 필요한 행의 날짜 — O=H=L=C 평탄 행과 O/H/L/C에 NaN이 있는 행.
+
+    NaN끼리의 비교는 항상 False라 평탄 판정만으로는 NaN 행이 걸러지지 않는다.
+    두 조건을 OR로 묶어야 복구 대상에 들어온다.
+    """
+    ohlc = ['Open', 'High', 'Low', 'Close']
+    flat = ((d['Open'] == d['Close'])
+            & (d['High'] == d['Close'])
+            & (d['Low'] == d['Close']))
+    return d.index[flat | d[ohlc].isna().any(axis=1)]
+
+
 def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     """yfinance가 O=H=L=C로 반환한 행(OHLC 불완전)을 pykrx → FDR 순서로 교체."""
     if df.empty:
@@ -181,11 +188,7 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     if not pykrx_code:
         return df
 
-    def _bad_dates(d: pd.DataFrame):
-        mask = (d['Open'] == d['Close']) & (d['High'] == d['Close']) & (d['Low'] == d['Close'])
-        return d.index[mask]
-
-    bad = _bad_dates(df)
+    bad = _incomplete_ohlc_dates(df)
     if bad.empty:
         return df
 
@@ -207,7 +210,7 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
         pass
 
     # 2순위: FDR (pykrx 실패 시 남은 불량 행 처리)
-    bad = _bad_dates(df)
+    bad = _incomplete_ohlc_dates(df)
     if bad.empty or not fdr_name:
         return df
     try:
