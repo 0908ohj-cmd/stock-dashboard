@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
@@ -44,14 +46,34 @@ def test_today_patch_does_not_create_row(monkeypatch):
 
 
 def test_today_patch_fills_nan_close(monkeypatch):
-    """이미 있는 행의 Close가 NaN이면 현재가로 채운다."""
-    df = _df([('2026-09-08', 1.0, 2.0, 0.5, np.nan, 100.0)])
+    """이미 있는 행의 Close가 NaN이면 현재가로 채운다.
+
+    날짜를 하드코딩하면 실제 달력이 흘러 날짜 가드(2026-09-16 추가)에
+    걸려버리므로, 실행 시점의 '오늘'을 그대로 써서 항상 최근 거래일을
+    대표하게 한다.
+    """
+    today = datetime.now(fetcher._KST).strftime('%Y-%m-%d')
+    df = _df([(today, 1.0, 2.0, 0.5, np.nan, 100.0)])
     monkeypatch.setattr(fetcher.yf, 'Ticker', _FakeTicker)
 
     out = fetcher._patch_kr_index_today(df.copy(), '^KS11')
 
     assert float(out['Close'].iloc[-1]) == 9999.0
     assert len(out) == 1
+
+
+def test_today_patch_skips_old_row(monkeypatch):
+    """마지막 행이 오래된 날짜면 Close가 NaN이어도 현재가를 써넣지 않는다.
+
+    과거 날짜에 오늘 현재가를 종가로 박으면 복구 경로가 모두 실패했을 때
+    잘못된 값이 영구 병합된다.
+    """
+    df = _df([('2020-01-02', 1.0, 2.0, 0.5, np.nan, 100.0)])
+    monkeypatch.setattr(fetcher.yf, 'Ticker', _FakeTicker)
+
+    out = fetcher._patch_kr_index_today(df.copy(), '^KS11')
+
+    assert pd.isna(out['Close'].iloc[-1])   # 그대로 NaN
 
 
 def test_incomplete_ohlc_dates_catches_nan_and_flat():

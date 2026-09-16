@@ -3,7 +3,9 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+_KST = timezone(timedelta(hours=9))
 
 
 def _prev_weekday(d) -> 'datetime.date':
@@ -146,10 +148,16 @@ def _patch_kr_index_today(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     Open/High/Low를 만들 수 없고, O/H/L이 NaN인 행은 찐반등 판정에서
     통째로 건너뛰어져(strategy/market_status.py:detect_jjin_bounce) 그날을
     판정 불능으로 만든다. 당일 행이 아예 없으면 다음 배치에 맡긴다.
+    마지막 행이 최근 거래일이 아니면 건드리지 않는다 — 과거 날짜에 현재가를
+    종가로 써넣는 오염을 막는 날짜 가드.
     """
     if df.empty or 'Close' not in df.columns:
         return df
     if not pd.isna(df['Close'].iloc[-1]):
+        return df
+    # 마지막 행이 최근 거래일이 아니면 건드리지 않는다 — 현재가를 과거 날짜의
+    # 종가로 써넣으면 pykrx·FDR 복구가 모두 실패했을 때 오염이 영구히 병합된다
+    if (datetime.now(_KST).date() - df.index[-1].date()).days > 1:
         return df
     try:
         last_price = yf.Ticker(yf_ticker).fast_info.last_price
