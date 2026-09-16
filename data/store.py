@@ -215,13 +215,13 @@ def load_index(name: str) -> pd.DataFrame:
 
 
 # ── 신선도 판정 ──────────────────────────────────────────
-# KST 기준 배치 예정: KR 월~금 15:45, US 화~토 07:00 (cron: 45 6 / 0 22 * * 1-5 UTC)
-# 기한(deadline)은 정각(15:00) 기준 보수 판정 — 45분 차이는 6h 유예가 흡수한다
+# KST 기준 배치 예정: KR 월~금 16:40, US 화~토 07:00 (맥 launchd)
+# 기한(deadline)은 정각 기준 보수 판정 — 분 단위 차이는 6h 유예가 흡수한다
 _BATCH_SCHEDULE = {
-    'KR': {'hour': 15, 'weekdays': {0, 1, 2, 3, 4}},
+    'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
     'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
 }
-_GRACE_HOURS = 6   # cron 지연·재배포 여유
+_GRACE_HOURS = 6   # 배치 지연·재배포 여유
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -250,19 +250,11 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     fetched_at = datetime.fromisoformat(fetched_at_s)
     result['fetched_at'] = fetched_at
 
-    # ① last_trading_date 기준 우선 판정: 4 달력일 이내면 신선
-    #    배치가 예정보다 일찍 돌았거나 재실행 타이밍이 달라도 false alarm 방지.
-    #    4일 = 주말(2) + 공휴일 최대(2) 커버. 5일 이상 갭은 진짜 배치 실패.
-    last_td_s = snap.get('last_trading_date')
-    if last_td_s:
-        try:
-            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
-            if (now.date() - last_td).days <= 4:
-                return result   # is_stale=False 그대로 반환
-        except ValueError:
-            pass
-
-    # ② fetched_at 기반 fallback (last_trading_date 없거나 5일+ 경과)
+    # 배치가 기한 내에 돌았는지로만 판정한다.
+    # 2026-09-01 fdc5c8f가 'last_trading_date 4일 이내면 무조건 신선' 단축 경로를
+    # 넣었지만, 배치가 1~3일 실패하는 구간이 정확히 그 창에 들어가 경고가 통째로
+    # 죽었다. 그 false alarm의 원인이던 GitHub cron 지연은 배치를 로컬 launchd로
+    # 옮기며 사라졌고, 남은 분 단위 편차는 _GRACE_HOURS가 흡수한다.
     if market == 'indices':   # 지수는 KR·US 두 배치 모두가 갱신 → 더 최근 기한 적용
         deadline = max(_last_deadline(_BATCH_SCHEDULE['KR'], now),
                        _last_deadline(_BATCH_SCHEDULE['US'], now))
