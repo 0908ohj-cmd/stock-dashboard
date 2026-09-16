@@ -17,6 +17,7 @@ case "$MARKET" in
 esac
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BATCH_REPO="/Users/ygun/Workspace/stock-dashboard-batch"
 ENV_FILE="/Users/ygun/Workspace/stockEdge/.env"
 LOG="$HOME/Library/Logs/stock-dashboard-batch.log"
 LOCKDIR="/tmp/stock-dashboard-batch.lock"
@@ -37,15 +38,25 @@ notify() {
 
 die() { log "FAIL: $1"; notify "실패 — $1"; exit 1; }
 
-# 중복 실행 방지 (macOS에는 flock이 없어 mkdir 원자성을 쓴다)
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    log "다른 배치가 실행 중 — 건너뜀"
-    exit 0
-fi
-trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT
-
+# notify()가 락 처리 시점에도 텔레그램 변수를 쓸 수 있도록 락보다 먼저 env를 읽는다.
 [ -f "$ENV_FILE" ] || die "env 파일 없음: $ENV_FILE"
 set -a; . "$ENV_FILE"; set +a
+
+# 중복 실행 방지 (macOS에는 flock이 없어 mkdir 원자성을 쓴다)
+if ! mkdir "$LOCKDIR" 2>/dev/null; then
+    # 락이 남아 있으면 주인이 살아 있는지 본다 — 죽은 락은 배치를 영구히 멈춘다
+    stale_pid="$(cat "$LOCKDIR/pid" 2>/dev/null || echo '')"
+    if [ -n "$stale_pid" ] && kill -0 "$stale_pid" 2>/dev/null; then
+        log "다른 배치가 실행 중(pid $stale_pid) — 건너뜀"
+        exit 0
+    fi
+    log "WARN: 죽은 락 회수 (pid=${stale_pid:-unknown})"
+    notify "죽은 락을 회수하고 재시작했다 (pid=${stale_pid:-unknown})"
+    rm -rf "$LOCKDIR"
+    mkdir "$LOCKDIR" 2>/dev/null || die "락 획득 실패"
+fi
+echo $$ > "$LOCKDIR/pid"
+trap 'rm -rf "$LOCKDIR" 2>/dev/null' EXIT
 
 cd "$REPO" || die "체크아웃 없음: $REPO"
 log "시작 (repo=$REPO)"
@@ -56,6 +67,7 @@ else
     [ -n "${DASHBOARD_GITHUB_TOKEN:-}" ] || die "DASHBOARD_GITHUB_TOKEN 없음"
     branch="$(git rev-parse --abbrev-ref HEAD)"
     [ "$branch" = "main" ] || die "main이 아닌 브랜치($branch) — 배치 전용 체크아웃에서만 실행할 것"
+    [ "$REPO" = "$BATCH_REPO" ] || die "배치 전용 체크아웃이 아니다($REPO) — 실제 실행은 $BATCH_REPO 에서만 허용한다"
     git fetch origin --quiet || die "git fetch 실패"
     git reset --hard origin/main --quiet || die "git reset 실패"
 fi
@@ -84,7 +96,8 @@ fi
 git add data/ohlcv \
         data/saved/kospi_10ema.tickers \
         data/saved/kosdaq_10ema.tickers \
-        data/saved/us_10ema.tickers
+        data/saved/us_10ema.tickers \
+    || die "git add 실패"
 if git diff --cached --quiet; then
     log "변경 없음 — 종료"
     exit 0
