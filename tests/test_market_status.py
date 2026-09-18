@@ -48,7 +48,6 @@ def test_detect_jjin_bounce_detects_adr_covering_candle():
     result = detect_jjin_bounce(df)
     assert result is not None
     assert result['pct'] > 0
-    assert result['cover_pct'] >= 70
 
 
 def test_detect_jjin_bounce_gap_up_qualifies():

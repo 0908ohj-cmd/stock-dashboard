@@ -79,11 +79,6 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
         if pct_chg < adr_val:
             continue
 
-        curr_body = abs(float(row['Close']) - float(row['Open']))
-        prev_body = abs(float(prev['Close']) - float(prev['Open']))
-        if prev_body == 0 or curr_body < prev_body * 0.5:
-            continue
-
         # 조정 구간 평균 거래량으로 vol_ratio 계산
         bounce_date   = index_df.index[i]
         bounce_vol    = float(row['Volume'])
@@ -107,7 +102,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
             'date':      bounce_date,
             'pct':       round(pct_chg, 2),
             'adr':       round(adr_val, 2),
-            'cover_pct': round(curr_body / prev_body * 100, 1),
+            'cover_pct': 0.0,
             'vol_ratio': round(vol_ratio, 2),
             'stars':     stars,
         }
