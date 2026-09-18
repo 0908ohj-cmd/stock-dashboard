@@ -47,9 +47,9 @@ def _fetch_index_cached(name: str, _ts: str = '') -> pd.DataFrame:
 
 
 @st.cache_data(ttl=1800)
-def _get_market_status_cached(market: str) -> dict:
+def _get_market_status_cached(market: str, _ts: str = '') -> dict:
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    index_df   = _fetch_index_cached(index_name)
+    index_df   = _fetch_index_cached(index_name, _ts)
     return get_market_status(index_df) if not index_df.empty else {
         'state': 'normal', 'correction_start': None,
         'jjin_date': None,  'jjin_pct': 0.0,
@@ -449,7 +449,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     snap_ts = _snapshot_ts(market)
     idx_ts  = _snapshot_ts('indices')
 
-    status = _get_market_status_cached(market)
+    status = _get_market_status_cached(market, idx_ts)
 
     # 고점 날짜 계산해서 status에 추가 (배너용)
     cs = status['correction_start']
