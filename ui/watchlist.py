@@ -100,7 +100,6 @@ def _build_rows(
     as_of_date_str: str | None = None,
     swing_dates_str: str | None = None,   # 쉼표 구분 날짜: "2026-05-20,2026-06-08,..."
     _snapshot_ts: str = '',               # 캐시 무효화 전용 — 스냅샷 갱신 시 자동 bust
-    ma_idx_cutoff_str: str | None = None, # 이평선위치 체크용 지수 as-of (찐반등일 전날 조정 문맥 유지)
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
@@ -112,11 +111,6 @@ def _build_rows(
     asof              = pd.Timestamp(as_of_date_str)        if as_of_date_str        else None
 
     idx_asof = index_df[index_df.index <= asof] if asof is not None else index_df
-    # 찐반등일 포함 시 지수가 EMA21 위로 복귀해 이평선위치='지수정상'이 되어 조정 문맥이 사라짐.
-    # ma_idx_cutoff_str 지정 시 그 날짜 미포함(strict) 지수 슬라이스로 MA 위치를 평가해
-    # 찐반등 직전 조정 상태(종목이 지수 대비 EMA21 이상에 있었는지)를 정확히 반영.
-    idx_for_ma = (index_df[index_df.index < pd.Timestamp(ma_idx_cutoff_str)]
-                  if ma_idx_cutoff_str else idx_asof)
 
     adr_min = 2.0 if market.startswith('KR') else 4.0
     swing_dates = [d.strip() for d in swing_dates_str.split(',') if d.strip()] if swing_dates_str else []
@@ -166,7 +160,7 @@ def _build_rows(
                     'vol_ratio': 0.0, 'candle_ratio': 0.0,
                 }
 
-            ma_text, ma_above = _ma_position(df_asof, idx_for_ma)
+            ma_text, ma_above = _ma_position(df_asof, idx_asof)
 
             if swing_dates:
                 from strategy.swing_grade import calc_swing_grade
@@ -660,7 +654,7 @@ function(valueA, valueB) {
 
     # 핵심 후보: jjin_date 기준 고정 스냅샷 (고점대비%·이평선위치도 해당 날짜 기준)
     if jjin_date_str:
-        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str, snap_ts, ma_idx_cutoff_str=jjin_date_str)
+        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str, snap_ts)
         cand_ma_ok = False  # jjin_date에 지수는 조정 중 → MA 위치 조건 항상 적용
     else:
         cand_rows  = rows
