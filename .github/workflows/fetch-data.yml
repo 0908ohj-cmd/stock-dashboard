@@ -3,7 +3,7 @@ name: 스냅샷 수집
 on:
   schedule:
     - cron: '45 6 * * 1-5'   # 15:45 KST 월~금 → KR 스냅샷 + 국장 유니버스 갱신
-    - cron: '0 22 * * 1-5'   # 07:00 KST 화~토 → US 스냅샷 + 미장 유니버스 갱신
+    - cron: '0 2 * * 2-6'    # 11:00 KST 화~토 → US 스냅샷 + 미장 유니버스 갱신
   workflow_dispatch:
     inputs:
       markets:
