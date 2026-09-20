@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-20T07:01:25",
-  "source_updated_at": "2026-09-20T07:01:23",
+  "synced_at": "2026-09-21T07:02:30",
+  "source_updated_at": "2026-09-21T07:02:28",
   "count": 20,
   "items": [
     {
@@ -256,7 +256,7 @@
       "perf_12m": 102.6,
       "dist_from_52w_high": -4.2,
       "avg_dollar_vol": 623098287,
-      "theme": "AI 에이전트 신원 보안",
+      "theme": "신원기반 AI 보안",
       "sector": "소프트웨어"
     },
     {
@@ -277,7 +277,7 @@
       "perf_12m": 127.4,
       "dist_from_52w_high": -0.6,
       "avg_dollar_vol": 314942652,
-      "theme": "저탄소 정유 전환",
+      "theme": "재생 디젤 정유",
       "sector": "정유"
     },
     {
