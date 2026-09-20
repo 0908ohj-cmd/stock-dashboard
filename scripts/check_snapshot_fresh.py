@@ -57,7 +57,9 @@ def is_fresh(markets: str, now: datetime | None = None,
     directory = ohlcv_dir or OHLCV_DIR
     for name in MARKET_FILES[markets]:
         age = snapshot_age_hours(directory / name, now)
-        if age is None or age > max_age_hours:
+        # 음수 경과는 fetched_at이 미래라는 뜻 — 맥 시계가 틀어진 경우다.
+        # 이것을 신선으로 보면 시계가 고쳐질 때까지 폴백이 영영 돌지 않는다.
+        if age is None or age < 0 or age > max_age_hours:
             return False
     return True
 

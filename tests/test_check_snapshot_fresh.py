@@ -79,6 +79,17 @@ def test_all_covers_both_markets(tmp_path):
     assert cs.is_fresh('all', now=now, ohlcv_dir=tmp_path) is False
 
 
+def test_future_fetched_at_is_not_fresh(tmp_path):
+    """fetched_at이 미래면(맥 시계 오류) 신선으로 보지 않는다.
+
+    음수 경과를 신선으로 처리하면 시계가 고쳐질 때까지 폴백이 영영 안 돈다.
+    """
+    now = datetime(2026, 9, 16, 20, 0, tzinfo=KST)
+    _write(tmp_path, 'US.json', '2026-09-18T09:00:00+09:00')   # 이틀 뒤
+
+    assert cs.is_fresh('us', now=now, ohlcv_dir=tmp_path) is False
+
+
 def test_boundary_uses_max_age_hours(tmp_path):
     """경계는 max_age_hours 초과일 때만 stale — 정확히 같은 값은 신선."""
     now = datetime(2026, 9, 16, 20, 0, tzinfo=KST)
