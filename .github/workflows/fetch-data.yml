@@ -1,10 +1,22 @@
 name: 스냅샷 수집
 
-# 정기 실행은 맥 launchd로 이관했다 — GitHub cron이 5~6시간 지연돼
-# 장 마감 후 정시 수집이 불가능해졌다 (2026-09 측정: 예약 06:45 UTC → 실제 11:49 UTC).
-# 여기 남은 workflow_dispatch는 맥이 멈췄을 때 손으로 돌리는 폴백이다.
-# 10EMA 유니버스 빌드는 KRX 로그인(KRX_ID/KRX_PW)이 필요해 러너에서는 돌지 않는다.
+# 맥 launchd 배치가 1순위다. 이 워크플로는 그게 실패했을 때만 일하는 폴백이다.
+#
+#   - cron이 로컬 배치보다 늦게 잡혀 있다 (KR 로컬 16:40 → 여기 20:00 KST,
+#     US 로컬 07:00 → 여기 11:00 KST). 지연이 0이어도 로컬이 항상 먼저다.
+#     GitHub cron은 5~6시간까지 늦는데(2026-09 측정), 폴백에서는 그 지연이
+#     오히려 안전 마진이 된다.
+#   - 첫 스텝이 fetched_at을 보고 로컬이 이미 수집했으면 그대로 빠진다.
+#     의존성 설치 전에 끝나므로 평소에는 15초쯤 돌고 만다.
+#   - 10EMA 유니버스 빌드는 KRX 로그인(KRX_ID/KRX_PW)이 필요해 러너에서는
+#     돌지 않는다. 폴백은 시세·지수만 채우고 종목 목록은 맥이 돌아올 때까지
+#     그대로 둔다.
+#   - 폴백이 실제로 수집한 날은 커밋 메시지에 "(Action 폴백)"이 붙는다 —
+#     맥이 죽어 있다는 신호다.
 on:
+  schedule:
+    - cron: '0 11 * * 1-5'   # 20:00 KST 월~금 — KR 로컬 배치(16:40) 폴백
+    - cron: '0 2 * * 2-6'    # 11:00 KST 화~토 — US 로컬 배치(07:00) 폴백
   workflow_dispatch:
     inputs:
       markets:
@@ -26,22 +38,45 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 대상 시장 결정
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 11 * * 1-5" ]; then
+            echo "markets=kr" >> "$GITHUB_OUTPUT"
+          else
+            echo "markets=us" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 수동 실행(workflow_dispatch)에는 게이트를 걸지 않는다 — 손으로 돌렸다는
+      # 것은 신선도와 무관하게 지금 수집하라는 뜻이다. 그때는 outputs.fresh가
+      # 비어 있어 아래 스텝들이 모두 실행된다.
+      - name: 로컬 배치가 이미 수집했는지 확인
+        id: gate
+        if: github.event_name == 'schedule'
+        run: python3 scripts/check_snapshot_fresh.py --markets ${{ steps.target.outputs.markets }}
+
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.fresh != 'true'
         with:
           python-version: '3.11'
           cache: pip
 
       - run: pip install -r requirements-batch.txt
+        if: steps.gate.outputs.fresh != 'true'
 
       - name: 스냅샷 수집
-        run: python scripts/fetch_snapshot.py --markets ${{ inputs.markets }}
+        if: steps.gate.outputs.fresh != 'true'
+        run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
       - name: 커밋 & push
+        if: steps.gate.outputs.fresh != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ohlcv
           git diff --cached --quiet && { echo "변경 없음"; exit 0; }
-          git commit -m "data: ${{ inputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F)"
+          git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F) (Action 폴백)"
           git pull --rebase origin main
           git push origin main
