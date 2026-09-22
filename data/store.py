@@ -222,7 +222,14 @@ _BATCH_SCHEDULE = {
     'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
 }
 _GRACE_HOURS = 6   # 배치 지연·재배포 여유
-_MAX_TRADING_GAP_DAYS = 4   # 주말(2) + 공휴일(2) 커버. 그 이상 벌어지면 소스가 낡은 것이다
+# 연속 거래일 사이 최대 달력 간격. 실측(2025-08~2026-09) KR 최대가 8일이었다 —
+# 2025 추석에 개천절(10/3)·한글날(10/9)이 붙어 10/2(목) → 10/10(금). 2026 설이 6일,
+# US 최대가 4일. 이보다 벌어지면 휴장이 아니라 소스가 낡은 것으로 본다.
+# 너무 좁히면 연휴마다 오경보가 나고, 그 오경보에 질려 경고를 꺼버린 게
+# 2026-09-01 fdc5c8f였다. 흔한 실패(배치 미실행)는 stale_by_batch가 몇 시간
+# 안에 잡으므로, 이 값이 커져 늦어지는 건 "배치는 돌았는데 소스가 동결된"
+# 드문 경우의 탐지뿐이다.
+_MAX_TRADING_GAP_DAYS = 8
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -251,11 +258,14 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     fetched_at = datetime.fromisoformat(fetched_at_s)
     result['fetched_at'] = fetched_at
 
-    # 배치가 기한 내에 돌았는지로만 판정한다.
-    # 2026-09-01 fdc5c8f가 'last_trading_date 4일 이내면 무조건 신선' 단축 경로를
-    # 넣었지만, 배치가 1~3일 실패하는 구간이 정확히 그 창에 들어가 경고가 통째로
-    # 죽었다. 그 false alarm의 원인이던 GitHub cron 지연은 배치를 로컬 launchd로
-    # 옮기며 사라졌고, 남은 분 단위 편차는 _GRACE_HOURS가 흡수한다.
+    # 신선하려면 두 조건을 모두 만족해야 한다 (스펙 §6.6):
+    #   ① 배치가 기한 내에 돌았다        → stale_by_batch
+    #   ② 데이터의 거래일이 오래되지 않았다 → stale_by_data (_MAX_TRADING_GAP_DAYS)
+    # 2026-09-01 fdc5c8f는 ②를 "4일 이내면 무조건 신선"이라는 단축 경로로 써서
+    # ①을 건너뛰게 만들었고, 배치가 1~3일 실패하는 구간이 정확히 그 창에 들어가
+    # 경고가 통째로 죽었다. 지금은 ②가 ①을 대신하지 않고 **덧붙는다**.
+    # 그 false alarm의 원인이던 GitHub cron 지연은 배치를 로컬 launchd로 옮기며
+    # 사라졌고, 남은 분 단위 편차는 _GRACE_HOURS가 흡수한다.
     if market == 'indices':   # 지수는 KR·US 두 배치 모두가 갱신 → 더 최근 기한 적용
         deadline = max(_last_deadline(_BATCH_SCHEDULE['KR'], now),
                        _last_deadline(_BATCH_SCHEDULE['US'], now))

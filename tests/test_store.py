@@ -584,6 +584,30 @@ def test_freshness_us_monday_morning_not_stale(tmp_store):
     assert store.get_freshness('US', now=now)['is_stale'] is False
 
 
+def test_freshness_long_holiday_not_stale(tmp_store):
+    """2025 추석 연휴(8일 휴장)는 낡은 데이터로 보지 않는다.
+
+    개천절(10/3)·추석·한글날(10/9)이 붙어 10/2(목) 다음 거래일이 10/10(금)이었다.
+    배치는 휴장일에도 돌아 fetched_at을 갱신하므로 stale_by_batch는 False이고,
+    last_trading_date만 8일째 멈춰 있다. 이걸 오경보로 띄우면 누군가 경고를
+    통째로 꺼버린다 — 2026-09-01 fdc5c8f가 바로 그렇게 경고를 죽였다.
+    """
+    _write_meta(tmp_store, 'KR_KOSPI', '2025-10-10T07:00:00+09:00',
+                last_trading_date='2025-10-02')
+    now = datetime(2025, 10, 10, 9, 0, tzinfo=KST)   # 재개장일 오전, 배치 전
+
+    assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is False
+
+
+def test_freshness_stale_when_source_frozen(tmp_store):
+    """배치는 제때 돌았는데 소스가 9일째 같은 거래일을 주면 낡은 것이다."""
+    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T16:45:00+09:00',
+                last_trading_date='2026-07-13')
+    now = datetime(2026, 7, 22, 18, 0, tzinfo=KST)
+
+    assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is True
+
+
 def test_freshness_missing_file_not_stale(tmp_store):
     fr = store.get_freshness('US')
     assert fr['is_stale'] is False
