@@ -215,11 +215,11 @@ def load_index(name: str) -> pd.DataFrame:
 
 
 # ── 신선도 판정 ──────────────────────────────────────────
-# KST 기준 배치 예정: KR 월~금 16:40, US 화~토 09:00 (맥 launchd)
+# KST 기준 배치 예정: KR 월~금 16:10, US 화~토 08:10 (맥 launchd)
 # 기한(deadline)은 정각 기준 보수 판정 — 분 단위 차이는 6h 유예가 흡수한다
 _BATCH_SCHEDULE = {
     'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
-    'US': {'hour': 9,  'weekdays': {1, 2, 3, 4, 5}},
+    'US': {'hour': 8,  'weekdays': {1, 2, 3, 4, 5}},
 }
 _GRACE_HOURS = 6   # 배치 지연·재배포 여유
 # 연속 거래일 사이 최대 달력 간격. 실측(2025-08~2026-09) KR 최대가 8일이었다 —

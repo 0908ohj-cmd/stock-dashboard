@@ -3,16 +3,18 @@ name: 스냅샷 수집
 # 맥 launchd 배치가 1순위다. 이 워크플로는 로컬이 그 회차를 못 돌았을 때
 # 이관 전과 똑같이(유니버스 빌드 + 스냅샷 수집) 대신 일하는 폴백이다.
 #
-#   시장  로컬(launchd)          폴백(이 워크플로)
-#   KR    월~금 16:40 KST        월~금 20:00 KST  ('0 11 * * 1-5')
-#   US    화~토 09:00 KST        화~토 13:00 KST  ('0 4 * * 2-6')
+#   시장  로컬(launchd)          폴백(이 워크플로, 예약)
+#   KR    월~금 16:10 KST        월~금 16:50 KST  ('50 7 * * 1-5')
+#   US    화~토 08:10 KST        화~토 08:50 KST  ('50 23 * * 1-5' — KST 08:50은
+#                                                  UTC로 전날이라 요일이 월~금)
 #
-#   - US를 09:00 KST(≈ET 20:00, 장 마감 4시간 뒤)로 잡은 이유: 07:00(장 마감
-#     2시간 뒤)에는 yfinance 수정주가가 아직 확정되지 않아 찐반등 당일 데이터가
-#     빠졌다(2026-09-19 1fa30e2·4e8956b). 로컬 배치도 같은 이유로 09:00이다.
-#   - GitHub cron은 실측 3~6.5시간 늦게 뜬다(2026-09). 그래서 폴백 여부를 "수집 후
-#     몇 시간"이 아니라 "로컬이 이번 회차를 돌았나"로 판정한다
-#     (scripts/check_snapshot_fresh.py). 지연이 하루를 넘지 않는 한 영향이 없다.
+#   - 로컬 배치 소요 실측(2026-09-27 dry-run): KR 3분 37초, US 3분 27초. 같은
+#     스크립트를 러너에서 돌린 과거 54회도 최대 KR 6.2분 / US 8.7분이었다. 그래서
+#     로컬 시작 40분 뒤로 폴백을 예약한다.
+#   - 예약 시각이 곧 발화 시각은 아니다. GitHub cron은 실측 3~6.5시간 늦게
+#     뜬다(2026-09). 그래서 폴백 여부를 "수집 후 몇 시간"이 아니라 "로컬이 이번
+#     회차를 돌았나"로 판정한다(scripts/check_snapshot_fresh.py). 지연이 하루를
+#     넘지 않는 한 영향이 없고, 정시에 떠도 로컬이 먼저 끝나 있다.
 #   - 로컬이 이미 돌았으면 의존성 설치 전에 빠진다(평소 15초 남짓).
 #   - 폴백이 수집을 마친 뒤 커밋 직전에 원격을 다시 본다. 그 사이 로컬이 올렸으면
 #     커밋을 버리고 끝낸다 — "(Action 폴백)"은 로컬이 정말 못 돌았을 때만 붙는다.
@@ -24,8 +26,8 @@ name: 스냅샷 수집
 # 충돌하므로 쓰지 않는다). 어느 쪽이 먼저든, 몇 번을 다시 돌려도 결과가 같다.
 on:
   schedule:
-    - cron: '0 11 * * 1-5'   # 20:00 KST 월~금 — KR 로컬 배치(16:40) 폴백
-    - cron: '0 4 * * 2-6'    # 13:00 KST 화~토 — US 로컬 배치(09:00) 폴백
+    - cron: '50 7 * * 1-5'    # 16:50 KST 월~금 — KR 로컬 배치(16:10) 폴백
+    - cron: '50 23 * * 1-5'   # 08:50 KST 화~토 — US 로컬 배치(08:10) 폴백
   workflow_dispatch:
     inputs:
       markets:
@@ -56,10 +58,10 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
             echo "label=수동 실행" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 11 * * 1-5" ]; then
+          elif [ "${{ github.event.schedule }}" = "50 7 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
             echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 4 * * 2-6" ]; then
+          elif [ "${{ github.event.schedule }}" = "50 23 * * 1-5" ]; then
             echo "markets=us" >> "$GITHUB_OUTPUT"
             echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
           else
