@@ -577,9 +577,9 @@ def test_freshness_weekend_not_stale(tmp_store):
 
 
 def test_freshness_us_monday_morning_not_stale(tmp_store):
-    # US 배치는 KST 화~토 07:00 — 월요일 오전엔 토요일 배치가 최신이 맞다
-    _write_meta(tmp_store, 'US', '2026-07-25T07:00:00+09:00',
-                last_trading_date='2026-07-24')   # 토 07:00 배치는 금요일 미장을 담는다
+    # US 배치는 KST 화~토 09:00 — 월요일 오전엔 토요일 배치가 최신이 맞다
+    _write_meta(tmp_store, 'US', '2026-07-25T09:00:00+09:00',
+                last_trading_date='2026-07-24')   # 토 09:00 배치는 금요일 미장을 담는다
     now = datetime(2026, 7, 27, 10, 0, tzinfo=KST)                    # 월 10:00
     assert store.get_freshness('US', now=now)['is_stale'] is False
 

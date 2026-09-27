@@ -3,9 +3,12 @@ name: 스냅샷 수집
 # 맥 launchd 배치가 1순위다. 이 워크플로는 그게 실패했을 때만 일하는 폴백이다.
 #
 #   - cron이 로컬 배치보다 늦게 잡혀 있다 (KR 로컬 16:40 → 여기 20:00 KST,
-#     US 로컬 07:00 → 여기 11:00 KST). 지연이 0이어도 로컬이 항상 먼저다.
+#     US 로컬 09:00 → 여기 13:00 KST). 지연이 0이어도 로컬이 항상 먼저다.
 #     GitHub cron은 5~6시간까지 늦는데(2026-09 측정), 폴백에서는 그 지연이
 #     오히려 안전 마진이 된다.
+#   - US를 09:00 KST(≈ET 20:00, 장 마감 4시간 뒤)로 잡은 이유: 07:00(장 마감
+#     2시간 뒤)에는 yfinance 수정주가가 아직 확정되지 않아 찐반등 당일 데이터가
+#     빠졌다(2026-09-19 1fa30e2·4e8956b). 로컬 배치도 같은 이유로 09:00이다.
 #   - 첫 스텝이 fetched_at을 보고 로컬이 이미 수집했으면 그대로 빠진다.
 #     의존성 설치 전에 끝나므로 평소에는 15초쯤 돌고 만다.
 #   - 10EMA 유니버스 빌드는 KRX 로그인(KRX_ID/KRX_PW)이 필요해 러너에서는
@@ -24,7 +27,7 @@ name: 스냅샷 수집
 on:
   schedule:
     - cron: '0 11 * * 1-5'   # 20:00 KST 월~금 — KR 로컬 배치(16:40) 폴백
-    - cron: '0 2 * * 2-6'    # 11:00 KST 화~토 — US 로컬 배치(07:00) 폴백
+    - cron: '0 4 * * 2-6'    # 13:00 KST 화~토 — US 로컬 배치(09:00) 폴백
   workflow_dispatch:
     inputs:
       markets:
@@ -53,7 +56,7 @@ jobs:
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 11 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "0 2 * * 2-6" ]; then
+          elif [ "${{ github.event.schedule }}" = "0 4 * * 2-6" ]; then
             echo "markets=us" >> "$GITHUB_OUTPUT"
           else
             # cron을 추가하고 이 분기를 안 고치면 조용히 엉뚱한 시장을 수집한다.

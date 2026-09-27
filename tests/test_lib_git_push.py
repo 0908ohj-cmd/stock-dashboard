@@ -68,8 +68,9 @@ def test_plain_push_is_rejected_when_remote_moved(two_clones):
 def test_rebases_when_remote_moved_ahead(two_clones):
     """수집 도중 다른 커밋이 원격에 올라와도 rebase로 얹어 push한다.
 
-    stockEdge의 리더보드 US 커밋이 매일 07:01~07:05에 들어와(2026-09 실측)
-    07:00 US 배치의 push와 정면으로 겹친다. rebase 없이는 매일 거절된다.
+    stockEdge의 리더보드 커밋이 날마다 다른 시각에 들어온다(2026-09 실측
+    07:01~14:12). 당시 07:00이던 US 배치와는 정면으로 겹쳐 rebase 없이는 매일
+    거절됐다.
     """
     remote, batch, other = two_clones
     _commit(other, 'leaderboard.json', 'lb')    # 리더보드가 먼저 push

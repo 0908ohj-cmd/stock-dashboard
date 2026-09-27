@@ -111,7 +111,7 @@ git -c user.name="stock-dashboard-batch" \
     commit -q -m "data: $MARKET 스냅샷 $(date '+%F')" || die "commit 실패"
 
 # 수집하는 3분 반 사이 원격이 앞서 나갈 수 있어 rebase 후 push한다
-# (lib_git_push.sh 참조 — 리더보드 US 커밋이 07:00 US 배치와 매일 겹친다).
+# (lib_git_push.sh 참조 — stockEdge 리더보드 커밋이 날마다 다른 시각에 들어온다).
 # 토큰을 리모트 URL에 박지 않는다 — .git/config에 비밀값이 남는다.
 # 작은따옴표라 $DASHBOARD_GITHUB_TOKEN은 여기서 펼쳐지지 않고, git이 헬퍼를
 # 실행할 때 환경에서 펼친다. 그래서 ps 출력에도 노출되지 않는다.

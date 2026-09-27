@@ -1,8 +1,10 @@
 # run_batch_local.sh가 source하는 push 헬퍼. 단독 실행하지 않는다.
 #
 # 배치는 git fetch·reset 후 3분 반쯤 수집한 뒤 push한다. 그 사이 원격이 앞서
-# 나갈 수 있다 — stockEdge의 리더보드 US 커밋이 매일 07:01~07:05에 들어와
-# 07:00 US 배치의 push와 정면으로 겹친다(2026-09 실측). rebase 없이 push하면
+# 나갈 수 있다 — stockEdge의 리더보드 커밋이 이 저장소에 수시로 들어온다.
+# 2026-09 실측으로 US 리더보드는 07:01~14:12 사이 날마다 다른 시각에 왔고,
+# 당시 07:00이던 US 배치와는 07:01~07:05에 정면으로 겹쳤다. 배치를 09:00으로
+# 옮긴 지금도 시각이 고정돼 있지 않아 겹칠 수 있다. rebase 없이 push하면
 # non-fast-forward로 거절돼 배치가 실패로 끝난다.
 #
 # 리더보드는 data/leaderboard/만, 배치는 data/ohlcv/와 *_10ema.tickers만
