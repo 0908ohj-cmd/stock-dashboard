@@ -110,17 +110,19 @@ git -c user.name="stock-dashboard-batch" \
     -c user.email="batch@localhost" \
     commit -q -m "data: $MARKET 스냅샷 $(date '+%F')" || die "commit 실패"
 
-# 수집하는 3분 반 사이 원격이 앞서 나갈 수 있어 rebase 후 push한다
-# (lib_git_push.sh 참조 — stockEdge 리더보드 커밋이 날마다 다른 시각에 들어온다).
+# 수집하는 사이 원격이 앞서 나갈 수 있다 — Action 폴백이 같은 날 스냅샷을 먼저
+# 올렸거나, stockEdge 리더보드 커밋이 들어왔거나. 원격을 받은 뒤 데이터 수준으로
+# 합쳐 올린다(lib_git_push.sh 참조). 몇 번을 다시 돌려도 결과가 같다.
 # 토큰을 리모트 URL에 박지 않는다 — .git/config에 비밀값이 남는다.
 # 작은따옴표라 $DASHBOARD_GITHUB_TOKEN은 여기서 펼쳐지지 않고, git이 헬퍼를
 # 실행할 때 환경에서 펼친다. 그래서 ps 출력에도 노출되지 않는다.
 . "$REPO/scripts/lib_git_push.sh" || die "lib_git_push.sh 로드 실패"
+export PYTHON   # 병합 스크립트도 배치와 같은 인터프리터로 돌린다
 CRED_HELPER='!f() { echo username=x-access-token; echo "password=$DASHBOARD_GITHUB_TOKEN"; }; f'
-push_with_rebase "$CRED_HELPER"
+sync_and_push "$CRED_HELPER"
 case $? in
     0) ;;
-    1) die "pull --rebase 실패 — 원격과 충돌했거나 fetch 불가 (rebase는 중단해 둠)" ;;
+    1) die "원격 동기화 실패 — fetch 불가 또는 스냅샷 병합 실패" ;;
     *) die "push 실패 — 3회 재시도 후에도 거절" ;;
 esac
 

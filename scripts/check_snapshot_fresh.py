@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-"""로컬 배치가 이미 스냅샷을 채웠는지 판정 — GitHub Action 폴백 게이트.
+"""로컬 배치가 이번 회차를 이미 수집했는지 판정 — GitHub Action 폴백 게이트.
 
-맥 launchd 배치가 1순위다. 이 스크립트는 Action이 `pip install` **전에** 돌려
-"로컬이 이미 했으면 빠지고, 안 했으면 수집한다"를 결정한다. 그래서 표준
-라이브러리만 쓴다 — 의존성이 깔리기 전에 실행되기 때문이다.
+맥 launchd 배치가 1순위다. Action 폴백은 이 게이트로 "로컬이 이번 회차를
+돌았으면 빠지고, 안 돌았으면 대신 수집한다"를 정한다.
 
-판정 기준은 `fetched_at`의 경과 시간이다. Action의 cron은 로컬 배치보다
-늦게 잡혀 있어(KR 로컬 16:40 → Action 20:00, US 로컬 09:00 → Action 13:00),
-로컬이 정상이면 갭이 3~4시간이고 실패했으면 24시간을 넘는다.
+판정 기준은 '회차'다: 스냅샷 fetched_at이 가장 최근 로컬 회차 시각 이후면 신선.
+  KR 로컬 회차: 월~금 16:40 KST     US 로컬 회차: 화~토 09:00 KST
+"수집 후 N시간 이내"로 판정하면 안 된다 — GitHub cron은 실측 3~6.5시간 늦게
+뜬다(2026-09: KR 06:45Z 예약 → 12:01~13:19Z, US 00:00Z → 03:12~03:35Z).
+20:00 KST로 예약한 KR 폴백이 새벽 2시 반에 뜨면 로컬 수집(16:44)에서 이미
+10시간이 지나, 로컬이 멀쩡한데도 폴백이 매일 다시 수집하게 된다. 회차 기준은
+지연이 하루를 넘지 않는 한 영향받지 않는다.
 
-휴장일에도 `fetch_snapshot.py`는 돌아 `fetched_at`을 갱신하므로, 데이터가
-안 변한 날도 "로컬이 살아 있다"로 올바르게 판정된다.
+휴장일에도 로컬 배치는 돌아 fetched_at을 갱신하므로(fetch_snapshot.py),
+데이터가 안 변한 날도 "로컬이 이번 회차를 돌았다"로 올바르게 판정된다.
 
-사용법: python3 scripts/check_snapshot_fresh.py --markets kr|us|all
+표준 라이브러리만 쓴다 — Action이 pip install 전에 돌리기 때문이다.
+
+사용법: python3 scripts/check_snapshot_fresh.py --markets kr|us|all [--ref REF]
+  --ref  작업본 대신 git ref(예: origin/main)의 스냅샷을 판정한다. Action이 자기
+         수집을 끝낸 뒤 "그 사이 로컬이 올렸나"를 볼 때 쓴다.
 출력:   fresh=true|false  (GITHUB_OUTPUT이 있으면 거기에도 append)
 종료 코드는 항상 0 — 판정 결과는 출력으로만 전달한다.
 """
@@ -20,59 +27,96 @@ import argparse
 import json
 import os
 import pathlib
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
-DEFAULT_MAX_AGE_HOURS = 8
 
-OHLCV_DIR = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'ohlcv'
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+OHLCV_DIR = REPO_ROOT / 'data' / 'ohlcv'
 
-MARKET_FILES = {
-    'kr':  ['KR_KOSPI.json', 'KR_KOSDAQ.json'],
-    'us':  ['US.json'],
-    'all': ['KR_KOSPI.json', 'KR_KOSDAQ.json', 'US.json'],
+# 로컬 launchd 회차 — scripts/launchd/*.plist와 반드시 같아야 한다
+LOCAL_SLOTS = {
+    'kr': {'hour': 16, 'minute': 40, 'weekdays': {0, 1, 2, 3, 4}},   # 월~금
+    'us': {'hour': 9,  'minute': 0,  'weekdays': {1, 2, 3, 4, 5}},   # 화~토
 }
+MARKET_FILES = {
+    'kr': ['KR_KOSPI.json', 'KR_KOSDAQ.json'],
+    'us': ['US.json'],
+}
+# 맥과 러너 시계가 몇 분 어긋나는 정도는 허용한다. 그 이상 미래면 시계 오류로 본다.
+FUTURE_TOLERANCE = timedelta(minutes=10)
 
 
-def snapshot_age_hours(path: pathlib.Path, now: datetime):
-    """스냅샷 fetched_at의 경과 시간(시간 단위). 읽을 수 없으면 None."""
+def last_local_slot(market: str, now: datetime) -> datetime:
+    """now 이전(포함) 가장 최근 로컬 배치 회차 시각."""
+    slot = LOCAL_SLOTS[market]
+    d = now.astimezone(KST).date()
+    for _ in range(8):
+        cand = datetime(d.year, d.month, d.day, slot['hour'], slot['minute'], tzinfo=KST)
+        if cand.weekday() in slot['weekdays'] and cand <= now:
+            return cand
+        d -= timedelta(days=1)
+    raise AssertionError('회차를 찾지 못했다')   # 주 5회 회차라 8일 안에 반드시 있다
+
+
+def _read(name: str, ohlcv_dir: pathlib.Path, ref: str | None) -> str | None:
+    if ref:
+        rel = (ohlcv_dir / name).resolve().relative_to(_git_root(ohlcv_dir))
+        r = subprocess.run(['git', 'show', f'{ref}:{rel.as_posix()}'],
+                           cwd=ohlcv_dir, capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
     try:
-        snap = json.loads(path.read_text(encoding='utf-8'))
-        fetched_at = datetime.fromisoformat(snap['fetched_at'])
-    except (OSError, ValueError, KeyError, TypeError):
+        return (ohlcv_dir / name).read_text(encoding='utf-8')
+    except OSError:
         return None
-    return (now - fetched_at).total_seconds() / 3600
+
+
+def _git_root(path: pathlib.Path) -> pathlib.Path:
+    r = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+                       cwd=path, capture_output=True, text=True, check=True)
+    return pathlib.Path(r.stdout.strip()).resolve()
+
+
+def _fetched_at(text: str | None) -> datetime | None:
+    if text is None:
+        return None
+    try:
+        return datetime.fromisoformat(json.loads(text)['fetched_at'])
+    except (ValueError, KeyError, TypeError):
+        return None
 
 
 def is_fresh(markets: str, now: datetime | None = None,
-             max_age_hours: float = DEFAULT_MAX_AGE_HOURS,
-             ohlcv_dir: pathlib.Path | None = None) -> bool:
-    """해당 시장의 스냅샷이 모두 max_age_hours 이내면 True.
+             ohlcv_dir: pathlib.Path | None = None, ref: str | None = None) -> bool:
+    """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐으면 True.
 
-    하나라도 읽을 수 없거나 오래됐으면 False — 폴백이 도는 쪽으로 기운다.
-    판정 불능을 '신선'으로 보면 로컬이 죽었을 때 아무도 수집하지 않는다.
+    하나라도 읽을 수 없거나 회차 전 것이거나 시계 오류로 미래면 False —
+    폴백이 도는 쪽으로 기운다. 판정 불능을 '신선'으로 보면 로컬이 죽었을 때
+    아무도 수집하지 않는다.
     """
     now = now or datetime.now(KST)
     directory = ohlcv_dir or OHLCV_DIR
-    for name in MARKET_FILES[markets]:
-        age = snapshot_age_hours(directory / name, now)
-        # 음수 경과는 fetched_at이 미래라는 뜻 — 맥 시계가 틀어진 경우다.
-        # 이것을 신선으로 보면 시계가 고쳐질 때까지 폴백이 영영 돌지 않는다.
-        if age is None or age < 0 or age > max_age_hours:
-            return False
+    for market in (['kr', 'us'] if markets == 'all' else [markets]):
+        slot = last_local_slot(market, now)
+        for name in MARKET_FILES[market]:
+            fetched = _fetched_at(_read(name, directory, ref))
+            if fetched is None or fetched < slot or fetched > now + FUTURE_TOLERANCE:
+                return False
     return True
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--markets', choices=['kr', 'us', 'all'], default='all')
-    ap.add_argument('--max-age-hours', type=float, default=DEFAULT_MAX_AGE_HOURS)
+    ap.add_argument('--ref', default=None)
     args = ap.parse_args()
 
-    fresh = is_fresh(args.markets, max_age_hours=args.max_age_hours)
+    fresh = is_fresh(args.markets, ref=args.ref)
     line = f'fresh={"true" if fresh else "false"}'
-    print(f'[{args.markets}] {line} (기준 {args.max_age_hours}시간)')
+    src = f'ref={args.ref}' if args.ref else '작업본'
+    print(f'[{args.markets}] {line} ({src} 기준, 로컬 회차 대비)')
 
     github_output = os.environ.get('GITHUB_OUTPUT')
     if github_output:

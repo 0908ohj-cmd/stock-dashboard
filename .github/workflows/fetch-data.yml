@@ -1,29 +1,27 @@
 name: 스냅샷 수집
 
-# 맥 launchd 배치가 1순위다. 이 워크플로는 그게 실패했을 때만 일하는 폴백이다.
+# 맥 launchd 배치가 1순위다. 이 워크플로는 로컬이 그 회차를 못 돌았을 때
+# 이관 전과 똑같이(유니버스 빌드 + 스냅샷 수집) 대신 일하는 폴백이다.
 #
-#   - cron이 로컬 배치보다 늦게 잡혀 있다 (KR 로컬 16:40 → 여기 20:00 KST,
-#     US 로컬 09:00 → 여기 13:00 KST). 지연이 0이어도 로컬이 항상 먼저다.
-#     GitHub cron은 5~6시간까지 늦는데(2026-09 측정), 폴백에서는 그 지연이
-#     오히려 안전 마진이 된다.
+#   시장  로컬(launchd)          폴백(이 워크플로)
+#   KR    월~금 16:40 KST        월~금 20:00 KST  ('0 11 * * 1-5')
+#   US    화~토 09:00 KST        화~토 13:00 KST  ('0 4 * * 2-6')
+#
 #   - US를 09:00 KST(≈ET 20:00, 장 마감 4시간 뒤)로 잡은 이유: 07:00(장 마감
 #     2시간 뒤)에는 yfinance 수정주가가 아직 확정되지 않아 찐반등 당일 데이터가
 #     빠졌다(2026-09-19 1fa30e2·4e8956b). 로컬 배치도 같은 이유로 09:00이다.
-#   - 첫 스텝이 fetched_at을 보고 로컬이 이미 수집했으면 그대로 빠진다.
-#     의존성 설치 전에 끝나므로 평소에는 15초쯤 돌고 만다.
-#   - 10EMA 유니버스 빌드는 KRX 로그인(KRX_ID/KRX_PW)이 필요해 러너에서는
-#     돌지 않는다. 폴백은 시세·지수만 채우고 종목 목록은 맥이 돌아올 때까지
-#     그대로 둔다.
-#   - 폴백이 실제로 수집한 날은 커밋 메시지에 "(Action 폴백)"이 붙는다 —
-#     맥이 죽어 있다는 신호다.
+#   - GitHub cron은 실측 3~6.5시간 늦게 뜬다(2026-09). 그래서 폴백 여부를 "수집 후
+#     몇 시간"이 아니라 "로컬이 이번 회차를 돌았나"로 판정한다
+#     (scripts/check_snapshot_fresh.py). 지연이 하루를 넘지 않는 한 영향이 없다.
+#   - 로컬이 이미 돌았으면 의존성 설치 전에 빠진다(평소 15초 남짓).
+#   - 폴백이 수집을 마친 뒤 커밋 직전에 원격을 다시 본다. 그 사이 로컬이 올렸으면
+#     커밋을 버리고 끝낸다 — "(Action 폴백)"은 로컬이 정말 못 돌았을 때만 붙는다.
+#     그래서 이 표시가 보이면 맥 배치가 죽어 있다는 뜻이다.
 #
-# 알려진 경합: 맥과 러너는 서로 다른 기계라 공유 락을 걸 수 없다. 로컬 배치가
-# 3시간 넘게 밀려 폴백 시각까지 push를 못 하면, 게이트가 이를 "로컬 실패"로
-# 읽고 같은 시장을 한 번 더 수집한다. 데이터가 깨지지는 않는다 — 커밋 전
-# `git pull --rebase`가 로컬 커밋을 먼저 얹고, 날짜가 겹치는 행은 store.py의
-# _merge_history가 새 수집분으로 교체한다. 최악은 커밋이 두 개 생기거나
-# rebase 충돌로 폴백 push가 실패하는 것이다. 실측 배치 소요가 3분 30초이고
-# 버퍼가 3시간 20분이라 이 경합은 사실상 열리지 않는다.
+# 멱등성: 로컬과 폴백은 서로 다른 기계라 공유 락이 없다. 둘이 같은 날 같은 시장을
+# 수집해 push가 엇갈려도, 늦게 올리는 쪽이 원격을 받은 뒤 스냅샷을 종목 단위로
+# 병합해 올린다(scripts/lib_git_push.sh — git rebase는 한 줄 JSON에서 파일 전체가
+# 충돌하므로 쓰지 않는다). 어느 쪽이 먼저든, 몇 번을 다시 돌려도 결과가 같다.
 on:
   schedule:
     - cron: '0 11 * * 1-5'   # 20:00 KST 월~금 — KR 로컬 배치(16:40) 폴백
@@ -48,16 +46,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 원격이 앞서 나갔을 때 병합 기준점(merge-base)을 찾으려면 이력이 필요하다
+          fetch-depth: 0
 
       - name: 대상 시장 결정
         id: target
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
+            echo "label=수동 실행" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 11 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
+            echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 4 * * 2-6" ]; then
             echo "markets=us" >> "$GITHUB_OUTPUT"
+            echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
           else
             # cron을 추가하고 이 분기를 안 고치면 조용히 엉뚱한 시장을 수집한다.
             # 묵묵히 넘기지 말고 실패시켜 드러낸다.
@@ -69,7 +73,7 @@ jobs:
       # 수동 실행(workflow_dispatch)에는 게이트를 걸지 않는다 — 손으로 돌렸다는
       # 것은 신선도와 무관하게 지금 수집하라는 뜻이다. 그때는 outputs.fresh가
       # 비어 있어 아래 스텝들이 모두 실행된다.
-      - name: 로컬 배치가 이미 수집했는지 확인
+      - name: 로컬 배치가 이번 회차를 이미 수집했는지 확인
         id: gate
         if: github.event_name == 'schedule'
         run: python3 scripts/check_snapshot_fresh.py --markets ${{ steps.target.outputs.markets }}
@@ -83,17 +87,42 @@ jobs:
       - run: pip install -r requirements-batch.txt
         if: steps.gate.outputs.fresh != 'true'
 
+      # 이관 전과 같이 유니버스도 빌드한다. 실패해도 스냅샷 수집은 계속한다.
+      # (FDR 경로는 KRX 로그인이 필요 없다. FDR이 KRX 장애로 404를 내면 pykrx로
+      #  넘어가는데, 러너에는 KRX_ID/KRX_PW가 없어 그쪽도 실패한다 — 그 경우
+      #  종목 목록만 전날 것으로 남고 시세는 채워진다.)
+      - name: 국장 10EMA 유니버스 갱신
+        if: steps.gate.outputs.fresh != 'true' && github.event_name == 'schedule' && steps.target.outputs.markets == 'kr'
+        continue-on-error: true
+        run: python scripts/build_kr_10ema_universe.py
+
+      - name: 미장 10EMA 유니버스 갱신
+        if: steps.gate.outputs.fresh != 'true' && github.event_name == 'schedule' && steps.target.outputs.markets == 'us'
+        continue-on-error: true
+        run: python scripts/build_us_growth_universe.py
+
       - name: 스냅샷 수집
         if: steps.gate.outputs.fresh != 'true'
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
+      # 수집하는 몇 분 사이 로컬이 늦게라도 올렸을 수 있다. 원격을 다시 보고,
+      # 로컬이 이번 회차를 덮었으면 폴백 커밋을 버린다.
+      - name: 그 사이 로컬이 올렸는지 다시 확인
+        id: recheck
+        if: steps.gate.outputs.fresh != 'true' && github.event_name == 'schedule'
+        run: |
+          git fetch --quiet origin main
+          python3 scripts/check_snapshot_fresh.py --markets ${{ steps.target.outputs.markets }} --ref origin/main
+
       - name: 커밋 & push
-        if: steps.gate.outputs.fresh != 'true'
+        if: steps.gate.outputs.fresh != 'true' && steps.recheck.outputs.fresh != 'true'
+        env:
+          PYTHON: python   # 병합 스크립트를 의존성이 깔린 인터프리터로 돌린다
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ohlcv
+          git add data/ohlcv data/saved/us_10ema.tickers data/saved/kosdaq_10ema.tickers data/saved/kospi_10ema.tickers
           git diff --cached --quiet && { echo "변경 없음"; exit 0; }
-          git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F) (Action 폴백)"
-          git pull --rebase origin main
-          git push origin main
+          git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F) (${{ steps.target.outputs.label }})"
+          . scripts/lib_git_push.sh
+          sync_and_push
