@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-09-26T14:12:19",
-  "source_updated_at": "2026-09-26T14:12:16",
+  "synced_at": "2026-09-27T11:09:09",
+  "source_updated_at": "2026-09-27T11:09:07",
   "count": 20,
   "items": [
     {
@@ -23,7 +23,7 @@
       "perf_12m": 1680.8,
       "dist_from_52w_high": -23.9,
       "avg_dollar_vol": 24292475406,
-      "theme": "AI 데이터센터 플래시",
+      "theme": "데이터센터 NAND메모리",
       "sector": "컴퓨터 주변기기"
     },
     {
@@ -172,7 +172,7 @@
       "perf_12m": 313.6,
       "dist_from_52w_high": -16.1,
       "avg_dollar_vol": 4162735979,
-      "theme": "AI 데이터센터 스토리지",
+      "theme": "AI 데이터센터 저장",
       "sector": "컴퓨터 주변기기"
     },
     {
@@ -408,7 +408,7 @@
       "perf_12m": 284.8,
       "dist_from_52w_high": -22.9,
       "avg_dollar_vol": 426394236,
-      "theme": "AI 추론 클라우드",
+      "theme": "개발자용 AI 추론 클라우드",
       "sector": "소프트웨어"
     },
     {
