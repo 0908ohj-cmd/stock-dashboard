@@ -41,6 +41,14 @@ notify() {
 
 die() { log "FAIL: $1"; notify "실패 — $1"; exit 1; }
 
+# launchd의 파일 열기 기본 한도는 256이다(`launchctl limit maxfiles`). 유니버스
+# 빌더는 yfinance로 수백 종목을 스레드로 한꺼번에 받아 소켓·캐시 DB를 동시에
+# 열고, 256을 넘기면 'unable to open database file'로 무너진다(2026-09-28 첫
+# launchd 실행에서 발견 — ulimit 256에서 실패, 4096에서 성공으로 재현 확인).
+# 대화형 셸은 한도가 커서 dry-run에서는 드러나지 않는다.
+ulimit -n 4096 2>/dev/null \
+    || log "WARN: 파일 열기 한도를 올리지 못함(현재 $(ulimit -n)) — 유니버스 빌드가 실패할 수 있다"
+
 # notify()가 락 처리 시점에도 텔레그램 변수를 쓸 수 있도록 락보다 먼저 env를 읽는다.
 [ -f "$ENV_FILE" ] || die "env 파일 없음: $ENV_FILE"
 set -a; . "$ENV_FILE"; set +a
