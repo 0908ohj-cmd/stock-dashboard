@@ -215,13 +215,21 @@ def load_index(name: str) -> pd.DataFrame:
 
 
 # ── 신선도 판정 ──────────────────────────────────────────
-# KST 기준 배치 예정: KR 월~금 15:45, US 화~토 07:00 (cron: 45 6 / 0 22 * * 1-5 UTC)
-# 기한(deadline)은 정각(15:00) 기준 보수 판정 — 45분 차이는 6h 유예가 흡수한다
+# KST 기준 배치 예정: KR 월~금 16:10, US 화~토 08:10 (맥 launchd)
+# 기한(deadline)은 정각 기준 보수 판정 — 분 단위 차이는 6h 유예가 흡수한다
 _BATCH_SCHEDULE = {
-    'KR': {'hour': 15, 'weekdays': {0, 1, 2, 3, 4}},
-    'US': {'hour': 7,  'weekdays': {1, 2, 3, 4, 5}},
+    'KR': {'hour': 16, 'weekdays': {0, 1, 2, 3, 4}},
+    'US': {'hour': 8,  'weekdays': {1, 2, 3, 4, 5}},
 }
-_GRACE_HOURS = 6   # cron 지연·재배포 여유
+_GRACE_HOURS = 6   # 배치 지연·재배포 여유
+# 연속 거래일 사이 최대 달력 간격. 실측(2025-08~2026-09) KR 최대가 8일이었다 —
+# 2025 추석에 개천절(10/3)·한글날(10/9)이 붙어 10/2(목) → 10/10(금). 2026 설이 6일,
+# US 최대가 4일. 이보다 벌어지면 휴장이 아니라 소스가 낡은 것으로 본다.
+# 너무 좁히면 연휴마다 오경보가 나고, 그 오경보에 질려 경고를 꺼버린 게
+# 2026-09-01 fdc5c8f였다. 흔한 실패(배치 미실행)는 stale_by_batch가 몇 시간
+# 안에 잡으므로, 이 값이 커져 늦어지는 건 "배치는 돌았는데 소스가 동결된"
+# 드문 경우의 탐지뿐이다.
+_MAX_TRADING_GAP_DAYS = 8
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -250,26 +258,31 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     fetched_at = datetime.fromisoformat(fetched_at_s)
     result['fetched_at'] = fetched_at
 
-    # ① last_trading_date 기준 우선 판정: 4 달력일 이내면 신선
-    #    배치가 예정보다 일찍 돌았거나 재실행 타이밍이 달라도 false alarm 방지.
-    #    4일 = 주말(2) + 공휴일 최대(2) 커버. 5일 이상 갭은 진짜 배치 실패.
-    last_td_s = snap.get('last_trading_date')
-    if last_td_s:
-        try:
-            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
-            if (now.date() - last_td).days <= 4:
-                return result   # is_stale=False 그대로 반환
-        except ValueError:
-            pass
-
-    # ② fetched_at 기반 fallback (last_trading_date 없거나 5일+ 경과)
+    # 신선하려면 두 조건을 모두 만족해야 한다 (스펙 §6.6):
+    #   ① 배치가 기한 내에 돌았다        → stale_by_batch
+    #   ② 데이터의 거래일이 오래되지 않았다 → stale_by_data (_MAX_TRADING_GAP_DAYS)
+    # 2026-09-01 fdc5c8f는 ②를 "4일 이내면 무조건 신선"이라는 단축 경로로 써서
+    # ①을 건너뛰게 만들었고, 배치가 1~3일 실패하는 구간이 정확히 그 창에 들어가
+    # 경고가 통째로 죽었다. 지금은 ②가 ①을 대신하지 않고 **덧붙는다**.
+    # 그 false alarm의 원인이던 GitHub cron 지연은 배치를 로컬 launchd로 옮기며
+    # 사라졌고, 남은 분 단위 편차는 _GRACE_HOURS가 흡수한다.
     if market == 'indices':   # 지수는 KR·US 두 배치 모두가 갱신 → 더 최근 기한 적용
         deadline = max(_last_deadline(_BATCH_SCHEDULE['KR'], now),
                        _last_deadline(_BATCH_SCHEDULE['US'], now))
     else:
         deadline = _last_deadline(
             _BATCH_SCHEDULE['KR' if market.startswith('KR') else 'US'], now)
-    result['is_stale'] = fetched_at < deadline
+    stale_by_batch = fetched_at < deadline
+    # 배치가 제때 돌았어도 소스가 옛 거래일 데이터를 주면 낡은 것이다 (스펙 §6.6)
+    stale_by_data = False
+    last_td_s = snap.get('last_trading_date')
+    if last_td_s:
+        try:
+            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
+            stale_by_data = (now.date() - last_td).days > _MAX_TRADING_GAP_DAYS
+        except ValueError:
+            pass
+    result['is_stale'] = stale_by_batch or stale_by_data
     return result
 
 

@@ -552,9 +552,9 @@ def test_failed_tickers_keep_previous_history(tmp_store):
 
 # ── get_freshness (2026-07 기준: 20=월 21=화 22=수 23=목 24=금 25=토 26=일) ──
 
-def _write_meta(tmp_store, market, fetched_at):
+def _write_meta(tmp_store, market, fetched_at, last_trading_date='2026-07-22'):
     snap = {'market': market, 'fetched_at': fetched_at,
-            'last_trading_date': '2026-07-22', 'data': {}}
+            'last_trading_date': last_trading_date, 'data': {}}
     (tmp_store / f'{market}.json').write_text(json.dumps(snap), encoding='utf-8')
 
 
@@ -577,10 +577,35 @@ def test_freshness_weekend_not_stale(tmp_store):
 
 
 def test_freshness_us_monday_morning_not_stale(tmp_store):
-    # US 배치는 KST 화~토 07:00 — 월요일 오전엔 토요일 배치가 최신이 맞다
-    _write_meta(tmp_store, 'US', '2026-07-25T07:00:00+09:00')        # 토 07:00 수집
+    # US 배치는 KST 화~토 08:10 — 월요일 오전엔 토요일 배치가 최신이 맞다
+    _write_meta(tmp_store, 'US', '2026-07-25T08:14:00+09:00',
+                last_trading_date='2026-07-24')   # 토 08:10 배치는 금요일 미장을 담는다
     now = datetime(2026, 7, 27, 10, 0, tzinfo=KST)                    # 월 10:00
     assert store.get_freshness('US', now=now)['is_stale'] is False
+
+
+def test_freshness_long_holiday_not_stale(tmp_store):
+    """2025 추석 연휴(8일 휴장)는 낡은 데이터로 보지 않는다.
+
+    개천절(10/3)·추석·한글날(10/9)이 붙어 10/2(목) 다음 거래일이 10/10(금)이었다.
+    배치는 휴장일에도 돌아 fetched_at을 갱신하므로 stale_by_batch는 False이고,
+    last_trading_date만 8일째 멈춰 있다. 이걸 오경보로 띄우면 누군가 경고를
+    통째로 꺼버린다 — 2026-09-01 fdc5c8f가 바로 그렇게 경고를 죽였다.
+    """
+    _write_meta(tmp_store, 'KR_KOSPI', '2025-10-10T07:00:00+09:00',
+                last_trading_date='2025-10-02')
+    now = datetime(2025, 10, 10, 9, 0, tzinfo=KST)   # 재개장일 오전, 배치 전
+
+    assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is False
+
+
+def test_freshness_stale_when_source_frozen(tmp_store):
+    """배치는 제때 돌았는데 소스가 9일째 같은 거래일을 주면 낡은 것이다."""
+    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T16:45:00+09:00',
+                last_trading_date='2026-07-13')
+    now = datetime(2026, 7, 22, 18, 0, tzinfo=KST)
+
+    assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is True
 
 
 def test_freshness_missing_file_not_stale(tmp_store):

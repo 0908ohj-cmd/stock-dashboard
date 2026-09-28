@@ -8,7 +8,9 @@ GitHub Actions 주간 cron에서 실행 (매 일요일).
 사용법: python scripts/build_kr_10ema_universe.py
 """
 import pathlib
+import re
 import sys
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
@@ -53,6 +55,60 @@ def _get_candidates_fdr(fdr_market: str, yf_suffix: str) -> list:
         df = df[df[amount_col] >= MIN_DOLLAR_VOL * 0.05]  # 느슨하게 — 거래대금의 5% 이상인 날
 
     codes = df[code_col].tolist()
+    return [(c, c + yf_suffix) for c in codes]
+
+
+KST = timezone(timedelta(hours=9))
+
+
+def _pykrx_market_cap(date_str: str, market: str):
+    """pykrx 호출 지점 — 테스트는 이 함수만 대체한다.
+
+    pykrx는 import만 해도 KRX 로그인 요청이 나가므로 함수 안에서 늦게 import한다.
+    """
+    from pykrx import stock
+    return stock.get_market_cap_by_ticker(date_str, market=market)
+
+
+def _recent_krx_dates(max_back: int = 5) -> list:
+    """오늘(KST)부터 거슬러 올라가며 주말을 뺀 yyyymmdd 문자열 목록."""
+    d = datetime.now(KST).date()
+    out = []
+    while len(out) < max_back:
+        if d.weekday() < 5:
+            out.append(d.strftime('%Y%m%d'))
+        d -= timedelta(days=1)
+    return out
+
+
+def _get_candidates_pykrx(market: str, yf_suffix: str) -> list:
+    """FDR 실패 시 폴백 — pykrx 시가총액 스냅샷으로 시총·거래대금 1차 필터.
+
+    정상 경로는 시장당 1회 호출. 휴장일이면 앞 영업일로 물러나되 최대 5회.
+    KRX는 자동화 대량 조회를 차단하므로 이 범위를 넘기지 말 것.
+    """
+    df = None
+    for date_str in _recent_krx_dates():
+        try:
+            got = _pykrx_market_cap(date_str, market)
+        except Exception as e:
+            print(f'  [warn] pykrx {date_str} 실패: {type(e).__name__}: {e}')
+            continue
+        if got is not None and not got.empty:
+            df = got
+            break
+
+    if df is None or df.empty:
+        return []
+
+    if '시가총액' in df.columns:
+        df = df[pd.to_numeric(df['시가총액'], errors='coerce').fillna(0) >= MIN_MARCAP]
+    if '거래대금' in df.columns:
+        df = df[pd.to_numeric(df['거래대금'], errors='coerce').fillna(0)
+                >= MIN_DOLLAR_VOL * 0.05]   # FDR 경로와 동일한 느슨한 기준
+
+    codes = [str(c).zfill(6) for c in df.index]
+    codes = [c for c in codes if re.match(r'^\d{6}$', c)]
     return [(c, c + yf_suffix) for c in codes]
 
 
@@ -111,7 +167,14 @@ def _filter_by_adr(candidates: list) -> list:
 
 def build_market(fdr_market: str, yf_suffix: str) -> list:
     print(f'[info] {fdr_market} 1차 필터 (시총·거래대금)...')
-    candidates = _get_candidates_fdr(fdr_market, yf_suffix)
+    try:
+        candidates = _get_candidates_fdr(fdr_market, yf_suffix)
+    except Exception as e:
+        # 2026-08~09 KRX 장애로 FDR이 404를 내면서 배치가 3일 통째로 멈췄다
+        print(f'  [warn] FDR 실패({type(e).__name__}: {e}) — pykrx 폴백')
+        candidates = []
+    if not candidates:
+        candidates = _get_candidates_pykrx(fdr_market, yf_suffix)
     if not candidates:
         print(f'[ERROR] {fdr_market} 후보 종목 없음')
         return []
