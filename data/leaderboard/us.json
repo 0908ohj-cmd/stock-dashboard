@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-10-04T07:04:44",
-  "source_updated_at": "2026-10-04T07:04:41",
+  "synced_at": "2026-10-05T07:03:11",
+  "source_updated_at": "2026-10-05T07:03:09",
   "count": 20,
   "items": [
     {
@@ -383,7 +383,7 @@
       "perf_12m": 290.5,
       "dist_from_52w_high": -22.7,
       "avg_dollar_vol": 402346044,
-      "theme": "개발자용 AI 추론 클라우드",
+      "theme": "AI 에이전트 클라우드",
       "sector": "소프트웨어"
     },
     {
