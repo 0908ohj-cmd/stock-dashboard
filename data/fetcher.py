@@ -174,6 +174,35 @@ _KR_INDEX_PYKRX = {'^KS11': '1001', '^KQ11': '2001'}
 _KR_INDEX_FDR = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
 
 
+def _fetch_kr_index_pykrx(pykrx_code: str, start, end) -> pd.DataFrame:
+    """한국 지수 OHLCV를 KRX 공식 데이터(pykrx)에서 직접 수집.
+
+    yfinance 벌크 다운로드는 코스피·코스닥 종가 반영 시점이 벤더 내부에서
+    서로 달라, 코스피는 당일 종가가 들어왔는데 코스닥은 하루 지연되는 일이
+    있다(2026-10-07 코스닥이 전날 값으로 하루 묵어 있었던 사례로 확인).
+    pykrx는 장마감 즉시 양쪽 모두 같은 공식 종가를 돌려주므로 이 벤더 간
+    지연 불일치가 생기지 않는다. KRX_ID/KRX_PW 환경 변수(로그인 계정)가
+    없거나 요청이 실패하면 빈 DataFrame을 반환해 yfinance 경로로 넘긴다.
+    """
+    try:
+        from pykrx import stock as pykrx_stock
+        raw = pykrx_stock.get_index_ohlcv_by_date(
+            start.strftime('%Y%m%d'), end.strftime('%Y%m%d'), pykrx_code)
+    except Exception:
+        return pd.DataFrame()
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+    ren = raw.rename(columns={
+        '시가': 'Open', '고가': 'High', '저가': 'Low', '종가': 'Close', '거래량': 'Volume',
+    })
+    cols = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in ren.columns]
+    if 'Close' not in cols:
+        return pd.DataFrame()
+    out = ren[cols].astype(float)
+    out.index = pd.to_datetime(out.index)
+    return out.sort_index()
+
+
 def _incomplete_ohlc_dates(d: pd.DataFrame) -> pd.Index:
     """복구가 필요한 행의 날짜 — O=H=L=C 평탄 행과 O/H/L/C에 NaN이 있는 행.
 
@@ -329,12 +358,15 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
-    df = _download(ticker, start, end)
     if name in ('KOSPI', 'KOSDAQ'):
-        df = _patch_kr_index_today(df, ticker)
+        df = _fetch_kr_index_pykrx(_KR_INDEX_PYKRX[ticker], start, end)
+        if df.empty:   # KRX_ID/PW 없음 또는 요청 실패 — yfinance로 폴백
+            df = _download(ticker, start, end)
+            df = _patch_kr_index_today(df, ticker)
         df = _patch_kr_index_ohlc(df, ticker)
         df = _patch_kr_index_volume(df, ticker)
     else:
+        df = _download(ticker, start, end)
         df = _patch_us_index_ohlc(df, ticker)
     return df.dropna(subset=['Close']) if 'Close' in df.columns else df
 
