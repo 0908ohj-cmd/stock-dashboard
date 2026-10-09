@@ -90,12 +90,15 @@ jobs:
         if: steps.gate.outputs.fresh != 'true'
 
       # 이관 전과 같이 유니버스도 빌드한다. 실패해도 스냅샷 수집은 계속한다.
-      # (FDR 경로는 KRX 로그인이 필요 없다. FDR이 KRX 장애로 404를 내면 pykrx로
-      #  넘어가는데, 러너에는 KRX_ID/KRX_PW가 없어 그쪽도 실패한다 — 그 경우
-      #  종목 목록만 전날 것으로 남고 시세는 채워진다.)
+      # KRX_ID/KRX_PW는 KOSPI·KOSDAQ 지수를 pykrx(공식 데이터)로 1차 수집하는
+      # 데 쓴다 — yfinance 벌크 다운로드가 두 지수의 종가 반영 시점을 다르게
+      # 가져가 코스닥만 하루 지연되는 문제(2026-10-07)가 있었다.
       - name: 국장 10EMA 유니버스 갱신
         if: steps.gate.outputs.fresh != 'true' && github.event_name == 'schedule' && steps.target.outputs.markets == 'kr'
         continue-on-error: true
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
         run: python scripts/build_kr_10ema_universe.py
 
       - name: 미장 10EMA 유니버스 갱신
@@ -105,6 +108,9 @@ jobs:
 
       - name: 스냅샷 수집
         if: steps.gate.outputs.fresh != 'true'
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
       # 수집하는 몇 분 사이 로컬이 늦게라도 올렸을 수 있다. 원격을 다시 보고,
