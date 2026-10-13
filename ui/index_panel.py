@@ -13,8 +13,8 @@ def _pp_ok(df) -> bool:
     ema21 = calc_ema(df, 21)
     if float(ema10.iloc[-1]) <= float(ema21.iloc[-1]):
         return False
-    slope10 = float(ema10.iloc[-1]) - float(ema10.iloc[-6])
-    slope21 = float(ema21.iloc[-1]) - float(ema21.iloc[-6])
+    slope10 = float(ema10.iloc[-1]) - float(ema10.iloc[-2])
+    slope21 = float(ema21.iloc[-1]) - float(ema21.iloc[-2])
     return slope10 > 0 and slope21 > 0
 
 INDEX_NAMES = ['KOSPI', 'KOSDAQ', 'NASDAQ']
