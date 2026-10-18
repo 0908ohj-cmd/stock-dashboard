@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-10-17T08:52:45",
-  "source_updated_at": "2026-10-17T08:52:43",
+  "synced_at": "2026-10-18T11:11:27",
+  "source_updated_at": "2026-10-18T11:11:26",
   "count": 20,
   "items": [
     {
@@ -22,7 +22,7 @@
       "perf_6m": 210.5,
       "perf_12m": 38.7,
       "dist_from_52w_high": -4.3,
-      "avg_dollar_vol": 840410528,
+      "avg_dollar_vol": 840416474,
       "theme": "엔터프라이즈 협업 AI",
       "sector": "소프트웨어"
     },
@@ -44,7 +44,7 @@
       "perf_6m": 129.8,
       "perf_12m": 205.9,
       "dist_from_52w_high": -7.3,
-      "avg_dollar_vol": 283552827,
+      "avg_dollar_vol": 283554184,
       "theme": "정제 마진 확대",
       "sector": "정유"
     },
@@ -66,7 +66,7 @@
       "perf_6m": 100.6,
       "perf_12m": 182.1,
       "dist_from_52w_high": -3.3,
-      "avg_dollar_vol": 1317255375,
+      "avg_dollar_vol": 1317256991,
       "theme": "재생 디젤 및 저탄소 연료",
       "sector": "정유"
     },
@@ -87,7 +87,7 @@
       "perf_6m": 125.2,
       "perf_12m": 164.4,
       "dist_from_52w_high": -1.4,
-      "avg_dollar_vol": 1208912309,
+      "avg_dollar_vol": 1208915201,
       "theme": "정유 수율 향상",
       "sector": "정유"
     },
@@ -108,7 +108,7 @@
       "perf_6m": 87.4,
       "perf_12m": 184.3,
       "dist_from_52w_high": -5.6,
-      "avg_dollar_vol": 136581405,
+      "avg_dollar_vol": 136581455,
       "theme": "음성 AI 에이전트",
       "sector": "소프트웨어"
     },
@@ -129,7 +129,7 @@
       "perf_6m": 159.2,
       "perf_12m": 112.0,
       "dist_from_52w_high": -19.3,
-      "avg_dollar_vol": 666735236,
+      "avg_dollar_vol": 666761329,
       "theme": "AI 에이전트 신원 보안",
       "sector": "소프트웨어"
     },
@@ -150,7 +150,7 @@
       "perf_6m": 122.1,
       "perf_12m": 148.7,
       "dist_from_52w_high": -2.3,
-      "avg_dollar_vol": 333694403,
+      "avg_dollar_vol": 333694685,
       "theme": "재생 디젤 확대",
       "sector": "정유"
     },
@@ -171,7 +171,7 @@
       "perf_6m": 89.8,
       "perf_12m": 133.0,
       "dist_from_52w_high": -1.4,
-      "avg_dollar_vol": 830588502,
+      "avg_dollar_vol": 830588556,
       "theme": "정유·중류 통합성장",
       "sector": "정유"
     },
@@ -193,7 +193,7 @@
       "perf_6m": 146.3,
       "perf_12m": 20.9,
       "dist_from_52w_high": -5.8,
-      "avg_dollar_vol": 252741815,
+      "avg_dollar_vol": 252741879,
       "theme": "개발보안 플랫폼",
       "sector": "소프트웨어"
     },
@@ -214,8 +214,8 @@
       "perf_6m": 85.2,
       "perf_12m": 33.9,
       "dist_from_52w_high": -21.0,
-      "avg_dollar_vol": 617304762,
-      "theme": "하이퍼스케일러 저장소",
+      "avg_dollar_vol": 617310004,
+      "theme": "AI 데이터센터 스토리지",
       "sector": "컴퓨터 주변기기"
     },
     {
@@ -235,7 +235,7 @@
       "perf_6m": 62.4,
       "perf_12m": 115.5,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 244441895,
+      "avg_dollar_vol": 244441987,
       "theme": "글로벌 의류 브랜드 회복",
       "sector": "의류·신발 유통"
     },
@@ -256,7 +256,7 @@
       "perf_6m": 84.8,
       "perf_12m": 115.0,
       "dist_from_52w_high": -2.0,
-      "avg_dollar_vol": 184659739,
+      "avg_dollar_vol": 184660429,
       "theme": "포트폴리오 브랜드 확장",
       "sector": "외식"
     },
@@ -298,7 +298,7 @@
       "perf_6m": 128.9,
       "perf_12m": 96.7,
       "dist_from_52w_high": -5.7,
-      "avg_dollar_vol": 179333407,
+      "avg_dollar_vol": 179333952,
       "theme": "디지털 의료 플랫폼",
       "sector": "소프트웨어"
     },
@@ -341,7 +341,7 @@
       "perf_6m": 114.8,
       "perf_12m": 42.2,
       "dist_from_52w_high": -10.6,
-      "avg_dollar_vol": 369813182,
+      "avg_dollar_vol": 369816058,
       "theme": "사이버 탄력성 솔루션",
       "sector": "IT 서비스"
     },
@@ -362,7 +362,7 @@
       "perf_6m": 76.9,
       "perf_12m": 71.3,
       "dist_from_52w_high": -5.9,
-      "avg_dollar_vol": 237217639,
+      "avg_dollar_vol": 237218937,
       "theme": "AI 마케팅 플랫폼",
       "sector": "소프트웨어"
     },
@@ -384,7 +384,7 @@
       "perf_6m": 59.6,
       "perf_12m": 187.4,
       "dist_from_52w_high": -12.6,
-      "avg_dollar_vol": 154613361,
+      "avg_dollar_vol": 154613728,
       "theme": "국제 확장 가속",
       "sector": "의류·신발 유통"
     },
@@ -405,7 +405,7 @@
       "perf_6m": 84.8,
       "perf_12m": 8.0,
       "dist_from_52w_high": -0.9,
-      "avg_dollar_vol": 537259728,
+      "avg_dollar_vol": 537260390,
       "theme": "생명과학 에이전트 AI",
       "sector": "소프트웨어"
     },
@@ -426,7 +426,7 @@
       "perf_6m": 96.0,
       "perf_12m": 70.4,
       "dist_from_52w_high": -14.8,
-      "avg_dollar_vol": 521472815,
+      "avg_dollar_vol": 521473854,
       "theme": "AI 데이터 인프라",
       "sector": "컴퓨터 주변기기"
     }
