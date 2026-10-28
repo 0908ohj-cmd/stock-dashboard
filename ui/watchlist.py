@@ -42,14 +42,14 @@ def _snapshot_ts(market: str) -> str:
 
 
 @st.cache_data(ttl=1800)
-def _fetch_index_cached(name: str, _ts: str = '') -> pd.DataFrame:
+def _fetch_index_cached(name: str, ts: str = '') -> pd.DataFrame:
     return store.load_index(name)
 
 
 @st.cache_data(ttl=1800)
-def _get_market_status_cached(market: str, _ts: str = '') -> dict:
+def _get_market_status_cached(market: str, ts: str = '') -> dict:
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    index_df   = _fetch_index_cached(index_name, _ts)
+    index_df   = _fetch_index_cached(index_name, ts)
     return get_market_status(index_df) if not index_df.empty else {
         'state': 'normal', 'correction_start': None,
         'jjin_date': None,  'jjin_pct': 0.0,
