@@ -12,8 +12,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
     찐반등 감지 — 가장 최근 조정 시작일 이후 첫 번째 조건 충족일 반환.
     조건:
       1. 장중 저가가 EMA21 아래
-      2. 당일 양봉, 상승폭 >= ADR(20일)
-      3. 직전 봉 음봉 + 당일 바디 >= 직전 음봉 바디 * 0.5
+      2. 당일 양봉, 상승폭 >= ADR(20일) × 0.9
     거래량 별: 조정 구간(EMA21 이탈일 ~ 전날) 평균 대비 비율
     start: 이 날짜(포함)부터만 탐색 — 실패한 찐반등 이후 새 후보 탐색용.
     """
@@ -60,23 +59,14 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
         if float(row['Close']) < float(row['Open']):
             continue
 
-        prev2 = index_df.iloc[i - 2]
-
         adr_val = float(
             ((index_df['High'] - index_df['Low']) / index_df['Close'] * 100)
             .iloc[max(0, i - 19):i + 1].mean()
         )
 
-        # 조건 3: 직전봉이 음봉이거나, 양봉이더라도 ADR/2 미만 상승 (지지부진)
-        # EMA 돌파 케이스는 직전봉이 소폭 양봉이어도 인정 — 돌파 전날 소폭 반등은 자연스러운 현상
-        if not is_ema_cross:
-            prev_chg_pct = (float(prev['Close']) - float(prev2['Close'])) / float(prev2['Close']) * 100
-            if prev_chg_pct >= adr_val / 2:
-                continue
-
         prev_close = float(index_df.iloc[i - 1]['Close'])
         pct_chg    = (float(row['Close']) - prev_close) / prev_close * 100
-        if pct_chg < adr_val:
+        if pct_chg < adr_val * 0.9:
             continue
 
         # 조정 구간 평균 거래량으로 vol_ratio 계산
