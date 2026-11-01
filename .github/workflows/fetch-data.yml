@@ -27,7 +27,7 @@ name: 스냅샷 수집
 on:
   schedule:
     - cron: '10 9 * * 1-5'    # 18:10 KST 월~금 — KR 로컬 배치(17:30) 폴백
-    - cron: '50 23 * * 1-5'   # 08:50 KST 화~토 — US 로컬 배치(08:10) 폴백
+    - cron: '40 1 * * 2-6'    # 10:40 KST 화~토 — US 로컬 배치(10:00) 폴백
   workflow_dispatch:
     inputs:
       markets:
@@ -61,7 +61,7 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "50 7 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
             echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "50 23 * * 1-5" ]; then
+          elif [ "${{ github.event.schedule }}" = "40 1 * * 2-6" ]; then
             echo "markets=us" >> "$GITHUB_OUTPUT"
             echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
           else
