@@ -260,13 +260,16 @@ def _heatmap(m: Market, sectors: list, labels: dict):
 
 
 def _stock_frame(m: Market, rows: list, labels: dict, names: dict) -> pd.DataFrame:
+    """섹터 = 주력 테마, 테마 = 세부 표현 — 추세추종·10EMA 탭과 같은 기준."""
+    records = cls.load_store(m.key)
     out = []
     for r in rows:
         row = {'티커': r['ticker']}
         if names:
             row['종목명'] = names.get(r['ticker'], '')
         row.update({
-            '테마': labels.get(r.get('primaryTheme'), '미분류'),
+            '섹터': labels.get(r.get('primaryTheme'), '미분류'),
+            '테마': (records.get(r['ticker']) or {}).get('detail', ''),
             '유형': TYPE_LABEL.get(r.get('leaderType'), ''),
             '주도주 점수': None if r.get('leaderScore') is None else round(r['leaderScore'], 1),
             '상태': STATUS_LABEL.get(r['status'], r['status']),
@@ -324,7 +327,7 @@ def _leaderboards(m: Market, res: dict, labels: dict, names: dict):
         return
     f = st.columns(4)
     themes = sorted({labels[r['primaryTheme']] for r in leaders})
-    pick_theme = f[0].multiselect('테마', themes, key=f'{m.key}_lb_theme')
+    pick_theme = f[0].multiselect('섹터', themes, key=f'{m.key}_lb_theme')
     adr_rng = f[1].slider('ADR20 %', 0.0, 20.0, (0.0, 20.0), 0.5, key=f'{m.key}_lb_adr')
     min_nrs = f[2].number_input('5일 RS/ADR 최소', value=-10.0, step=0.5, key=f'{m.key}_lb_nrs')
     ema_only = f[3].checkbox('10EMA 위만', key=f'{m.key}_lb_ema')

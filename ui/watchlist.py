@@ -9,8 +9,8 @@ from data.fetcher import (
     fetch_intraday_for_date, fetch_index_intraday_for_date,
 )
 from data import store
-from data.sector import get_sectors, get_major_themes
-from data.yf_sector import get_yf_sectors, resolve_sector
+from data.sector import get_sectors, get_display_sectors
+from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs, _index_peak_date
@@ -131,13 +131,11 @@ def _build_rows(
         except Exception:
             continue
 
-    # 섹터(yfinance 산업분류)와 테마(LLM)는 축이 다르다 — 두 컬럼으로 나란히 쓴다.
-    # yfinance가 industry를 안 주는 종목은 LLM 대분류로 섹터를 메운다.
+    # 섹터 = 주력 테마(주도섹터 탭과 같은 기준), 테마 = 세부 표현.
+    # 승인된 분류가 없는 종목만 yfinance 산업분류로 섹터를 메운다.
     _tickers = list(stock_cache.keys())
     themes   = get_sectors(_tickers, market)
-    majors   = get_major_themes(_tickers, market)
-    yf_secs  = get_yf_sectors(_tickers, market)
-    sectors  = {t: resolve_sector(yf_secs.get(t, ''), majors.get(t, '')) for t in _tickers}
+    sectors  = get_display_sectors(_tickers, market, get_yf_sectors(_tickers, market))
     rows     = []
 
     for ticker, (df, adr_val) in stock_cache.items():

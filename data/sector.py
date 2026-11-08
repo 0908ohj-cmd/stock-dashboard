@@ -89,6 +89,15 @@ def _verified_major(market: str, ticker: str) -> str:
     return ''
 
 
+def get_display_sectors(tickers: list, market: str, yf_secs: dict) -> dict:
+    """와치리스트 '섹터' 컬럼 — 주도섹터 탭과 같은 기준(승인된 주력 테마)을 먼저 쓴다.
+    승인된 분류가 없는 종목만 예전 방식(yfinance 산업분류 → 구 LLM 대분류)으로 채운다."""
+    from data.yf_sector import resolve_sector
+    old = get_major_themes(tickers, market)
+    return {t: _verified_major(market, t) or resolve_sector(yf_secs.get(t, ''), old.get(t, ''))
+            for t in tickers}
+
+
 def get_major_themes(tickers: list, market: str = 'US') -> dict:
     """{ticker: 대분류}. 새 분류 저장소의 주력 테마를 먼저 쓰고, 없으면 구 LLM 캐시.
     캐시만 읽고 분류를 트리거하지 않는다.

@@ -6,8 +6,8 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
 from data.store import load_daily, get_freshness, refetch_market
-from data.sector import get_sectors, get_major_themes
-from data.yf_sector import get_yf_sectors, resolve_sector
+from data.sector import get_sectors, get_display_sectors
+from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
@@ -139,7 +139,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 21  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 22  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
@@ -154,12 +154,11 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
     # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
     tickers = [r['Ticker'] for r in rows]
     themes = get_sectors(tickers, market)
-    majors = get_major_themes(tickers, market)
-    yf_secs = get_yf_sectors(tickers, market)
+    sectors = get_display_sectors(tickers, market, get_yf_sectors(tickers, market))
     for r in rows:
         t = r['Ticker']
-        # yfinance가 industry를 안 주는 종목은 LLM 대분류로 섹터를 메운다
-        r['섹터'] = resolve_sector(yf_secs.get(t, ''), majors.get(t, ''))
+        # 섹터 = 주력 테마(주도섹터 탭과 같은 기준). 승인된 분류가 없으면 yfinance로 메운다
+        r['섹터'] = sectors.get(t, '-')
         r['테마'] = themes.get(t, '기타')
 
     rows.sort(key=lambda r: (
