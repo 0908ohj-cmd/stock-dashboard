@@ -17,7 +17,7 @@ from strategy import sector_strength as ss
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
-from strategy.rs_correction import _index_peak_date, calc_correction_rs
+from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_rs
 
 MIN_SECTOR_N = 3
 STRONG_SCORE = 70
@@ -57,6 +57,8 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
         # 찐반등일만 지정했고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로
         win = idf[idf.index <= (jjin_d if jjin_d is not None else idf.index[-1])].tail(LOOKBACK_HIGH)
         peak_d = win['Close'].idxmax()
+    if mode != 'uptrend' and (cs is None or (peak is not None and cs < peak_d)):
+        cs = peak_d     # 자동 조정이 없거나 기산점을 뒤로 옮기면 ADR 기준 시점도 기산점으로
 
     def since(d):
         if d is None or d not in idf.index:
@@ -102,7 +104,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
         s = _since_ret(df, phase['jjinDate'])
         r['sinceJjinExcess'] = None if s is None or phase['indexSinceJjin'] is None else s - phase['indexSinceJjin']
-        adr = r.get('adr20Pct')
+        adr = _pre_adr(df, phase['correctionStart'])      # 기산점 쪽과 같은 ADR(조정 시작 전 20일)
         r['sinceJjinExcessAdr'] = (None if r['sinceJjinExcess'] is None or not adr
                                    else r['sinceJjinExcess'] / adr)
 

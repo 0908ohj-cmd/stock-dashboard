@@ -74,6 +74,13 @@ def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
     assert ph['mode'] == 'correction' and ph['jjinDate'] is None
     ph2 = nl.detect_phase(idf, '2026-11-06', jjin='2026-11-02')
     assert ph2['mode'] == 'rebound' and ph2['peakDate'] is not None   # 자동 조정이 없어도 기산점을 잡는다
+    # 수동 구간으로도 종목 점수가 계산돼야 한다 (자동 조정 시작일이 없을 때 ADR 기준 시점 보완)
+    stock = _index(np.linspace(100, 170, 120))
+    rows = [{'ticker': 'S', 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': True,
+             'hasBullishRvol15InLast5': False}]
+    for p in (ph, ph2):
+        out = nl.score_stocks(rows, {'S': stock}, idf, {'S': 'X'}, {'X'}, p, '2026-11-06')
+        assert out and out[0]['sincePeakExcessAdr'] is not None
 
 
 def test_덜빠짐은_ADR_보정값으로_순위를_매긴다():
