@@ -15,6 +15,7 @@ from ui.watchlist import (
 )
 from ui.watchlist_10ema import render_10ema_tab
 from ui.leaderboard import render_leaderboard_section
+from ui.sector_leadership import render_sector_leadership_tab
 from ui import tv_export
 
 GITHUB_REPO = "0908ohj-cmd/stock-dashboard"
@@ -47,6 +48,16 @@ SAVED_PATHS = {
     'KR_KOSDAQ': SAVED_DIR / 'kosdaq.tickers',
     'US':        SAVED_DIR / 'us.tickers',
 }
+
+
+def _with_sector_universe(key: str, tickers: list) -> list:
+    """US 스냅샷은 통째로 교체 저장되므로 주도섹터 유니버스(210종목 + QQQ·IWM)도 함께 받는다.
+    빠뜨리면 주도섹터 탭이 다음 배치까지 MISSING이 된다."""
+    path = SAVED_DIR / 'us_sector.tickers'
+    if key != 'US' or not path.exists():
+        return tickers
+    extra = [t.strip() for t in path.read_text(encoding='utf-8').splitlines() if t.strip()]
+    return list(dict.fromkeys(list(tickers) + extra))
 
 
 def _clear_analysis_caches() -> None:
@@ -158,7 +169,7 @@ for uploaded, key, name in [
                 st.session_state[f'uploaded_sig_{key}'] = sig
                 with st.sidebar:
                     with st.spinner(f'{name} 시세 수집 중... ({len(tickers_parsed)}개 종목)'):
-                        store.refetch_market(key, tickers_parsed)
+                        store.refetch_market(key, _with_sector_universe(key, tickers_parsed))
                 _clear_analysis_caches()
         except Exception as e:
             st.sidebar.error(f'파일 오류: {e}')
@@ -210,7 +221,8 @@ if _auto_pull_if_stale():
 
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
-    for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq), ('US', us_tickers)]:
+    for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq),
+                         ('US', _with_sector_universe('US', us_tickers))]:
         if tickers:
             with st.spinner(f'{key} 재수집 중... ({len(tickers)}개 종목)'):
                 store.refetch_market(key, tickers)
@@ -244,8 +256,11 @@ _tv_export_slot = _tv_export_col.empty()
 # 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 직전 실행 기준 목록으로 먼저
 # 자리를 채워 둔다. 스크립트 맨 아래에서 최신 목록으로 덮어쓴다.
 tv_export.render_export_button(_tv_export_slot, key='early', pending=True)
-tab_kospi, tab_kosdaq, tab_us, tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us = st.tabs([
+(tab_kospi, tab_kosdaq, tab_us,
+ tab_sector_kospi, tab_sector_kosdaq, tab_sector_us,
+ tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us) = st.tabs([
     '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
+    '🧭 코스피 주도섹터', '🧭 코스닥 주도섹터', '🧭 나스닥 주도섹터',
     '📈 10EMA 코스피 (PP)', '📈 10EMA 코스닥 (PP)', '📈 10EMA 나스닥 (PP)'
 ])
 with tab_kospi:
@@ -254,6 +269,13 @@ with tab_kosdaq:
     render_watchlist_tab(kr_kosdaq, 'KR_KOSDAQ', 'KOSDAQ')
 with tab_us:
     render_watchlist_tab(us_tickers, 'US', '나스닥')
+# 10EMA 스캔(수 분)보다 앞에 둔다 — 스냅샷 파일만 읽어 즉시 계산된다
+with tab_sector_kospi:
+    render_sector_leadership_tab('KR_KOSPI')
+with tab_sector_kosdaq:
+    render_sector_leadership_tab('KR_KOSDAQ')
+with tab_sector_us:
+    render_sector_leadership_tab('US')
 with tab_10ema_kospi:
     render_10ema_tab('KR_KOSPI', '10EMA 코스피')
 with tab_10ema_kosdaq:

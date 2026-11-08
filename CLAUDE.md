@@ -51,6 +51,24 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 기준봉(거래량 급증 + 60일 신고가 돌파 + 10>21>50 정배열 + 종가 상단 30% + 사전 30% 상승) 탐지 → 상태 분류(셋업/형성중/돌파완료/각종 이탈) → 타점(기준봉 고가)·손절(중간선)·리스크% 산출. ADR ≥ 6% 필터, ThreadPoolExecutor로 병렬 수집.
 
+### 🇺🇸 주도섹터 탭 (`ui/sector_leadership.py` + `strategy/sector_strength.py`)
+
+미국 기술·혁신 성장주 210종목(`data/universe/us_innovation_210.json`, 원본 워치리스트 고정 멤버십)의 섹터 강도. 설계 기준은 사용자 마스터 명세(2026-11-08).
+
+- 시세는 US 스냅샷만 읽는다. 210종목 + QQQ·IWM은 `data/saved/us_sector.tickers`로 US 배치에 포함된다. 화면에서 실시간 다운로드 금지, 스냅샷에 없으면 MISSING
+- RS는 QQQ·IWM 각각과 평균 대비 3종, ADR20 보정 RS = RS(평균) / ADR20. 섹터 값은 종목 **중앙값**. 양봉 = 종가 > 시가, RVOL20 분모는 당일 제외, 10EMA 유지는 각 거래일의 EMA와 비교 — 명세 11장 필수 테스트가 `tests/test_sector_strength.py`에 있다
+- 섹터 100점은 구성 5종목 이상 + 데이터 80% 이상일 때만 산출. 결측은 0점이 아니라 UNVERIFIED. A/B는 점수 + 게이트 모두 통과
+- 기준일 선택 시 그날 이하 일봉만 쓴다 (point-in-time)
+
+### 테마 분류 (`data/classification.py` + `scripts/classify_themes.py`)
+
+종목당 주력 테마 1개 + 보조 태그 + 신뢰도 + 근거 URL. 고정 테마 목록 `data/taxonomy/{us,kr}.json`(버전 관리) 안에서만 고르고 LLM이 새 테마를 만들지 못한다.
+
+- 근거 URL이 없거나 신뢰도 low면 `UNCLASSIFIED`로 두고 `suggestedTheme`만 남긴다. 미분류 종목은 섹터 집계에서 빠진다
+- `overrideByUser=True`(주도섹터 탭 > 분류 검토에서 확정)는 자동 분류가 덮어쓰지 않는다. 변경 이력은 `history`
+- US 배치(`run_batch_local.sh`)가 매 회차 `--scope missing`으로 신규 편입 종목만 분류한다. 테마 목록 version이 `-draft`로 끝나면 배치는 그 시장을 분류하지 않는다
+- 와치리스트 '테마'·'섹터' 컬럼은 승인된 새 분류를 먼저 쓰고, 없으면 구 `theme_cache.json`으로 폴백 (`data/sector.py`)
+
 ### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
 
 `와치리스트` 제목 오른쪽의 `📤 TradingView 내보내기` 버튼 하나로 각 탭의 후보를 TradingView 워치리스트 import용 txt로 내보낸다. 포맷은 **한 줄 = 한 섹션**, 줄 맨 앞 `###제목` 뒤에 심볼을 콤마로 잇는다 (KR은 `KRX:` 접두, US는 무접두).
@@ -64,7 +82,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 ### 캐싱
 
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
-- 파일 기반: `theme_cache.json`(테마 캐시, repo 루트 — `scripts/refresh_sectors.sh`로 로컬 갱신 후 커밋), `data/themes.json`(테마 정의), `data/kr_names.json`(KR 종목명 번들)
+- 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
 
 ### 알아둘 것

@@ -15,7 +15,8 @@ from data import store
 TICKER_FILES = {
     'KR_KOSPI':  ['kospi.tickers',  'kospi_10ema.tickers'],
     'KR_KOSDAQ': ['kosdaq.tickers', 'kosdaq_10ema.tickers'],
-    'US':        ['us.tickers',     'us_10ema.tickers'],
+    # us_sector.tickers = 주도섹터 유니버스 210종목 + 벤치마크 QQQ·IWM (data/universe/us_innovation_210.json)
+    'US':        ['us.tickers',     'us_10ema.tickers', 'us_sector.tickers'],
 }
 MARKET_GROUPS = {
     'kr':  ['KR_KOSPI', 'KR_KOSDAQ'],

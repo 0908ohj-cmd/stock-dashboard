@@ -6,7 +6,7 @@
 import json
 from pathlib import Path
 
-from data import theme_classifier
+from data import classification, theme_classifier
 
 _NAMES_FILE = Path(__file__).parent / 'kr_names.json'
 
@@ -49,7 +49,10 @@ def get_sectors(tickers: list, market: str) -> dict:
 
     for ticker in tickers:
         entry = cache.get(ticker)
-        if ticker in overrides:
+        verified = _verified_label(market, ticker)
+        if verified:
+            result[ticker] = verified
+        elif ticker in overrides:
             result[ticker] = overrides[ticker]
         elif isinstance(entry, dict) and (entry.get('detail') or entry.get('theme')):
             result[ticker] = _label(entry)
@@ -68,8 +71,27 @@ def get_sectors(tickers: list, market: str) -> dict:
     return result
 
 
-def get_major_themes(tickers: list) -> dict:
-    """{ticker: LLM 대분류(theme)}. 캐시만 읽고 분류를 트리거하지 않는다.
+def _verified_label(market: str, ticker: str) -> str | None:
+    """새 분류 저장소(data/classification)의 승인된 라벨. 없으면 None → 구 캐시 사용."""
+    try:
+        return classification.display_label(market, ticker)
+    except Exception:
+        return None
+
+
+def _verified_major(market: str, ticker: str) -> str:
+    try:
+        rec = classification.load_store(market).get(ticker)
+        if rec and rec.get('primaryTheme') not in (None, classification.UNCLASSIFIED):
+            return classification.theme_index(market)[rec['primaryTheme']]['label']
+    except Exception:
+        pass
+    return ''
+
+
+def get_major_themes(tickers: list, market: str = 'US') -> dict:
+    """{ticker: 대분류}. 새 분류 저장소의 주력 테마를 먼저 쓰고, 없으면 구 LLM 캐시.
+    캐시만 읽고 분류를 트리거하지 않는다.
 
     표시용은 detail(get_sectors)이지만, yfinance가 industry를 주지 않는 종목의 '섹터' 컬럼을
     메우는 데 이 대분류가 쓰인다(data.yf_sector.resolve_sector).
@@ -77,6 +99,10 @@ def get_major_themes(tickers: list) -> dict:
     cache = theme_classifier._load_cache()
     result = {}
     for ticker in tickers:
+        verified = _verified_major(market, ticker)
+        if verified:
+            result[ticker] = verified
+            continue
         entry = cache.get(ticker)
         result[ticker] = entry.get('theme', '') if isinstance(entry, dict) else ''
     return result
@@ -88,6 +114,6 @@ def get_sectors_cached_only(tickers: list, market: str) -> dict:
     cache = theme_classifier._load_cache()
     _, overrides = _load_themes()
     return {
-        t: overrides[t] if t in overrides else _label(cache.get(t))
+        t: _verified_label(market, t) or (overrides[t] if t in overrides else _label(cache.get(t)))
         for t in tickers
     }

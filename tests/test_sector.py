@@ -1,6 +1,35 @@
 import json
+
+import pytest
+
 import data.sector as sector
-from data import theme_classifier
+from data import classification, theme_classifier
+
+
+@pytest.fixture(autouse=True)
+def _empty_verified_store(tmp_path_factory, monkeypatch):
+    """실제 data/classification/*.json이 구 캐시 경로 테스트에 끼어들지 않게 빈 저장소로 격리."""
+    monkeypatch.setattr(classification, 'STORE_DIR', tmp_path_factory.mktemp('cls'))
+    classification._cache.clear()
+
+
+def test_검증된_새_분류가_구_캐시보다_우선한다(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch, {
+        '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2020-01-01T00:00:00'},
+        '005930': {'theme': '메모리 반도체', 'detail': '구 라벨', 'updated': '2020-01-01T00:00:00'},
+    })
+    recs = {}
+    classification.apply_auto('KR_KOSPI', '000660', classification.normalize('KR_KOSPI', {
+        'primaryTheme': 'SEMI_MEMORY', 'confidence': 'high', 'detail': 'HBM 메모리',
+        'evidenceUrls': ['https://dart.fss.or.kr/x']}, 't'), recs)
+    classification.apply_auto('KR_KOSPI', '005930', classification.normalize('KR_KOSPI', {
+        'primaryTheme': 'SEMI_MEMORY', 'confidence': 'low', 'evidenceUrls': []}, 't'), recs)
+    classification.save_store('KR_KOSPI', recs)
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    assert sector.get_sectors(['000660', '005930'], 'KR_KOSPI') == {'000660': 'HBM 메모리', '005930': '구 라벨'}
+    assert sector.get_major_themes(['000660', '005930'], 'KR_KOSPI') == {
+        '000660': '반도체·메모리', '005930': '메모리 반도체'}
 
 
 def _setup(tmp_path, monkeypatch, cache_content: dict):

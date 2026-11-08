@@ -154,7 +154,7 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
     # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
     tickers = [r['Ticker'] for r in rows]
     themes = get_sectors(tickers, market)
-    majors = get_major_themes(tickers)
+    majors = get_major_themes(tickers, market)
     yf_secs = get_yf_sectors(tickers, market)
     for r in rows:
         t = r['Ticker']

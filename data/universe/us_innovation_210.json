@@ -1,0 +1,1283 @@
+{
+ "universeId": "us_innovation_210",
+ "version": 1,
+ "effectiveFrom": "2026-11-06",
+ "source": "사용자 TradingView 워치리스트 '나스닥 (1).txt' (###미폭주) + 수동 잠정 섹터표(2026-11-06)",
+ "note": "legacySector는 수동 잠정 분류로 검증 전 값이다. 점수 집계는 data/classification/us.json의 primaryTheme을 쓴다.",
+ "benchmarks": [
+  "QQQ",
+  "IWM"
+ ],
+ "watchlistIndexSymbols": [
+  "IXIC"
+ ],
+ "stocks": [
+  {
+   "order": 1,
+   "ticker": "KRMN",
+   "exchange": "NYSE",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 2,
+   "ticker": "SERV",
+   "exchange": "NASDAQ",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 3,
+   "ticker": "FLY",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 4,
+   "ticker": "LASR",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 5,
+   "ticker": "IONQ",
+   "exchange": "NYSE",
+   "legacySector": "양자컴퓨팅"
+  },
+  {
+   "order": 6,
+   "ticker": "LUNR",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 7,
+   "ticker": "SATL",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 8,
+   "ticker": "INFQ",
+   "exchange": "NYSE",
+   "legacySector": "양자컴퓨팅"
+  },
+  {
+   "order": 9,
+   "ticker": "RGTI",
+   "exchange": "NASDAQ",
+   "legacySector": "양자컴퓨팅"
+  },
+  {
+   "order": 10,
+   "ticker": "POET",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 11,
+   "ticker": "RCAT",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 12,
+   "ticker": "ONDS",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 13,
+   "ticker": "RDW",
+   "exchange": "NYSE",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 14,
+   "ticker": "AMPX",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 15,
+   "ticker": "RKLB",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 16,
+   "ticker": "VELO",
+   "exchange": "NASDAQ",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 17,
+   "ticker": "LPTH",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 18,
+   "ticker": "HUT",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 19,
+   "ticker": "SEI",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 20,
+   "ticker": "OUST",
+   "exchange": "NASDAQ",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 21,
+   "ticker": "WYFI",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 22,
+   "ticker": "COHR",
+   "exchange": "NYSE",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 23,
+   "ticker": "ACMR",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 24,
+   "ticker": "BTDR",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 25,
+   "ticker": "FORM",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 26,
+   "ticker": "BETA",
+   "exchange": "NYSE",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 27,
+   "ticker": "SMTC",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 28,
+   "ticker": "QUBT",
+   "exchange": "NASDAQ",
+   "legacySector": "양자컴퓨팅"
+  },
+  {
+   "order": 29,
+   "ticker": "PENG",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 30,
+   "ticker": "XNDU",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 31,
+   "ticker": "SHLS",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 32,
+   "ticker": "JOBY",
+   "exchange": "NYSE",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 33,
+   "ticker": "BKSY",
+   "exchange": "NYSE",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 34,
+   "ticker": "SHAZ",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 35,
+   "ticker": "ONTO",
+   "exchange": "NYSE",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 36,
+   "ticker": "AMD",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 37,
+   "ticker": "MXL",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 38,
+   "ticker": "FTAI",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 39,
+   "ticker": "MTSI",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 40,
+   "ticker": "COMP",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 41,
+   "ticker": "AVAV",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 42,
+   "ticker": "LCID",
+   "exchange": "NASDAQ",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 43,
+   "ticker": "PL",
+   "exchange": "NYSE",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 44,
+   "ticker": "KOPN",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 45,
+   "ticker": "COHU",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 46,
+   "ticker": "AVEX",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 47,
+   "ticker": "NET",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 48,
+   "ticker": "LGN",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 49,
+   "ticker": "CBRS",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 50,
+   "ticker": "APLD",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 51,
+   "ticker": "BRUN",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 52,
+   "ticker": "AUR",
+   "exchange": "NASDAQ",
+   "legacySector": "로봇·자율주행"
+  },
+  {
+   "order": 53,
+   "ticker": "MRAM",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 54,
+   "ticker": "CTRI",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 55,
+   "ticker": "HIVE",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 56,
+   "ticker": "AUGO",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 57,
+   "ticker": "TH",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 58,
+   "ticker": "AEHR",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 59,
+   "ticker": "SGML",
+   "exchange": "NASDAQ",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 60,
+   "ticker": "FIGR",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 61,
+   "ticker": "VIAV",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 62,
+   "ticker": "HIMS",
+   "exchange": "NYSE",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 63,
+   "ticker": "NVT",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 64,
+   "ticker": "IBRX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 65,
+   "ticker": "MWH",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 66,
+   "ticker": "NBIS",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 67,
+   "ticker": "CRDO",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 68,
+   "ticker": "LSCC",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 69,
+   "ticker": "ASTS",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 70,
+   "ticker": "KLIC",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 71,
+   "ticker": "FPS",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 72,
+   "ticker": "AAOI",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 73,
+   "ticker": "TTMI",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 74,
+   "ticker": "CRWV",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 75,
+   "ticker": "ALAB",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 76,
+   "ticker": "SMCI",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 77,
+   "ticker": "PGEN",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 78,
+   "ticker": "PTRN",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 79,
+   "ticker": "AXTI",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 80,
+   "ticker": "MRVL",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 81,
+   "ticker": "LITE",
+   "exchange": "NASDAQ",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 82,
+   "ticker": "CIEN",
+   "exchange": "NYSE",
+   "legacySector": "광통신·광학·네트워크"
+  },
+  {
+   "order": 83,
+   "ticker": "ZETA",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 84,
+   "ticker": "KTOS",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 85,
+   "ticker": "AAON",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 86,
+   "ticker": "MP",
+   "exchange": "NYSE",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 87,
+   "ticker": "BFLY",
+   "exchange": "NYSE",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 88,
+   "ticker": "BW",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 89,
+   "ticker": "PRM",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 90,
+   "ticker": "RUM",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 91,
+   "ticker": "ALOY",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 92,
+   "ticker": "CEG",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 93,
+   "ticker": "NESR",
+   "exchange": "NASDAQ",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 94,
+   "ticker": "IOVA",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 95,
+   "ticker": "DELL",
+   "exchange": "NYSE",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 96,
+   "ticker": "DNTH",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 97,
+   "ticker": "SNDK",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 98,
+   "ticker": "P",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 99,
+   "ticker": "TE",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 100,
+   "ticker": "RBLX",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 101,
+   "ticker": "BE",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 102,
+   "ticker": "CORZ",
+   "exchange": "NASDAQ",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 103,
+   "ticker": "EXK",
+   "exchange": "NYSE",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 104,
+   "ticker": "HOOD",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 105,
+   "ticker": "RSI",
+   "exchange": "NYSE",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 106,
+   "ticker": "CRSP",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 107,
+   "ticker": "CDNA",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 108,
+   "ticker": "BLSH",
+   "exchange": "NYSE",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 109,
+   "ticker": "ERO",
+   "exchange": "NYSE",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 110,
+   "ticker": "FOUR",
+   "exchange": "NYSE",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 111,
+   "ticker": "LIFE",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 112,
+   "ticker": "MDB",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 113,
+   "ticker": "TER",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 114,
+   "ticker": "DDOG",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 115,
+   "ticker": "SNOW",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 116,
+   "ticker": "DK",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 117,
+   "ticker": "BULL",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 118,
+   "ticker": "ALM",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 119,
+   "ticker": "INTR",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 120,
+   "ticker": "CVNA",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 121,
+   "ticker": "FIG",
+   "exchange": "NYSE",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 122,
+   "ticker": "SNDX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 123,
+   "ticker": "CORT",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 124,
+   "ticker": "HPE",
+   "exchange": "NYSE",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 125,
+   "ticker": "RDDT",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 126,
+   "ticker": "ARWR",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 127,
+   "ticker": "RUN",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 128,
+   "ticker": "HTFL",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 129,
+   "ticker": "GENI",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 130,
+   "ticker": "BCRX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 131,
+   "ticker": "CLS",
+   "exchange": "NYSE",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 132,
+   "ticker": "NAVN",
+   "exchange": "NASDAQ",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 133,
+   "ticker": "VG",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 134,
+   "ticker": "RBRK",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 135,
+   "ticker": "DKS",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 136,
+   "ticker": "HNGE",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 137,
+   "ticker": "LQDA",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 138,
+   "ticker": "PANW",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 139,
+   "ticker": "QXO",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 140,
+   "ticker": "NUVB",
+   "exchange": "NYSE",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 141,
+   "ticker": "DJT",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 142,
+   "ticker": "PARR",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 143,
+   "ticker": "KMT",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 144,
+   "ticker": "UPST",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 145,
+   "ticker": "STX",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 146,
+   "ticker": "BMNR",
+   "exchange": "NYSE",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 147,
+   "ticker": "WDC",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 148,
+   "ticker": "PBF",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 149,
+   "ticker": "GH",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 150,
+   "ticker": "COCO",
+   "exchange": "NASDAQ",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 151,
+   "ticker": "AFRM",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 152,
+   "ticker": "STUB",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 153,
+   "ticker": "AMSC",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 154,
+   "ticker": "SBET",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 155,
+   "ticker": "ALHC",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 156,
+   "ticker": "CAI",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 157,
+   "ticker": "SOUN",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 158,
+   "ticker": "KOS",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 159,
+   "ticker": "INOD",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 160,
+   "ticker": "CVI",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 161,
+   "ticker": "ARQT",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 162,
+   "ticker": "EOSE",
+   "exchange": "NASDAQ",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 163,
+   "ticker": "OSCR",
+   "exchange": "NYSE",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 164,
+   "ticker": "CLMT",
+   "exchange": "NASDAQ",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 165,
+   "ticker": "PCT",
+   "exchange": "NASDAQ",
+   "legacySector": "소재·귀금속 (별도)"
+  },
+  {
+   "order": 166,
+   "ticker": "AXON",
+   "exchange": "NASDAQ",
+   "legacySector": "드론·방산기술"
+  },
+  {
+   "order": 167,
+   "ticker": "MCHP",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 168,
+   "ticker": "NTRA",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 169,
+   "ticker": "DNOW",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 170,
+   "ticker": "DOCN",
+   "exchange": "NYSE",
+   "legacySector": "AI 인프라·클라우드"
+  },
+  {
+   "order": 171,
+   "ticker": "KEYS",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 172,
+   "ticker": "VOYG",
+   "exchange": "NYSE",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 173,
+   "ticker": "MU",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 174,
+   "ticker": "PWR",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 175,
+   "ticker": "LRCX",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 176,
+   "ticker": "ADI",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 177,
+   "ticker": "GLXY",
+   "exchange": "NASDAQ",
+   "legacySector": "핀테크·디지털자산"
+  },
+  {
+   "order": 178,
+   "ticker": "BROS",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 179,
+   "ticker": "FRO",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 180,
+   "ticker": "NTAP",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 181,
+   "ticker": "AVT",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 182,
+   "ticker": "SM",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 183,
+   "ticker": "BTE",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 184,
+   "ticker": "CAVA",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 185,
+   "ticker": "BKV",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 186,
+   "ticker": "LMND",
+   "exchange": "NYSE",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 187,
+   "ticker": "MOD",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 188,
+   "ticker": "SPCX",
+   "exchange": "NASDAQ",
+   "legacySector": "우주항공·위성"
+  },
+  {
+   "order": 189,
+   "ticker": "ESI",
+   "exchange": "NYSE",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 190,
+   "ticker": "TSEM",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 191,
+   "ticker": "VRT",
+   "exchange": "NYSE",
+   "legacySector": "전력·전력설비·원전"
+  },
+  {
+   "order": 192,
+   "ticker": "AGIO",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 193,
+   "ticker": "NAMS",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 194,
+   "ticker": "DINO",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 195,
+   "ticker": "NVTS",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 196,
+   "ticker": "MPC",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 197,
+   "ticker": "PLTR",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 198,
+   "ticker": "UCTT",
+   "exchange": "NASDAQ",
+   "legacySector": "반도체·장비·메모리"
+  },
+  {
+   "order": 199,
+   "ticker": "STLD",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 200,
+   "ticker": "SHOP",
+   "exchange": "NASDAQ",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 201,
+   "ticker": "INIO",
+   "exchange": "NASDAQ",
+   "legacySector": "기타/분류 확인 필요"
+  },
+  {
+   "order": 202,
+   "ticker": "VLO",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 203,
+   "ticker": "RXRX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 204,
+   "ticker": "NRIX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 205,
+   "ticker": "BBAI",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 206,
+   "ticker": "TALO",
+   "exchange": "NYSE",
+   "legacySector": "에너지·석유가스 (별도)"
+  },
+  {
+   "order": 207,
+   "ticker": "GKOS",
+   "exchange": "NYSE",
+   "legacySector": "바이오·의료 (별도)"
+  },
+  {
+   "order": 208,
+   "ticker": "DASH",
+   "exchange": "NASDAQ",
+   "legacySector": "소비·서비스·기타"
+  },
+  {
+   "order": 209,
+   "ticker": "COUR",
+   "exchange": "NYSE",
+   "legacySector": "소프트웨어·AI·보안"
+  },
+  {
+   "order": 210,
+   "ticker": "TVTX",
+   "exchange": "NASDAQ",
+   "legacySector": "바이오·의료 (별도)"
+  }
+ ],
+ "changeLog": [
+  {
+   "version": 1,
+   "effectiveFrom": "2026-11-06",
+   "change": "최초 등록 210종목"
+  }
+ ]
+}

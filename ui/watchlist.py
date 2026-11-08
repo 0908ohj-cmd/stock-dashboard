@@ -135,7 +135,7 @@ def _build_rows(
     # yfinance가 industry를 안 주는 종목은 LLM 대분류로 섹터를 메운다.
     _tickers = list(stock_cache.keys())
     themes   = get_sectors(_tickers, market)
-    majors   = get_major_themes(_tickers)
+    majors   = get_major_themes(_tickers, market)
     yf_secs  = get_yf_sectors(_tickers, market)
     sectors  = {t: resolve_sector(yf_secs.get(t, ''), majors.get(t, '')) for t in _tickers}
     rows     = []

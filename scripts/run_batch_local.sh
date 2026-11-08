@@ -98,13 +98,19 @@ fi
 "$PYTHON" scripts/fetch_snapshot.py --markets "$MARKET" >>"$LOG" 2>&1 \
     || die "스냅샷 수집 실패"
 
+# 새로 들어온 종목만 같은 기준(고정 테마 목록 + 근거 URL)으로 분류한다.
+# 실패해도 수집 결과는 올린다 — 분류는 다음 회차에 다시 시도된다.
+if ! "$PYTHON" scripts/classify_themes.py --market "$MARKET" --scope missing --workers 4 >>"$LOG" 2>&1; then
+    log "WARN: 신규 종목 테마 분류 실패 — 수집은 계속 진행"
+fi
+
 if [ "$DRY_RUN" = "--dry-run" ]; then
     log "dry-run 완료 — 변경된 데이터 파일:"
-    git status --short -- data/ohlcv data/saved | tee -a "$LOG"
+    git status --short -- data/ohlcv data/saved data/classification | tee -a "$LOG"
     exit 0
 fi
 
-git add data/ohlcv \
+git add data/ohlcv data/classification \
         data/saved/kospi_10ema.tickers \
         data/saved/kosdaq_10ema.tickers \
         data/saved/us_10ema.tickers \
