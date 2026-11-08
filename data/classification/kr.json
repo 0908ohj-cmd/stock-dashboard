@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-08T20:31:22+09:00",
+ "updatedAt": "2026-11-08T20:39:22+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -862,14 +862,14 @@
   },
   "008930": {
    "companyName": "한미사이언스",
-   "primaryTheme": "COSMETICS_CONSUMER",
+   "primaryTheme": "BIO_PHARMA",
    "suggestedTheme": null,
    "secondaryThemes": [
-    "BIO_PHARMA"
+    "HOLDING_OTHER"
    ],
    "detail": "의약품 유통 지주",
    "businessSummary": "한미약품 등을 자회사로 둔 지주회사로, 자회사 온라인팜의 의약품 도매(유통)가 매출의 약 84%를 차지한다. 나머지는 한미약품 계열 헬스케어 사업과 지주 부문이 담당한다.",
-   "confidence": "medium",
+   "confidence": "high",
    "why": "2025년 연결 매출 1조 3568억원 중 의약품도매(온라인팜) 1조 1367억원으로 약 84%이며, 2026년 3분기 보도에서도 의약품 도매가 매출의 약 83.8%로 확인된다. 의약품 유통은 택소노미상 '유통'에 속하므로 COSMETICS_CONSUMER로 분류했고, DART 사업보고서 원문은 열지 못해 medium으로 둔다.",
    "evidenceUrls": [
     "https://www.hitnews.co.kr/news/articleView.html?idxno=73646",
@@ -879,12 +879,37 @@
     "https://www.newsprime.co.kr/news/article/?no=753375"
    ],
    "gateReasons": [],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "method": "user",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T20:22:57+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
+   "reviewedAt": "2026-11-08T20:39:22+09:00",
+   "overrideByUser": true,
+   "overrideReason": "한미약품 지주사 — 사용자 지정 (2026-11-08)",
    "history": [
+    {
+     "companyName": "한미사이언스",
+     "primaryTheme": "COSMETICS_CONSUMER",
+     "suggestedTheme": null,
+     "secondaryThemes": [
+      "BIO_PHARMA"
+     ],
+     "detail": "의약품 유통 지주",
+     "businessSummary": "한미약품 등을 자회사로 둔 지주회사로, 자회사 온라인팜의 의약품 도매(유통)가 매출의 약 84%를 차지한다. 나머지는 한미약품 계열 헬스케어 사업과 지주 부문이 담당한다.",
+     "confidence": "medium",
+     "why": "2025년 연결 매출 1조 3568억원 중 의약품도매(온라인팜) 1조 1367억원으로 약 84%이며, 2026년 3분기 보도에서도 의약품 도매가 매출의 약 83.8%로 확인된다. 의약품 유통은 택소노미상 '유통'에 속하므로 COSMETICS_CONSUMER로 분류했고, DART 사업보고서 원문은 열지 못해 medium으로 둔다.",
+     "evidenceUrls": [
+      "https://www.hitnews.co.kr/news/articleView.html?idxno=73646",
+      "https://www.openbizdata.com/hanmiscience/",
+      "https://www.insightkorea.co.kr/news/articleView.html?idxno=257421",
+      "https://www.sentv.co.kr/article/view/sentv202610280006",
+      "https://www.newsprime.co.kr/news/article/?no=753375"
+     ],
+     "gateReasons": [],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:22:57+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
     {
      "companyName": "한미사이언스",
      "primaryTheme": "UNCLASSIFIED",
