@@ -42,7 +42,9 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
     mode = 'correction' if label == 'DAY1' else 'rebound' if label.startswith('DAY') else 'uptrend'
     cs = st.get('correction_start')
     auto_peak = _index_peak_date(idf, cs) if cs is not None else None
-    auto_jjin = st.get('jjin_date') if mode == 'rebound' else None
+    # 상승 추세로 넘어가도 다음 DAY1(새 21EMA 이탈) 전까지는 마지막 기산점·찐반등을 유지한다
+    # (get_market_status가 normal 상태에서도 둘을 넘겨준다 — 추세추종 탭과 같은 규칙)
+    auto_jjin = st.get('jjin_date') if mode != 'correction' else None
     peak_d, jjin_d = auto_peak, auto_jjin
 
     if jjin is not None:
@@ -51,21 +53,27 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
         mode, label = 'rebound', (f'DAY{after + 2}' if after <= 5 else f'+{after}일')
     if peak is not None:
         peak_d = _snap(idf, peak)
-        if jjin is None and mode == 'uptrend':
+        if jjin is None and jjin_d is not None and jjin_d <= peak_d:
+            jjin_d = None       # 수동 기산점이 자동 찐반등보다 뒤면 그 찐반등은 무효
+        if jjin_d is None and mode == 'uptrend':
             mode, label = 'correction', '수동 기산점'
-    if mode != 'uptrend' and peak_d is None:
-        # 찐반등일만 지정했고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로
-        win = idf[idf.index <= (jjin_d if jjin_d is not None else idf.index[-1])].tail(LOOKBACK_HIGH)
+    if jjin_d is not None and peak_d is None:
+        # 찐반등일만 있고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로
+        win = idf[idf.index <= jjin_d].tail(LOOKBACK_HIGH)
         peak_d = win['Close'].idxmax()
-    if mode != 'uptrend' and (cs is None or (peak is not None and cs < peak_d)):
+    if mode == 'correction' and peak_d is None:
+        peak_d = idf.tail(LOOKBACK_HIGH)['Close'].idxmax()
+    if peak_d is not None and (cs is None or (peak is not None and cs < peak_d)):
         cs = peak_d     # 자동 조정이 없거나 기산점을 뒤로 옮기면 ADR 기준 시점도 기산점으로
+    # 점수 공식: 찐반등이 있으면 (찐반등 이후·상승 추세 모두) 반등 공식, 기산점만 있으면 조정 공식
+    scoring = 'rebound' if jjin_d is not None else 'correction' if peak_d is not None else 'leader'
 
     def since(d):
         if d is None or d not in idf.index:
             return None
         return 100 * (float(idf['Close'].iloc[-1]) / float(idf.loc[d, 'Close']) - 1)
 
-    return {'mode': mode, 'label': label, 'correctionStart': cs, 'peakDate': peak_d, 'jjinDate': jjin_d,
+    return {'mode': mode, 'label': label, 'scoring': scoring, 'correctionStart': cs, 'peakDate': peak_d, 'jjinDate': jjin_d,
             'indexSincePeak': since(peak_d), 'indexSinceJjin': since(jjin_d),
             'autoPeakDate': auto_peak, 'autoJjinDate': auto_jjin,
             'manual': peak is not None or jjin is not None}
@@ -86,7 +94,8 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     if not pool:
         return []
 
-    if phase['mode'] == 'uptrend':
+    scoring = phase.get('scoring') or {'uptrend': 'leader', 'correction': 'correction'}.get(phase['mode'], 'rebound')
+    if scoring == 'leader':     # 기산점·찐반등이 전혀 없을 때만 (지수 이력에 조정 자체가 없음)
         for r in pool:
             r['nextScore'] = r.get('leaderScore', 0) / 85 * 100
             r['nextParts'] = {}
@@ -97,7 +106,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         df = df[df.index <= asof]
         # 조정 구간 = 기산점 ~ 찐반등일 (추세추종 탭 RS 구간과 동일). 조정 중이면 찐반등이 없으니 기준일까지.
         # 찐반등 이후 성과는 sinceJjinExcess가 따로 맡아서 두 항목이 겹치지 않는다.
-        end = phase['jjinDate'] if phase['mode'] == 'rebound' else None
+        end = phase['jjinDate'] if scoring == 'rebound' else None
         corr = calc_correction_rs(df, idf, phase['correctionStart'], end, phase['peakDate'])
         r['sincePeakExcess'] = corr['excess_pct']           # 조정 구간 지수 대비 %p
         r['sincePeakExcessAdr'] = corr['excess_adr']
@@ -124,7 +133,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     for r in pool:
         t = r['ticker']
         held = g('sincePeakExcessAdr', t)
-        if phase['mode'] == 'correction':
+        if scoring == 'correction':
             parts = {'덜 빠짐': 30 * held, '고점 근접': 25 * g('offHigh', t), '저점 선행': 15 * g('leadDays', t),
                      '거래량 우위': 15 * g('volRatio', t), '21EMA 위': 15 * r['aboveEma21']}
         else:

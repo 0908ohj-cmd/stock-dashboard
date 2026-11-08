@@ -441,9 +441,19 @@ def _phase_banner(m: Market, res: dict):
                 "조정 중 버틴 종목 가운데 <b>찐반등 이후 지수보다 먼저 치고 나가는</b> 종목이 진짜 주도주입니다. "
                 "회복 속도에 가장 큰 비중을 둡니다.")
     else:
-        body = ("<b>🟢 상승 추세</b> — 1주·1개월 상대강도와 10EMA 위에서 버티는 종목 비율로 "
-                "<b>확인된</b> 주도섹터를 봅니다.")
+        last = (f" — 마지막 찐반등 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{ph['indexSinceJjin']:+.1f}%</b>"
+                if ph.get('jjinDate') is not None and ph.get('indexSinceJjin') is not None else '')
+        body = (f"<b>🟢 상승 추세</b>{last}.<br>차기 주도섹터·주도주는 다음 조정(21EMA 이탈) 전까지 마지막 기산점·찐반등 기준을 "
+                "그대로 이어 갑니다. 주도섹터 <b>확정</b>은 아래 '상승 추세 확인 (A/B)'에서 봅니다.")
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
+
+
+def _phase_title(m: Market, ph: dict | None) -> str:
+    """시장 현황 접기 제목 — 접어 둬도 국면이 보이게."""
+    if ph is None:
+        return '**📊 시장 현황**'
+    tag = {'correction': f"🔴 조정 중 ({ph['label']})", 'rebound': f"🟡 찐반등 {ph['label']}"}.get(ph['mode'], '🟢 상승 추세')
+    return f"**📊 시장 현황 · {m.phase_index} {tag}{' · 수동 설정' if ph.get('manual') else ''}**"
 
 
 def _rs_cols(ph: dict) -> list:
@@ -452,7 +462,7 @@ def _rs_cols(ph: dict) -> list:
     # 항상 두 줄: ① 하락국면(기산점 ~ 찐반등, 찐반등 전이면 ~ 기준일) ② 상승국면(찐반등 ~ 기준일, 찐반등 전이면 —)
     p, j = ph.get('peakDate'), ph.get('jjinDate')
     ps = f'기산점 {p:%m/%d}' if p is not None else '기산점'
-    if ph.get('mode') == 'rebound' and j is not None:
+    if j is not None:     # 찐반등 이후·상승 추세 모두 (다음 조정 전까지 마지막 찐반등 유지)
         down = f'하락국면 RS/ADR ({ps} ~ 찐반등 {j:%m/%d})'
         up = (f'상승국면 RS/ADR (찐반등 {j:%m/%d} ~ 기준일)',
               'medianSinceJjinAdr', 'medianSinceJjin', 'sinceJjinExcessAdr', 'sinceJjinExcess')
@@ -559,7 +569,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         st.caption('점수를 낼 수 있는 종목이 없습니다.')
         return
     top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
-    rebound = ph['mode'] == 'rebound'
+    rebound = ph.get('scoring', ph['mode']) == 'rebound'
     cols = _rs_cols(ph)
     in_trend = _trend_tickers(m)
     only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
@@ -915,16 +925,13 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if not opts:
         st.warning(f"스냅샷에 {'·'.join(m.bench)} 일봉이 없습니다. 다음 배치 수집 후 표시됩니다.")
         return
-    # RS 구간 설정은 맨 위. 기준일(아래 선택 상자)이 먼저 필요하므로 자리만 잡고 나중에 채운다
-    rs_slot = st.container()
-    st.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
-    # 지수 현황 줄 오른쪽에 기준일 — 선택 상자를 먼저 그려 asof를 얻고, 왼쪽은 계산 뒤 채운다
-    strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
-    asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof', label_visibility='collapsed',
-                          format_func=lambda d: f'기준일 {d}',
-                          help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
-    with rs_slot:
-        peak, jjin = _rs_range(m, asof)
+    # 기준일 선택 상자는 '시장 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
+    # 위젯 값은 실행 시작 시 session_state에 이미 있으므로 거기서 읽는다.
+    key_asof = f'{m.key}_asof'
+    if st.session_state.get(key_asof) not in opts:
+        st.session_state[key_asof] = opts[0]
+    asof = st.session_state[key_asof]
+    peak, jjin = _rs_range(m, asof)     # RS 구간 설정은 맨 위
     try:
         res = _compute(m.key, asof, _data_key(m), peak, jjin)
     except ValueError as e:
@@ -932,12 +939,19 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         return
     labels, names = _labels(m), _names(m)
 
-    with strip:
-        _market_strip(m, res)
-    # 화면 배치는 국면과 상관없이 고정 — 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
-    # 국면에 따라 바뀌는 건 각 섹션이 기본으로 펼쳐져 있는지뿐이다.
+    with st.expander(_phase_title(m, res['phase']), expanded=True):
+        st.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
+        strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
+        pick.selectbox('기준일', opts, key=key_asof, label_visibility='collapsed',
+                       format_func=lambda d: f'기준일 {d}',
+                       help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
+        with strip:
+            _market_strip(m, res)
+        if res['phase'] is not None:
+            _phase_banner(m, res)
+    # 화면 배치는 국면과 상관없이 고정 — 시장 현황 → 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
+    # 국면에 따라 바뀌는 건 A/B 섹션이 기본으로 펼쳐져 있는지뿐이다.
     if res['phase'] is not None:
-        _phase_banner(m, res)
         with st.expander('**🧭 차기 주도섹터**', expanded=True):
             _lead_sectors(m, res, labels, names)
         with st.expander('**🎯 차기 주도주**', expanded=True):

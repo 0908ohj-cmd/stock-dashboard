@@ -68,6 +68,20 @@ def test_수동_기산점과_찐반등일이_자동값을_대체한다():
     assert ph['autoPeakDate'] == auto['peakDate']
 
 
+def test_상승추세가_돼도_마지막_기산점과_찐반등을_유지한다():
+    # 조정 → 찐반등 → 21EMA 회복 후 오래 상승 (DAY7 지나 Normal)
+    closes = (list(np.linspace(100, 130, 100)) + list(np.linspace(129, 105, 12))
+              + [112] + list(np.linspace(116, 150, 30)))
+    idf = _index(closes)
+    j = idf.index[112]                      # 찐반등일: 장중 저가가 21EMA 아래 + 양봉 + ADR 이상 상승
+    idf.loc[j, ['Open', 'Low']] = [104.0, 103.0]
+    ph = nl.detect_phase(idf, '2026-11-06')
+    assert ph['mode'] == 'uptrend'
+    assert ph['jjinDate'] == j
+    assert ph['jjinDate'] is not None and ph['peakDate'] is not None
+    assert ph['scoring'] == 'rebound'
+
+
 def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
     idf = _index(np.linspace(100, 160, 120))
     ph = nl.detect_phase(idf, '2026-11-06', peak='2026-10-15')
