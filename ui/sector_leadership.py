@@ -103,7 +103,7 @@ def _data_key(m: Market) -> tuple:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def _compute(market_key: str, asof: str, data_key: tuple) -> dict:
+def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: str = '') -> dict:
     m = MARKETS[market_key]
     tickers = [t for t, _ in _universe(m)]
     data = store.load_snapshot(m.key).get('data', {})
@@ -133,7 +133,7 @@ def _compute(market_key: str, asof: str, data_key: tuple) -> dict:
     phase, picks, ranked, thin = None, [], [], []
     if idx_rec:
         idx_df = store._records_to_df(idx_rec)
-        phase = nl.detect_phase(idx_df, asof)
+        phase = nl.detect_phase(idx_df, asof, peak or None, jjin or None)
         picks = nl.score_stocks(rep.stocks, bars, idx_df, theme_of, main, phase, asof)
         ranked, thin = nl.rank_sectors(picks)
     return {
@@ -416,20 +416,28 @@ _STAR = '★'
 def _phase_banner(m: Market, res: dict):
     ph = res['phase']
     idx = m.phase_index
+    manual = ' · 수동 설정' if ph.get('manual') else ''
     if ph['mode'] == 'correction':
         sp = ph['indexSincePeak']
-        body = (f"<b>🔴 조정 중 (DAY1)</b> — 기산점 {ph['peakDate']:%m/%d} 이후 {idx} "
+        body = (f"<b>🔴 조정 중 ({ph['label']}{manual})</b> — 기산점 {ph['peakDate']:%m/%d} 이후 {idx} "
                 f"<b>{sp:+.1f}%</b>.<br>지금은 주도섹터가 '확정'될 수 없는 구간입니다. 대신 <b>지수가 빠지는 동안 "
                 "덜 빠지고, 고점을 지키고, 먼저 저점을 찍은</b> 섹터·종목을 찾습니다 — 찐반등이 나오면 이들이 먼저 튑니다.")
     elif ph['mode'] == 'rebound':
         sj = ph['indexSinceJjin']
-        body = (f"<b>🟡 찐반등 {ph['label']}</b> — 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
+        body = (f"<b>🟡 찐반등 {ph['label']}{manual}</b> — 기산점 {ph['peakDate']:%m/%d} · 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
                 "조정 중 버틴 종목 가운데 <b>찐반등 이후 지수보다 먼저 치고 나가는</b> 종목이 진짜 주도주입니다. "
                 "회복 속도에 가장 큰 비중을 둡니다.")
     else:
         body = ("<b>🟢 상승 추세</b> — 1주·1개월 상대강도와 10EMA 위에서 버티는 종목 비율로 "
                 "<b>확인된</b> 주도섹터를 봅니다.")
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
+
+
+def _range_labels(ph: dict) -> tuple[str, str]:
+    """카드·표 머리글에 실제 구간 날짜를 넣는다 — 기산점·찐반등일을 바꾸면 바로 보인다."""
+    p, j = ph.get('peakDate'), ph.get('jjinDate')
+    return (f'지수 대비 ({p:%m/%d} 이후)' if p is not None else '지수 대비 (기산점 이후)',
+            f'찐반등 후 지수 대비 ({j:%m/%d} 이후)' if j is not None else '찐반등 후 지수 대비')
 
 
 def _stock_name(t: str, names: dict, records: dict) -> str:
@@ -444,18 +452,19 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
     rebound = ph['mode'] == 'rebound'
+    peak_lbl, jjin_lbl = _range_labels(ph)
     trend = {s['theme']: s for s in res['sectors']}     # 10EMA 위 비율 3주 추이·동시 개선
     cards = []
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
-        lines = [('지수 대비 (기산점 이후)', _signed(s['medianSincePeak'])),
+        lines = [(peak_lbl, _signed(s['medianSincePeak'])),
                  ('고점 대비 (3개월)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 (2주 전 → 지금)', _trend_txt(t.get('history'))),
                  ('21EMA 위', f"{100 * s['pctAbove21']:.0f}%"),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         if rebound:
-            lines.insert(0, ('찐반등 후 지수 대비', _signed(s['medianSinceJjin'])))
+            lines.insert(0, (jjin_lbl, _signed(s['medianSinceJjin'])))
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
         badge = f'<div style="margin:-4px 0 6px">{_IMPROVING}</div>' if t.get('improving') else ''
         cards.append(f'<div class="nl-card {"top" if i == 0 else ""}"><div class="nl-score">{s["score"]:.0f}</div>'
@@ -489,8 +498,8 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
-            + ('<th>찐반등 후 지수 대비</th>' if rebound else '')
-            + '<th>지수 대비 (기산점 이후)</th><th>고점 대비</th><th>10EMA 위 (2주 전 → 지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
+            + (f'<th>{jjin_lbl}</th>' if rebound else '')
+            + f'<th>{peak_lbl}</th><th>고점 대비</th><th>10EMA 위 (2주 전 → 지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -506,7 +515,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         return
     top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
     rebound = ph['mode'] == 'rebound'
-    only_top = st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
+    peak_lbl, jjin_lbl = _range_labels(ph)
+    only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
     rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
                   key=lambda r: -r['nextScore'])[:20]
     body = []
@@ -530,8 +540,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
-        + ('<th>찐반등 후 지수 대비</th>' if rebound else '')
-        + '<th>지수 대비 (기산점 이후)</th><th>고점 대비 (3개월)</th><th>저점</th><th>상승/하락 거래량</th>'
+        + (f'<th>{jjin_lbl}</th>' if rebound else '')
+        + f'<th>{peak_lbl}</th><th>고점 대비 (3개월)</th><th>저점</th><th>상승/하락 거래량</th>'
         '<th>21EMA</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     parts = ' + '.join(f'{k} {v}' for k, v in (
@@ -819,6 +829,36 @@ def _downloads(m: Market, res: dict, labels: dict, names: dict):
                          key=f'{m.key}_dl_stk')
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def _auto_phase(index_name: str, asof: str, idx_key: int) -> dict | None:
+    rec = store.load_snapshot('indices').get('data', {}).get(index_name)
+    if not rec:
+        return None
+    return nl.detect_phase(store._records_to_df(rec), asof)
+
+
+def _rs_range(m: Market, asof: str) -> tuple[str, str]:
+    """추세추종 탭과 같은 '⚙️ RS 구간 설정'. 비워두면 자동. 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
+    auto = _auto_phase(m.phase_index, asof, _mtime(store._snapshot_path('indices'))) or {}
+    ap, aj = auto.get('autoPeakDate'), auto.get('autoJjinDate')
+    max_d = pd.Timestamp(asof).date()
+    with st.expander('⚙️ RS 구간 설정 — 기산점 · 찐반등일', expanded=False):
+        c1, c2 = st.columns(2)
+        c1.caption(f'자동 기산점: {ap:%Y-%m-%d}' if ap is not None else '자동 기산점: 없음 (조정 미감지)')
+        peak = c1.date_input('기산점 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_peak',
+                             help='비워두면 지수가 21EMA를 이탈하기 전 고점을 씁니다. '
+                                  '"지수 대비 (기산점 이후)"·덜 빠짐·저점 선행이 이 날짜부터 다시 계산됩니다.')
+        c2.caption(f'자동 찐반등일: {aj:%Y-%m-%d}' if aj is not None else '자동 찐반등일: 없음 (미감지)')
+        jjin = c2.date_input('찐반등일 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_jjin',
+                             help='비워두면 자동 감지한 찐반등일을 씁니다. 지정하면 찐반등 이후 화면으로 바뀌고 '
+                                  '"찐반등 후 지수 대비"가 이 날짜부터 계산됩니다.')
+        if peak and jjin and peak >= jjin:
+            st.warning('기산점이 찐반등일보다 앞이어야 합니다 — 기산점 설정을 무시합니다.')
+            peak = None
+        st.caption('휴장일을 고르면 직전 거래일로 맞춥니다. 기준일이 바뀌어도 설정은 유지됩니다.')
+    return (str(peak) if peak else '', str(jjin) if jjin else '')
+
+
 def render_sector_leadership_tab(market_key: str = 'US'):
     m = MARKETS[market_key]
     if not _universe(m):
@@ -832,8 +872,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     head.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
     asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof',
                           help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
+    peak, jjin = _rs_range(m, asof)
     try:
-        res = _compute(m.key, asof, _data_key(m))
+        res = _compute(m.key, asof, _data_key(m), peak, jjin)
     except ValueError as e:
         st.error(f'계산할 수 없습니다: {e}')
         return

@@ -24,22 +24,49 @@ STRONG_SCORE = 70
 LOOKBACK_HIGH = 63      # 고점 근접 = 최근 63거래일(약 3개월) 고가 대비
 
 
-def detect_phase(index_df: pd.DataFrame, asof) -> dict:
+def _snap(idf: pd.DataFrame, d) -> pd.Timestamp:
+    """d 이하 마지막 거래일 (휴장일·주말을 고르면 직전 거래일). d가 첫 거래일보다 앞이면 첫 거래일."""
+    pos = int(idf.index.searchsorted(pd.Timestamp(d), side='right')) - 1
+    return idf.index[max(pos, 0)]
+
+
+def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
+    """지수 국면. peak·jjin을 주면 자동 기산점·찐반등일 대신 그 날짜를 쓴다 (추세추종 탭의 RS 구간 설정과 같은 역할).
+
+    - jjin 지정 → 찐반등 이후 국면으로 본다 (라벨은 찐반등 다음 날부터 DAY2…, 6거래일 넘으면 '+N일')
+    - peak만 지정 → 자동 국면이 상승 추세여도 그 날짜부터 '버틴 힘'을 계산한다
+    """
     idf = index_df[index_df.index <= pd.Timestamp(asof)]
     label = get_phase_label(idf, calc_adr(idf))
     st = get_market_status(idf)
     mode = 'correction' if label == 'DAY1' else 'rebound' if label.startswith('DAY') else 'uptrend'
     cs = st.get('correction_start')
-    peak = _index_peak_date(idf, cs) if cs is not None else None
-    jjin = st.get('jjin_date') if mode == 'rebound' else None
+    auto_peak = _index_peak_date(idf, cs) if cs is not None else None
+    auto_jjin = st.get('jjin_date') if mode == 'rebound' else None
+    peak_d, jjin_d = auto_peak, auto_jjin
+
+    if jjin is not None:
+        jjin_d = _snap(idf, jjin)
+        after = len(idf) - 1 - idf.index.get_loc(jjin_d)
+        mode, label = 'rebound', (f'DAY{after + 2}' if after <= 5 else f'+{after}일')
+    if peak is not None:
+        peak_d = _snap(idf, peak)
+        if jjin is None and mode == 'uptrend':
+            mode, label = 'correction', '수동 기산점'
+    if mode != 'uptrend' and peak_d is None:
+        # 찐반등일만 지정했고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로
+        win = idf[idf.index <= (jjin_d if jjin_d is not None else idf.index[-1])].tail(LOOKBACK_HIGH)
+        peak_d = win['Close'].idxmax()
 
     def since(d):
         if d is None or d not in idf.index:
             return None
         return 100 * (float(idf['Close'].iloc[-1]) / float(idf.loc[d, 'Close']) - 1)
 
-    return {'mode': mode, 'label': label, 'correctionStart': cs, 'peakDate': peak, 'jjinDate': jjin,
-            'indexSincePeak': since(peak), 'indexSinceJjin': since(jjin)}
+    return {'mode': mode, 'label': label, 'correctionStart': cs, 'peakDate': peak_d, 'jjinDate': jjin_d,
+            'indexSincePeak': since(peak_d), 'indexSinceJjin': since(jjin_d),
+            'autoPeakDate': auto_peak, 'autoJjinDate': auto_jjin,
+            'manual': peak is not None or jjin is not None}
 
 
 def _since_ret(df: pd.DataFrame, d) -> float | None:

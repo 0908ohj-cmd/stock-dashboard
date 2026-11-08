@@ -55,6 +55,27 @@ def test_꾸준한_상승은_상승추세_국면():
     assert ph['mode'] == 'uptrend'
 
 
+def test_수동_기산점과_찐반등일이_자동값을_대체한다():
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 20))
+    idf = _index(closes)
+    auto = nl.detect_phase(idf, '2026-11-06')
+    ph = nl.detect_phase(idf, '2026-11-06', peak='2026-10-01', jjin='2026-11-01')   # 11/01 일요일
+    assert ph['manual'] and not auto['manual']
+    assert ph['peakDate'] == pd.Timestamp('2026-10-01') != auto['peakDate']
+    assert ph['jjinDate'] == pd.Timestamp('2026-10-30')     # 휴장일 → 직전 거래일
+    assert ph['mode'] == 'rebound' and ph['label'] == 'DAY7'  # 10/30 이후 5거래일 (11/2~11/6)
+    assert ph['indexSincePeak'] == pytest.approx(100 * (100 / idf.loc['2026-10-01', 'Close'] - 1))
+    assert ph['autoPeakDate'] == auto['peakDate']
+
+
+def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
+    idf = _index(np.linspace(100, 160, 120))
+    ph = nl.detect_phase(idf, '2026-11-06', peak='2026-10-15')
+    assert ph['mode'] == 'correction' and ph['jjinDate'] is None
+    ph2 = nl.detect_phase(idf, '2026-11-06', jjin='2026-11-02')
+    assert ph2['mode'] == 'rebound' and ph2['peakDate'] is not None   # 자동 조정이 없어도 기산점을 잡는다
+
+
 def _sec(theme, above10, nrs5, rvol, score, asof='2026-11-06'):
     return {'theme': theme, 'asOf': asof, 'pctAbove10': above10, 'medianNrs5': nrs5,
             'pctBullishRvol15_5D': rvol, 'score': score}
