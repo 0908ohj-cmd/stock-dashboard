@@ -144,6 +144,24 @@ def test_변화감지는_세가지가_동시에_좋아질때만():
     assert up['scoreChange'] == 15
 
 
+def test_순환매는_약했다가_새로_강해지는_섹터만():
+    def sec(theme, score, rs5, hist, above10=0.5):
+        s = {'theme': theme, 'inMainRanking': True, 'score': score, 'medianRs5': rs5, 'pctAbove10': above10,
+             'history': [{'asof': f'w{i}', 'score': sc, 'pctAbove10': ab} for i, (sc, ab) in enumerate(hist)]
+             + [{'asof': 'now', 'score': score, 'pctAbove10': above10}]}
+        return s
+    sectors = [
+        sec('SPACE', 72, 3.0, [(35, 0.1), (50, 0.3)], 0.6),     # 약했다가 급상승 → 후보
+        sec('OLD_LEADER', 85, 2.0, [(80, 0.7), (82, 0.7)]),      # 원래 강함 → 제외
+        sec('WEAK_UP', 55, -1.0, [(30, 0.1), (40, 0.2)]),        # 점수는 올랐지만 이번 주 지수보다 약함 → 제외
+        sec('FLAT', 45, 0.5, [(42, 0.3), (44, 0.3)], 0.35),     # 변화 작음 → 제외
+        sec('EMA_UP', 50, 0.2, [(45, 0.1), (48, 0.2)], 0.4),    # 점수 +5지만 10EMA +30%p → 후보
+    ]
+    out = ss.rotation_candidates(sectors)
+    assert [s['theme'] for s in out] == ['SPACE', 'EMA_UP']
+    assert out[0]['scoreRise'] == 37
+
+
 def test_관찰_후순위_구분():
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 50}) == 'C_WATCH'
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 44}) == 'D_LOW'

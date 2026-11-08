@@ -303,9 +303,51 @@ def _market_strip(m: Market, res: dict):
         st.caption(f"⚠️ 시장({'·'.join(b['names'])}{' 평균' if len(b['names']) > 1 else ''})이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
 
 
+def _score_hist(s: dict) -> str:
+    pts = [h['score'] for h in s.get('history') or [] if h.get('score') is not None]
+    if not pts:
+        return '—'
+    return ' → '.join(f'<span class="sl-sub" style="margin:0">{p:.0f}</span>' for p in pts[:-1]) + \
+        (' → ' if len(pts) > 1 else '') + f'<b>{pts[-1]:.0f}</b>'
+
+
+def _rotation(res: dict, labels: dict, names: dict, records: dict):
+    st.markdown('#### 🔄 순환매 후보 — 새로 강해지는 섹터')
+    st.markdown('<div class="sl-note">2주 전엔 약했는데(점수 60 미만) 이번 주 <b>1주 RS가 지수보다 강하고</b>, '
+                '그 뒤 <b>점수 +10 이상</b> 또는 <b>10EMA 위 종목 비율 +20%p 이상</b> 오른 섹터. '
+                '찐반등 2~3주 뒤 처음부터 주도하지 않던 섹터가 치고 올라오면 여기서 먼저 보입니다.</div>',
+                unsafe_allow_html=True)
+    cands = ss.rotation_candidates(res['sectors'])
+    if not cands:
+        st.caption('지금은 조건에 맞는 섹터가 없습니다.')
+        return
+    leaders: dict = {}
+    for r in sorted(res['leaders'], key=lambda r: -r['leaderScore']):
+        leaders.setdefault(r['primaryTheme'], []).append(r)
+    rows = []
+    for s in cands:
+        badge_cls, badge = _GRADE_BADGE[ss.grade_bucket(s)]
+        top = ', '.join(_esc(names.get(r['ticker']) or (records.get(r['ticker']) or {}).get('companyName')
+                             or r['ticker']) for r in leaders.get(s['theme'], [])[:3])
+        rows.append(
+            f'<tr><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
+            f'<span class="sl-sub">{s["validCount"]}종목</span>'
+            + (f'<div style="margin-top:3px">{_IMPROVING}</div>' if s.get('improving') else '') + '</td>'
+            f'<td><span class="sl-badge {badge_cls}">{badge}</span></td>'
+            f'<td>{_score_hist(s)} <span class="sl-pos">({s["scoreRise"]:+.0f})</span></td>'
+            f'<td>{_signed(s["medianRs5"])}</td><td>{_signed(s["medianRs21"])}</td>'
+            f'<td>{_trend_txt(s.get("history"))}</td>'
+            f'<td class="sl-need">{top}</td></tr>')
+    st.markdown(
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr>'
+        '<th>섹터</th><th>판정</th><th>점수 (2주전→1주전→기준일)</th><th>1주 RS</th><th>1개월 RS</th>'
+        '<th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>핵심 종목</th>'
+        '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+
+
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
     names, records = names or {}, records or {}
-    st.markdown('#### 섹터 — A 확인된 주도 / B 차기 후보')
+    st.markdown('#### 전체 섹터 판정 — A 확인된 주도 / B 차기 후보')
     st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 지수 대비, 종목 중앙값)와 '
                 '<b>10EMA 위에서 버티는 종목 비율</b>로 판정합니다. A·B가 아니면 45점 이상 관찰, 미만 후순위. '
                 f'{_IMPROVING_NOTE}.</div>',
@@ -379,14 +421,17 @@ def _next_stocks(m: Market, res: dict, labels: dict, names: dict):
     st.markdown('#### 종목')
     grade_of = {s['theme']: s['grade'] for s in res['sectors']}
     records = cls.load_store(m.key)
+    rot = {s['theme'] for s in ss.rotation_candidates(res['sectors'])}
     groups = {
+        '순환매 섹터 종목': ('위 순환매 후보 섹터에 속한 종목',
+                       [r for r in res['leaders'] if r['primaryTheme'] in rot]),
         '차기 주도주 후보': ('1주 RS가 플러스로 돌아서고 10EMA 위로 올라왔지만, 1개월 RS나 50일선은 아직 회복 전인 종목',
                        [r for r in res['leaders'] if r['leaderType'] in ('EMERGING', 'REBOUND')]),
         '이미 강한 주도주': ('1주·1개월 RS 모두 플러스이고 10·21EMA·50SMA 위에 있는 종목',
                        [r for r in res['leaders'] if r['leaderType'] == 'LEADER_TREND']),
     }
-    pick = st.segmented_control('종목 구분', list(groups), default='차기 주도주 후보',
-                                key=f'{m.key}_stock_group', label_visibility='collapsed') or '차기 주도주 후보'
+    pick = st.segmented_control('종목 구분', list(groups), default='순환매 섹터 종목',
+                                key=f'{m.key}_stock_group', label_visibility='collapsed') or '순환매 섹터 종목'
     desc, rows = groups[pick]
     rows = sorted(rows, key=lambda r: -r['leaderScore'])[:20]
     st.markdown(f'<div class="sl-note">{_esc(desc)} · 주도주 점수순 상위 {len(rows)}개. '
@@ -444,7 +489,7 @@ def _phase_banner(m: Market, res: dict):
         last = (f" — 마지막 찐반등 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{ph['indexSinceJjin']:+.1f}%</b>"
                 if ph.get('jjinDate') is not None and ph.get('indexSinceJjin') is not None else '')
         body = (f"<b>🟢 상승 추세</b>{last}.<br>차기 주도섹터·주도주는 다음 조정(21EMA 이탈) 전까지 마지막 기산점·찐반등 기준을 "
-                "그대로 이어 갑니다. 주도섹터 <b>확정</b>은 아래 '상승 추세 확인 (A/B)'에서 봅니다.")
+                "그대로 이어 갑니다. 찐반등 2주 뒤부터 새로 치고 올라오는 섹터는 아래 <b>'🔄 순환매'</b>에서 봅니다.")
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
 
 
@@ -957,10 +1002,12 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         with st.expander('**🎯 차기 주도주**', expanded=True):
             _lead_stocks(m, res, labels, names)
     uptrend = res['phase'] is None or res['phase']['mode'] == 'uptrend'
-    with st.expander('**📈 상승 추세 확인 (A/B) — 1주·1개월 RS와 10EMA 유지로 주도섹터 확정**', expanded=uptrend):
+    with st.expander('**🔄 순환매 — 새 주도섹터 찾기 (최근 1주·1개월 RS · 10EMA)**', expanded=uptrend):
         if not uptrend:
-            st.caption('추세가 살아난 뒤 주도섹터를 "확정"하는 기준입니다. 조정 중에는 대부분 미달이 정상입니다.')
-        _next_sectors(res, labels, names, cls.load_store(m.key))
+            st.caption('찐반등 2주 뒤부터 주로 보는 섹션입니다. 조정 중에는 대부분 미달이 정상입니다.')
+        records = cls.load_store(m.key)
+        _rotation(res, labels, names, records)
+        _next_sectors(res, labels, names, records)
         _next_stocks(m, res, labels, names)
 
     views = ['섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']

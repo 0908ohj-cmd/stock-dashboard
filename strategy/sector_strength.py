@@ -379,6 +379,37 @@ def attach_trend(latest: list, earlier: list) -> None:
             and s['pctBullishRvol15_5D'] >= prev['pctBullishRvol15_5D'])
 
 
+ROTATION_WAS_WEAK = 60      # 2주 전 점수가 B 기준(60) 미만이었던 섹터만 '새' 주도 후보
+ROTATION_SCORE_RISE = 10    # 2주 전 대비 점수 상승
+ROTATION_EMA_RISE = 0.20    # 2주 전 대비 10EMA 위 종목 비율 상승
+
+
+def rotation_candidates(sectors: list) -> list:
+    """순환매(새 주도섹터) 후보 — attach_trend가 붙인 history로 판단.
+
+    조건: 메인 테마 · 점수 있음 · 이번 주 1주 RS(중앙값) > 0(지수보다 강함) ·
+          2주 전(없으면 1주 전) 점수 < 60(그땐 약했음) ·
+          그 뒤 점수 +10 이상 또는 10EMA 위 비율 +20%p 이상 또는 '동시 개선'.
+    정렬: 점수 상승폭 큰 순. 찐반등 2~3주 뒤 처음부터 주도하지 않던 섹터가 치고 올라오는 경우를 잡는다.
+    """
+    out = []
+    for s in sectors:
+        if not s.get('inMainRanking') or s.get('score') is None or (s.get('medianRs5') or 0) <= 0:
+            continue
+        hist = [h for h in s.get('history') or [] if h.get('score') is not None]
+        if len(hist) < 2:
+            continue
+        base = hist[0]
+        if base['score'] >= ROTATION_WAS_WEAK:
+            continue
+        rise = s['score'] - base['score']
+        p0, p1 = base.get('pctAbove10'), s.get('pctAbove10')
+        ema_rise = None if p0 is None or p1 is None else p1 - p0
+        if rise >= ROTATION_SCORE_RISE or (ema_rise or 0) >= ROTATION_EMA_RISE or s.get('improving'):
+            out.append({**s, 'scoreRise': rise, 'emaRise': ema_rise, 'baseAsOf': base['asof']})
+    return sorted(out, key=lambda s: -s['scoreRise'])
+
+
 def grade_bucket(s: dict) -> str:
     """A/B 외 섹터를 명세대로 관찰(45~59점)·후순위(45점 미만)로 나눈다."""
     if s['grade'] in ('A_CONFIRMED', 'B_EMERGING', 'UNVERIFIED'):
