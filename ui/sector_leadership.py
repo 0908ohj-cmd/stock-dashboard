@@ -210,7 +210,9 @@ _GRADE_BADGE = {
     'D_LOW': ('sl-U', '후순위'),
     'UNVERIFIED': ('sl-U', '판정 불가'),
 }
-_IMPROVING = '<span class="sl-badge sl-A" title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 동시 개선</span>'
+_IMPROVING = '<span class="sl-badge sl-A" title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 1주 전보다 10EMA·RS·거래량 모두 개선</span>'
+_IMPROVING_NOTE = ('📈 배지 = 1주 전과 비교해 ① 10EMA 위 종목 비율 +10%p 이상 ② 5일 RS/ADR(변동성 감안 지수 대비 강도) 상승 '
+                   '③ 거래량 실린 양봉(RVOL 1.5배↑)이 나온 종목 비율 유지 — 세 가지가 모두 성립한 섹터')
 
 
 def _trend_txt(history: list | None, key: str = 'pctAbove10') -> str:
@@ -306,7 +308,7 @@ def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: d
     st.markdown('### 차기 주도섹터 — 추세 확인 기준 (A/B)')
     st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 지수 대비, 종목 중앙값)와 '
                 '<b>10EMA 위에서 버티는 종목 비율</b>로 판정합니다. A·B가 아니면 45점 이상 관찰, 미만 후순위. '
-                '<b>📈 동시 개선</b> = 1주 전보다 10EMA 회복률·ADR 보정 RS·거래량 확산이 함께 좋아진 섹터.</div>',
+                f'{_IMPROVING_NOTE}.</div>',
                 unsafe_allow_html=True)
     sectors = [s for s in res['sectors'] if s['inMainRanking']]
     order = {'A_CONFIRMED': 0, 'B_EMERGING': 1, 'C_WATCH': 2, 'D_LOW': 3, 'UNVERIFIED': 4}
@@ -483,6 +485,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
                      f'<div class="nl-score">{s["score"]:.0f}</div></div>'
                      f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stocks}</div></div>')
     st.markdown('<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+    st.caption(_IMPROVING_NOTE)
 
     # 제 판단 — 조정장 상위에 방어 섹터가 섞이면 반등장 주도주가 아닐 수 있다
     notes = []
