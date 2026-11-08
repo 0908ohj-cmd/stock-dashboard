@@ -26,18 +26,18 @@ def _kr(dirpath, fetched_at):
 # ── 로컬 회차 계산 ───────────────────────────────────────────
 
 def test_last_local_slot_kr():
-    """KR 로컬 회차는 월~금 16:10."""
-    assert cs.last_local_slot('kr', datetime(2026, 9, 16, 16, 50, tzinfo=KST)) == \
-        datetime(2026, 9, 16, 16, 10, tzinfo=KST)
-    # 16:10 이전이면 전날 회차
+    """KR 로컬 회차는 월~금 17:30."""
+    assert cs.last_local_slot('kr', datetime(2026, 9, 16, 18, 10, tzinfo=KST)) == \
+        datetime(2026, 9, 16, 17, 30, tzinfo=KST)
+    # 17:30 이전이면 전날 회차
     assert cs.last_local_slot('kr', datetime(2026, 9, 16, 12, 0, tzinfo=KST)) == \
-        datetime(2026, 9, 15, 16, 10, tzinfo=KST)
+        datetime(2026, 9, 15, 17, 30, tzinfo=KST)
     # 자정을 넘긴 새벽(지연된 Action)이면 전날 회차
     assert cs.last_local_slot('kr', datetime(2026, 9, 17, 2, 30, tzinfo=KST)) == \
-        datetime(2026, 9, 16, 16, 10, tzinfo=KST)
+        datetime(2026, 9, 16, 17, 30, tzinfo=KST)
     # 주말이면 금요일 회차
     assert cs.last_local_slot('kr', datetime(2026, 9, 20, 10, 0, tzinfo=KST)) == \
-        datetime(2026, 9, 18, 16, 10, tzinfo=KST)
+        datetime(2026, 9, 18, 17, 30, tzinfo=KST)
 
 
 def test_last_local_slot_us():
@@ -87,9 +87,9 @@ def test_slots_match_store_freshness_schedule(market):
 # ── 판정 ──────────────────────────────────────────────────
 
 def test_kr_fresh_when_local_covered_this_slot(tmp_path):
-    """로컬이 16:14에 끝났으면 16:50 Action은 빠진다."""
-    _kr(tmp_path, '2026-09-16T16:14:00+09:00')
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
+    """로컬이 17:34에 끝났으면 18:10 Action은 빠진다."""
+    _kr(tmp_path, '2026-09-16T17:34:00+09:00')
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
 
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is True
 
@@ -101,16 +101,16 @@ def test_kr_fresh_even_when_action_fires_hours_late(tmp_path):
     '수집 후 N시간 이내'로 판정하면 이 지연 때문에 로컬이 멀쩡한 날에도 폴백이
     다시 수집하고 '(Action 폴백)'이 매일 붙는다. 회차 기준이면 지연과 무관하다.
     """
-    _kr(tmp_path, '2026-09-16T16:14:00+09:00')
+    _kr(tmp_path, '2026-09-16T17:34:00+09:00')
     now = datetime(2026, 9, 17, 2, 30, tzinfo=KST)
 
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is True
 
 
 def test_kr_stale_when_local_missed_this_slot(tmp_path):
-    """이번 회차(수 16:10) 이후 수집이 없으면 폴백이 수집한다."""
-    _kr(tmp_path, '2026-09-15T16:14:00+09:00')   # 전날 것뿐
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
+    """이번 회차(수 17:30) 이후 수집이 없으면 폴백이 수집한다."""
+    _kr(tmp_path, '2026-09-15T17:34:00+09:00')   # 전날 것뿐
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
 
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is False
 
@@ -118,7 +118,7 @@ def test_kr_stale_when_local_missed_this_slot(tmp_path):
 def test_kr_stale_when_only_collected_before_slot(tmp_path):
     """같은 날이어도 회차 시각 전에 수집한 것은 이번 회차를 덮지 못한다."""
     _kr(tmp_path, '2026-09-16T15:00:00+09:00')
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
 
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is False
 
@@ -142,16 +142,16 @@ def test_us_stale_when_local_missed_this_slot(tmp_path):
 
 def test_stale_when_one_file_lags(tmp_path):
     """한 파일만 뒤처져도 폴백이 돈다 — 부분 결손을 신선으로 보면 안 된다."""
-    _write(tmp_path, 'KR_KOSPI.json', '2026-09-16T16:14:00+09:00')
-    _write(tmp_path, 'KR_KOSDAQ.json', '2026-09-15T16:14:00+09:00')
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
+    _write(tmp_path, 'KR_KOSPI.json', '2026-09-16T17:34:00+09:00')
+    _write(tmp_path, 'KR_KOSDAQ.json', '2026-09-15T17:34:00+09:00')
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
 
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is False
 
 
 def test_all_checks_each_market_against_its_own_slot(tmp_path):
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
-    _kr(tmp_path, '2026-09-16T16:14:00+09:00')
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
+    _kr(tmp_path, '2026-09-16T17:34:00+09:00')
     _write(tmp_path, 'US.json', '2026-09-16T08:14:00+09:00')
     assert cs.is_fresh('all', now=now, ohlcv_dir=tmp_path) is True
 
@@ -211,11 +211,11 @@ def test_reads_from_git_ref(tmp_path):
     ohlcv = repo / 'data' / 'ohlcv'
     ohlcv.mkdir(parents=True)
     subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=repo, env=env, check=True)
-    _kr(ohlcv, '2026-09-16T16:14:00+09:00')              # 커밋된 상태: 로컬이 수집함
+    _kr(ohlcv, '2026-09-16T17:34:00+09:00')              # 커밋된 상태: 로컬이 수집함
     subprocess.run(['git', 'add', '.'], cwd=repo, env=env, check=True)
     subprocess.run(['git', 'commit', '-q', '-m', 's'], cwd=repo, env=env, check=True)
     _kr(ohlcv, '2026-09-15T00:00:00+09:00')              # 작업본은 옛 값으로 덮음
 
-    now = datetime(2026, 9, 16, 16, 50, tzinfo=KST)
+    now = datetime(2026, 9, 16, 18, 10, tzinfo=KST)
     assert cs.is_fresh('kr', now=now, ohlcv_dir=ohlcv) is False              # 작업본
     assert cs.is_fresh('kr', now=now, ohlcv_dir=ohlcv, ref='main') is True   # ref

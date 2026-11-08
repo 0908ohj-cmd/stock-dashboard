@@ -5,7 +5,7 @@
 돌았으면 빠지고, 안 돌았으면 대신 수집한다"를 정한다.
 
 판정 기준은 '회차'다: 스냅샷 fetched_at이 가장 최근 로컬 회차 시각 이후면 신선.
-  KR 로컬 회차: 월~금 16:10 KST     US 로컬 회차: 화~토 08:10 KST
+  KR 로컬 회차: 월~금 17:30 KST     US 로컬 회차: 화~토 08:10 KST
 "수집 후 N시간 이내"로 판정하면 안 된다 — GitHub cron은 실측 3~6.5시간 늦게
 뜬다(2026-09: KR 06:45Z 예약 → 12:01~13:19Z, US 00:00Z → 03:12~03:35Z).
 16:50 KST로 예약한 KR 폴백이 6시간 늦게(22:50) 뜨면 로컬 수집(≈16:15)에서 이미
@@ -38,7 +38,7 @@ OHLCV_DIR = REPO_ROOT / 'data' / 'ohlcv'
 
 # 로컬 launchd 회차 — scripts/launchd/*.plist와 반드시 같아야 한다
 LOCAL_SLOTS = {
-    'kr': {'hour': 16, 'minute': 10, 'weekdays': {0, 1, 2, 3, 4}},   # 월~금
+    'kr': {'hour': 17, 'minute': 30, 'weekdays': {0, 1, 2, 3, 4}},   # 월~금
     'us': {'hour': 8,  'minute': 10, 'weekdays': {1, 2, 3, 4, 5}},   # 화~토
 }
 MARKET_FILES = {

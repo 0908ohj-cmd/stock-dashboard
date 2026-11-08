@@ -559,19 +559,19 @@ def _write_meta(tmp_store, market, fetched_at, last_trading_date='2026-07-22'):
 
 
 def test_freshness_fresh_after_batch(tmp_store):
-    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T16:00:00+09:00')  # 수 16:00 수집
+    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T17:34:00+09:00')  # 수 17:34 수집
     now = datetime(2026, 7, 22, 18, 0, tzinfo=KST)                    # 수 18:00
     assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is False
 
 
 def test_freshness_stale_when_batch_missed(tmp_store):
-    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T16:00:00+09:00')  # 수 16:00 수집
-    now = datetime(2026, 7, 23, 23, 0, tzinfo=KST)  # 목 23:00 — 목 16:00 배치+유예 6h 경과
+    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-22T17:34:00+09:00')  # 수 17:34 수집
+    now = datetime(2026, 7, 23, 23, 30, tzinfo=KST)  # 목 23:30 — 목 17:00 배치+유예 6h 경과
     assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is True
 
 
 def test_freshness_weekend_not_stale(tmp_store):
-    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-24T16:00:00+09:00')  # 금 16:00 수집
+    _write_meta(tmp_store, 'KR_KOSPI', '2026-07-24T17:34:00+09:00')  # 금 17:34 수집
     now = datetime(2026, 7, 26, 14, 0, tzinfo=KST)                    # 일 14:00
     assert store.get_freshness('KR_KOSPI', now=now)['is_stale'] is False
 
