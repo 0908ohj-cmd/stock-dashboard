@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-08T16:09:02+09:00",
+ "updatedAt": "2026-11-08T20:28:19+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -159,6 +159,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:52:31+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "0015G0": {
+   "companyName": "그린광학",
+   "primaryTheme": "DEFENSE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DISPLAY",
+    "SEMI_EQUIPMENT"
+   ],
+   "detail": "방산 광학부품",
+   "businessSummary": "초정밀 광학 시스템과 황화아연(ZnS) 광학소재를 만드는 업체다. 방산 유도무기 탐색기용 광학 부품이 매출의 가장 큰 비중이고, 디스플레이·반도체 장비 납품도 한다.",
+   "confidence": "medium",
+   "why": "2025년 상반기 매출의 약 55%가 방산에서 나왔다는 보도가 있고, 2026년 1분기에도 방산 매출이 전년 대비 82% 이상 늘며 성장을 이끌었다. 다만 사업보고서(DART)의 부문별 매출 비중은 확인하지 못했고, 2025년 매출 수치도 출처마다 달라 확정 근거로는 부족하다.",
+   "evidenceUrls": [
+    "https://www.finance-scope.com/article/view/scp202605180021",
+    "https://en.wikipedia.org/wiki/Green_Optics_Co.,_Ltd."
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:15:34+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -372,28 +396,52 @@
    "history": []
   },
   "003720": {
-   "companyName": "삼영",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
-   "detail": "커패시터 필름·포장 필름",
-   "businessSummary": "1959년 설립된 커패시터용 필름과 포장용 필름 제조업체다. 공개 자료 기준 필름 부문이 매출의 약 62%, 중공업 부문이 약 38%다. 커패시터 필름 내 제품 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "필름 부문 62%는 확인했지만, 필름 안에서 커패시터용(전기·전자 부품 소재)과 포장용(화학 소재) 비중을 나눈 공시·세그먼트 자료를 찾지 못했다. 중공업 38%의 사업 내용도 확인되지 않았다. 후보는 ELECTRONIC_COMPONENTS(커패시터 필름)와 CONSTRUCTION_MATERIALS(포장 필름·화학) 두 가지이며, DART 사업보고서의 매출 현황에서 부문별 비중을 확인하면 분류할 수 있다.",
+   "companyName": "삼영(주)",
+   "primaryTheme": "CONSTRUCTION_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ELECTRONIC_COMPONENTS"
+   ],
+   "detail": "커패시터 필름 소재",
+   "businessSummary": "커패시터(콘덴서)용 필름과 포장용 필름을 만드는 화학·필름 제조사이며, 중공업 사업부를 함께 운영한다. 커패시터 필름은 전기·전자제품 콘덴서의 핵심 소재이고 전기차향 수요가 성장 동력으로 언급된다.",
+   "confidence": "medium",
+   "why": "필름 부문이 매출의 다수를 차지한다는 증권 자료(2026년 2분기 기준 약 62%, 2024년 추정도 약 70%)에 근거해 필름 사업을 주력으로 봤다. 필름은 석유화학 기반 소재라 CONSTRUCTION_MATERIALS를 골랐고, 전자 소재로서의 성격은 secondary로 남겼다. 사업보고서 원문(DART)은 확인하지 못했고 매출 비중은 증권사 추정치라 신뢰도는 medium이다.",
    "evidenceUrls": [
-    "https://kr.investing.com/equities/sam-young-chem",
-    "https://stockhub.kr/stock/003720",
-    "https://file.alphasquare.co.kr/media/pdfs/company-report/20240105140444469K_02.pdf"
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20240105140444469K_02.pdf",
+    "https://view.asiae.co.kr/article/2026021907524159055",
+    "https://stock.pstatic.net/stock-research/company/74/20241025_company_907026000.pdf"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:53:39+09:00",
+   "reviewedAt": "2026-11-08T20:19:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "삼영",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "커패시터 필름·포장 필름",
+     "businessSummary": "1959년 설립된 커패시터용 필름과 포장용 필름 제조업체다. 공개 자료 기준 필름 부문이 매출의 약 62%, 중공업 부문이 약 38%다. 커패시터 필름 내 제품 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "필름 부문 62%는 확인했지만, 필름 안에서 커패시터용(전기·전자 부품 소재)과 포장용(화학 소재) 비중을 나눈 공시·세그먼트 자료를 찾지 못했다. 중공업 38%의 사업 내용도 확인되지 않았다. 후보는 ELECTRONIC_COMPONENTS(커패시터 필름)와 CONSTRUCTION_MATERIALS(포장 필름·화학) 두 가지이며, DART 사업보고서의 매출 현황에서 부문별 비중을 확인하면 분류할 수 있다.",
+     "evidenceUrls": [
+      "https://kr.investing.com/equities/sam-young-chem",
+      "https://stockhub.kr/stock/003720",
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/20240105140444469K_02.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:53:39+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "004710": {
    "companyName": "한솔테크닉스(주)",
@@ -666,6 +714,32 @@
    "overrideReason": "",
    "history": []
   },
+  "006730": {
+   "companyName": "서부T&D",
+   "primaryTheme": "HOLDING_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "CONSTRUCTION_MATERIALS",
+    "COSMETICS_CONSUMER"
+   ],
+   "detail": "호텔·부동산 운영",
+   "businessSummary": "관광호텔(호텔플렉스) 운영이 매출의 대부분이며, 쇼핑몰 운영과 석유류 판매, 식기류 제조·판매를 함께 한다. 호텔·부동산 운영 중심의 서비스 기업이다.",
+   "confidence": "medium",
+   "why": "2025년 3분기 누적 매출의 관광호텔업 72.8%, 쇼핑몰 16.1%, 식기류 9.0%로 제시되어 주력 사업은 호텔·부동산 운영이며, 이 사업은 목록 내 테마에 해당하지 않아 HOLDING_OTHER로 분류했다. 석유류 판매는 3% 안팎이고 식기류는 생활소비재다. 수치는 증권사 리포트·재무 사이트 등 2차 자료 기준이며 DART 사업보고서 원문은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://www.dailyinvest.kr/news/articleView.html?idxno=61983",
+    "https://kbthink.com/securities-view.html?docId=20251119094539277K",
+    "https://www.chickstockfi.com/stocks/006730/financials",
+    "https://stockanalysis.com/quote/kosdaq/006730/revenue"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:13:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "006800": {
    "companyName": "미래에셋증권",
    "primaryTheme": "FINANCE",
@@ -685,6 +759,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:51:27+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "006910": {
+   "companyName": "보성파워텍",
+   "primaryTheme": "POWER_GRID",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "CONSTRUCTION_MATERIALS",
+    "ENERGY_TRANSITION"
+   ],
+   "detail": "전력기자재·송전철탑",
+   "businessSummary": "송전철탑·발전소 철골 등 철구조 사업과 가스개폐기·주상변압기 등 중전기 사업을 하는 전력기자재 기업이다. 한국전력공사가 주요 고객이다.",
+   "confidence": "medium",
+   "why": "제3자 투자정보 사이트 집계로 2026년 2분기 매출 기준 철구조 83%, 중전기 17%이며, 철구조(송전철탑)가 전력망 설비이므로 POWER_GRID로 분류했다. 사업보고서(DART)의 품목별 매출은 직접 확인하지 못해 confidence를 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.mydailybyte.com/littlebit/stock/006910/fundamental",
+    "https://www.digitaltoday.co.kr/aigongsi/3356/boseong-powertech-kepco-supply-contract"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:15:58+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -764,30 +862,56 @@
   },
   "008930": {
    "companyName": "한미사이언스",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "COSMETICS_CONSUMER",
+   "suggestedTheme": null,
    "secondaryThemes": [
     "BIO_PHARMA"
    ],
-   "detail": "의약품 유통·헬스케어 지주",
-   "businessSummary": "의약품 유통(온라인팜 등)을 주력으로 하는 지주회사로, 헬스케어(자회사 한미약품 계열 제약·바이오)와 지주부문을 함께 가진다. 검색 요약 기준 2026년 2분기 매출의 약 83%가 의약품도매 부문이다.",
-   "confidence": "low",
-   "why": "사업 구성 수치는 요약 사이트(butler.works) 검색 결과에서만 확인했고 DART 사업보고서 원문은 열지 못했다. 주력 사업이 의약품 도매이므로 유통 성격의 COSMETICS_CONSUMER가 후보이나, 공식 부문별 매출로 확인되지 않아 UNCLASSIFIED로 둔다. 헬스케어 부문(약 10%)이 BIO_PHARMA 보조 태그 근거다.",
+   "detail": "의약품 유통 지주",
+   "businessSummary": "한미약품 등을 자회사로 둔 지주회사로, 자회사 온라인팜의 의약품 도매(유통)가 매출의 약 84%를 차지한다. 나머지는 한미약품 계열 헬스케어 사업과 지주 부문이 담당한다.",
+   "confidence": "medium",
+   "why": "2025년 연결 매출 1조 3568억원 중 의약품도매(온라인팜) 1조 1367억원으로 약 84%이며, 2026년 3분기 보도에서도 의약품 도매가 매출의 약 83.8%로 확인된다. 의약품 유통은 택소노미상 '유통'에 속하므로 COSMETICS_CONSUMER로 분류했고, DART 사업보고서 원문은 열지 못해 medium으로 둔다.",
    "evidenceUrls": [
-    "https://www.butler.works/ko/companies/00161426",
-    "https://alphasquare.co.kr/home/stock-summary?code=008930",
-    "https://www.koreancenter.or.kr/news/articleView.html?idxno=1430591",
-    "https://www.smarttoday.co.kr/ko-kr/articles/86840"
+    "https://www.hitnews.co.kr/news/articleView.html?idxno=73646",
+    "https://www.openbizdata.com/hanmiscience/",
+    "https://www.insightkorea.co.kr/news/articleView.html?idxno=257421",
+    "https://www.sentv.co.kr/article/view/sentv202610280006",
+    "https://www.newsprime.co.kr/news/article/?no=753375"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:01:59+09:00",
+   "reviewedAt": "2026-11-08T20:22:57+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "한미사이언스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "BIO_PHARMA"
+     ],
+     "detail": "의약품 유통·헬스케어 지주",
+     "businessSummary": "의약품 유통(온라인팜 등)을 주력으로 하는 지주회사로, 헬스케어(자회사 한미약품 계열 제약·바이오)와 지주부문을 함께 가진다. 검색 요약 기준 2026년 2분기 매출의 약 83%가 의약품도매 부문이다.",
+     "confidence": "low",
+     "why": "사업 구성 수치는 요약 사이트(butler.works) 검색 결과에서만 확인했고 DART 사업보고서 원문은 열지 못했다. 주력 사업이 의약품 도매이므로 유통 성격의 COSMETICS_CONSUMER가 후보이나, 공식 부문별 매출로 확인되지 않아 UNCLASSIFIED로 둔다. 헬스케어 부문(약 10%)이 BIO_PHARMA 보조 태그 근거다.",
+     "evidenceUrls": [
+      "https://www.butler.works/ko/companies/00161426",
+      "https://alphasquare.co.kr/home/stock-summary?code=008930",
+      "https://www.koreancenter.or.kr/news/articleView.html?idxno=1430591",
+      "https://www.smarttoday.co.kr/ko-kr/articles/86840"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:01:59+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "009150": {
    "companyName": "삼성전기 주식회사",
@@ -933,30 +1057,53 @@
    "history": []
   },
   "010170": {
-   "companyName": "대한광통신",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "companyName": "대한광통신(주)",
+   "primaryTheme": "TELECOM_NETWORK",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "TELECOM_NETWORK",
     "POWER_GRID"
    ],
-   "detail": "광케이블 광섬유 통신",
-   "businessSummary": "광섬유·광케이블을 생산하며, 통신 부문은 광케이블·광섬유, 전력 부문은 광복합가공지선(OPGW)을 공급한다. 2025년 부문별 매출 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "주력 제품(광섬유·광케이블, OPGW)과 통신·전력 두 부문은 확인했지만 부문별 매출 비중을 공시로 확인하지 못해 주력 테마를 정하지 못했다. 후보는 통신 부문 쪽(TELECOM_NETWORK)과 전력 부문 쪽(POWER_GRID)이며, DART 2025 사업보고서의 매출 실적표로 비중을 확인한 뒤 재분류해야 한다.",
+   "detail": "광통신·광케이블",
+   "businessSummary": "광섬유·광케이블(통신사업)과 광복합가공지선(OPGW) 등 전력 케이블(전력사업)을 모재부터 광케이블까지 수직 계열화해 생산하는 회사다. 2026년 2분기 기준 통신사업이 매출의 약 63%, 전력사업이 약 37%를 차지한다는 집계 사이트 수치가 있다.",
+   "confidence": "medium",
+   "why": "통신사업(광섬유·광케이블)이 매출 우위(집계 기준 58~63%)라서 주력을 TELECOM_NETWORK으로 잡았고, 전력사업(OPGW 등 전력 케이블, 약 37~42%)은 보조 테마로 뒀다. 부문 비중은 집계 사이트 수치이며 DART 사업보고서 원문은 열어 확인하지 못해 medium으로 뒀다.",
    "evidenceUrls": [
-    "https://stockanalysis.com/quote/kosdaq/010170/company",
-    "https://view.asiae.co.kr/article/2024091307475180513"
+    "https://view.asiae.co.kr/article/2024091307475180513",
+    "https://www.butler.works/ko/companies/00113261"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:58:13+09:00",
+   "reviewedAt": "2026-11-08T20:22:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "대한광통신",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "TELECOM_NETWORK",
+      "POWER_GRID"
+     ],
+     "detail": "광케이블 광섬유 통신",
+     "businessSummary": "광섬유·광케이블을 생산하며, 통신 부문은 광케이블·광섬유, 전력 부문은 광복합가공지선(OPGW)을 공급한다. 2025년 부문별 매출 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "주력 제품(광섬유·광케이블, OPGW)과 통신·전력 두 부문은 확인했지만 부문별 매출 비중을 공시로 확인하지 못해 주력 테마를 정하지 못했다. 후보는 통신 부문 쪽(TELECOM_NETWORK)과 전력 부문 쪽(POWER_GRID)이며, DART 2025 사업보고서의 매출 실적표로 비중을 확인한 뒤 재분류해야 한다.",
+     "evidenceUrls": [
+      "https://stockanalysis.com/quote/kosdaq/010170/company",
+      "https://view.asiae.co.kr/article/2024091307475180513"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:58:13+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "010580": {
    "companyName": "주식회사 에스엠벡셀",
@@ -1139,33 +1286,58 @@
   },
   "012210": {
    "companyName": "삼미금속 주식회사",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "AUTO_MOBILITY",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "AUTO_MOBILITY",
     "INDUSTRIAL_MACHINERY",
-    "SHIPBUILDING",
-    "DEFENSE",
-    "NUCLEAR"
+    "SHIPBUILDING"
    ],
    "detail": "단조 부품 제조",
-   "businessSummary": "국내 최대 규모 형단조 설비를 갖춘 단조 전문 기업으로, 자동차·중장비·조선·방산용 단조 부품을 생산한다. 현대차 트럭·버스용 프론트 액슬과 너클 등을 납품하고, 선박엔진용 커넥팅로드, 원전 터빈 블레이드, 천무 미사일 탄두 등도 만든다.",
-   "confidence": "low",
-   "why": "회사명·사업 내용은 확인했으나 제품별 매출 비중(중장비·선박엔진·방산·발전 등)의 수치를 찾지 못했다. 사업보고서 「주요 제품 및 서비스」 확인 전에는 자동차부품, 기계, 조선, 방산 중 주력 테마를 가를 근거가 부족하다. 자동차 부품과 중장비 기계 부품 성격이 섞여 있어 단정하지 않았다.",
+   "businessSummary": "국내 최대 규모 형단조 설비를 갖춘 단조 전문 기업으로, 자동차 부품을 가장 많이 생산하고 중장비·선박엔진용 단조 부품도 함께 만든다.",
+   "confidence": "medium",
+   "why": "2025년 연간 자동차부품 매출 비중이 43~47%로 가장 크고, 2026년 2분기 집계에서도 자동차부품 43%, 중장비부품 22%, 선박엔진부품 19%로 1위다. 사업보고서 원문은 확인하지 못해 뉴스·리서치 집계의 세그먼트 비중에 근거했다.",
    "evidenceUrls": [
     "https://stock.pstatic.net/stock-research/company/64/20260806_company_261247000.pdf",
-    "https://www.kokstock.com/stock/item.asp?item_cd=012210",
+    "https://www.finance-scope.com/article/view/scp202607240010",
     "https://www.butler.works/ko/companies/00125664"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:04:33+09:00",
+   "reviewedAt": "2026-11-08T20:23:22+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "삼미금속 주식회사",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "AUTO_MOBILITY",
+      "INDUSTRIAL_MACHINERY",
+      "SHIPBUILDING",
+      "DEFENSE",
+      "NUCLEAR"
+     ],
+     "detail": "단조 부품 제조",
+     "businessSummary": "국내 최대 규모 형단조 설비를 갖춘 단조 전문 기업으로, 자동차·중장비·조선·방산용 단조 부품을 생산한다. 현대차 트럭·버스용 프론트 액슬과 너클 등을 납품하고, 선박엔진용 커넥팅로드, 원전 터빈 블레이드, 천무 미사일 탄두 등도 만든다.",
+     "confidence": "low",
+     "why": "회사명·사업 내용은 확인했으나 제품별 매출 비중(중장비·선박엔진·방산·발전 등)의 수치를 찾지 못했다. 사업보고서 「주요 제품 및 서비스」 확인 전에는 자동차부품, 기계, 조선, 방산 중 주력 테마를 가를 근거가 부족하다. 자동차 부품과 중장비 기계 부품 성격이 섞여 있어 단정하지 않았다.",
+     "evidenceUrls": [
+      "https://stock.pstatic.net/stock-research/company/64/20260806_company_261247000.pdf",
+      "https://www.kokstock.com/stock/item.asp?item_cd=012210",
+      "https://www.butler.works/ko/companies/00125664"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:04:33+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "016360": {
    "companyName": "삼성증권",
@@ -1260,6 +1432,29 @@
    "overrideReason": "",
    "history": []
   },
+  "019210": {
+   "companyName": "와이지-원",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "절삭공구·엔드밀",
+   "businessSummary": "금속 가공용 절삭공구(엔드밀, 탭, 드릴 등)와 툴링 시스템을 제조해 국내외 공장과 유통망에 공급하는 산업용 공구 회사다. 매출의 대부분은 제품 판매에서 나오며 해외 매출 비중이 높다.",
+   "confidence": "medium",
+   "why": "사업 구조가 절삭공구 단일 부문이고, 알파스퀘어 기준 매출의 약 90.6%가 제품 판매다(2020년 기술분석 보고서도 절삭공구 단일 사업부문이라고 설명). 절삭공구는 기계 가공용 공구이므로 기계 테마로 분류했다. DART 사업보고서 원문의 최신 부문별 표는 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://ssl.pstatic.net/imgstock/upload/research/company/1609372394614.pdf",
+    "https://alphasquare.co.kr/home/stock-summary?code=019210",
+    "https://comp.wisereport.co.kr/company/c1020001.aspx?cmp_cd=019210&cn=",
+    "https://www.catch.co.kr/Comp/CompSummary/141968"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:20+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "020150": {
    "companyName": "롯데에너지머티리얼즈",
    "primaryTheme": "SECONDARY_BATTERY",
@@ -1281,6 +1476,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:01:34+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "023160": {
+   "companyName": "태광",
+   "primaryTheme": "CONSTRUCTION_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SHIPBUILDING"
+   ],
+   "detail": "산업플랜트 배관자재",
+   "businessSummary": "산업플랜트용 배관자재와 관이음쇠(피팅)를 제조해 판매한다. 주요 수요처는 석유화학·정유·가스 플랜트, LNG 관련 설비, 조선·해양 플랜트이며 매출의 약 80%가 수출이다.",
+   "confidence": "medium",
+   "why": "2024년 전방산업 매출 비중은 석유화학·정유·가스 29.3%, 조선·해양 10%, 기타 56.7%다. 기타는 중간판매상을 거친 간접 거래라 최종 업종을 구분하기 어렵다. 제품 자체가 철강 기반 배관·피팅 소재이고 가장 큰 식별 수요처가 플랜트 소재이므로 건설·소재·화학으로 분류했다. DART 사업보고서 원문은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://kr.investing.com/equities/tk-corp",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20250311태광.pdf",
+    "https://files-scs.pstatic.net/2025/02/28/FEyNjMh6LE/태광IR한글(25.02.28).pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1333,6 +1552,29 @@
    "overrideReason": "",
    "history": []
   },
+  "027360": {
+   "companyName": "아주IB투자",
+   "primaryTheme": "FINANCE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "벤처캐피탈 사모펀드",
+   "businessSummary": "벤처투자 전문 운용사로, 창업기업을 지원하는 액셀러레이터(AC), 성장기업에 투자하는 벤처캐피탈(VC), 인수합병을 하는 사모펀드(PE) 사업을 함께 운영한다. 벤처투자조합을 결성해 초기·성장 단계 기업에 투자하는 구조다.",
+   "confidence": "medium",
+   "why": "사업 구조가 VC·PE 운용과 액셀러레이팅이며 매출이 투자 운용 수익에서 나오므로 금융으로 분류했다. 다만 DART 사업보고서와 IR 자료를 직접 열어 매출 세그먼트를 확인하지 못했고, 반도체·AI·우주 등은 투자 대상이라 주력 사업이 아니므로 보조 테마에서 뺐다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/027360/%EC%95%84%EC%A3%BCIB%ED%88%AC%EC%9E%90-IR-ROOM",
+    "https://core.asiae.co.kr/article/2025061814465853296",
+    "https://stockanalysis.com/quote/kosdaq/027360/company",
+    "https://alphasquare.co.kr/home/stock-summary?code=027360"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:14:49+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "028050": {
    "companyName": "삼성E&A",
    "primaryTheme": "CONSTRUCTION_MATERIALS",
@@ -1357,29 +1599,76 @@
    "history": []
   },
   "028300": {
-   "companyName": "에이치엘비 (HLB Co., Ltd.)",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "companyName": "에이치엘비",
+   "primaryTheme": "BIO_PHARMA",
+   "suggestedTheme": null,
    "secondaryThemes": [],
-   "detail": "복합소재·미디어커머스 혼합",
-   "businessSummary": "복합소재(GRP/GRE 파이프·선박 기자재), 미디어커머스, 바이오(체외진단·제약) 등을 영위하는 것으로 확인되나, 출처마다 부문 구성과 비중이 달라 주력 사업을 확정하지 못했다.",
-   "confidence": "low",
-   "why": "DART 사업보고서와 회사 IR을 열지 못했고, 검색 결과의 부문 비중이 엇갈린다(2026년 2분기 기준 복합소재 45%·미디어커머스 38%·바이오 17%, 2025년 사업보고서 기준 미디어커머스 약 16%). 주력 테마를 특정할 근거가 없어 UNCLASSIFIED로 둔다.",
+   "detail": "간암 신약 바이오",
+   "businessSummary": "간암 표적항암제 리보세라닙(Rivoceranib)과 카멜리주맙 병용 요법을 핵심으로 하는 바이오·제약 기업이다. 미국 자회사 Elevar Therapeutics를 통해 중국 외 지역의 리보세라닙 권리를 보유하고, 신약 파이프라인과 기술이전을 추진한다.",
+   "confidence": "medium",
+   "why": "검색 결과 다수가 리보세라닙·Elevar 등 신약 파이프라인을 회사의 핵심 자산으로 소개하고, 2023 IR도 바이오 중심 기업임을 보여준다. 다만 사업부문별 매출 비중은 이번 검색에서 확인하지 못해 confidence를 medium으로 둔다. 확정하려면 DART 최신 사업보고서의 매출 구성을 확인해야 한다.",
    "evidenceUrls": [
-    "https://namu.moe/w/HLB",
-    "https://ko.wikipedia.org/wiki/%EC%97%90%EC%9D%B4%EC%B9%98%EC%97%98%EB%B9%84",
-    "https://stockanalysis.com/quote/kosdaq/028300/revenue/",
-    "http://www.hlb-group.com/mobile/include/images/sub/%EC%82%AC%EC%97%85%EB%B3%B4%EA%B3%A0%EC%84%9C_26%EB%85%84%201%EB%B6%84%EA%B8%B0.pdf"
+    "https://dodao-ui-insights-ui.vercel.app/stocks/KOSDAQ/028300/business-and-moat",
+    "https://quartr.com/events/hlb-co-ltd-028300-q2-2025_FMzyXdYj",
+    "https://file.alphasquare.co.kr/media/pdfs/company-ir/20230511HLB테라퓨틱스_투자자들의_회사에_대한_이해증진_및_기업가치_제고.pdf",
+    "https://www.dailypharm.com/user/news/90721"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:08:18+09:00",
+   "reviewedAt": "2026-11-08T20:26:56+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "에이치엘비(HLB)",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "항암 신약 개발",
+     "businessSummary": "리보세라닙(간암 2차 치료제)·캄렐리주맙 병용요법, 리라푸그라티닙 등 항암 신약 파이프라인을 개발하는 바이오의약품 회사다. 다만 사업보고서 기준 품목·부문별 매출 비중은 이번 검색에서 확인하지 못했다.",
+     "confidence": "low",
+     "why": "종목코드 028300이 에이치엘비(KOSDAQ)인 것은 확인했다. 파이프라인이 바이오의약품이라는 점은 검색 결과(나무위키, 뉴스)로 확인되지만, 공식 사업보고서의 품목·부문별 매출 비중은 열어보지 못했다. 제3자 데이터의 부문 구성(복합소재 45%·미디어커머스 38%·바이오 17%, 2026년 2분기)은 바이오 중심 서술과 충돌해 근거로 쓸 수 없다. 따라서 BIO_PHARMA로 추정되지만 DART 사업보고서 매출 실적 확인 전까지 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://namu.wiki/w/%EC%97%90%EC%9D%B4%EC%B9%98%EC%97%98%EB%B9%84",
+      "https://www.catch.co.kr/Comp/CompSummary/738220",
+      "https://www.etoday.co.kr/news/view/2171449",
+      "https://stoxray.com/stocks/xkrx/028300"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:19:45+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "에이치엘비 (HLB Co., Ltd.)",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "복합소재·미디어커머스 혼합",
+     "businessSummary": "복합소재(GRP/GRE 파이프·선박 기자재), 미디어커머스, 바이오(체외진단·제약) 등을 영위하는 것으로 확인되나, 출처마다 부문 구성과 비중이 달라 주력 사업을 확정하지 못했다.",
+     "confidence": "low",
+     "why": "DART 사업보고서와 회사 IR을 열지 못했고, 검색 결과의 부문 비중이 엇갈린다(2026년 2분기 기준 복합소재 45%·미디어커머스 38%·바이오 17%, 2025년 사업보고서 기준 미디어커머스 약 16%). 주력 테마를 특정할 근거가 없어 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://namu.moe/w/HLB",
+      "https://ko.wikipedia.org/wiki/%EC%97%90%EC%9D%B4%EC%B9%98%EC%97%98%EB%B9%84",
+      "https://stockanalysis.com/quote/kosdaq/028300/revenue/",
+      "http://www.hlb-group.com/mobile/include/images/sub/%EC%82%AC%EC%97%85%EB%B3%B4%EA%B3%A0%EC%84%9C_26%EB%85%84%201%EB%B6%84%EA%B8%B0.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:08:18+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "028670": {
    "companyName": "팬오션",
@@ -1404,29 +1693,53 @@
   },
   "030530": {
    "companyName": "원익홀딩스",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "SEMI_MATERIALS_PARTS",
-    "SEMI_EQUIPMENT"
+    "SEMI_EQUIPMENT",
+    "ROBOTICS"
    ],
-   "detail": "반도체 가스·장비",
-   "businessSummary": "원익그룹의 사업지주회사로, 연결 매출은 반도체 가스 공급장치(가스 부문 약 52%)와 반도체 장비(약 38~41%)가 대부분이다. 원익IPS 등 핵심 계열사를 보유한다.",
-   "confidence": "low",
-   "why": "2025 사업보고서 기준이라는 부문 비중(가스 51.8%, 반도체 장비 38.0%, 합계 101.1%)을 blog 2차 자료에서만 확인했고, DART 원문과 butler.works(HTTP 429)는 열지 못했다. 가스 부문이 소재·부품인지 장비인지도 자료만으로 확정할 수 없어 주력 테마를 비워 두었다.",
+   "detail": "반도체 특수가스·소재",
+   "businessSummary": "반도체 장비·가스·신사업·투자 4개 부문으로 나뉘는 사업지주회사다. 종속회사 원익머트리얼즈를 중심으로 한 가스 부문(반도체·디스플레이 공장용 고순도 특수가스 공급 및 가스 시스템)이 2025년 사업보고서 기준 매출의 약 51.8%로 가장 크다.",
+   "confidence": "medium",
+   "why": "가스 부문이 연결 매출의 약 51.8%로 최대 비중이고, 그 내용은 반도체·디스플레이 공장에 고순도 특수가스를 공급하는 소재 사업이다. 반도체 장비(원익IPS 등)와 로봇(원익로보틱스 등)은 보조 테마로 뒀다. 51.8% 비중은 DART 사업보고서 원문이 아니라 블로그형 기업 가이드 인용이라 medium으로 낮췄다.",
    "evidenceUrls": [
     "https://foxcg.com/wonik-holdings-guide/",
-    "https://news.mtn.co.kr/news-detail/2026041413583794396"
+    "https://core.asiae.co.kr/article/2025120110092616647"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:04:50+09:00",
+   "reviewedAt": "2026-11-08T20:23:22+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "원익홀딩스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_MATERIALS_PARTS",
+      "SEMI_EQUIPMENT"
+     ],
+     "detail": "반도체 가스·장비",
+     "businessSummary": "원익그룹의 사업지주회사로, 연결 매출은 반도체 가스 공급장치(가스 부문 약 52%)와 반도체 장비(약 38~41%)가 대부분이다. 원익IPS 등 핵심 계열사를 보유한다.",
+     "confidence": "low",
+     "why": "2025 사업보고서 기준이라는 부문 비중(가스 51.8%, 반도체 장비 38.0%, 합계 101.1%)을 blog 2차 자료에서만 확인했고, DART 원문과 butler.works(HTTP 429)는 열지 못했다. 가스 부문이 소재·부품인지 장비인지도 자료만으로 확정할 수 없어 주력 테마를 비워 두었다.",
+     "evidenceUrls": [
+      "https://foxcg.com/wonik-holdings-guide/",
+      "https://news.mtn.co.kr/news-detail/2026041413583794396"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:04:50+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "031330": {
    "companyName": "에스에이엠티주식회사",
@@ -1519,28 +1832,52 @@
    "history": []
   },
   "033790": {
-   "companyName": "피노",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "companyName": "피노 (FINO Inc., 구 Skymoons Technology)",
+   "primaryTheme": "SECONDARY_BATTERY",
+   "suggestedTheme": null,
    "secondaryThemes": [],
-   "detail": "통신장비·2차전지 전구체 혼재",
-   "businessSummary": "공식 IR·회사소개 기준 무선통신용 중계기 등 통신장비 제조·판매와 모바일 게임 사업을 영위한다. 다만 최근 2차전지 소재(전구체) 매출 비중이 커졌다는 2차 자료가 있어 현재 주력 사업은 확인되지 않았다.",
-   "confidence": "low",
-   "why": "K5 회사소개의 당기말 기준 매출 비중은 통신장비 85.79%, 게임 14.21%이나 기준 연도가 표기되지 않았다. 반면 검색된 2차 자료는 최근 매출이 2차전지 소재(전구체)·신에너지 중심이라고 전하며 두 자료가 서로 맞지 않는다. DART 사업보고서 부문별 매출은 열어보지 못해 주력 테마를 확정할 수 없다.",
+   "detail": "이차전지 전구체·양극재",
+   "businessSummary": "2024년 CNGR에 인수된 뒤 통신 중계기 사업에서 NCM 전구체 등 이차전지 소재 사업으로 재편됐다. 2025년 매출 2,648억원 중 신에너지 부문이 약 99.7%를 차지하는 것으로 보도됐다.",
+   "confidence": "medium",
+   "why": "언론 보도(디일렉·치킨스탁 등)가 2025년 매출의 신에너지 부문 비중을 99.7%로 전하고, 주력 제품이 NCM 전구체 공급이라고 설명한다. 통신장비는 0.3%에 그친다. 사업보고서 원문은 확인하지 못해 medium으로 둔다.",
    "evidenceUrls": [
-    "https://www.k5.co.kr/stock/033790",
-    "https://m.irgo.co.kr/IR-COMP/033790/-IR-PAGE",
-    "https://59sececonomy.com/%ED%94%BC%EB%85%B8033790-%EC%A0%84%EB%A7%9D-2026-%ED%86%B5%EC%8B%A0%EC%9E%A5%EB%B9%84%EC%97%90%EC%84%9C-%EC%9D%B4%EC%B0%A8%EC%A0%84%EC%A7%80-%EC%86%8C%EC%9E%AC%EB%A1%9C-%EC%B2%B4%EC%A7%88/"
+    "https://www.thelec.kr/news/articleView.html?idxno=35854",
+    "https://www.fnnews.com/news/202508141031435698",
+    "https://www.bloter.net/news/articleView.html?idxno=658255",
+    "https://www.chickstockfi.com/analysis/779",
+    "https://www.gukjenews.com/news/articleView.html?idxno=3185489"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:07:30+09:00",
+   "reviewedAt": "2026-11-08T20:19:30+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "피노",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "통신장비·2차전지 전구체 혼재",
+     "businessSummary": "공식 IR·회사소개 기준 무선통신용 중계기 등 통신장비 제조·판매와 모바일 게임 사업을 영위한다. 다만 최근 2차전지 소재(전구체) 매출 비중이 커졌다는 2차 자료가 있어 현재 주력 사업은 확인되지 않았다.",
+     "confidence": "low",
+     "why": "K5 회사소개의 당기말 기준 매출 비중은 통신장비 85.79%, 게임 14.21%이나 기준 연도가 표기되지 않았다. 반면 검색된 2차 자료는 최근 매출이 2차전지 소재(전구체)·신에너지 중심이라고 전하며 두 자료가 서로 맞지 않는다. DART 사업보고서 부문별 매출은 열어보지 못해 주력 테마를 확정할 수 없다.",
+     "evidenceUrls": [
+      "https://www.k5.co.kr/stock/033790",
+      "https://m.irgo.co.kr/IR-COMP/033790/-IR-PAGE",
+      "https://59sececonomy.com/%ED%94%BC%EB%85%B8033790-%EC%A0%84%EB%A7%9D-2026-%ED%86%B5%EC%8B%A0%EC%9E%A5%EB%B9%84%EC%97%90%EC%84%9C-%EC%9D%B4%EC%B0%A8%EC%A0%84%EC%A7%80-%EC%86%8C%EC%9E%AC%EB%A1%9C-%EC%B2%B4%EC%A7%88/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:07:30+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "036170": {
    "companyName": "에이치엠넥스",
@@ -1586,6 +1923,56 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:59:09+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "036930": {
+   "companyName": "주성엔지니어링",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DISPLAY",
+    "ENERGY_TRANSITION"
+   ],
+   "detail": "반도체 증착장비 (ALD·CVD)",
+   "businessSummary": "반도체 전공정 증착(ALD·CVD) 장비를 주력으로 만드는 코스닥 장비 기업이다. 2025년 매출의 대부분(약 98%)이 반도체 장비에서 나왔고, 디스플레이·태양광 장비는 2% 안팎이다.",
+   "confidence": "high",
+   "why": "2025년 연결 매출 3,106억 원 중 반도체 3,037억 원, 태양광·디스플레이 69억 원으로 보도됨(반도체 약 98%). 수주잔고도 3분기 기준 약 91%가 반도체 제조장비. DART 사업보고서 원문은 직접 확인하지 못했고 뉴스·증권사 자료 기준이며, 3분기 반도체 비중은 자료마다 95%와 98%로 엇갈린다.",
+   "evidenceUrls": [
+    "https://m.news.nate.com/view/20260210n33245",
+    "https://news.nate.com/view/20260210n37578",
+    "https://www.digitaltoday.co.kr/news/articleView.html?idxno=629652",
+    "https://www.fnnews.com/news/202611041827255904",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20260211235742963K_02.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:18:24+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "037460": {
+   "companyName": "삼지전자",
+   "primaryTheme": "SEMI_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "TELECOM_NETWORK"
+   ],
+   "detail": "반도체 메모리 유통",
+   "businessSummary": "5G 광중계기 등 통신기기를 만드는 한편, 자회사 에스에이엠티(031330)를 통해 메모리·시스템LSI 등 반도체 전자부품을 유통하는 지주형 기업입니다. 2026년 1분기 연결 매출의 약 94%가 전자부품 유통 부문에서 나옵니다.",
+   "confidence": "medium",
+   "why": "2026년 1분기 분기보고서 기준 연결 매출의 약 94.26%가 자회사 에스에이엠티의 전자부품(메모리·S.LSI) 유통 부문이고 통신기기 부문은 0.8%에 그칩니다. 핵심 자회사 사업이 매출 대부분이므로 지주 규칙에 따라 반도체 메모리 테마로 분류했습니다. 다만 유통업이라 제조 기업은 아니며, 매출 비중은 뉴스 요약 기준이라 DART 사업보고서로 재확인이 필요합니다.",
+   "evidenceUrls": [
+    "https://kr.investing.com/news/global-filings/article-93CH-1947508",
+    "https://www.samji.com/KR/ir/finance.asp"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:14:58+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1774,6 +2161,55 @@
    "overrideReason": "",
    "history": []
   },
+  "046120": {
+   "companyName": "오르비텍",
+   "primaryTheme": "SPACE_AEROSPACE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "NUCLEAR"
+   ],
+   "detail": "항공기 부품·원전 검사",
+   "businessSummary": "항공기 꼬리동체 구조 격벽 등 정밀 항공기 부품을 제조·조립하는 항공 사업과, 원전 방사선 관리·비파괴검사(ISI) 등 원자력 시설 서비스를 함께 영위한다. 2026년 2분기 매출은 항공 49%, 원자력 26%, ISI 25%로 보고됐다(단일 출처, 미확인).",
+   "confidence": "medium",
+   "why": "항공기 부품 제조가 2026년 2분기 매출 49%로 가장 크다는 수치는 butler.works 검색 결과에서만 확인했고 원문 페이지는 HTTP 429로 열지 못했다. 원자력(방사선·ISI)은 StockHub 페이지에서 확인되며 매출 26%+25%로 보조 테마다. 부문별 비중은 DART 분기보고서로 재확인이 필요하다.",
+   "evidenceUrls": [
+    "https://stockhub.kr/stock/046120",
+    "https://www.butler.works/ko/companies/00297989"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:20:37+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "오르비텍",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "NUCLEAR",
+      "SPACE_AEROSPACE"
+     ],
+     "detail": "원전 방사선관리·항공부품",
+     "businessSummary": "원자력 발전소의 방사선 안전관리와 ISI(가동 전 검사·건전성 진단) 용역을 수행하고, 항공기 정밀부품을 제조한다. 원자력 부문과 항공 부문이 매출의 대부분을 차지한다.",
+     "confidence": "low",
+     "why": "사업 구성(원자력 방사선관리·ISI, 항공기 정밀부품)은 IR 페이지로 확인했다. 그러나 매출 비중이 자료마다 달라 주력을 확정할 수 없다. 2019년 키움 보고서는 항공 55%·원자력+ISI 44%였고, 검색 결과의 2026년 2분기 수치는 항공 49%·원자력 26%+ISI 25%(합계 51%)였다. 최신 수치의 원문 출처를 열어 확인하지 못했으므로 DART 사업보고서 확인 전까지 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://m.irgo.co.kr/IR-COMP/046120/오르비텍-IR-PAGE",
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/키움20190924오르비텍.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:14:01+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
+  },
   "046970": {
    "companyName": "우리로",
    "primaryTheme": "TELECOM_NETWORK",
@@ -1874,6 +2310,55 @@
    "overrideReason": "",
    "history": []
   },
+  "048410": {
+   "companyName": "현대바이오사이언스",
+   "primaryTheme": "COSMETICS_CONSUMER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "BIO_PHARMA"
+   ],
+   "detail": "기능성 화장품·항바이러스 신약",
+   "businessSummary": "항바이러스 신약 자프티(XAFTY, 니클로사마이드 기반 범용 항바이러스제)를 개발하는 바이오 기업이다. 2025년 매출은 항균·항바이러스 기능성 스킨케어 등 기능성 화장품이 거의 전부이다.",
+   "confidence": "medium",
+   "why": "2025년 매출은 기능성 화장품이 거의 전부로 정리되어 매출 기준 주력은 화장품이다. 항바이러스 신약 자프티는 회사 가치의 핵심 파이프라인이라 BIO_PHARMA를 보조 테마로 둔다. 근거는 증권 분석 사이트 2차 자료이며 DART 사업보고서 원문은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://alphadistill.com/report/1670",
+    "https://stockanalysis.com/quote/kosdaq/048410/revenue/",
+    "https://www.ibtomato.com/ExternalView.aspx?no=11748&type=1"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:12+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "049630": {
+   "companyName": "재영솔루텍",
+   "primaryTheme": "ELECTRONIC_COMPONENTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "AUTO_MOBILITY"
+   ],
+   "detail": "카메라 액추에이터",
+   "businessSummary": "스마트폰 카메라 모듈용 액추에이터(OIS 손떨림 보정, 엔코더, AF/VCM)를 설계·생산하는 기업이다. 2024년 금형사업 영업을 중단하고 나노광학 사업에 집중하고 있다.",
+   "confidence": "medium",
+   "why": "복수 기사와 회사 소개에서 주력 매출이 스마트폰 카메라 액추에이터(OIS 중심)로 확인되며, 카메라모듈 부품은 전자부품 테마에 해당한다. 자동차 부품은 회사 소개에 나열되지만 매출 비중이 확인되지 않아 보조 테마로만 둔다. DART 사업보고서의 제품별 매출 비중은 열람하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://thevc.kr/jaeyoungsolutec/products",
+    "https://www.stockhub.kr/stock/049630",
+    "https://core.asiae.co.kr/article/2024112108392729779",
+    "https://core.asiae.co.kr/article/2025111209111889512"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:18+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "052710": {
    "companyName": "아모텍",
    "primaryTheme": "ELECTRONIC_COMPONENTS",
@@ -1943,6 +2428,85 @@
    "overrideReason": "",
    "history": []
   },
+  "056080": {
+   "companyName": "유진로봇",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "INDUSTRIAL_MACHINERY",
+    "AUTO_MOBILITY"
+   ],
+   "detail": "산업 자동화 장비",
+   "businessSummary": "자동차 부품 조립·검사용 자동화 생산라인과 자동화 검사장비를 주문제작 방식으로 판매하며, 자율주행 물류로봇(AMR)과 스마트팩토리 자동화 사업을 함께 하는 로봇 기업이다. 청소로봇 사업은 축소된 상태다.",
+   "confidence": "medium",
+   "why": "2025년 별도 매출 282억원 중 자동화 검사장비가 약 80.9%(약 228억원)로 집계되며(openbizdata), 2026년 2분기 기준 자동화 검사장비 주문제작 판매가 92%라는 집계도 있다. 자동차 부품 조립·검사 라인 계약이 주력이라 순수 로봇 제품이라기보다 설비 성격이 강하지만, 회사가 스스로를 로봇·AMR 기업으로 소개하고 있어 ROBOTICS를 주력으로 골랐다. DART 사업보고서 매출 표와 대조하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.openbizdata.com/yujinrobot/",
+    "https://comp.wisereport.co.kr/samsung/company/c1010001.aspx?cmp_cd=056080",
+    "https://m.thinkpool.com/compDiscuss/cont/1023510",
+    "https://www.irobotnews.com/news/articleView.html?idxno=5642",
+    "https://www.thebell.co.kr/free/content/ArticleView.asp?key=202409250848150920106273"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:20:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "유진로봇",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "ROBOTICS"
+     ],
+     "detail": "물류로봇·자동화 검사장비",
+     "businessSummary": "자율주행 물류로봇(AMR) 고카트와 커스텀 AMR을 개발·판매하는 로봇 기업이다. 다만 2025년 매출의 대부분은 자동화 검사장비(SAS)에서 나온 것으로 보도되어, 주력 사업은 로봇과 검사장비 사이에서 확정하지 못했다.",
+     "confidence": "low",
+     "why": "2025년 매출(약 282억원)의 약 81%를 자동화 검사장비(SAS)가 차지하고 지능형로봇·자율주행로봇·라이다는 약 18.6%라는 2차 자료가 있으나, 검사장비의 최종 고객 산업(반도체·전지·자동차 등)을 공식 자료로 확인하지 못했다. 사업보고서 원문의 부문별 매출표도 직접 열지 못해 근거 확정이 안 되어 UNCLASSIFIED로 둔다. 회사 소개와 IR 자료상 주력 방향은 AMR 물류로봇이다.",
+     "evidenceUrls": [
+      "https://bosoop.com/3ffc8e57-8154-484f-ac40-59a6b7620400/",
+      "https://m.thebell.co.kr/m/newsview.asp?svccode=04&newskey=202510141350105000107869",
+      "https://www.thebell.co.kr/front/newsview.asp?code=0401&key=202511061432173400103629",
+      "https://www.butler.works/ko/companies/00234227",
+      "https://www.valueline.co.kr/finance/summary/056080"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:14:24+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
+  },
+  "058610": {
+   "companyName": "에스피지(SPG Co., Ltd.)",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS"
+   ],
+   "detail": "가전 팬모터·기어드모터",
+   "businessSummary": "백색가전용 팬모터와 산업자동화용 기어드모터를 주력으로 생산하며, 로봇용 정밀 감속기(유성형·하모닉형·RV형) 사업을 키우고 있다.",
+   "confidence": "medium",
+   "why": "증권 리포트 요약 기준으로 팬모터(백색가전용)가 매출의 약 63%로 가장 크고, 기어드모터는 산업자동화 범용 기계부품이라 일반기계로 분류했다. 감속기는 로봇 부품 성격이 있어 보조 테마 ROBOTICS로 둔다. 다만 DART 사업보고서의 사업부문별 매출은 직접 열지 못했고 63% 수치도 리포트 제목·요약에 의존하므로 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://wikidocs.net/blog/@zsnote/6267/",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/에스피지.pdf",
+    "https://financialreports.eu/companies/spg-co-ltd/?page=5"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "059090": {
    "companyName": "미코",
    "primaryTheme": "SEMI_MATERIALS_PARTS",
@@ -1964,6 +2528,58 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:01:33+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "059120": {
+   "companyName": "아진엑스텍",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT",
+    "ELECTRONIC_COMPONENTS"
+   ],
+   "detail": "모션제어 부품·로봇제어",
+   "businessSummary": "반도체 비메모리 설계기술로 모션제어 칩을 만들고, 이를 쓴 모듈·시스템·로봇제어기를 제조·검사 자동화 장비 업체에 공급하는 모션제어 전문 기업이다. 주력 제품은 반도체 장비, 스마트폰 장비, 이차전지 장비 등의 핵심 제어 부품이다.",
+   "confidence": "medium",
+   "why": "2022년 한국IR협의회 보고서 기준 전방산업 매출 비중은 반도체 34.1%, 스마트폰 27.4%, PCB/SMT 6.2%이고, 제품은 모션제어 칩·보드·로봇제어기다. 고객이 장비 제조사라 반도체 장비 테마로 볼 여지도 있으나, 자사는 장비를 만들지 않고 제어 부품을 공급하므로 로봇 부품으로 분류했다. 최신 사업보고서(DART)의 매출 비중은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/IR20220928아진엑스텍.pdf",
+    "https://file.alphasquare.co.kr/media/pdfs/company-ir/20210607아진엑스텍-아진엑스텍-회사현황-및-사업전망-소개국내.pdf",
+    "https://view.asiae.co.kr/article/2022011011550926303",
+    "https://stockanalysis.com/quote/kosdaq/059120/company"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:25+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "060370": {
+   "companyName": "LS마린솔루션",
+   "primaryTheme": "POWER_GRID",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SHIPBUILDING",
+    "TELECOM_NETWORK"
+   ],
+   "detail": "해저케이블 시공·해상풍력 송전",
+   "businessSummary": "해저케이블 시공 전문 기업으로, 해상풍력·HVDC 등 해저 송전 케이블 설치와 해저 통신케이블 유지·보수가 주력 사업이다. 2023년 8월 사명을 KT서브마린에서 LS마린솔루션으로 변경했다.",
+   "confidence": "medium",
+   "why": "해저케이블 시공이 매출의 대부분(약 81%, koalagains 집계)이며, 최근 성장은 해상풍력 HVDC 송전 케이블과 전력망 수주에서 나온다. 전력 송전 케이블은 POWER_GRID에 해당한다. 공식 IR·DART 사업보고서의 세그먼트 비중은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://koalagains.com/stocks/KOSDAQ/060370/business-and-moat",
+    "https://financialreports.eu/companies/ls-marine-solution-co-ltd",
+    "https://cm.asiae.co.kr/en/article/2025052708521785771",
+    "https://v.daum.net/v/20260504090834357?f=p"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:14:05+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2235,27 +2851,105 @@
    "primaryTheme": "UNCLASSIFIED",
    "suggestedTheme": "UNCLASSIFIED",
    "secondaryThemes": [
-    "DISPLAY",
-    "TELECOM_NETWORK",
-    "DEFENSE",
-    "SEMI_MATERIALS_PARTS"
+    "SEMI_MATERIALS_PARTS",
+    "DEFENSE"
    ],
-   "detail": "LED·광통신 전자부품",
-   "businessSummary": "LED 응용제품(옥내·옥외 LED 전광판 모듈), 광통신 선로부품(광접속함체·광분배반), 방산 및 솔더(종속 비엔에프머티리얼즈) 사업을 영위하는 전자부품 기업입니다.",
+   "detail": "솔더 소재·방산 복합",
+   "businessSummary": "LED, 광통신, 네트워크, 방산 사업부를 운영하며, 종속회사 비엔에프머티리얼즈를 통해 솔더 사업을 영위하는 전자부품 기업. 2026년 2분기 기준 매출 비중은 솔더 54%, 방산 30%로 집계된다(증권 정보 사이트 집계, 공시 원문 미확인).",
    "confidence": "low",
-   "why": "공식 IR 페이지에는 사업부별 매출 비중이 없고, 2025년 DART 사업보고서 세그먼트도 확인하지 못했습니다. 제3자 집계(butler.works, 2026년 2분기 기준)는 솔더 54%, 방산 30%, LED 6%, 네트워크 5%, 광통신 4%로 나오지만 단일 출처이고 기간이 달라 주력 테마를 확정할 근거로 부족합니다.",
+   "why": "솔더 비중 54%는 증권 정보 사이트 집계이고 DART 사업보고서 원문으로 확인하지 못했다. 솔더 제품이 반도체 패키징용인지 일반 전자용인지도 확인되지 않아 소재·부품 테마로 확정할 수 없다. 방산은 30%로 2위지만 매출 금액은 확인되지 않았다.",
    "evidenceUrls": [
-    "https://m.irgo.co.kr/IR-COMP/072950/%EB%B9%9B%EC%83%98%EC%A0%84%EC%9E%90-IR-PAGE",
     "https://www.valueline.co.kr/finance/summary/072950",
-    "https://www.butler.works/ko/companies/00359261",
-    "https://newstomato.com/ReadNews.aspx?no=243931"
+    "https://alphadistill.com/report/478",
+    "https://m.irgo.co.kr/IR-COMP/072950/%EB%B9%9B%EC%83%98%EC%A0%84%EC%9E%90-IR-PAGE"
    ],
    "gateReasons": [
     "신뢰도 low"
    ],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:59:41+09:00",
+   "reviewedAt": "2026-11-08T20:28:01+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "빛샘전자",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_MATERIALS_PARTS",
+      "DEFENSE",
+      "ELECTRONIC_COMPONENTS",
+      "TELECOM_NETWORK"
+     ],
+     "detail": "솔더·방산 전자부품",
+     "businessSummary": "LED·광통신·네트워크·방산 사업부를 운영하는 전자부품 기업으로, 종속회사 비엔에프머티리얼즈를 통해 솔더(땜납) 사업을 영위한다. 최신 사업부별 매출 비중은 DART 사업보고서로 확인하지 못했다.",
+     "confidence": "low",
+     "why": "밸류라인에서 사업부 구성(LED·광통신·네트워크·방산)과 솔더 사업 영위는 확인했지만, 최신 매출 비중은 출처 불명확한 집계 사이트의 수치(솔더 약 54%, 방산 약 30%)뿐이고 DART 사업보고서로 검증하지 못했다. 비중이 있는 자료는 2012년 기사(LED 59%·광통신 33%·KTX 8%)뿐이라 주력 테마를 확정할 수 없어 UNCLASSIFIED로 둔다. 솔더가 최대 매출이라면 SEMI_MATERIALS_PARTS가 후보다.",
+     "evidenceUrls": [
+      "https://www.valueline.co.kr/finance/summary/072950",
+      "https://www.stockhub.kr/stock/072950",
+      "https://newstomato.com/ReadNews.aspx?no=243931"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:22:41+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "빛샘전자",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "DISPLAY",
+      "TELECOM_NETWORK",
+      "DEFENSE",
+      "SEMI_MATERIALS_PARTS"
+     ],
+     "detail": "LED·광통신 전자부품",
+     "businessSummary": "LED 응용제품(옥내·옥외 LED 전광판 모듈), 광통신 선로부품(광접속함체·광분배반), 방산 및 솔더(종속 비엔에프머티리얼즈) 사업을 영위하는 전자부품 기업입니다.",
+     "confidence": "low",
+     "why": "공식 IR 페이지에는 사업부별 매출 비중이 없고, 2025년 DART 사업보고서 세그먼트도 확인하지 못했습니다. 제3자 집계(butler.works, 2026년 2분기 기준)는 솔더 54%, 방산 30%, LED 6%, 네트워크 5%, 광통신 4%로 나오지만 단일 출처이고 기간이 달라 주력 테마를 확정할 근거로 부족합니다.",
+     "evidenceUrls": [
+      "https://m.irgo.co.kr/IR-COMP/072950/%EB%B9%9B%EC%83%98%EC%A0%84%EC%9E%90-IR-PAGE",
+      "https://www.valueline.co.kr/finance/summary/072950",
+      "https://www.butler.works/ko/companies/00359261",
+      "https://newstomato.com/ReadNews.aspx?no=243931"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:59:41+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
+  },
+  "076610": {
+   "companyName": "해성옵틱스",
+   "primaryTheme": "ELECTRONIC_COMPONENTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "AUTO_MOBILITY"
+   ],
+   "detail": "스마트폰 OIS 액추에이터",
+   "businessSummary": "스마트폰용 OIS(광학 손떨림 보정) 액추에이터와 AF 액추에이터를 주력으로 만드는 카메라 부품 업체다. 주요 고객은 삼성전자 등 스마트폰 제조사이며, 광학 디바이스와 메타모빌리티 사업을 신규 영역으로 키우고 있다.",
+   "confidence": "medium",
+   "why": "회사 공식 소개 페이지가 OIS 액추에이터를 핵심 사업으로 명시하고, Morningstar도 AF·OIS 액추에이터를 주요 제품으로 제시한다. 카메라 모듈 부품은 전자부품 테마에 해당한다. 제품별 매출 비중은 사업보고서에서 확인하지 못해 medium으로 두었고, 자동차용 광학 모듈은 보조 테마로만 반영했다.",
+   "evidenceUrls": [
+    "https://www.hso.co.kr/eng/company/aboutus",
+    "https://www.morningstar.com.au/investments/security/XKRX/076610"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:18+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2333,53 +3027,127 @@
   },
   "078600": {
    "companyName": "대주전자재료",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "ELECTRONIC_COMPONENTS",
+   "primaryTheme": "ELECTRONIC_COMPONENTS",
+   "suggestedTheme": null,
    "secondaryThemes": [
     "ENERGY_TRANSITION",
-    "SECONDARY_BATTERY"
+    "SECONDARY_BATTERY",
+    "DISPLAY"
    ],
-   "detail": "전자재료 전극 페이스트",
-   "businessSummary": "전도성 페이스트(MLCC 전극 페이스트 포함)를 주력으로 하며, 나노재료·태양전지 전극재료·고분자재료·형광체재료 등을 생산하는 전자재료 회사다. 2026년 2분기 기준 전도성 페이스트 비중이 가장 크다는 제3자 집계가 있으나 DART 사업보고서로는 확인하지 못했다.",
-   "confidence": "low",
-   "why": "기사에 따르면 MLCC용 전극 페이스트를 삼성전기에 공급하고 있고, 제3자 집계로는 전도성 페이스트가 2026년 2분기 매출의 약 49%다. 다만 이 비중은 사업보고서 원문이 아니어서 확인되지 않았고, 전자부품 테마 중 MLCC 소재가 가장 가까운 분류라 그대로 두었다. 태양전지 전극재료(약 16%)와 실리콘 음극재는 보조 테마로 뒀다.",
+   "detail": "MLCC 전극재료·은 페이스트",
+   "businessSummary": "칩부품(MLCC) 등 전자부품용 전도성 페이스트와 나노재료가 주력이며, 태양전지 전극재료, LED용 형광체, 고분자재료, 이차전지 음극재료도 생산한다. 2026년 2분기 기준 전도성 페이스트 비중이 약 49%로 가장 크다.",
+   "confidence": "medium",
+   "why": "매출의 약 49%가 칩부품(MLCC) 등 전자부품용 전도성 페이스트이고 나노재료가 18%로 뒤를 잇는다. 태양전지 전극재료는 16%, 이차전지 음극재료와 LED 형광체는 소규모다. 비중은 제3자 집계 자료 기준이라 DART 사업보고서로 재확인하지 못했다.",
    "evidenceUrls": [
-    "https://www.etoday.co.kr/news/view/1457771",
-    "https://stockhub.kr/stock/078600"
+    "https://alphasquare.co.kr/home/stock-summary?code=078600",
+    "https://v.daum.net/v/20260515073817457",
+    "https://stockanalysis.com/quote/kosdaq/078600/company"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:56:59+09:00",
+   "reviewedAt": "2026-11-08T20:21:35+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "대주전자재료",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "ELECTRONIC_COMPONENTS",
+     "secondaryThemes": [
+      "ENERGY_TRANSITION",
+      "SECONDARY_BATTERY"
+     ],
+     "detail": "전자재료 전극 페이스트",
+     "businessSummary": "전도성 페이스트(MLCC 전극 페이스트 포함)를 주력으로 하며, 나노재료·태양전지 전극재료·고분자재료·형광체재료 등을 생산하는 전자재료 회사다. 2026년 2분기 기준 전도성 페이스트 비중이 가장 크다는 제3자 집계가 있으나 DART 사업보고서로는 확인하지 못했다.",
+     "confidence": "low",
+     "why": "기사에 따르면 MLCC용 전극 페이스트를 삼성전기에 공급하고 있고, 제3자 집계로는 전도성 페이스트가 2026년 2분기 매출의 약 49%다. 다만 이 비중은 사업보고서 원문이 아니어서 확인되지 않았고, 전자부품 테마 중 MLCC 소재가 가장 가까운 분류라 그대로 두었다. 태양전지 전극재료(약 16%)와 실리콘 음극재는 보조 테마로 뒀다.",
+     "evidenceUrls": [
+      "https://www.etoday.co.kr/news/view/1457771",
+      "https://stockhub.kr/stock/078600"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:56:59+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "078930": {
-   "companyName": "㈜지에스",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
-   "detail": "지주회사 계열 에너지·정유",
-   "businessSummary": "㈜지에스(GS홀딩스)는 에너지·리테일·건설 등을 영위하는 지주회사다. 주력 자회사는 GS에너지 산하 GS칼텍스(정유·석유화학)이고, GS리테일(편의점), GS건설 등도 계열사로 확인된다. 다만 연결 매출의 부문별 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "주력 자회사 GS칼텍스(정유·석유화학)에 대한 실적 의존도가 높다는 보도는 확인했지만, 연결 매출 중 핵심 자회사 비중을 사업보고서 기준으로 검증하지 못했다. 지주회사 분류 규칙상 매출 대부분이 한 사업인지 확인되지 않아 UNCLASSIFIED로 둔다. 검색으로 확인한 2024년 연결 매출 약 25.3조원은 집계 사이트 수치라 공식 공시로 재확인이 필요하다.",
+   "companyName": "주식회사 GS",
+   "primaryTheme": "CONSTRUCTION_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "COSMETICS_CONSUMER"
+   ],
+   "detail": "정유·유통 지주사",
+   "businessSummary": "GS에너지(정유·석유화학 GS칼텍스 보유)와 GS리테일(편의점) 등을 자회사로 둔 지주회사다. 핵심 자회사의 정유·유통 사업이 연결 매출의 대부분을 차지하는 것으로 보이나, 부문별 매출 비중은 사업보고서로 확인하지 못했다.",
+   "confidence": "medium",
+   "why": "2026년 1분기 분기보고서상 신고대상 자회사가 GS에너지·GS리테일이고, GS에너지 아래 정유·석유화학 사업의 GS칼텍스가 있다. 정유·석유화학은 CONSTRUCTION_MATERIALS에 해당하며, 편의점 유통은 보조 테마다. 자회사별 연결 매출 비중은 DART 사업보고서 부문정보로 확인이 필요하다.",
    "evidenceUrls": [
-    "https://stockanalysis.com/quote/krx/078930/",
-    "https://newstomato.com/ReadNews.aspx?no=685135",
-    "https://news.bizwatch.co.kr/article/industry/2023/05/09/0034"
+    "https://kind.krx.co.kr/external/2026/05/15/001729/20260515003828/11013.htm",
+    "https://www.valueline.co.kr/finance/summary/078930"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:03:01+09:00",
+   "reviewedAt": "2026-11-08T20:27:59+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "GS홀딩스 주식회사",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "CONSTRUCTION_MATERIALS",
+      "COSMETICS_CONSUMER"
+     ],
+     "detail": "지주회사 에너지 계열",
+     "businessSummary": "GS그룹의 지주회사로, 자회사 GS칼텍스(정유·석유화학·유통) 등 에너지 계열과 GS리테일(편의점) 등을 거느린다. 최근 사업보고서 기준 자회사별 매출 비중은 이번 검색에서 확인하지 못했다.",
+     "confidence": "low",
+     "why": "지주회사라 핵심 자회사 매출 비중이 주력 테마를 가른다. 확인된 자료는 2009년 GS칼텍스 비중 63%(2011년 기사)뿐이라 현재 연결 매출에서 정유(CONSTRUCTION_MATERIALS)가 대부분인지 확인되지 않았다. DART 최신 사업보고서의 자회사별 매출 구성을 확인하기 전까지 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://newstomato.com/ReadNews.aspx?no=143720",
+      "https://stockanalysis.com/quote/krx/078930/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:22:45+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "㈜지에스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "지주회사 계열 에너지·정유",
+     "businessSummary": "㈜지에스(GS홀딩스)는 에너지·리테일·건설 등을 영위하는 지주회사다. 주력 자회사는 GS에너지 산하 GS칼텍스(정유·석유화학)이고, GS리테일(편의점), GS건설 등도 계열사로 확인된다. 다만 연결 매출의 부문별 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "주력 자회사 GS칼텍스(정유·석유화학)에 대한 실적 의존도가 높다는 보도는 확인했지만, 연결 매출 중 핵심 자회사 비중을 사업보고서 기준으로 검증하지 못했다. 지주회사 분류 규칙상 매출 대부분이 한 사업인지 확인되지 않아 UNCLASSIFIED로 둔다. 검색으로 확인한 2024년 연결 매출 약 25.3조원은 집계 사이트 수치라 공식 공시로 재확인이 필요하다.",
+     "evidenceUrls": [
+      "https://stockanalysis.com/quote/krx/078930/",
+      "https://newstomato.com/ReadNews.aspx?no=685135",
+      "https://news.bizwatch.co.kr/article/industry/2023/05/09/0034"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:03:01+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "079650": {
    "companyName": "서산",
@@ -2450,6 +3218,30 @@
    "overrideReason": "",
    "history": []
   },
+  "082270": {
+   "companyName": "젬백스앤카엘",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "BIO_PHARMA"
+   ],
+   "detail": "반도체 필터 소재",
+   "businessSummary": "반도체·디스플레이 클린룸용 케미컬 필터(환경오염제어) 사업이 2025년 연결 매출의 대부분을 차지하며, 바이오 신약 GV1001 개발은 매출 비중이 작다. 2025년 연결 매출은 815억 원이다.",
+   "confidence": "medium",
+   "why": "2025년 매출 815억 원 중 필터 사업 비중이 약 86%로 보도됐다(뉴스 기사로 확인). 필터는 반도체·디스플레이 공정의 소모성 부품이므로 소재·부품으로 분류했다. 사업보고서 원문(DART)의 부문별 매출표는 열어 보지 못했고, 비중 수치는 요약 페이지 기준이라 확정이 아니다. 바이오(GV1001)는 라이선스 매출이 일시적으로 잡힌 점을 감안해 보조 테마로만 뒀다.",
+   "evidenceUrls": [
+    "https://www.newspim.com/news/view/20260313000949",
+    "https://www.mt.co.kr/stock/2026/03/13/2026031316093381876",
+    "https://www.bosoop.com/307bb09c-0cec-41a1-9636-43c470a6d2d2/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:13:12+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "082740": {
    "companyName": "한화엔진 주식회사",
    "primaryTheme": "SHIPBUILDING",
@@ -2475,27 +3267,79 @@
   },
   "082920": {
    "companyName": "비츠로셀",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "SECONDARY_BATTERY",
+   "suggestedTheme": null,
    "secondaryThemes": [
     "DEFENSE"
    ],
    "detail": "리튬일차전지·스마트그리드",
-   "businessSummary": "1987년 설립된 리튬일차전지 전문 제조사로, 스마트그리드(AMI) 계량기용, 석유가스 시추용 고온전지, 방산용 전지를 생산한다. 2025년 3분기 누적 기준 스마트그리드 56%, 석유가스 20%, 방산 20%로 증권사 리포트에 제시됐다.",
-   "confidence": "low",
-   "why": "주력 사업은 리튬일차전지지만 고정 테마 목록에 일차전지 항목이 없어 SECONDARY_BATTERY는 충전식 2차전지와 맞지 않는다. 매출 비중은 증권사 리포트(2026년 2월, 2025년 3분기 누적) 기준이며 사업보고서(DART) 원문은 확인하지 못했다. 그래서 주력 테마를 확정하지 않고 UNCLASSIFIED로 둔다.",
+   "businessSummary": "리튬일차전지(충전 불가 1차 전지)를 제조해 전력·가스·수도 스마트 계량기 등 IoT·장수명 전원용으로 공급한다. 방산용 앰플전지·열전지와 캐나다 자회사를 통한 고온전지 팩도 사업 축이다.",
+   "confidence": "medium",
+   "why": "2022년 IR 자료 기준 리튬일차전지 사업부 매출 비중이 약 95%였고, 2025년 3분기 누적 부문 구성은 스마트그리드(리튬일차전지) 약 55~56%, 방산 약 20%로 보고됐다. 분류 목록에 1차전지 항목은 없어 배터리 셀 기준의 SECONDARY_BATTERY로 두었고, DART 사업보고서 원문은 확인하지 못해 confidence는 medium으로 낮췄다.",
    "evidenceUrls": [
-    "https://file.alphasquare.co.kr/media/pdfs/company-report/260220_%EB%B9%84%EC%B8%A0%EB%A1%9C%EC%85%80%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8.pdf"
+    "https://file.alphasquare.co.kr/media/pdfs/company-ir/20240514비츠로셀_회사_경영현황.pdf",
+    "https://file.irgo.co.kr/data/BOARD/ATTACH_PDF/P4U3M3R5JENS_J_MME5BA7SQCGRXG_VD_M_SD20251017163622.pdf",
+    "https://newstomato.com/ReadNews.aspx?no=823728",
+    "https://www.mt.co.kr/stock/2025/06/18/2025061712539639674"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:58:20+09:00",
+   "reviewedAt": "2026-11-08T20:27:42+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "비츠로셀",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "SECONDARY_BATTERY",
+     "secondaryThemes": [
+      "POWER_GRID",
+      "DEFENSE"
+     ],
+     "detail": "리튬일차전지 제조",
+     "businessSummary": "1987년 설립된 리튬일차전지(Li-SOCl2) 전문 기업으로, 스마트그리드 전자식 계량기용 전지와 군용·고온 전지를 주력으로 한다. 리튬일차전지가 매출의 대부분을 차지한다.",
+     "confidence": "low",
+     "why": "리튬일차전지 셀이 매출 대부분이라 배터리 셀 범주(SECONDARY_BATTERY)에 가장 가깝지만, 이 범주는 충전식 2차전지 중심이고 일차전지 전용 테마가 목록에 없다. 전방 산업은 스마트그리드 계량기(2026 IR 리포트 기준 약 55%)가 가장 크고, 고온전지·방산 비중은 약 48%로 확대 중이라 보조 테마로 뒀다. 사업보고서의 최신 응용처별 매출 구성은 확인하지 못했다.",
+     "evidenceUrls": [
+      "https://file.alphasquare.co.kr/media/pdfs/company-ir/20240514비츠로셀_회사_경영현황.pdf",
+      "https://file.alphasquare.co.kr/media/pdfs/company-ir/20210622비츠로셀-비츠로셀-주요-사업현황-설명-및-질의응답.pdf",
+      "https://eureka.hankyung.com/insight/detail/16947",
+      "https://newstomato.com/ReadNews.aspx?no=823728"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:22:19+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "비츠로셀",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "DEFENSE"
+     ],
+     "detail": "리튬일차전지·스마트그리드",
+     "businessSummary": "1987년 설립된 리튬일차전지 전문 제조사로, 스마트그리드(AMI) 계량기용, 석유가스 시추용 고온전지, 방산용 전지를 생산한다. 2025년 3분기 누적 기준 스마트그리드 56%, 석유가스 20%, 방산 20%로 증권사 리포트에 제시됐다.",
+     "confidence": "low",
+     "why": "주력 사업은 리튬일차전지지만 고정 테마 목록에 일차전지 항목이 없어 SECONDARY_BATTERY는 충전식 2차전지와 맞지 않는다. 매출 비중은 증권사 리포트(2026년 2월, 2025년 3분기 누적) 기준이며 사업보고서(DART) 원문은 확인하지 못했다. 그래서 주력 테마를 확정하지 않고 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/260220_%EB%B9%84%EC%B8%A0%EB%A1%9C%EC%85%80%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:58:20+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "083450": {
    "companyName": "Global Standard Technology Co., Ltd.",
@@ -2700,31 +3544,86 @@
    "history": []
   },
   "089890": {
-   "companyName": "주식회사 코세스",
+   "companyName": "코세스(KOSES Co., Ltd.)",
    "primaryTheme": "UNCLASSIFIED",
    "suggestedTheme": "UNCLASSIFIED",
    "secondaryThemes": [
     "SEMI_EQUIPMENT",
-    "SECONDARY_BATTERY"
+    "SECONDARY_BATTERY",
+    "ENERGY_TRANSITION"
    ],
-   "detail": "반도체·2차전지 장비",
-   "businessSummary": "반도체 후공정 장비, 2차전지 제조 장비, 레이저 응용 장비를 만드는 장비 업체다. 2025년 기준 매출 비중은 자료마다 달라 주력 부문이 아직 확정되지 않았다.",
+   "detail": "반도체·이차전지 장비",
+   "businessSummary": "반도체 제조·자동화 장비와 이차전지 장비를 주로 만들며, 최근에는 연료전지(SOFC) 장비 매출이 늘고 있다. 2025년 부문별 비중은 출처마다 달라 확정하지 못했다.",
    "confidence": "low",
-   "why": "위키백과는 반도체 제조 장비 업체로 소개하지만 제품별 매출 비중은 없다. 알파스퀘어는 2025년 기준 2차전지 장비 약 51%, 반도체 장비 약 35%로 집계하고, 와이즈리포트 집계(2025년 9월)는 반도체 장비 약 34%, 레이저 응용 장비 약 26%, 2차전지 장비 약 16%로 달라 주력 테마를 정하지 못했다. 공식 DART 사업보고서의 매출 비중 표를 확인하기 전까지 UNCLASSIFIED로 둔다.",
+   "why": "Morningstar는 반도체 장비 제조사로 설명하지만, 2025년 부문별 매출 비중이 출처마다 달라 주력 테마를 하나로 확정할 수 없다. 1Q 2026에는 이차전지 장비가 전체의 42%로 가장 컸다. DART 사업보고서는 확인하지 못했다.",
    "evidenceUrls": [
-    "https://ko.wikipedia.org/wiki/%EC%BD%94%EC%84%B8%EC%8A%A4",
-    "https://alphasquare.co.kr/home/stock-summary?code=089890",
-    "https://comp.wisereport.co.kr/company/c1020001.aspx?cmp_cd=089890&cn="
+    "https://morningstar.com.au/investments/security/XKRX/089890",
+    "https://uk.tradingview.com/symbols/KRX-089890/financials-revenue/",
+    "https://www.etoday.co.kr/news/view/2424883",
+    "https://view.asiae.co.kr/article/2026080310025856928",
+    "https://www.financialpost.co.kr/news/articleView.html?idxno=281311"
    ],
    "gateReasons": [
     "신뢰도 low"
    ],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:04:09+09:00",
+   "reviewedAt": "2026-11-08T20:28:19+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "코세스 (KOSES Co., Ltd.)",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_EQUIPMENT",
+      "SECONDARY_BATTERY"
+     ],
+     "detail": "반도체·2차전지 장비",
+     "businessSummary": "반도체 후공정 장비(레이저 리플로우 등), 2차전지 제조 장비, 레이저 응용 장비를 공급한다. 주력 매출 비중이 자료마다 달라 주력 테마를 확정하지 못했다.",
+     "confidence": "low",
+     "why": "사업 성격은 반도체 후공정 장비와 2차전지 장비 두 축으로 확인되지만, 최대 매출 세그먼트가 자료마다 엇갈린다. TradingView는 2차전지 장비를 약 49%로, 다른 시세 사이트는 2차전지 약 51% 또는 반도체·자동화 장비 약 56%로 제시해 어느 쪽이 주력인지 근거로 정할 수 없다. DART 사업보고서 원문은 열람하지 못해 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://uk.tradingview.com/symbols/KRX-089890/financials-revenue/",
+      "https://view.asiae.co.kr/article/2026080310025856928"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:23:15+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "주식회사 코세스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_EQUIPMENT",
+      "SECONDARY_BATTERY"
+     ],
+     "detail": "반도체·2차전지 장비",
+     "businessSummary": "반도체 후공정 장비, 2차전지 제조 장비, 레이저 응용 장비를 만드는 장비 업체다. 2025년 기준 매출 비중은 자료마다 달라 주력 부문이 아직 확정되지 않았다.",
+     "confidence": "low",
+     "why": "위키백과는 반도체 제조 장비 업체로 소개하지만 제품별 매출 비중은 없다. 알파스퀘어는 2025년 기준 2차전지 장비 약 51%, 반도체 장비 약 35%로 집계하고, 와이즈리포트 집계(2025년 9월)는 반도체 장비 약 34%, 레이저 응용 장비 약 26%, 2차전지 장비 약 16%로 달라 주력 테마를 정하지 못했다. 공식 DART 사업보고서의 매출 비중 표를 확인하기 전까지 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://ko.wikipedia.org/wiki/%EC%BD%94%EC%84%B8%EC%8A%A4",
+      "https://alphasquare.co.kr/home/stock-summary?code=089890",
+      "https://comp.wisereport.co.kr/company/c1020001.aspx?cmp_cd=089890&cn="
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:04:09+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "089970": {
    "companyName": "브이엠",
@@ -2747,6 +3646,87 @@
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
+  },
+  "090360": {
+   "companyName": "로보스타",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT",
+    "DISPLAY"
+   ],
+   "detail": "산업용 로봇·자동화",
+   "businessSummary": "제조용 산업로봇(직각좌표 리니어로봇 '클린', 수평다관절 스카라, 글라스·웨이퍼 반송로봇 등)을 만들고, 공정장비와 로봇 기반 자동화 솔루션을 담당하는 시스템엔지니어링 사업을 함께 한다. 로봇 부문이 매출의 대부분을 차지한다.",
+   "confidence": "medium",
+   "why": "사업보고서 기준으로 로봇 부문이 전체 매출의 약 70~78%(2022년 1분기 기준 71.2%)를 차지하고, 2018년 기준 제조용 로봇 제품 매출 비중은 69.6%다. 시스템엔지니어링(약 19~30%)은 반도체·디스플레이 공정장비 성격이라 보조 테마로 뒀다. 다만 공식 DART 사업보고서 원문은 열지 못했고, 부문 비중 수치는 출처마다 연도가 다르거나 어긋나서 신뢰도를 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://ssl.pstatic.net/imgstock/upload/research/company/1577411220202.pdf",
+    "https://ssl.pstatic.net/imgstock/upload/research/company/1619655131406.pdf",
+    "https://insight.stockplus.com/articles/3029",
+    "https://www.bosoop.com/stocks/090360/",
+    "https://pmstoryhub.com/robostar-earnings-analysis-industrial-robot/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:51+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "090710": {
+   "companyName": "휴림로봇",
+   "primaryTheme": "AUTO_MOBILITY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS",
+    "SECONDARY_BATTERY"
+   ],
+   "detail": "자동차 카펫·산업용 로봇",
+   "businessSummary": "자동차 카페트 제작·판매가 주력이며, 공정장비·2차전지 물류장비와 제조업용 로봇 사업을 함께 한다. 외부 집계 기준 2026년 2분기 매출의 약 57%가 자동차 카페트다.",
+   "confidence": "medium",
+   "why": "외부 증권 정보 사이트 집계로 2026년 2분기 매출 비중이 자동차 카페트 57%, 공정장비·2차전지 물류장비 30%, 제조업용 로봇 13%로 나온다. DART 사업보고서 원문은 확인하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://stockhub.kr/stock/090710",
+    "https://www.valueline.co.kr/finance/summary/090710",
+    "https://kr.investing.com/equities/dst-robot-co-ltd"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:20:47+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "휴림로봇",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "AUTO_MOBILITY",
+      "SECONDARY_BATTERY",
+      "ROBOTICS"
+     ],
+     "detail": "자동차부품·로봇 복합",
+     "businessSummary": "자동차 내·외장재(카페트·바닥재 등)와 2차전지 공정·물류 장비, 산업용 로봇을 함께 하는 복합 제조사다. 매출 비중은 자료마다 달라 주력 사업을 확정하지 못했다.",
+     "confidence": "low",
+     "why": "DART 사업보고서와 공식 IR을 열지 못했다. 2차 자료끼리 매출 비중이 엇갈린다. 톱스타뉴스는 2차전지 부문 58% 이상, 알파디스틸은 로봇 7.1%에 자동차부품·소방설비 약 88%, 다른 집계는 자동차카페트 57%·공정장비/2차전지물류장비 30%·제조업용 로봇 13%로 본다. 자동차 쪽이 많아 보이지만 확정할 근거가 없어 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://www.topstarnews.net/news/articleView.html?idxno=15951085",
+      "https://alphadistill.com/report/2725?ch=open",
+      "https://stockhub.kr/stock/090710",
+      "https://thevc.kr/hyulimrobot"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:14:28+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "091580": {
    "companyName": "상신이디피",
@@ -2795,30 +3775,107 @@
    "history": []
   },
   "093370": {
-   "companyName": "후성",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "companyName": "주식회사 후성 (Foosung Co., Ltd.)",
+   "primaryTheme": "CONSTRUCTION_MATERIALS",
+   "suggestedTheme": null,
    "secondaryThemes": [
     "SECONDARY_BATTERY",
     "SEMI_MATERIALS_PARTS"
    ],
-   "detail": "불소화학·전지/반도체 소재",
-   "businessSummary": "불소화학 기술 기반으로 2차전지 전해질 LiPF6(육불화인산리튬), 반도체 특수가스 C4F6·NF3·WF6, 냉매 등을 생산한다. 부문별 매출 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "2차전지 전해질(LiPF6)과 반도체 특수가스(C4F6) 사업이 확인되지만, 어느 쪽이 매출 대부분인지 수치로 확인하지 못했다. DART 사업보고서 'II. 사업의 내용'의 매출 비중 표를 확인하기 전까지는 주력 테마를 정하지 않았다.",
+   "detail": "불소화합물·냉매·전해질",
+   "businessSummary": "불소계 화합물을 주력으로 생산하는 화학 회사로, 가전·산업용 냉매, 2차전지 전해질염(LiPF6)과 첨가제, 반도체 식각·증착용 특수가스를 만든다. 연결 자회사 한텍이 화공기기를 맡는다.",
+   "confidence": "medium",
+   "why": "두 출처가 주력을 기초화합물(불소화합물)로 봤다. butler.works는 2026년 2분기 기준 불소화합물 76%·화공기기 24%, 아시아경제(2024.9)는 기초화합물 64%·화공기기 36%로 보도해 수치는 엇갈린다. 냉매·전해질·반도체 가스가 모두 화학 소재라 석유화학·화학 테마로 두었고, 전해질과 특수가스는 보조 테마로 뒀다. 제품별 매출 표는 DART 사업보고서에서 확인하지 못했다.",
    "evidenceUrls": [
-    "https://view.asiae.co.kr/article/2025102710061740335",
-    "https://cm.asiae.co.kr/en/article/2024012916270415767"
+    "https://www.butler.works/ko/companies/00595191",
+    "https://view.asiae.co.kr/article/2024091208215691038",
+    "https://stockanalysis.com/quote/krx/093370/company"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:54:25+09:00",
+   "reviewedAt": "2026-11-08T20:19:04+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "후성",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SECONDARY_BATTERY",
+      "SEMI_MATERIALS_PARTS"
+     ],
+     "detail": "불소화학·전지/반도체 소재",
+     "businessSummary": "불소화학 기술 기반으로 2차전지 전해질 LiPF6(육불화인산리튬), 반도체 특수가스 C4F6·NF3·WF6, 냉매 등을 생산한다. 부문별 매출 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "2차전지 전해질(LiPF6)과 반도체 특수가스(C4F6) 사업이 확인되지만, 어느 쪽이 매출 대부분인지 수치로 확인하지 못했다. DART 사업보고서 'II. 사업의 내용'의 매출 비중 표를 확인하기 전까지는 주력 테마를 정하지 않았다.",
+     "evidenceUrls": [
+      "https://view.asiae.co.kr/article/2025102710061740335",
+      "https://cm.asiae.co.kr/en/article/2024012916270415767"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:54:25+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
+  },
+  "094820": {
+   "companyName": "일진파워",
+   "primaryTheme": "NUCLEAR",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ENERGY_TRANSITION"
+   ],
+   "detail": "발전소 정비·원전 정비",
+   "businessSummary": "발전소 경상정비와 계획예방정비 등 발전설비 정비를 핵심 사업으로 하며, 원자력·신재생에너지 설비 분야로 사업을 넓히고 있다.",
+   "confidence": "medium",
+   "why": "서울평가정보 기술분석보고서(2026-07)와 마이데일리바이트·Morningstar 요약 모두 발전소 경상정비를 핵심 수익원으로 꼽고 원자력 정비·설비를 주요 사업으로 든다. DART 사업보고서의 세그먼트 매출 비중은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://stock.pstatic.net/stock-research/company/75/20260720_company_862698000.pdf",
+    "https://www.mydailybyte.com/littlebit/stock/094820/fundamental",
+    "https://www.morningstar.com.au/investments/security/XKRX/094820/summary",
+    "https://m.irgo.co.kr/IR-ROOM/094820/일진파워-IR-ROOM"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:20:06+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "일진파워",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "NUCLEAR",
+      "ENERGY_TRANSITION"
+     ],
+     "detail": "발전소 정비·원전",
+     "businessSummary": "발전소 경상정비·계획예방정비를 주력으로 하며, 원자력 정비, 연료전지, 화공·플랜트 사업을 함께 영위한다. 2026년 예상 매출은 발전 부문 45.7%, 화공·플랜트 28.7%, 연료전지 13.4%, 원자력 10.7%, 신성장 1.5% 순이다(증권사 전망치).",
+     "confidence": "low",
+     "why": "주력인 발전 부문(45.7%)은 발전소 정비 서비스라 고정 테마 중 직접 맞는 항목이 없다. 원자력(10.7%)과 연료전지(13.4%)는 각각 NUCLEAR, ENERGY_TRANSITION에 해당하지만 비중이 작고, 근거는 증권사 리포트 요약이며 DART 사업보고서 원문은 확인하지 못했다.",
+     "evidenceUrls": [
+      "https://stock.pstatic.net/stock-research/company/75/20260720_company_862698000.pdf",
+      "https://m.irgo.co.kr/IR-ROOM/094820/일진파워-IR-ROOM",
+      "https://stockanalysis.com/quote/kosdaq/094820/company/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:13:15+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "095340": {
    "companyName": "주식회사 아이에스씨(ISC)",
@@ -2893,30 +3950,55 @@
   },
   "097230": {
    "companyName": "HJ중공업",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "SHIPBUILDING",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "SHIPBUILDING",
+    "DEFENSE",
     "CONSTRUCTION_MATERIALS"
    ],
-   "detail": "조선·건설 종합 중공업",
-   "businessSummary": "조선(상선 컨테이너선·유조선, 경비함·고속상륙정 등 특수선)과 건설(토목·건축) 두 부문을 영위하는 종합 중공업 기업이다. 2023년 기준 매출 비중은 건설 65%, 조선 34%였고, 2026년에는 고선가 신조선 인도로 조선 비중이 커진 것으로 보이나 최신 부문별 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "2023년 보도 기준 건설 매출 비중(65%)이 조선(34%)보다 커서 주력 테마를 확정할 수 없다. 2025~2026년 실적 개선은 고선가 신조선 매출 반영 때문으로 보도돼 조선 비중이 커졌을 가능성이 높지만, 이번 검색에서는 최신 사업보고서나 부문별 매출 표를 열어 확인하지 못했다.",
+   "detail": "조선·특수선·함정 MRO",
+   "businessSummary": "상선(컨테이너선·유조선)과 특수선(경비함·고속상륙정)을 건조하고 해군 함정 MRO를 수행하는 조선 사업이 주력이며, 토목·건축·발전소 공사를 하는 건설 부문을 함께 운영한다.",
+   "confidence": "medium",
+   "why": "복수 보도가 조선과 건설을 두 주력 부문으로 소개하고 조선 쪽 상선·특수선·함정 MRO 사업을 확인했다. 다만 사업보고서의 부문별 매출 비중(%)은 검색으로 확인하지 못해 조선이 매출 대부분이라는 점은 미검증이다.",
    "evidenceUrls": [
-    "https://stockanalysis.com/quote/krx/097230/company/",
-    "https://sateconomy.co.kr/news/view/1065603846832401?dt=m",
-    "https://m.ceoscoredaily.com/page/view/2026051810323740867"
+    "https://newstomato.com/ReadNews.aspx?no=1250769",
+    "https://www.sidae.com/article/2024121810022338553",
+    "https://newstomato.com/ReadNews.aspx?no=1305883"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:52:14+09:00",
+   "reviewedAt": "2026-11-08T20:18:57+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "HJ중공업",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SHIPBUILDING",
+      "CONSTRUCTION_MATERIALS"
+     ],
+     "detail": "조선·건설 종합 중공업",
+     "businessSummary": "조선(상선 컨테이너선·유조선, 경비함·고속상륙정 등 특수선)과 건설(토목·건축) 두 부문을 영위하는 종합 중공업 기업이다. 2023년 기준 매출 비중은 건설 65%, 조선 34%였고, 2026년에는 고선가 신조선 인도로 조선 비중이 커진 것으로 보이나 최신 부문별 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "2023년 보도 기준 건설 매출 비중(65%)이 조선(34%)보다 커서 주력 테마를 확정할 수 없다. 2025~2026년 실적 개선은 고선가 신조선 매출 반영 때문으로 보도돼 조선 비중이 커졌을 가능성이 높지만, 이번 검색에서는 최신 사업보고서나 부문별 매출 표를 열어 확인하지 못했다.",
+     "evidenceUrls": [
+      "https://stockanalysis.com/quote/krx/097230/company/",
+      "https://sateconomy.co.kr/news/view/1065603846832401?dt=m",
+      "https://m.ceoscoredaily.com/page/view/2026051810323740867"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:52:14+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "098460": {
    "companyName": "고영테크놀러지 주식회사",
@@ -2938,6 +4020,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:00:01+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "100790": {
+   "companyName": "미래에셋벤처투자주식회사",
+   "primaryTheme": "FINANCE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "벤처캐피탈 투자조합 운용",
+   "businessSummary": "벤처투자회사로서 VCF·PEF 등 투자조합을 결성해 창업·벤처기업에 투자하고, 조합 운용 관리보수와 투자 회수 성과보수로 수익을 얻는다. 2026년 2분기 매출은 VC부문 88%, PE부문 1%, 기타 11%로 집계됐다.",
+   "confidence": "medium",
+   "why": "매출 대부분이 벤처투자 조합 운용(관리보수·성과보수)에서 나오므로 금융 테마로 분류했다. 다만 사업보고서 원문은 확인하지 못했고 매출 비중은 종목 정보 사이트 집계치라 medium으로 둔다. AI·2차전지 투자 기사는 투자 대상일 뿐 사업이 아니어서 반영하지 않았다.",
+   "evidenceUrls": [
+    "https://comp.wisereport.co.kr/company/c1010001.aspx?cmp_cd=100790",
+    "https://stockanalysis.com/quote/kosdaq/100790/company/",
+    "https://etoday.co.kr/news/view/1813410"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:13:43+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3038,6 +4142,28 @@
    "overrideReason": "",
    "history": []
   },
+  "108490": {
+   "companyName": "로보티즈",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "지능형 로봇 액추에이터",
+   "businessSummary": "다이나믹셀(DYNAMIXEL) 등 로봇 액추에이터를 제조·판매하는 회사로, 매출의 대부분이 액추에이터에서 나온다. 교육용 로봇 키트, 휴머노이드 플랫폼 등 로봇 부품·완제품도 함께 판매한다.",
+   "confidence": "medium",
+   "why": "검색 결과 보도에 따르면 매출의 90% 이상이 액추에이터(다이나믹셀)에서 나오고, 자율주행로봇 매출 비중은 1% 안팎이다. 다만 DART 사업보고서의 최신 세그먼트 수치는 확인하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://robotis.us/about-us/",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20250529174457371_2_ko.pdf",
+    "https://dealsite.co.kr/articles/153621"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:04+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "112610": {
    "companyName": "씨에스윈드",
    "primaryTheme": "ENERGY_TRANSITION",
@@ -3086,59 +4212,136 @@
    "history": []
   },
   "122640": {
-   "companyName": "예스티",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "companyName": "예스티(YEST Co., Ltd.)",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "SEMI_EQUIPMENT",
     "DISPLAY"
    ],
-   "detail": "열처리 장비",
-   "businessSummary": "반도체·디스플레이 제조 공정에 쓰이는 열처리 장비(퍼니스, 오븐, 챔버, 칠러 등)를 개발·생산한다. 반도체 장비와 디스플레이(OLED·LCD) 장비를 함께 공급한다.",
-   "confidence": "low",
-   "why": "사업 영역은 반도체·디스플레이 열처리 장비로 확인되지만, 최신 사업보고서 기준 반도체 장비와 디스플레이 장비의 매출 비중은 검색에서 확인하지 못했다(확인된 비중은 2019년 1분기 반도체 장비 24.1%뿐이며 최신 자료가 아님). 비중을 확인하기 전까지 주력 테마를 확정하지 않는다.",
+   "detail": "반도체·디스플레이 장비",
+   "businessSummary": "열 및 가압 공정 장비를 개발·제조하는 코스닥 상장사로, 반도체·디스플레이 제조 장비를 주력으로 한다. 디스플레이 공정장비에서 출발해 반도체 패키지·후공정(HPA 고압 수소 어닐링 등)으로 영역을 넓히고 있다.",
+   "confidence": "medium",
+   "why": "여러 기업정보·증권 자료가 주요 제품을 반도체 및 디스플레이 제조 장비로 일관되게 기술하고, 2026년 3월 리포트는 HPA 장비 공급을 다룬다. 다만 DART 사업보고서 원문과 부문별 매출 비중은 확인하지 못했다. 자회사 SiC 전력반도체(예스파워테크닉스)는 기사 기준이라 보조 테마로만 둔다.",
    "evidenceUrls": [
-    "https://morningstar.com.au/investments/security/XKRX/122640",
-    "https://financialreports.eu/companies/yest-coltd/?page=6",
-    "https://v.daum.net/v/20240828172905624",
-    "https://file.alphasquare.co.kr/media/pdfs/company-report/20260108170115277_0_ko.pdf"
+    "https://m.irgo.co.kr/IR-COMP/122640",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/260304_%EC%98%88%EC%8A%A4%ED%8B%B0.pdf",
+    "https://core.asiae.co.kr/article/2021030508501955288",
+    "https://alphadistill.com/stock/122640"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:59:01+09:00",
+   "reviewedAt": "2026-11-08T20:22:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "예스티",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_EQUIPMENT",
+      "DISPLAY"
+     ],
+     "detail": "열처리 장비",
+     "businessSummary": "반도체·디스플레이 제조 공정에 쓰이는 열처리 장비(퍼니스, 오븐, 챔버, 칠러 등)를 개발·생산한다. 반도체 장비와 디스플레이(OLED·LCD) 장비를 함께 공급한다.",
+     "confidence": "low",
+     "why": "사업 영역은 반도체·디스플레이 열처리 장비로 확인되지만, 최신 사업보고서 기준 반도체 장비와 디스플레이 장비의 매출 비중은 검색에서 확인하지 못했다(확인된 비중은 2019년 1분기 반도체 장비 24.1%뿐이며 최신 자료가 아님). 비중을 확인하기 전까지 주력 테마를 확정하지 않는다.",
+     "evidenceUrls": [
+      "https://morningstar.com.au/investments/security/XKRX/122640",
+      "https://financialreports.eu/companies/yest-coltd/?page=6",
+      "https://v.daum.net/v/20240828172905624",
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/20260108170115277_0_ko.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:59:01+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "124500": {
    "companyName": "아이티센글로벌",
    "primaryTheme": "UNCLASSIFIED",
    "suggestedTheme": "UNCLASSIFIED",
    "secondaryThemes": [
-    "SOFTWARE_AI_PLATFORM",
-    "FINANCE"
+    "SOFTWARE_AI_PLATFORM"
    ],
-   "detail": "IT 서비스·귀금속 거래",
-   "businessSummary": "시스템통합(SI)·IT 서비스, 클라우드·AI, 보안 솔루션을 운영하는 IT 계열 사업과 한국금거래소를 통한 귀금속 제조·거래·전자상거래를 함께 영위한다. 2025년 실적에서는 귀금속 부문 기여가 절대적이라는 보도가 있다.",
+   "detail": "IT서비스·귀금속 복합",
+   "businessSummary": "IT 서비스 컨설팅, AI·클라우드, 디지털 서비스, 보안 솔루션을 운영하는 IT 서비스 기업이며, 한국금거래소 계열을 통한 귀금속 거래 사업도 병행한다.",
    "confidence": "low",
-   "why": "회사명은 IR 페이지(124500 → 아이티센글로벌)로 확인했다. 그러나 사업보고서(DART)의 부문별 매출 비중은 확인하지 못했고, 확인한 근거는 리서치·언론 기사뿐이다. 시스템통합 사업과 귀금속 사업 중 매출 기준 주력이 어디인지 특정할 수 없고, 기사 수치는 그룹 기준일 수 있다. 따라서 근거 확인 전 상태인 UNCLASSIFIED로 둔다. 검색 한도 초과로 두 번째 검색을 수행하지 못했다.",
+   "why": "IT 서비스·AI·클라우드·보안이 사업 구성에 있으나 부문별 매출 비중을 사업보고서에서 확인하지 못했다. 2025년 매출 급증과 2026년 1분기 실적은 귀금속(한국금거래소) 거래 호조가 주도한 것으로 보도되어, 주력 테마를 IT 서비스로 확정하기 어렵다.",
    "evidenceUrls": [
-    "https://m.irgo.co.kr/IR-COMP/124500/아이티센글로벌-IR-PAGE",
-    "https://www.smarttoday.co.kr/ko-kr/articles/73921",
-    "https://stock.pstatic.net/stock-research/company/74/20260409_company_873956000.pdf"
+    "https://stock.pstatic.net/stock-research/company/74/20260409_company_873956000.pdf",
+    "https://www.mt.co.kr/stock/2026/05/15/2026051513239678053"
    ],
    "gateReasons": [
     "신뢰도 low"
    ],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:07:54+09:00",
+   "reviewedAt": "2026-11-08T20:26:58+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "아이티센글로벌",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SOFTWARE_AI_PLATFORM",
+      "HOLDING_OTHER"
+     ],
+     "detail": "IT서비스·금거래 지주",
+     "businessSummary": "IT 서비스(SI·클라우드·AI·보안)를 기반으로 한 사실상 지주사로, 자회사로 한국금거래소 등 귀금속 거래 사업을 함께 운영한다.",
+     "confidence": "low",
+     "why": "124500은 아이티센글로벌(구 아이티센)으로 확인됐다. 사명 변경 후 사실상 지주 역할이라는 보도가 있고, 계열사는 IT 서비스(쌍용정보통신, 콤텍시스템 등)와 한국금거래소 귀금속 거래다. 지주 원칙상 핵심 자회사의 매출 비중이 필요한데 검색으로는 부문별 매출 비중을 확인하지 못했다. 2025년 금값 상승으로 금 거래 실적이 크게 늘었다는 보도도 있어, 비중을 확인하기 전까지 주력 테마를 확정하지 않는다. 후보는 IT 서비스 쪽(SOFTWARE_AI_PLATFORM)이나 지주 쪽(HOLDING_OTHER)이다. DART 사업보고서의 매출 구성 확인이 필요하다.",
+     "evidenceUrls": [
+      "https://www.smarttoday.co.kr/ko-kr/articles/57626",
+      "https://www.smarttoday.co.kr/ko-kr/articles/45365",
+      "https://mobile.newsis.com/view/NISX20250402_0003123721",
+      "https://stock.pstatic.net/stock-research/company/74/20260409_company_873956000.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:19:54+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "아이티센글로벌",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SOFTWARE_AI_PLATFORM",
+      "FINANCE"
+     ],
+     "detail": "IT 서비스·귀금속 거래",
+     "businessSummary": "시스템통합(SI)·IT 서비스, 클라우드·AI, 보안 솔루션을 운영하는 IT 계열 사업과 한국금거래소를 통한 귀금속 제조·거래·전자상거래를 함께 영위한다. 2025년 실적에서는 귀금속 부문 기여가 절대적이라는 보도가 있다.",
+     "confidence": "low",
+     "why": "회사명은 IR 페이지(124500 → 아이티센글로벌)로 확인했다. 그러나 사업보고서(DART)의 부문별 매출 비중은 확인하지 못했고, 확인한 근거는 리서치·언론 기사뿐이다. 시스템통합 사업과 귀금속 사업 중 매출 기준 주력이 어디인지 특정할 수 없고, 기사 수치는 그룹 기준일 수 있다. 따라서 근거 확인 전 상태인 UNCLASSIFIED로 둔다. 검색 한도 초과로 두 번째 검색을 수행하지 못했다.",
+     "evidenceUrls": [
+      "https://m.irgo.co.kr/IR-COMP/124500/아이티센글로벌-IR-PAGE",
+      "https://www.smarttoday.co.kr/ko-kr/articles/73921",
+      "https://stock.pstatic.net/stock-research/company/74/20260409_company_873956000.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:07:54+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "125020": {
    "companyName": "티씨머티리얼즈",
@@ -3187,6 +4390,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:56:38+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "126640": {
+   "companyName": "화신정공",
+   "primaryTheme": "AUTO_MOBILITY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "알루미늄 경량 샤시 부품",
+   "businessSummary": "알루미늄 경량 샤시 부품(로어암 등)과 정밀가공 부품을 현대차그룹 계열사와 완성차 업체에 공급하는 자동차 부품 제조사다. 매출의 70% 이상은 계열사인 (주)화신과 현대모비스에서 나온다고 보고되어 있다.",
+   "confidence": "medium",
+   "why": "IR 페이지가 업종을 자동차 신품 부품 제조업, 주요 제품을 자동차부품으로 분류하고, 리서치 자료들이 샤시·정밀가공·정비용 부품 공급을 주력으로 설명한다. 다만 사업보고서의 부문별 매출 표는 직접 확인하지 못했고, 철판 원소재 가공 사업도 있어 DART 원문 확인이 필요하다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/126640/%ED%99%94%EC%8B%A0%EC%A0%95%EA%B3%B5-%EA%B8%B0%EC%97%85%EC%A0%95%EB%B3%B4",
+    "https://www.morningstar.com.au/investments/security/XKRX/126640/summary",
+    "https://alphadistill.com/report/3137"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:40+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3292,27 +4517,53 @@
    "history": []
   },
   "138360": {
-   "companyName": "앤로보틱스",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
-   "detail": "육류가공 설비",
-   "businessSummary": "육류 가공 설비(전처리 장비, 햄·소시지 가공기, 냉동식품 가공기, 살균 설비, 컨베이어 등)를 제조·유통하는 기업이다. 2026년 2월 상호를 협진에서 앤로보틱스로 바꿨고, 자회사 앤로보틱스가 로봇 배터리 자동교체 시스템 상용화를 추진 중이다.",
-   "confidence": "low",
-   "why": "주력 사업은 육류 가공 설비로 보이지만, 사업보고서(DART)와 부문별 매출 비중을 확인하지 못했고 근거는 종목 정보 페이지 1곳의 요약뿐이다. 이 요약은 AI 번역·요약본일 수 있다. 가장 가까운 후보는 INDUSTRIAL_MACHINERY(일반기계)이고, 로봇 배터리 교체 사업(ROBOTICS 후보)은 자회사 사업이라 매출 기여가 확인되지 않았다. DART 사업보고서의 사업부문별 매출 표로 확인하기 전까지 미분류로 둔다.",
+   "companyName": "앤로보틱스 (구 협진)",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS"
+   ],
+   "detail": "식품가공 설비·로봇 전환",
+   "businessSummary": "식품가공(육가공·레토르트·냉동) 설비를 제조해 식육가공업체와 식품공장에 판매하는 것이 주력이다. 2026년 초 사명을 앤로보틱스로 바꾸고 AI 로봇·자동화 사업으로 확장 중이다.",
+   "confidence": "medium",
+   "why": "두 차례 검색한 매체·정보 사이트(bullstory, alphasquare, 뉴스)가 모두 현 매출의 중심을 육가공·레토르트·냉동 등 식품가공 기계설비로 설명한다. 일반기계 분류 대상이라 INDUSTRIAL_MACHINERY를 골랐고, 로봇 사업은 전환 중인 보조 테마로 뒀다. 사업보고서(DART) 원문의 세그먼트 매출 비중은 열지 못해 confidence를 medium으로 두었다. 자회사 사업(도서관 자동화 등) 설명은 기사마다 달라 주력 판단 근거로 쓰지 않았다.",
    "evidenceUrls": [
-    "https://stockhub.kr/stock/138360",
-    "https://stockhub.kr/news/news_8bf5d1154585"
+    "https://bullstory.io/stocks/138360",
+    "https://alphasquare.co.kr/home/stock-summary?code=138360",
+    "https://www.etoday.co.kr/news/view/2544407",
+    "https://www.thevaluenews.co.kr/news/196010",
+    "https://m.news.nate.com/view/20260126n22046"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:57:31+09:00",
+   "reviewedAt": "2026-11-08T20:21:52+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "앤로보틱스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "육류가공 설비",
+     "businessSummary": "육류 가공 설비(전처리 장비, 햄·소시지 가공기, 냉동식품 가공기, 살균 설비, 컨베이어 등)를 제조·유통하는 기업이다. 2026년 2월 상호를 협진에서 앤로보틱스로 바꿨고, 자회사 앤로보틱스가 로봇 배터리 자동교체 시스템 상용화를 추진 중이다.",
+     "confidence": "low",
+     "why": "주력 사업은 육류 가공 설비로 보이지만, 사업보고서(DART)와 부문별 매출 비중을 확인하지 못했고 근거는 종목 정보 페이지 1곳의 요약뿐이다. 이 요약은 AI 번역·요약본일 수 있다. 가장 가까운 후보는 INDUSTRIAL_MACHINERY(일반기계)이고, 로봇 배터리 교체 사업(ROBOTICS 후보)은 자회사 사업이라 매출 기여가 확인되지 않았다. DART 사업보고서의 사업부문별 매출 표로 확인하기 전까지 미분류로 둔다.",
+     "evidenceUrls": [
+      "https://stockhub.kr/stock/138360",
+      "https://stockhub.kr/news/news_8bf5d1154585"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:57:31+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "138930": {
    "companyName": "주식회사 BNK금융지주",
@@ -3409,6 +4660,29 @@
    "overrideReason": "",
    "history": []
   },
+  "147830": {
+   "companyName": "제룡산업",
+   "primaryTheme": "POWER_GRID",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "TELECOM_NETWORK"
+   ],
+   "detail": "송배전 자재·금구류",
+   "businessSummary": "송전·배전·지중선 자재, 통신기자재, 철도자재를 제조·판매하는 전력·통신 인프라 자재 기업이다. 금속제품(송배전·통신·철도 금구류)이 매출의 83.6%, 합성수지제품(지중배전 수지제품)이 16.4%다.",
+   "confidence": "medium",
+   "why": "금속제품 부문(송배전·통신·철도 금구류)이 매출의 83.6%로 대부분이며, 이는 전력망 자재에 해당한다. 다만 DART 사업보고서 원문은 확인하지 못했고 금융 정보 사이트 요약 기준이라 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://valueline.co.kr/finance/summary/147830",
+    "https://alphasquare.co.kr/home/stock-summary?code=147830"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:14:24+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "158430": {
    "companyName": "아톤",
    "primaryTheme": "SOFTWARE_AI_PLATFORM",
@@ -3459,28 +4733,81 @@
   },
   "178320": {
    "companyName": "서진시스템",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
+   "primaryTheme": "ENERGY_TRANSITION",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT",
+    "TELECOM_NETWORK",
+    "AUTO_MOBILITY"
+   ],
    "detail": "ESS·반도체 장비 부품",
-   "businessSummary": "알루미늄·메탈 정밀가공 부품을 만드는 기업으로, 주요 고객사 Fluence 등을 통해 ESS 장비(큐브 등)를 공급하고 반도체 장비 부품과 통신 장비 부품도 생산한다. 부문별 매출 비중은 확인하지 못했다.",
-   "confidence": "low",
-   "why": "검색 결과 스니펫에서 ESS(Fluence 큐브 등), 반도체 장비 부품(램리서치 LOI), 통신 장비 등 사업 영역은 확인됐지만 사업보고서의 부문별 매출 비중은 확인하지 못했다. 주력이 ESS(ENERGY_TRANSITION 후보)인지 반도체 장비 부품(SEMI_MATERIALS_PARTS 후보)인지 근거로 정할 수 없어 UNCLASSIFIED로 둔다. 2026년 상반기 기사는 반도체 부문이 실적을 견인했다고 전해 두 후보가 모두 유력하다. DART 사업보고서의 부문별 매출 표로 확정 필요.",
+   "businessSummary": "ESS(에너지저장장치) 금속 구조물과 반도체 장비 부품을 주력으로 생산하며, 통신장비 부품과 전기차·배터리 부품도 공급한다. 매출은 ESS 비중이 가장 크지만 반도체장비 부품 비중이 빠르게 늘고 있다.",
+   "confidence": "medium",
+   "why": "KIND 공시 IR 자료 기준 2024년 매출은 ESS 장비 52.4%, 반도체 장비 16.0%였고, 삼성증권 리포트 기준 2025년은 ESS 37%, 반도체 장비 27%로 ESS가 연간 최대 비중이다. 2026년 2분기 분기 기준으로는 반도체장비 부품이 48%로 앞서므로 주력 교체 가능성이 있어 신뢰도는 medium이다. 사업보고서 원문은 확인하지 못했다.",
    "evidenceUrls": [
-    "https://www.mt.co.kr/article/2026082008029688754",
-    "https://www.digitaltoday.co.kr/aigongsi/amp/2067/seojinsystem-ess-supply-contract",
-    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20240710서진시스템.pdf",
-    "https://wikidocs.net/blog/@zsnote/6252/"
+    "https://kind.krx.co.kr/external/dst/irReference/17532/%EC%84%9C%EC%A7%84%EC%8B%9C%EC%8A%A4%ED%85%9CIR_20251030_F.pdf",
+    "https://www.samsungpop.com/common.do?cmd=down&contentType=application%2Fpdf&inlineYn=Y&saveKey=research.pdf&fileName=2010%2F2026031915234889K_02_09.pdf",
+    "https://www.butler.works/ko/companies/00838005"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:57:22+09:00",
+   "reviewedAt": "2026-11-08T20:27:33+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "서진시스템",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SEMI_EQUIPMENT",
+      "ENERGY_TRANSITION"
+     ],
+     "detail": "반도체 장비·ESS 장비",
+     "businessSummary": "ESS 배터리 인클로저·금속 함체 등 메탈 플랫폼 장비와 반도체 장비(웨이퍼 이송장비 등)를 주로 만드는 회사다. 2024년까지는 ESS 비중이 컸지만, 2026년 상반기 실적은 반도체 장비가 견인한 것으로 보도됐다.",
+     "confidence": "low",
+     "why": "2024년 1분기 ESS 비중은 약 56~61%였으나 2025년 3분기에는 ESS 25%대로 낮아졌고, 2026년 상반기는 반도체 장비 비중이 더 높다는 자료가 있다. 다만 DART 사업보고서의 부문별 매출은 확인하지 못했고, 비중 수치는 증권사 리포트와 블로그에서 가져온 것이라 출처마다 다르다. 주력 테마를 확정할 수 없어 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://www.mt.co.kr/stock/2026/08/20/2026082008029688754",
+      "https://www.smarttoday.co.kr/ko-kr/articles/49873",
+      "https://blog.ai-fortunate.com/2026/09/785-3.html",
+      "https://wikidocs.net/blog/@zsnote/5672/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:21:50+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "서진시스템",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "ESS·반도체 장비 부품",
+     "businessSummary": "알루미늄·메탈 정밀가공 부품을 만드는 기업으로, 주요 고객사 Fluence 등을 통해 ESS 장비(큐브 등)를 공급하고 반도체 장비 부품과 통신 장비 부품도 생산한다. 부문별 매출 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "검색 결과 스니펫에서 ESS(Fluence 큐브 등), 반도체 장비 부품(램리서치 LOI), 통신 장비 등 사업 영역은 확인됐지만 사업보고서의 부문별 매출 비중은 확인하지 못했다. 주력이 ESS(ENERGY_TRANSITION 후보)인지 반도체 장비 부품(SEMI_MATERIALS_PARTS 후보)인지 근거로 정할 수 없어 UNCLASSIFIED로 둔다. 2026년 상반기 기사는 반도체 부문이 실적을 견인했다고 전해 두 후보가 모두 유력하다. DART 사업보고서의 부문별 매출 표로 확정 필요.",
+     "evidenceUrls": [
+      "https://www.mt.co.kr/article/2026082008029688754",
+      "https://www.digitaltoday.co.kr/aigongsi/amp/2067/seojinsystem-ess-supply-contract",
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20240710서진시스템.pdf",
+      "https://wikidocs.net/blog/@zsnote/6252/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:57:22+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "179880": {
    "companyName": "멜콘",
@@ -3582,6 +4909,60 @@
    "overrideReason": "",
    "history": []
   },
+  "203650": {
+   "companyName": "드림시큐리티",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DEFENSE",
+    "SOFTWARE_AI_PLATFORM"
+   ],
+   "detail": "장비 렌탈 · 보안",
+   "businessSummary": "2025년 연결 매출의 대부분은 자회사 한국렌탈을 통한 계측기·사무기기·건설장비 렌탈이며, 국방(시드코어·드림디엔에스)과 보안솔루션(PKI·인증·개인정보보호)이 나머지를 차지합니다. 전자서명·PKI 기반 보안이 본래 사업이지만 현재 매출 비중은 작습니다.",
+   "confidence": "medium",
+   "why": "2025년 연결 매출 비중을 알파스퀘어가 렌탈 77.90%, 국방 9.31%, 솔루션 7.39%, 개인정보보호 4.65%로 집계했고, 2022년 데일리인베스트 기사도 렌탈 80.7%였습니다(와이즈리포트는 67%). 렌탈 품목이 건설장비 등 기계류라 기계·운송 테마로 매핑했으나, 공식 사업보고서(DART) 확인은 아직 하지 못했고 출처마다 수치 기준이 달라 medium입니다.",
+   "evidenceUrls": [
+    "https://alphasquare.co.kr/home/stock-summary?code=203650",
+    "http://www.dailyinvest.kr/news/articleView.html?idxno=53664",
+    "https://comp.wisereport.co.kr/company/c1010001.aspx?cmp_cd=203650",
+    "https://www.itdaily.kr/news/articleView.html?idxno=241006"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:21:14+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "드림시큐리티",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "SOFTWARE_AI_PLATFORM",
+      "DEFENSE",
+      "INDUSTRIAL_MACHINERY"
+     ],
+     "detail": "보안 솔루션·장비 렌탈",
+     "businessSummary": "공인인증·전자서명·PKI 등 IT 보안 솔루션을 금융·공공기관에 공급하는 기업이지만, 연결 매출의 대부분은 종속회사(한국렌탈)를 통한 IT기기·산업용 장비 렌탈이다. 국방(시드코어·드림디엔에스)과 보안솔루션·개인정보보호 서비스는 상대적으로 작은 비중이다.",
+     "confidence": "low",
+     "why": "매출의 다수(자료별 67~82%)가 한국렌탈의 장비 렌탈이고 이는 고정 테마 중 어디에도 명확히 맞지 않아 주력 테마를 확정할 수 없다. 보안 솔루션은 사업 정체성이지만 매출 비중은 약 8~22%로 주력 기준에 못 미치고, 국방은 약 10%다. 수치가 자료마다 엇갈리고 사업보고서 원문은 읽지 못해 확인이 안 된 상태이므로 UNCLASSIFIED·low로 둔다.",
+     "evidenceUrls": [
+      "https://alphasquare.co.kr/home/stock-summary?code=203650",
+      "https://comp.wisereport.co.kr/company/c1020001.aspx?cmp_cd=203650&cn=",
+      "https://www.creditnews.kr/news/articleView.html?idxno=31511"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:15:48+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
+  },
   "204270": {
    "companyName": "주식회사 제이앤티씨",
    "primaryTheme": "DISPLAY",
@@ -3605,6 +4986,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:05:03+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "209640": {
+   "companyName": "와이제이링크",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT"
+   ],
+   "detail": "SMT 표면실장 장비",
+   "businessSummary": "PCB 표면실장(SMT) 공정용 이송 및 추적 장비 등 스마트 공정장비를 제조·판매한다. 2009년 설립, 본사는 대구다.",
+   "confidence": "medium",
+   "why": "IR 페이지가 업종을 특수 목적용 기계 제조업으로, 주요제품을 SMT 이송·추적장비 등 공정장비로 밝힌다. 전자부품 조립 라인 장비라 반도체 전공정 장비가 아니므로 기계 테마로 분류했다. 사업부별 매출 비중은 확인하지 못해 confidence를 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/209640/",
+    "https://morningstar.com.au/investments/security/XKRX/209640"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:14+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3682,6 +5086,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:00:26+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "222800": {
+   "companyName": "심텍",
+   "primaryTheme": "SEMI_SUBSTRATE_PCB",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_MEMORY"
+   ],
+   "detail": "메모리 패키지 기판",
+   "businessSummary": "메모리 반도체용 패키지 기판(MSAP·MCP 계열)을 제조하는 기업이다. 메모리 칩을 감싸는 기판이 주력 매출원으로 보이며, FC-BGA 비중은 확인하지 못했다.",
+   "confidence": "medium",
+   "why": "검색 결과 증권사 리포트들이 심텍을 메모리향 패키지 기판(MSAP·MCP) 기업으로 소개하고, 2022년 리포트에서 MSAP 관련 매출 비중이 62%에서 72%로 증가했다고 서술한다. 다만 이는 증권사 리포트 발췌이며 사업보고서 원문으로 대조하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/대신20221107심텍.pdf",
+    "https://stock.pstatic.net/stock-research/company/2/20240613_company_655773000.pdf",
+    "https://kr.investing.com/equities/simmtech-co-ltd"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:48+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3819,6 +5247,27 @@
    "overrideReason": "",
    "history": []
   },
+  "242040": {
+   "companyName": "나무기술 (Namu Tech Co., Ltd.)",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "가상데스크톱·클라우드 IT 솔루션",
+   "businessSummary": "DaaS 및 VDI(가상데스크톱) 솔루션과 Netscaler 기반 통합 플랫폼을 공급하는 IT 서비스 기업으로, 2001년 설립된 코스닥 상장사다. 나무가(카메라·3D 센싱 모듈)와는 다른 회사다.",
+   "confidence": "medium",
+   "why": "사업보고서·DART 원문은 확인하지 못했다. 검색으로 확인된 주요 제품이 DaaS·VDI 솔루션과 Netscaler 플랫폼이고, 업종이 컴퓨터 프로그래밍·데이터 처리 및 기타 컴퓨터 관련 서비스로 기재되어 있어 IT 서비스(SOFTWARE_AI_PLATFORM)로 분류했다. 근거는 금융 데이터 사이트 요약이며 매출 세그먼트·주요 고객은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/quote/kosdaq/242040/company",
+    "https://stockanalysis.com/quote/kosdaq/242040/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:15:11+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "247540": {
    "companyName": "에코프로비엠",
    "primaryTheme": "SECONDARY_BATTERY",
@@ -3840,6 +5289,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:05:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "252990": {
+   "companyName": "샘씨엔에스",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_SUBSTRATE_PCB"
+   ],
+   "detail": "반도체 프로브카드 부품",
+   "businessSummary": "반도체 웨이퍼 테스트(EDS) 공정의 프로브카드 핵심 부품인 세라믹 STF(Space TransFormer)를 생산한다. 주요 고객은 프로브카드 업체이며, 최종 수요처는 NAND·DRAM 등 메모리 IDM이다.",
+   "confidence": "medium",
+   "why": "증권사 리서치와 기업 정보 사이트 모두 주력 제품을 세라믹 STF로 명시하며, 프로브카드용 소모성 핵심 부품이라 소재·부품에 해당한다. 한 증권사 자료의 2024년 사업보고서 기준 제품 비중은 NAND 프로브카드용 75%, DRAM용 23%, 비메모리·기타 2%다. DART 사업보고서 원문은 직접 열어 확인하지 못해 confidence를 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20250218샘씨엔에스.pdf",
+    "https://thevc.kr/semcns",
+    "https://etfshopping.com/stock/252990",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20260428203340489K_02.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:55+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4049,6 +5523,27 @@
    "overrideReason": "",
    "history": []
   },
+  "277810": {
+   "companyName": "레인보우로보틱스",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "협동로봇·휴머노이드",
+   "businessSummary": "협동로봇, 초정밀지향마운트, 보행로봇 플랫폼 등 로봇 제품을 개발·판매하며, 2025 사업연도 매출의 약 93%가 로봇 부문에서 발생한다. 산업 자동화·연구·물류·서비스 로봇으로 사업을 넓히고 있다.",
+   "confidence": "high",
+   "why": "2025 사업보고서(제출 2026.3.20) 기준 로봇 부문 매출 비중이 약 93%로 확인되며, 주요 사업이 협동로봇·보행로봇 플랫폼이라 로봇 테마가 주력이다. 다만 본문 원문은 검색 결과 요약으로만 확인했다.",
+   "evidenceUrls": [
+    "https://kind.krx.co.kr/external/2026/03/20/001000/20260320003808/11011.htm",
+    "https://rainbow-robotics.com/en/company/about/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:15:34+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "278470": {
    "companyName": "에이피알",
    "primaryTheme": "COSMETICS_CONSUMER",
@@ -4146,27 +5641,83 @@
    "history": []
   },
   "290690": {
-   "companyName": "솔룩스",
+   "companyName": "솔룩스 (2026년 6월 임시 주총에서 사명을 아리바이오홀딩스로 변경하는 정관 변경 가결, 등기·표기 시점은 미확인)",
    "primaryTheme": "UNCLASSIFIED",
    "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
-   "detail": "LED 조명 제조",
-   "businessSummary": "LED 조명(실내등·실외등·특수목적등)을 제조·공급하는 회사로, 가정·상업용 LED 조명을 건설 현장에 납품하는 구조라는 집계 사이트 설명이 있다. 사업보고서의 부문별 매출 비중은 확인하지 못했다.",
+   "secondaryThemes": [
+    "BIO_PHARMA"
+   ],
+   "detail": "조명에서 바이오 전환",
+   "businessSummary": "기존에는 실내·실외·특수 조명(LED, 형광등, 가로등, 터널 조명)을 만들었다. 2026년부터 뇌질환 신약 개발사 아리바이오, 백신·면역 플랫폼 아리바이오랩과 연결해 바이오를 핵심 성장 축으로 추가하고, AI 데이터센터·전력 인프라 MOU도 보도됐으나 매출 비중 근거는 확인하지 못했다.",
    "confidence": "low",
-   "why": "LED 조명은 고정 테마 목록의 어느 항목에도 맞지 않아 주력 테마를 정하지 못했다. 공식 사업보고서(DART) 매출 비중은 열어 보지 못했고, 근거는 Morningstar·TradingView 요약과 집계 사이트 설명뿐이다.",
+   "why": "사업보고서·DART의 '매출 및 수주상황' 표를 열어 확인하지 못했다. 조명 사업 매출 비중도, 바이오 편입 후 매출 구성도 확인되지 않아 주력 테마를 정할 수 없다. 바이오 전환은 회사가 밝힌 전략이지 매출 근거가 아니고, 2026년 9월 아리바이오와의 합병은 백지화된 것으로 보도됐다. 지주회사 규칙(핵심 자회사 매출 대부분이면 그 테마, 아니면 HOLDING_OTHER)도 매출 자료가 있어야 적용할 수 있다.",
    "evidenceUrls": [
-    "https://morningstar.com.au/investments/security/XKRX/290690/summary",
-    "https://in.tradingview.com/symbols/KRX-290690/financials-overview/"
+    "https://core.asiae.co.kr/article/2026070111591080063",
+    "https://www.asiae.co.kr/en/article/2026052109321189503",
+    "https://www.dailypharm.com/user/news/343023?REFERER=NP",
+    "https://www.dailypharm.com/user/news/339848?REFERER=NP",
+    "https://www.morningstar.com.au/investments/security/XKRX/290690/summary",
+    "https://stockanalysis.com/quote/kosdaq/290690/company/"
    ],
    "gateReasons": [
     "신뢰도 low"
    ],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:07:58+09:00",
+   "reviewedAt": "2026-11-08T20:27:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "소룩스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "NUCLEAR",
+      "POWER_GRID"
+     ],
+     "detail": "LED 조명·데이터센터 전기공사",
+     "businessSummary": "충남 공주에 본사를 둔 LED 조명(실내·실외·특수등) 제조 기업으로 알려져 있으며, 2026년 5월 호남권 AI 데이터센터 구축 MOU를 계기로 데이터센터 전기 인프라 사업을 신규 성장동력으로 키우는 중이다. 사업부문별 매출 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "사업보고서 매출 구성표를 열람하지 못해 주력 매출 테마를 확정할 근거가 없어 UNCLASSIFIED로 둔다. 과거 주력은 LED 조명으로 보이나 검색 결과의 회사 개요는 2차 자료 위주이고, 데이터센터 전기공사는 MOU·계획 단계 기사뿐이다. 원전용 특수 LED 조명(2025년 기사)은 NUCLEAR 보조 태그 근거이며, Morningstar 페이지는 같은 코드를 'Aribio Holdings'로 표기해 사명·사업 변경 여부를 DART 공시로 확인해야 한다.",
+     "evidenceUrls": [
+      "https://view.asiae.co.kr/article/2026050811062110334",
+      "https://core.asiae.co.kr/article/2025092913352160018",
+      "https://www.stockhub.kr/stock/290690",
+      "https://m.gurufocus.com/stock/XKRX:290690/summary"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:20:20+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "솔룩스",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "LED 조명 제조",
+     "businessSummary": "LED 조명(실내등·실외등·특수목적등)을 제조·공급하는 회사로, 가정·상업용 LED 조명을 건설 현장에 납품하는 구조라는 집계 사이트 설명이 있다. 사업보고서의 부문별 매출 비중은 확인하지 못했다.",
+     "confidence": "low",
+     "why": "LED 조명은 고정 테마 목록의 어느 항목에도 맞지 않아 주력 테마를 정하지 못했다. 공식 사업보고서(DART) 매출 비중은 열어 보지 못했고, 근거는 Morningstar·TradingView 요약과 집계 사이트 설명뿐이다.",
+     "evidenceUrls": [
+      "https://morningstar.com.au/investments/security/XKRX/290690/summary",
+      "https://in.tradingview.com/symbols/KRX-290690/financials-overview/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:07:58+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "295310": {
    "companyName": "에이치브이엠(주)",
@@ -4255,6 +5806,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:08:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "319660": {
+   "companyName": "피에스케이",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "드라이스트립·애싱 장비",
+   "businessSummary": "반도체 전공정의 드라이 스트립(포토레지스트 제거)·애싱·세정 장비를 만드는 회사다. 드라이 스트립 장비 분야 세계 상위권으로 소개된다.",
+   "confidence": "medium",
+   "why": "주력 제품이 포토레지스트 제거·애싱·세정 등 웨이퍼 공정 장비이며, 소재나 기판이 아닌 장비 사업이다. 다만 제품별 매출 비중은 DART 사업보고서로 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://view.asiae.co.kr/en/article/2022071310261158772",
+    "https://files-scs.pstatic.net/2024/05/30/IujkWLM1OE/피에스케이 24년5월 IR자료.pdf",
+    "https://alphasquare.co.kr/home/stock/stock-summary?code=319660"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:17:40+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4609,30 +6182,118 @@
    "overrideReason": "",
    "history": []
   },
+  "356860": {
+   "companyName": "티엘비",
+   "primaryTheme": "SEMI_SUBSTRATE_PCB",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "메모리 모듈 PCB",
+   "businessSummary": "메모리 모듈과 SSD에 들어가는 PCB(인쇄회로기판)를 만드는 반도체용 기판 전문 기업이다. 서버용 DDR5 모듈 기판과 SOCAMM 등 메모리 기판이 주력이며, 삼성전자·SK하이닉스·마이크론이 주요 고객이다.",
+   "confidence": "medium",
+   "why": "검색 결과 발췌에서 주력 제품이 메모리 모듈·SSD용 PCB이고, 리포트 제목에 메모리향 매출 비중 99%라고 명시돼 있다. 반도체 패키지 기판이 아니라 메모리 모듈용 PCB이므로 기판·PCB로 분류했다. 다만 사업보고서(DART)는 열지 못했고 제품별 정확한 비중 수치도 확인하지 못해 confidence는 medium으로 뒀다.",
+   "evidenceUrls": [
+    "https://stockhub.kr/stock/356860",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20240306티엘비.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:18:02+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "357880": {
+   "companyName": "SKAI worldwide Co., Ltd.",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "그래프 DB 소프트웨어",
+   "businessSummary": "그래프 데이터베이스와 그래프 기반 솔루션을 주로 공급하는 소프트웨어 회사다. 전신은 비트나인(Bitnine)이며, 2025년 1월 SKAI worldwide로 사명을 바꿨다고 검색 결과에 나온다.",
+   "confidence": "medium",
+   "why": "TradingView 기업 개요와 검색 결과 모두 주력 사업을 그래프 DB·그래프 솔루션 소프트웨어로 설명하므로 소프트웨어 테마로 분류했다. 다만 DART 사업보고서와 회사 IR은 직접 열어 확인하지 못했고, 매출 세그먼트·주요 고객도 확인하지 못했다. 정식 한글 상호도 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://www.tradingview.com/symbols/KRX-357880/",
+    "https://stockanalysis.com/quote/kosdaq/357880/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:56+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "368770": {
    "companyName": "파이버프로",
    "primaryTheme": "UNCLASSIFIED",
    "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [
-    "DEFENSE"
-   ],
-   "detail": "광섬유 센서",
-   "businessSummary": "1997년 설립된 광섬유 센서(FBG·분포형 센싱) 전문 기업으로, 교량·에너지·해저케이블 등 인프라 계측 시스템과 방산용 광섬유 자이로(FOG) 기반 관성측정장치를 함께 다룬다. 제품별 매출 비중은 이번에 확인하지 못했다.",
+   "secondaryThemes": [],
+   "detail": "광섬유 센서 계측",
+   "businessSummary": "광섬유 브래그 격자(FBG) 기반 센서 및 분산형 광섬유 센싱 계측 시스템을 만들어 구조물·에너지 인프라 모니터링에 공급하는 회사다. 광섬유 자이로(FOG) 사업 여부와 부문별 매출 비중은 이번 검색에서 확인되지 않았다.",
    "confidence": "low",
-   "why": "회사 사업 내용(광섬유 센서, FOG 관성장치)은 확인했지만, 사업부문별 매출 비중을 DART 사업보고서에서 직접 확인하지 못했다. 인프라 계측 센서는 고정 테마 목록의 어느 항목과도 직접 맞지 않고, 방산 FOG 관성장치는 일부 사업으로만 언급되어 주력 테마를 확정할 근거가 부족하다. 방산은 보조 태그로만 둔다.",
+   "why": "사업 구조(FBG·분산형 광섬유 센싱)는 확인됐으나 부문별 매출 비중을 DART 사업보고서에서 검증하지 못했다. 이 제품군은 기존 테마 중 한 곳에 명확히 맞지 않으며, 방산(FOG)·전력(계측) 연결은 출처마다 달라 확정할 수 없어 UNCLASSIFIED로 둔다.",
    "evidenceUrls": [
-    "https://file.alphasquare.co.kr/media/pdfs/market-report/%ED%8C%8C%EC%9D%B4%EB%B2%84%ED%94%84%EB%A1%9C_AI_20260417%ED%95%9C%EA%B5%ADIR%ED%98%91%EC%9D%98%ED%9A%8C.",
-    "https://alphadistill.com/stock/368770"
+    "https://file.alphasquare.co.kr/media/pdfs/market-report/%ED%8C%8C%EC%9D%B4%EB%B2%84%ED%94%84%EB%A1%9C_AI_20260417%ED%95%9C%EA%B5%ADIR%ED%98%91%EC%9D%98%ED%9A%8C."
    ],
    "gateReasons": [
     "신뢰도 low"
    ],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:56:21+09:00",
+   "reviewedAt": "2026-11-08T20:27:27+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "파이버프로(FIBERPRO, Inc.)",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "광섬유 센서 계측",
+     "businessSummary": "1995년 설립된 광섬유 센서·광 계측 기업으로, 광섬유자이로(FOG) 기반 관성항법장치(IMU), 광섬유 센싱 시스템(온도·압력·가속도 측정, FBG 구조물 모니터링), 광부품 및 반도체 웨이퍼 분석 장비 등 포토닉스 제품을 만든다.",
+     "confidence": "low",
+     "why": "검색 결과에서 부문별 매출 비중은 확인되지 않았다. 항법·IMU(항공우주·방산 무기체계 적용)와 AI 해저케이블 센싱 등 여러 사업이 보이지만 어느 사업이 매출의 대부분인지 근거가 없어 미분류로 둔다. DEFENSE 또는 SPACE_AEROSPACE가 유력한 후보이나 DART 사업보고서의 매출 및 수주상황으로 확인 전까지는 확정하지 않는다.",
+     "evidenceUrls": [
+      "https://file.alphasquare.co.kr/media/pdfs/market-report/%ED%8C%8C%EC%9D%B4%EB%B2%84%ED%94%84%EB%A1%9C_AI_20260417%ED%95%9C%EA%B5%ADIR%ED%98%91%EC%9D%98%ED%9A%8C.",
+      "https://stockanalysis.com/quote/kosdaq/368770/",
+      "https://alphadistill.com/stock/368770",
+      "https://m.irgo.co.kr/IR-COMP/368770/"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:21:12+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
+    {
+     "companyName": "파이버프로",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "DEFENSE"
+     ],
+     "detail": "광섬유 센서",
+     "businessSummary": "1997년 설립된 광섬유 센서(FBG·분포형 센싱) 전문 기업으로, 교량·에너지·해저케이블 등 인프라 계측 시스템과 방산용 광섬유 자이로(FOG) 기반 관성측정장치를 함께 다룬다. 제품별 매출 비중은 이번에 확인하지 못했다.",
+     "confidence": "low",
+     "why": "회사 사업 내용(광섬유 센서, FOG 관성장치)은 확인했지만, 사업부문별 매출 비중을 DART 사업보고서에서 직접 확인하지 못했다. 인프라 계측 센서는 고정 테마 목록의 어느 항목과도 직접 맞지 않고, 방산 FOG 관성장치는 일부 사업으로만 언급되어 주력 테마를 확정할 근거가 부족하다. 방산은 보조 태그로만 둔다.",
+     "evidenceUrls": [
+      "https://file.alphasquare.co.kr/media/pdfs/market-report/%ED%8C%8C%EC%9D%B4%EB%B2%84%ED%94%84%EB%A1%9C_AI_20260417%ED%95%9C%EA%B5%ADIR%ED%98%91%EC%9D%98%ED%9A%8C.",
+      "https://alphadistill.com/stock/368770"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:56:21+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "373220": {
    "companyName": "LG에너지솔루션",
@@ -4663,29 +6324,57 @@
   },
   "376900": {
    "companyName": "로킷헬스케어",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
-   "secondaryThemes": [],
-   "detail": "장기재생 바이오 플랫폼",
-   "businessSummary": "AI 기반 자가 세포외기질(ECM) 바이오잉크 키트, AI 환부 모델링 앱, 3D 바이오프린터로 당뇨발 등 장기·조직 재생 치료 플랫폼을 운영한다. 자회사 로킷아메리카는 NMN 기반 건강기능식품을 판매한다. 2025년 매출 262억원 중 어느 사업이 주력인지는 공시 원문으로 확인하지 못했다.",
-   "confidence": "low",
-   "why": "기술 소개(FDA·CE MDR 인증 제품 등)는 재생의료 기기 쪽이지만, 증권 정보 사이트의 2026년 2분기 매출 구성은 상품 54%, 제품 41%, 유전체분석 등 4%로 '상품'이 가장 크다. 상품이 자회사 건강기능식품인지 의료기기 소모품인지 확인되지 않아 주력 테마를 고를 수 없다. DART 사업보고서의 부문별 매출을 확인하기 전까지 UNCLASSIFIED로 둔다.",
+   "primaryTheme": "MEDICAL_DEVICE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "BIO_PHARMA",
+    "COSMETICS_CONSUMER"
+   ],
+   "detail": "재생의료 바이오프린터",
+   "businessSummary": "AI 기반 장기재생 플랫폼을 판매하는 재생의료 기업으로, 의료용 3D 바이오프린터와 시술마다 쓰는 일회용 재생 키트를 공급하며 당뇨발·연골·신장 재생 치료를 추진한다. 건강기능식품(로킷아메리카)과 유전체분석 용역(로킷제노믹스) 자회사도 있다.",
+   "confidence": "medium",
+   "why": "주력은 FDA·CE MDR 인증을 받은 의료용 3D 바이오프린터와 일회용 키트 플랫폼이며, 2025년 2분기 기준 AI 장기재생 플랫폼이 매출의 약 절반을 차지한다고 보도됐다. 다만 부문별 매출 비중은 자료마다 달라 DART 사업보고서 원문은 확인하지 못했다.",
    "evidenceUrls": [
-    "https://file.alphasquare.co.kr/media/pdfs/company-report/20251226104345234_0_ko.pdf",
-    "https://wikidocs.net/blog/@zsnote/6616/",
-    "https://view.asiae.co.kr/article/2025051409511007866",
-    "https://www.mydailybyte.com/littlebit/stock/376900/fundamental",
-    "https://medicaltimes.com/Mobile/News/NewsView.html?ID=1166942"
+    "https://thevc.kr/rokithealthcare",
+    "https://www.hankyung.com/article/202605159725i",
+    "https://www.bioworld.com/articles/511042-rokit-wins-south-korean-approval-for-diabetic-foot-ulcers-preps-for-two-ipos",
+    "https://www.asiae.co.kr/en/article/2025051409511007866",
+    "https://www.asiae.co.kr/en/article/2023042609411031139",
+    "https://dealsite.co.kr/articles/153106"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
+   "gateReasons": [],
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T16:07:56+09:00",
+   "reviewedAt": "2026-11-08T20:19:41+09:00",
    "overrideByUser": false,
    "overrideReason": "",
-   "history": []
+   "history": [
+    {
+     "companyName": "로킷헬스케어",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "장기재생 바이오 플랫폼",
+     "businessSummary": "AI 기반 자가 세포외기질(ECM) 바이오잉크 키트, AI 환부 모델링 앱, 3D 바이오프린터로 당뇨발 등 장기·조직 재생 치료 플랫폼을 운영한다. 자회사 로킷아메리카는 NMN 기반 건강기능식품을 판매한다. 2025년 매출 262억원 중 어느 사업이 주력인지는 공시 원문으로 확인하지 못했다.",
+     "confidence": "low",
+     "why": "기술 소개(FDA·CE MDR 인증 제품 등)는 재생의료 기기 쪽이지만, 증권 정보 사이트의 2026년 2분기 매출 구성은 상품 54%, 제품 41%, 유전체분석 등 4%로 '상품'이 가장 크다. 상품이 자회사 건강기능식품인지 의료기기 소모품인지 확인되지 않아 주력 테마를 고를 수 없다. DART 사업보고서의 부문별 매출을 확인하기 전까지 UNCLASSIFIED로 둔다.",
+     "evidenceUrls": [
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/20251226104345234_0_ko.pdf",
+      "https://wikidocs.net/blog/@zsnote/6616/",
+      "https://view.asiae.co.kr/article/2025051409511007866",
+      "https://www.mydailybyte.com/littlebit/stock/376900/fundamental",
+      "https://medicaltimes.com/Mobile/News/NewsView.html?ID=1166942"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T16:07:56+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "377300": {
    "companyName": "카카오페이",
@@ -4705,6 +6394,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:50:59+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "388050": {
+   "companyName": "지투파워",
+   "primaryTheme": "POWER_GRID",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ENERGY_TRANSITION"
+   ],
+   "detail": "배전반·전력기기",
+   "businessSummary": "수배전반(전력 배전 설비)을 주력으로 제조하며, 태양광발전시스템 EPC, 인버터(PCS), ESS를 함께 다루는 전력기기 업체다.",
+   "confidence": "medium",
+   "why": "수배전반이 매출의 과반으로 보고된다(2026년 2분기 기준 약 55%, 2025년 추정 약 69%). 공식 IR 페이지는 업종을 전동기·발전기·전기 변환·공급·제어 장치 제조업으로 명시한다. 태양광(약 24~43%)은 보조 테마로 둔다. 비중 수치는 증권사·정보사이트 자료라 DART 사업보고서로 확인이 필요하다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/388050/",
+    "https://www.mt.co.kr/article/2025082809509644056"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:47+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4756,6 +6468,55 @@
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
+  },
+  "389500": {
+   "companyName": "에스비비테크",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "로봇 감속기·베어링",
+   "businessSummary": "초정밀 동력전달 부품인 정밀 감속기(하모닉 방식)와 베어링을 만들며, 로봇 관련 제품(Robo Bearing, Wrist, 감속기 모듈 등)이 매출의 대부분을 차지한다.",
+   "confidence": "medium",
+   "why": "기업모니터 제품별 매출 구성에서 감속기 31.50%, ROBO BEARING 22.80%, WRIST 21.10%로 로봇 관련 품목이 대부분이다. 다만 이 수치의 기준 연도가 명확하지 않고 사업보고서 원문은 확인하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://comp.wisereport.co.kr/company/c1020001.aspx?cmp_cd=389500&cn=",
+    "https://file.alphasquare.co.kr/media/pdfs/company-ir/20260710%EC%97%90%EC%8A%A4%EB%B9%84%EB%B9%84%ED%85%8C%ED%81%AC_%EC%A3%BC%EC%9A%94_%EC%82%AC%EC%97%85_%EC%86%8C%EA%B0%9C.pdf",
+    "http://www.sbiztoday.kr/news/articleView.html?idxno=12783"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:21:20+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": [
+    {
+     "companyName": "에스비비테크",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "ROBOTICS",
+      "AUTO_MOBILITY",
+      "DEFENSE"
+     ],
+     "detail": "로봇 감속기·베어링",
+     "businessSummary": "하모닉 드라이브 방식 정밀 감속기와 베어링을 주력으로 생산하며, 휴머노이드 로봇용 감속기 공급 계약 등 로봇 부품 사업을 확대하고 있다. 자동차·방산 분야 베어링 납품도 함께 한다.",
+     "confidence": "low",
+     "why": "회사 IR 페이지가 주요 제품을 베어링·감속기로 소개하고 알파스퀘어 리포트가 하모닉 감속기 국산화와 자동차·방산 집중을 설명하지만, 품목별·부문별 매출 비중은 사업보고서에서 확인하지 못했다. 주력 테마를 매출 근거로 고를 수 없어 미분류로 둔다. 감속기가 로봇 부품 중심이라는 점에서 ROBOTICS가 유력한 후보이나 검증 전이다.",
+     "evidenceUrls": [
+      "https://m.irgo.co.kr/IR-COMP/389500",
+      "https://file.alphasquare.co.kr/media/pdfs/company-report/20250529174457371_15_ko.pdf"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T20:17:30+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "393890": {
    "companyName": "W-SCOPE CHUNGJU PLANT CO., LTD. (더블유씨피)",
@@ -4847,6 +6608,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:59:15+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "413630": {
+   "companyName": "씨피시스템",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT"
+   ],
+   "detail": "케이블체인 반도체장비 부품",
+   "businessSummary": "케이블체인 등 케이블 보호·이송 시스템을 제조하며, 플렉시블 튜브와 커넥터도 공급한다. 주요 고객은 삼성전자 협력사인 반도체 장비업체(테크윙, 세메스, 고영테크놀러지 등)다.",
+   "confidence": "medium",
+   "why": "2026년 2분기 제품 매출 구성은 케이블체인 약 54%, 플렉시블 튜브 27%, 커넥터 13%로 소재·부품 성격이 강하다. 고객이 반도체 장비업체라 반도체 연관은 명확하지만, 자료마다 매출 수치와 고객 비중이 달라 DART 사업보고서 확인이 필요하다.",
+   "evidenceUrls": [
+    "https://m.etnews.com/20260619000139",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20241223_413630_jongsun.park_2278.pdf",
+    "https://alphasquare.co.kr/home/stock-summary?code=413630",
+    "https://www.stockhub.kr/stock/413630"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:13:32+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5200,6 +6986,80 @@
    "overrideReason": "",
    "history": []
   },
+  "458870": {
+   "companyName": "씨어스테크놀로지",
+   "primaryTheme": "MEDICAL_DEVICE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SOFTWARE_AI_PLATFORM"
+   ],
+   "detail": "웨어러블 환자 모니터링",
+   "businessSummary": "웨어러블 심전도 패치(모비케어)와 입원환자 모니터링 시스템(씽크, thynC)을 주력으로 하는 디지털 헬스케어 의료기기 기업이다. 의료용 AI와 원격 환자 모니터링 솔루션도 함께 제공한다.",
+   "confidence": "medium",
+   "why": "TradingView 개요와 언론 보도에서 웨어러블 심전도 패치와 입원환자 모니터링 시스템이 핵심 제품으로 확인된다. 기사에서 씽크 매출이 모비케어보다 크다고 보도되어 의료기기 제품 매출이 주력으로 보인다. 사업보고서의 제품별 매출 비중은 직접 확인하지 못해 confidence는 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://in.tradingview.com/symbols/KRX-458870",
+    "https://view.asiae.co.kr/article/2025011614394149070",
+    "https://www.biospectator.com/news/view/19251"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:12:49+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "462350": {
+   "companyName": "이노스페이스",
+   "primaryTheme": "SPACE_AEROSPACE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DEFENSE"
+   ],
+   "detail": "소형 발사체·우주항공",
+   "businessSummary": "하이브리드 로켓 기술로 소형 위성 발사체를 개발·제작하고 발사 서비스를 제공한다. 로켓 제품·모의 발사체 공급과 로켓 부품 시험평가 사업도 운영한다.",
+   "confidence": "medium",
+   "why": "2025년 매출 27억 원 중 로켓 제품 부문이 약 22억 원으로 대부분이고 발사 서비스는 약 2.5억 원이다(IB토마토가 DART 공시를 인용). 주력은 발사체 자체이므로 우주·항공으로 분류하고, 모의 발사체 공급의 방산 연계를 보조 테마로 둔다. DART 사업보고서 표 원문은 직접 열어 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://newstomato.com/ReadNews.aspx?no=1295636",
+    "https://ibtomato.com/Mobile/mView.aspx?no=17836&type=1",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/20250826_462350_uihoon0607_354.pdf",
+    "https://kr.investing.com/equities/innospace",
+    "https://simplywall.st/stocks/kr/capital-goods/kosdaq-a462350/innospace-shares/information"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:13:49+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "466100": {
+   "companyName": "주식회사 클로봇",
+   "primaryTheme": "ROBOTICS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SOFTWARE_AI_PLATFORM"
+   ],
+   "detail": "로봇 관제·자율주행 소프트웨어",
+   "businessSummary": "범용 자율주행 솔루션 CHAMELEON과 이기종 로봇 관제(FMS) 솔루션 CROMS를 로봇 제조사에 라이선스 형태로 공급하고, 공공·기업 대상으로 안내·배송·순찰·물류자동화 등 로봇 서비스를 운영한다.",
+   "confidence": "medium",
+   "why": "핵심 제품이 로봇 자율주행·관제 소프트웨어(CHAMELEON, CROMS)이고 로봇 서비스 사업을 병행하므로 로봇을 주력 테마로 골랐다. 다만 DART 사업보고서 원문과 부문별 매출 비중은 이번 검색에서 확인하지 못했고, 2025년 두산로지스틱스솔루션 인수 후 사업 구성이 바뀌었을 수 있어 신뢰도는 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.morningstar.com.au/investments/security/xkrx/466100/summary",
+    "https://www.koreancenter.or.kr/news/articleView.html?idxno=1427751",
+    "https://view.asiae.co.kr/article/2025010807430669109"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:14:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "468670": {
    "companyName": "주식회사 브릴스 (BRILS Corp.)",
    "primaryTheme": "ROBOTICS",
@@ -5219,6 +7079,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:03:28+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "474170": {
+   "companyName": "루미르",
+   "primaryTheme": "SPACE_AEROSPACE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "우주 위성 제조",
+   "businessSummary": "SAR(합성개구레이더) 초소형 위성 체계와 위성 전장품을 제조하고, 자체 SAR 위성(루미르X)으로 지구관측 영상·정보 서비스를 추진한다. 민수 부문으로 대형 선박 엔진용 솔레노이드를 만든다.",
+   "confidence": "medium",
+   "why": "국가 우주개발 위성 제조(SAR 위성체·탑재장치 수주)가 매출의 주축으로 보고된다. 메리츠증권 리포트의 2025년 위성제조 매출 추정치(62억원, 전체 92억원 전망)로 보면 위성 부문이 대략 3분의 2 수준이며, 민수 솔레노이드는 나머지다. 사업보고서 기준 확정 비중은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/%EB%A9%94%EB%A6%AC%EC%B8%A020251030%EB%A3%A8%EB%AF%B8%EB%A5%B4.pdf",
+    "https://www.innoforest.co.kr/company/CP00012976",
+    "https://zdnet.co.kr/view/?no=20241004135724",
+    "https://www.etoday.co.kr/news/view/2493877",
+    "https://stockanalysis.com/quote/kosdaq/474170/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:05+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5288,6 +7172,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:07:46+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "486990": {
+   "companyName": "노타",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ELECTRONIC_COMPONENTS"
+   ],
+   "detail": "AI 모델 경량화",
+   "businessSummary": "AI 모델을 스마트폰·IoT·반도체·자동차 등 기기에서 가볍게 돌아가도록 경량화·최적화하는 소프트웨어 플랫폼 '넷츠프레소'를 주력으로 판매한다. 최근에는 영상 관제 솔루션(NVA)과 AI 인프라 최적화로도 사업을 넓히고 있다.",
+   "confidence": "medium",
+   "why": "주력 제품이 넷츠프레소라는 AI 최적화 소프트웨어 플랫폼이고, 고객사가 직접 도입하거나 노타가 솔루션으로 판매하는 구조다. 부문별 매출 비중은 검색 결과에서 확인하지 못해 공식 사업보고서 기준의 비중 검증은 남아 있다.",
+   "evidenceUrls": [
+    "https://www.mydailybyte.com/littlebit/stock/486990/fundamental",
+    "https://byline.network/2025/11/3-323/",
+    "https://news.mtn.co.kr/news-detail/2026051810522348562",
+    "https://www.heraldk.com/article/2025101921081128919"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-08T20:16:24+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []

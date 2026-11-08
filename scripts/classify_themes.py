@@ -26,6 +26,8 @@ from data import classification as cls  # noqa: E402
 
 MODEL = 'claude-haiku-5-5'
 TIMEOUT_SEC = 240
+RETRIES = 3
+RETRY_WAIT_SEC = 30
 SAVE_EVERY = 10
 _EXCLUDE = {'QQQ', 'IWM', 'IXIC', 'KOSPI', 'KOSDAQ', 'NASDAQ'}
 
@@ -76,11 +78,12 @@ _KR_NOTES = """- 6자리 숫자는 한국거래소 종목코드다. 반드시 �
 def build_prompt(market: str, ticker: str, hint: str | None) -> str:
     tax = cls.load_taxonomy(market)
     lines = '\n'.join(f"- {t['code']} ({t['label']}): {t['desc']}" for t in tax['themes'])
+    # 'NN'처럼 짧은 티커를 자리 표시로 오해하지 않도록 "티커 심볼"이라고 못박는다
     if market == 'us':
-        who = f'미국 상장 종목 {ticker}' + (f' (거래소: {hint})' if hint else '')
+        who = f'미국 상장 종목(티커 심볼 "{ticker}"' + (f', 거래소 {hint}' if hint else '') + ')'
         notes = _US_NOTES
     else:
-        who = f'한국 상장 종목 {ticker}' + (f' ({hint})' if hint else '')
+        who = f'한국 상장 종목(종목코드 "{ticker}"' + (f', 종목명 {hint}' if hint else '') + ')'
         notes = _KR_NOTES
     return f"""당신은 기업 사업 분류 담당자다. {who}의 실제 주력 사업을 웹 검색으로 확인하고 아래 고정 테마 목록 안에서만 분류하라.
 
@@ -124,9 +127,12 @@ def _extract_json(text: str) -> dict | None:
 
 
 def classify_one(market: str, ticker: str, hint: str | None, binary: str) -> tuple[str, dict | None, str]:
+    """일시적 실패(CLI 업데이트로 실행 파일 부재, 사용량 한도 거절, 타임아웃)는 대기 후 재시도."""
     prompt = build_prompt(market, ticker, hint)
-    proc = None
-    for attempt in range(2):
+    err = ''
+    for attempt in range(RETRIES):
+        if attempt:
+            time.sleep(RETRY_WAIT_SEC * attempt)
         try:
             proc = subprocess.run(
                 [_claude_bin() or binary, '-p', '--model', MODEL,
@@ -135,17 +141,18 @@ def classify_one(market: str, ticker: str, hint: str | None, binary: str) -> tup
                 input=prompt, capture_output=True, text=True, encoding='utf-8',
                 timeout=TIMEOUT_SEC,
             )
-            break
         except subprocess.TimeoutExpired:
-            return ticker, None, 'timeout'
-        except OSError as e:          # CLI 자동 업데이트 중 실행 파일이 잠깐 사라지는 경우
-            if attempt == 1:
-                return ticker, None, f'실행 실패: {e}'
-            time.sleep(20)
-    raw = _extract_json(proc.stdout or '')
-    if raw is None:
-        return ticker, None, f'JSON 없음 (rc={proc.returncode}) {(proc.stderr or proc.stdout or "")[:150]}'
-    return ticker, raw, ''
+            err = 'timeout'
+            continue
+        except OSError as e:
+            err = f'실행 실패: {e}'
+            continue
+        raw = _extract_json(proc.stdout or '')
+        if raw is not None:
+            return ticker, raw, ''
+        # 로그인 만료 예고 경고는 stderr 첫 줄에 항상 붙으므로 원인 파악용으로 뒷부분을 남긴다
+        err = f'JSON 없음 (rc={proc.returncode}) {(proc.stdout or proc.stderr or "")[-200:]}'
+    return ticker, None, err
 
 
 def main() -> int:
