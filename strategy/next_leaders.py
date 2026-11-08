@@ -145,14 +145,14 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     return pool
 
 
-def rank_sectors(pool: list) -> tuple[list, list]:
-    """(순위 섹터, 표본 부족 섹터). 순위 섹터는 점수 내림차순."""
+def rank_sectors(pool: list, key: str = 'nextScore') -> tuple[list, list]:
+    """(순위 섹터, 표본 부족 섹터). 순위 섹터는 점수 내림차순. key: 종목 점수 필드."""
     by: dict = {}
     for r in pool:
         by.setdefault(r['primaryTheme'], []).append(r)
     ranked, thin = [], []
     for code, members in by.items():
-        scores = [m['nextScore'] for m in members]
+        scores = [m[key] for m in members]
         med = lambda k: (float(np.median([m[k] for m in members if m.get(k) is not None]))
                          if any(m.get(k) is not None for m in members) else None)
         s = {
@@ -164,10 +164,101 @@ def rank_sectors(pool: list) -> tuple[list, list]:
             'medianSincePeakAdr': med('sincePeakExcessAdr'), 'medianSinceJjinAdr': med('sinceJjinExcessAdr'),
             'pctAbove21': sum(m['aboveEma21'] for m in members) / len(members),
             'pctAbove10': sum(m['aboveEma10'] for m in members) / len(members),
-            'top': sorted(members, key=lambda m: -m['nextScore'])[:3],
+            'medianRotRs5': med('rotRs5'), 'medianRotAccel': med('rotAccel'), 'medianVolRatio': med('volRatio'),
+            'pctBullRvol': sum(bool(m.get('hasBullishRvol15InLast5')) for m in members) / len(members),
+            'top': sorted(members, key=lambda m: -m[key])[:3],
         }
         s['score'] = 0.6 * s['medianScore'] + 0.4 * 100 * s['strongShare']
         (ranked if len(members) >= MIN_SECTOR_N else thin).append(s)
     ranked.sort(key=lambda s: -s['score'])
     thin.sort(key=lambda s: -s['score'])
+    return ranked, thin
+
+
+# ── 순환매 — 지금 돈이 '새로' 들어오는 섹터 ───────────────────
+# 차기 주도와 같은 재료(지수 대비 RS/ADR·추세·거래량·고점)를 쓰되, 기준 구간이 찐반등이 아니라
+# 최근 1~2주 롤링이고, 목적에 맞게 '변화(가속)'와 '거래량 유입'에 무게를 둔다.
+#   - 덜 빠짐 없음: 순환매 섹터는 보통 조정 때 약했던 곳이라 감점하면 안 잡힌다
+#   - RS 가속: 이번 주 RS/ADR − 지난주 RS/ADR. 흐름이 바뀌는 순간이 순환매의 핵심
+#   - 거래량 유입 25: 양봉 렐볼 + 상승일/하락일 거래량 — 돈이 들어온 흔적
+#   - 고점 근접 15(차기 주도 20~25보다 낮게): 바닥권에서 올라오는 섹터도 잡히도록
+ROT_WEIGHTS = {'1주 RS/ADR': 25, 'RS 가속': 15, '양봉 렐볼': 15, '거래량 우위': 10,
+               '10EMA 유지': 10, '21EMA 위': 10, '고점 근접': 15}
+ROT_WAS_WEAK = 50       # 2주 전 섹터 점수가 이보다 낮았고
+ROT_NOW = 60            # 지금 이 이상이면 🆕 새 순환매
+ROT_RISE = 15           # 그리고 2주 동안 이만큼 이상 올랐으면
+
+
+def _close_ret(df: pd.DataFrame, a, b) -> float:
+    return float(df.loc[b, 'Close']) / float(df.loc[a, 'Close']) - 1
+
+
+def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict, main_codes: set,
+                    asof) -> list:
+    """종목별 순환매 점수(100). rows: 같은 기준일의 stock_metrics 결과(10EMA·21EMA·렐볼 플래그 재사용).
+    ADR은 비교 구간(최근 2주) 시작 전 20일 — 급등으로 커진 변동폭이 보정을 흐리지 않게."""
+    asof = pd.Timestamp(asof)
+    idf = index_df[index_df.index <= asof]
+    if len(idf) < 32:
+        return []
+    d0, d5, d10 = idf.index[-1], idf.index[-6], idf.index[-11]
+    i_now, i_prev = _close_ret(idf, d5, d0), _close_ret(idf, d10, d5)
+    pool = []
+    for r in rows:
+        t = r['ticker']
+        if r['status'] != 'FULL' or theme_of.get(t) not in main_codes or t not in bars:
+            continue
+        df = bars[t]
+        df = df[df.index <= asof]
+        if any(d not in df.index for d in (d0, d5, d10)):
+            continue
+        pre = df[df.index < d10].tail(20)
+        adr = float(((pre['High'] - pre['Low']) / pre['Close'] * 100).mean()) if len(pre) >= 10 else 0.0
+        if not adr > 0:
+            continue
+        rs_now = 100 * (_close_ret(df, d5, d0) - i_now) / adr
+        rs_prev = 100 * (_close_ret(df, d10, d5) - i_prev) / adr
+        win = df[df.index > d10]
+        chg = df['Close'].diff().loc[win.index]
+        up, down = win['Volume'][chg > 0], win['Volume'][chg < 0]
+        vol_ratio = (float(up.mean()) / float(down.mean())) if len(up) and len(down) and down.mean() > 0 \
+            else (2.0 if len(up) and not len(down) else 0.0)
+        hi = float(df['High'].iloc[-LOOKBACK_HIGH:].max())
+        pool.append({
+            'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
+            'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
+            'volRatio': vol_ratio, 'offHigh': 100 * (float(df['Close'].iloc[-1]) / hi - 1),
+            'aboveEma10': r['aboveEma10'], 'aboveEma21': r['aboveEma21'],
+            'ema10DaysOfLast5': r['ema10DaysOfLast5'],
+            'hasBullishRvol15InLast5': r['hasBullishRvol15InLast5'],
+        })
+    if not pool:
+        return []
+    p = {k: ss.percentile_rank({x['ticker']: x[k] for x in pool})
+         for k in ('rotRs5', 'rotAccel', 'volRatio', 'offHigh')}
+    g = lambda k, t: p[k][t] or 0.0
+    w = ROT_WEIGHTS
+    for x in pool:
+        t = x['ticker']
+        parts = {'1주 RS/ADR': w['1주 RS/ADR'] * g('rotRs5', t), 'RS 가속': w['RS 가속'] * g('rotAccel', t),
+                 '양봉 렐볼': w['양봉 렐볼'] * x['hasBullishRvol15InLast5'],
+                 '거래량 우위': w['거래량 우위'] * g('volRatio', t),
+                 '10EMA 유지': w['10EMA 유지'] * x['ema10DaysOfLast5'] / 5,
+                 '21EMA 위': w['21EMA 위'] * x['aboveEma21'], '고점 근접': w['고점 근접'] * g('offHigh', t)}
+        x['rotParts'], x['rotScore'] = parts, float(sum(parts.values()))
+    return pool
+
+
+def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:
+    """(순위 섹터, 표본 부족). 섹터 점수 = 중앙값 60% + 70점 이상 비율 40% (차기 주도섹터와 동일).
+    🆕 isNew: 2주 전 점수 < 50 → 지금 ≥ 60, +15 이상. 정렬: 🆕 먼저, 그다음 점수."""
+    ranked, thin = rank_sectors(now_pool, 'rotScore')
+    pr, pt = rank_sectors(prev_pool, 'rotScore') if prev_pool else ([], [])
+    prev = {s['theme']: s['score'] for s in pr + pt}
+    for s in ranked + thin:
+        s['prevScore'] = prev.get(s['theme'])
+        s['scoreRise'] = None if s['prevScore'] is None else s['score'] - s['prevScore']
+        s['isNew'] = bool(s['prevScore'] is not None and s['prevScore'] < ROT_WAS_WEAK
+                          and s['score'] >= ROT_NOW and s['scoreRise'] >= ROT_RISE)
+    ranked.sort(key=lambda s: (not s['isNew'], -s['score']))
     return ranked, thin

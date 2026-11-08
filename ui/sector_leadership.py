@@ -120,22 +120,28 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     # 변화 감지 — 1주(5거래일)·2주 전 같은 구성으로 다시 계산해 섹터 추이를 붙인다
     bench_dates = [d.strftime('%Y-%m-%d') for d in rep.bench.dates]
     pos = bench_dates.index(rep.asof)
-    earlier = []
+    earlier = []        # [(기준일, 결과)] 1주 전, 2주 전
     for back in (5, 10):
         if pos - back >= 0:
             try:
-                earlier.append(ss.run(bars, tickers, theme_of, main, bench_dates[pos - back],
-                                      tax['version'], **kw).sectors)
+                d = bench_dates[pos - back]
+                earlier.append((d, ss.run(bars, tickers, theme_of, main, d, tax['version'], **kw)))
             except ValueError:
                 break
-    ss.attach_trend(rep.sectors, earlier)
+    ss.attach_trend(rep.sectors, [e.sectors for _, e in earlier])
     idx_rec = store.load_snapshot('indices').get('data', {}).get(m.phase_index)
     phase, picks, ranked, thin = None, [], [], []
+    rot_stocks, rot_ranked, rot_thin = [], [], []
     if idx_rec:
         idx_df = store._records_to_df(idx_rec)
         phase = nl.detect_phase(idx_df, asof, peak or None, jjin or None)
         picks = nl.score_stocks(rep.stocks, bars, idx_df, theme_of, main, phase, asof)
         ranked, thin = nl.rank_sectors(picks)
+        # 순환매 — 지금과 2주 전을 같은 방식으로 계산해 '새로' 올라온 섹터를 가린다
+        rot_stocks = nl.rotation_scores(rep.stocks, bars, idx_df, theme_of, main, asof)
+        prev = (nl.rotation_scores(earlier[1][1].stocks, bars, idx_df, theme_of, main, earlier[1][0])
+                if len(earlier) > 1 else [])
+        rot_ranked, rot_thin = nl.rotation_sectors(rot_stocks, prev)
     return {
         'asof': rep.asof,
         'bench': {'names': list(rep.bench.names), 'ret5': rep.bench.ret5, 'ret21': rep.bench.ret21,
@@ -143,6 +149,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'stocks': rep.stocks, 'sectors': rep.sectors, 'leaders': rep.leaders,
         'coverage': rep.coverage, 'taxonomyVersion': tax['version'],
         'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
+        'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
     }
 
 
@@ -303,46 +310,121 @@ def _market_strip(m: Market, res: dict):
         st.caption(f"⚠️ 시장({'·'.join(b['names'])}{' 평균' if len(b['names']) > 1 else ''})이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
 
 
-def _score_hist(s: dict) -> str:
-    pts = [h['score'] for h in s.get('history') or [] if h.get('score') is not None]
-    if not pts:
+_NEW_BADGE = '<span class="sl-badge sl-A">🆕 새 순환매</span>'
+
+
+def _rot_badge(s: dict) -> str:
+    """🆕 새 순환매 / 기존 강세(2주 전에도 50↑, 지금 60↑) / ↗ 올라오는 중(+15↑, 아직 60 미만) / 없음."""
+    if s['isNew']:
+        return _NEW_BADGE
+    prev, rise = s.get('prevScore'), s.get('scoreRise')
+    if prev is not None and prev >= nl.ROT_WAS_WEAK and s['score'] >= nl.ROT_NOW:
+        return '<span class="sl-badge sl-C">기존 강세</span>'
+    if rise is not None and rise >= nl.ROT_RISE:
+        return '<span class="sl-badge sl-B">↗ 올라오는 중</span>'
+    return ''
+
+
+def _rot_change(s: dict) -> str:
+    if s.get('prevScore') is None:
         return '—'
-    return ' → '.join(f'<span class="sl-sub" style="margin:0">{p:.0f}</span>' for p in pts[:-1]) + \
-        (' → ' if len(pts) > 1 else '') + f'<b>{pts[-1]:.0f}</b>'
+    return (f'<span class="sl-sub" style="margin:0">{s["prevScore"]:.0f}</span> → <b>{s["score"]:.0f}</b> '
+            f'{_signed(s["scoreRise"], "", 0)}')
 
 
-def _rotation(res: dict, labels: dict, names: dict, records: dict):
-    st.markdown('#### 🔄 순환매 후보 — 새로 강해지는 섹터')
-    st.markdown('<div class="sl-note">2주 전엔 약했는데(점수 60 미만) 이번 주 <b>1주 RS가 지수보다 강하고</b>, '
-                '그 뒤 <b>점수 +10 이상</b> 또는 <b>10EMA 위 종목 비율 +20%p 이상</b> 오른 섹터. '
-                '찐반등 2~3주 뒤 처음부터 주도하지 않던 섹터가 치고 올라오면 여기서 먼저 보입니다.</div>',
+def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
+    ranked, thin = res.get('rotSectors') or [], res.get('rotThin') or []
+    in_trend = _trend_tickers(m)
+    st.markdown('<div class="sl-note">찐반등이 아니라 <b>최근 1~2주</b> 기준으로, 지금 돈이 <b>새로</b> 들어오는 섹터를 찾습니다. '
+                '점수(100) = 1주 RS/ADR 25 + RS 가속(지난주 대비) 15 + 양봉 렐볼 15 + 거래량 우위 10 + '
+                '10EMA 3/5일 유지 10 + 21EMA 위 10 + 고점 근접 15. 섹터 점수는 차기 주도섹터와 같은 방식'
+                '(중앙값 60% + 70점↑ 비율 40%, 3종목 이상). '
+                f'<b>🆕 새 순환매</b> = 2주 전 {nl.ROT_WAS_WEAK}점 미만 → 지금 {nl.ROT_NOW}점 이상, +{nl.ROT_RISE} 이상.</div>',
                 unsafe_allow_html=True)
-    cands = ss.rotation_candidates(res['sectors'])
-    if not cands:
-        st.caption('지금은 조건에 맞는 섹터가 없습니다.')
+    if not ranked:
+        st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
-    leaders: dict = {}
-    for r in sorted(res['leaders'], key=lambda r: -r['leaderScore']):
-        leaders.setdefault(r['primaryTheme'], []).append(r)
-    rows = []
-    for s in cands:
-        badge_cls, badge = _GRADE_BADGE[ss.grade_bucket(s)]
-        top = ', '.join(_esc(names.get(r['ticker']) or (records.get(r['ticker']) or {}).get('companyName')
-                             or r['ticker']) for r in leaders.get(s['theme'], [])[:3])
-        rows.append(
-            f'<tr><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
-            f'<span class="sl-sub">{s["validCount"]}종목</span>'
-            + (f'<div style="margin-top:3px">{_IMPROVING}</div>' if s.get('improving') else '') + '</td>'
-            f'<td><span class="sl-badge {badge_cls}">{badge}</span></td>'
-            f'<td>{_score_hist(s)} <span class="sl-pos">({s["scoreRise"]:+.0f})</span></td>'
-            f'<td>{_signed(s["medianRs5"])}</td><td>{_signed(s["medianRs21"])}</td>'
-            f'<td>{_trend_txt(s.get("history"))}</td>'
-            f'<td class="sl-need">{top}</td></tr>')
+    trend = {s['theme']: s for s in res['sectors']}
+
+    def stock_list(s, n=3):
+        return ', '.join(
+            f"{_esc(_stock_name(r['ticker'], names, records))} {r['rotScore']:.0f}"
+            + ('' if r['ticker'] in in_trend else ' <span class="sl-off">(추세추종 탭에 없음)</span>')
+            for r in s['top'][:n])
+
+    cards = []
+    for i, s in enumerate(ranked[:3]):
+        t = trend.get(s['theme'], {})
+        lines = [('점수 (2주 전 → 지금)', _rot_change(s)),
+                 ('1주 RS/ADR (중앙값)', _signed(s['medianRotRs5'], '', 2)),
+                 ('RS 가속 (지난주 대비, 중앙값)', _signed(s['medianRotAccel'], '', 2)),
+                 ('양봉 렐볼 나온 종목 비율 (최근 5일)', f"{100 * s['pctBullRvol']:.0f}%"),
+                 ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
+                 ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
+                 ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
+        body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
+        badge = f'<div class="nl-badge-row">{_rot_badge(s)}</div>'
+        cards.append(f'<div class="nl-card {"top" if s["isNew"] else ""}"><div class="nl-head"><div>'
+                     f'<div class="nl-rank">{i + 1}위</div><div class="nl-title">{_esc(labels[s["theme"]])}</div></div>'
+                     f'<div class="nl-score">{s["score"]:.0f}</div></div>'
+                     f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stock_list(s)}</div></div>')
+    st.markdown(_CARD_CSS + '<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+    rest = ranked[3:]
+    if rest:
+        rows = ''.join(
+            f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
+            f'<span class="sl-sub">{s["n"]}종목</span>'
+            + (f'<div style="margin-top:3px">{_rot_badge(s)}</div>' if _rot_badge(s) else '') + '</td>'
+            f'<td>{_rot_change(s)}</td><td>{_signed(s["medianRotRs5"], "", 2)}</td>'
+            f'<td>{_signed(s["medianRotAccel"], "", 2)}</td><td>{100 * s["pctBullRvol"]:.0f}%</td>'
+            f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}</td>'
+            f'<td class="sl-need">{stock_list(s)}</td></tr>'
+            for i, s in enumerate(rest))
+        st.markdown(
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th>'
+            '<th>점수 (2주 전 → 지금)</th><th>1주 RS/ADR</th><th>RS 가속</th><th>양봉 렐볼 비율</th>'
+            '<th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
+    if thin:
+        st.caption('표본 부족(3종목 미만)으로 순위 제외: '
+                   + ', '.join(f"{labels[s['theme']]}({s['n']})" for s in thin))
+
+
+def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
+    pool = res.get('rotStocks') or []
+    if not pool:
+        return
+    st.markdown('#### 순환매 종목')
+    new = {s['theme'] for s in res.get('rotSectors') or [] if s['isNew']}
+    in_trend = _trend_tickers(m)
+    only_new = st.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
+                         disabled=not new)
+    rows = sorted((r for r in pool if not only_new or r['primaryTheme'] in new), key=lambda r: -r['rotScore'])[:20]
+    body = []
+    for r in rows:
+        t = r['ticker']
+        nm = _stock_name(t, names, records)
+        title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
+                 if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        if t not in in_trend:
+            title += '<div class="sl-off">추세추종 탭에 없음</div>'
+        star = f' <span style="color:#16a34a">🆕</span>' if r['primaryTheme'] in new else ''
+        dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
+        body.append(
+            f'<tr><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
+            f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
+            f'<td>{_signed(r["rotRs5"], "", 2)}</td><td>{_signed(r["rotAccel"], "", 2)}</td>'
+            f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td><td>{r["volRatio"]:.1f}배</td>'
+            f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
+            f'<td>{_signed(r["offHigh"], "%")}</td>'
+            f'<td><b>{r["rotScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["rotScore"]:.0f}px"></span></td></tr>')
     st.markdown(
-        '<div class="sl-wrap"><table class="sl-t"><thead><tr>'
-        '<th>섹터</th><th>판정</th><th>점수 (2주전→1주전→기준일)</th><th>1주 RS</th><th>1개월 RS</th>'
-        '<th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>핵심 종목</th>'
-        '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
+        '<th>1주 RS/ADR</th><th>RS 가속</th><th>양봉 렐볼</th><th>상승/하락 거래량 (2주)</th>'
+        '<th>10EMA 최근 5일</th><th>최근 3개월 고점 대비</th><th>점수</th></tr></thead><tbody>'
+        + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
+    st.caption('매수 신호가 아닙니다 — 순환매 섹터 종목 중 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
@@ -421,17 +503,14 @@ def _next_stocks(m: Market, res: dict, labels: dict, names: dict):
     st.markdown('#### 종목')
     grade_of = {s['theme']: s['grade'] for s in res['sectors']}
     records = cls.load_store(m.key)
-    rot = {s['theme'] for s in ss.rotation_candidates(res['sectors'])}
     groups = {
-        '순환매 섹터 종목': ('위 순환매 후보 섹터에 속한 종목',
-                       [r for r in res['leaders'] if r['primaryTheme'] in rot]),
         '차기 주도주 후보': ('1주 RS가 플러스로 돌아서고 10EMA 위로 올라왔지만, 1개월 RS나 50일선은 아직 회복 전인 종목',
                        [r for r in res['leaders'] if r['leaderType'] in ('EMERGING', 'REBOUND')]),
         '이미 강한 주도주': ('1주·1개월 RS 모두 플러스이고 10·21EMA·50SMA 위에 있는 종목',
                        [r for r in res['leaders'] if r['leaderType'] == 'LEADER_TREND']),
     }
-    pick = st.segmented_control('종목 구분', list(groups), default='순환매 섹터 종목',
-                                key=f'{m.key}_stock_group', label_visibility='collapsed') or '순환매 섹터 종목'
+    pick = st.segmented_control('종목 구분', list(groups), default='차기 주도주 후보',
+                                key=f'{m.key}_stock_group', label_visibility='collapsed') or '차기 주도주 후보'
     desc, rows = groups[pick]
     rows = sorted(rows, key=lambda r: -r['leaderScore'])[:20]
     st.markdown(f'<div class="sl-note">{_esc(desc)} · 주도주 점수순 상위 {len(rows)}개. '
@@ -1002,20 +1081,23 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         with st.expander('**🎯 차기 주도주**', expanded=True):
             _lead_stocks(m, res, labels, names)
     uptrend = res['phase'] is None or res['phase']['mode'] == 'uptrend'
-    with st.expander('**🔄 순환매 — 새 주도섹터 찾기 (최근 1주·1개월 RS · 10EMA)**', expanded=uptrend):
+    with st.expander('**🔄 순환매 — 지금 돈이 새로 들어오는 섹터 (최근 1~2주)**', expanded=uptrend):
         if not uptrend:
-            st.caption('찐반등 2주 뒤부터 주로 보는 섹션입니다. 조정 중에는 대부분 미달이 정상입니다.')
+            st.caption('찐반등 2주 뒤부터 주로 보는 섹션입니다. 조정 중에는 지수 자체가 약해 참고용입니다.')
         records = cls.load_store(m.key)
-        _rotation(res, labels, names, records)
-        _next_sectors(res, labels, names, records)
-        _next_stocks(m, res, labels, names)
+        _rotation_sectors(m, res, labels, names, records)
+        _rotation_stocks(m, res, labels, names, records)
 
-    views = ['섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
+    views = ['A/B 판정', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
     with st.expander('자세히 보기 — ' + ' · '.join(views)):
         view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view',
                                     label_visibility='collapsed') or views[0]
         main = [s for s in res['sectors'] if s['inMainRanking']]
-        if view == '섹터 지도':
+        if view == 'A/B 판정':
+            st.caption('1주·1개월 RS와 10EMA 유지로 주도섹터를 "확정"하는 기준 (A 확인된 주도 / B 차기 후보).')
+            _next_sectors(res, labels, names, cls.load_store(m.key))
+            _next_stocks(m, res, labels, names)
+        elif view == '섹터 지도':
             _heatmap(m, main, labels)
         elif view == '섹터별 종목':
             _drilldown(m, res, labels, names)
