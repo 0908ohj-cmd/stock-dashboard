@@ -194,8 +194,13 @@ _CSS = """<style>
 .sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
 .sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
 .sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
-.sl-mkt{display:flex;flex-wrap:wrap;gap:18px;font-size:.85rem;margin:0}
-.sl-mkt span{opacity:.6;margin-right:4px}
+.sl-mkt{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+.sl-stat{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 14px;min-width:120px;
+  background:rgba(128,128,128,.04)}
+.sl-stat.neg{background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.3)}
+.sl-stat.pos{background:rgba(22,163,74,.06);border-color:rgba(22,163,74,.3)}
+.sl-stat .k{font-size:.74rem;opacity:.65;letter-spacing:.02em}
+.sl-stat .v{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
 </style>"""
 
 _GRADE_BADGE = {
@@ -283,11 +288,14 @@ def _next_step(s: dict) -> str:
 
 def _market_strip(m: Market, res: dict):
     b, cov = res['bench'], res['coverage']
+    def box(k, v, tone=''):
+        return f'<div class="sl-stat {tone}"><div class="k">{k}</div><div class="v">{v}</div></div>'
+
     parts = []      # 기준일은 오른쪽 선택 상자가 보여준다
     for n in b['names']:
-        parts.append(f'<div><span>{_esc(n)} 1주</span>{_signed(b["ret5"][n], "%")}'
-                     f' <span>1개월</span>{_signed(b["ret21"][n], "%")}</div>')
-    parts.append(f'<div><span>데이터</span>{cov["full"]}/{cov["total"]}</div>')
+        for lbl, v in (('1주', b['ret5'][n]), ('1개월', b['ret21'][n])):
+            parts.append(box(f'{_esc(n)} {lbl}', _signed(v, '%'), 'pos' if v > 0 else 'neg' if v < 0 else ''))
+    parts.append(box('데이터 확보', f'{cov["full"]}<span style="font-size:.8rem;opacity:.6">/{cov["total"]}</span>'))
     st.markdown(_CSS + '<div class="sl-mkt">' + ''.join(parts) + '</div>', unsafe_allow_html=True)
     if res.get('phase') is None and b['blend5'] < 0 and b['blend21'] < 0:   # 국면 안내가 있으면 중복
         st.caption(f"⚠️ 시장({'·'.join(b['names'])}{' 평균' if len(b['names']) > 1 else ''})이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
@@ -460,7 +468,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
         lines = [(peak_lbl, _signed(s['medianSincePeak'])),
                  ('고점 대비 (3개월)', _signed(s['medianOffHigh'], '%')),
-                 ('10EMA 위 (2주 전 → 지금)', _trend_txt(t.get('history'))),
+                 ('10EMA 위 종목 비율 (2주전→1주전→지금)', _trend_txt(t.get('history'))),
                  ('21EMA 위', f"{100 * s['pctAbove21']:.0f}%"),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         if rebound:
@@ -499,7 +507,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + (f'<th>{jjin_lbl}</th>' if rebound else '')
-            + f'<th>{peak_lbl}</th><th>고점 대비</th><th>10EMA 위 (2주 전 → 지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
+            + f'<th>{peak_lbl}</th><th>고점 대비</th><th title="섹터 종목 중 종가가 10EMA 위인 비율 — 2주 전 → 1주 전 → 기준일">10EMA 위 종목 비율 (2주전→1주전→지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
