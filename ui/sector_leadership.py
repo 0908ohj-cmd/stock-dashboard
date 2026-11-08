@@ -850,7 +850,7 @@ def _rs_range(m: Market, asof: str) -> tuple[str, str]:
     auto = _auto_phase(m.phase_index, asof, _mtime(store._snapshot_path('indices'))) or {}
     ap, aj = auto.get('autoPeakDate'), auto.get('autoJjinDate')
     max_d = pd.Timestamp(asof).date()
-    with st.expander('⚙️ RS 구간 설정 — 기산점 · 찐반등일', expanded=False):
+    with st.expander('⚙️ RS 구간 설정', expanded=False):
         c1, c2 = st.columns(2)
         c1.caption(f'자동 기산점: {ap:%Y-%m-%d}' if ap is not None else '자동 기산점: 없음 (조정 미감지)')
         peak = c1.date_input('기산점 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_peak',
@@ -876,13 +876,16 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if not opts:
         st.warning(f"스냅샷에 {'·'.join(m.bench)} 일봉이 없습니다. 다음 배치 수집 후 표시됩니다.")
         return
+    # RS 구간 설정은 맨 위. 기준일(아래 선택 상자)이 먼저 필요하므로 자리만 잡고 나중에 채운다
+    rs_slot = st.container()
     st.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
     # 지수 현황 줄 오른쪽에 기준일 — 선택 상자를 먼저 그려 asof를 얻고, 왼쪽은 계산 뒤 채운다
     strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
     asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof', label_visibility='collapsed',
                           format_func=lambda d: f'기준일 {d}',
                           help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
-    peak, jjin = _rs_range(m, asof)
+    with rs_slot:
+        peak, jjin = _rs_range(m, asof)
     try:
         res = _compute(m.key, asof, _data_key(m), peak, jjin)
     except ValueError as e:
