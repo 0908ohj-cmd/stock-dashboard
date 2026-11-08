@@ -407,6 +407,7 @@ _CARD_CSS = """<style>
 .nl-card.top{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}
 .nl-rank{font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:.55}
 .nl-title{font-size:1.15rem;font-weight:700;margin:2px 0 8px}
+.sl-off{font-size:.7rem;color:#b45309;margin-top:1px}
 .nl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .nl-score{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
 .nl-line{font-size:.82rem;margin:3px 0;display:flex;justify-content:space-between;gap:8px}
@@ -473,6 +474,17 @@ def _adr_vs(adr, raw) -> str:
     return _signed(adr, '', 2)
 
 
+_TREND_FILE = {'US': 'us.tickers', 'KR_KOSPI': 'kospi.tickers', 'KR_KOSDAQ': 'kosdaq.tickers'}
+
+
+def _trend_tickers(m: Market) -> set:
+    """추세추종 탭(코스피/코스닥/나스닥) 와치리스트. 주도섹터 유니버스는 10EMA 목록·210종목도 포함하므로 구분 표시용."""
+    p = _SAVED / _TREND_FILE[m.key]
+    if not p.exists():
+        return set()
+    return {x.strip() for x in p.read_text(encoding='utf-8').splitlines() if x.strip()}
+
+
 def _stock_name(t: str, names: dict, records: dict) -> str:
     return names.get(t) or (records.get(t) or {}).get('companyName', '') or t
 
@@ -485,11 +497,15 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
     cols = _rs_cols(ph)
+    in_trend = _trend_tickers(m)
     trend = {s['theme']: s for s in res['sectors']}     # 10EMA 위 비율 3주 추이·동시 개선
     cards = []
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
-        stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
+        stocks = ', '.join(
+            f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}"
+            + ('' if r['ticker'] in in_trend else ' <span class="sl-off">(추세추종 탭에 없음)</span>')
+            for r in s['top'])
         lines = [(c[0], _rs_val(c, s, True)) for c in cols] + [
                  ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
@@ -547,6 +563,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
     rebound = ph['mode'] == 'rebound'
     cols = _rs_cols(ph)
+    in_trend = _trend_tickers(m)
     only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
     rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
                   key=lambda r: -r['nextScore'])[:20]
@@ -556,6 +573,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         nm = _stock_name(t, names, records)
         title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
                  if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        if t not in in_trend:
+            title += '<div class="sl-off">추세추종 탭에 없음</div>'
         star = f' <span style="color:#16a34a">{_STAR}</span>' if r['primaryTheme'] in top_sectors else ''
         detail = (records.get(t) or {}).get('detail', '')
         lead = r.get('leadDays')
