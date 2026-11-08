@@ -400,14 +400,16 @@ def _next_stocks(m: Market, res: dict, labels: dict, names: dict):
 
 _CARD_CSS = """<style>
 .nl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:6px 0 14px}
-.nl-card{border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:14px 16px}
+.nl-card{border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column}
+.nl-badge-row{min-height:26px;margin:-4px 0 6px}
 .nl-card.top{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}
 .nl-rank{font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:.55}
 .nl-title{font-size:1.15rem;font-weight:700;margin:2px 0 8px}
-.nl-score{float:right;font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
+.nl-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.nl-score{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
 .nl-line{font-size:.82rem;margin:3px 0;display:flex;justify-content:space-between;gap:8px}
 .nl-line span:first-child{opacity:.6}
-.nl-stocks{font-size:.8rem;margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.15)}
+.nl-stocks{font-size:.8rem;margin-top:auto;padding-top:8px;border-top:1px solid rgba(128,128,128,.15)}
 .nl-phase{border-radius:10px;padding:12px 16px;margin:4px 0 14px;font-size:.92rem;line-height:1.55}
 .nl-phase.correction{background:rgba(220,38,38,.08);border-left:4px solid #dc2626}
 .nl-phase.rebound{background:rgba(245,158,11,.10);border-left:4px solid #f59e0b}
@@ -444,8 +446,8 @@ def _phase_banner(m: Market, res: dict):
 def _range_labels(ph: dict) -> tuple[str, str]:
     """카드·표 머리글에 실제 구간 날짜를 넣는다 — 기산점·찐반등일을 바꾸면 바로 보인다."""
     p, j = ph.get('peakDate'), ph.get('jjinDate')
-    return (f'지수 대비 ({p:%m/%d} 이후)' if p is not None else '지수 대비 (기산점 이후)',
-            f'찐반등 후 지수 대비 ({j:%m/%d} 이후)' if j is not None else '찐반등 후 지수 대비')
+    return (f'지수 대비 (기산점 {p:%m/%d} 이후)' if p is not None else '지수 대비 (기산점 이후)',
+            f'지수 대비 (찐반등 {j:%m/%d} 이후)' if j is not None else '지수 대비 (찐반등 이후)')
 
 
 def _stock_name(t: str, names: dict, records: dict) -> str:
@@ -467,16 +469,18 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
         lines = [(peak_lbl, _signed(s['medianSincePeak'])),
-                 ('고점 대비 (3개월)', _signed(s['medianOffHigh'], '%')),
-                 ('10EMA 위 종목 비율 (2주전→1주전→지금)', _trend_txt(t.get('history'))),
-                 ('21EMA 위', f"{100 * s['pctAbove21']:.0f}%"),
+                 ('최근 3개월 고점 대비', _signed(s['medianOffHigh'], '%')),
+                 ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
+                 ('21EMA 위 종목 비율 (기준일)', f"{100 * s['pctAbove21']:.0f}%"),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         if rebound:
             lines.insert(0, (jjin_lbl, _signed(s['medianSinceJjin'])))
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
-        badge = f'<div style="margin:-4px 0 6px">{_IMPROVING}</div>' if t.get('improving') else ''
-        cards.append(f'<div class="nl-card {"top" if i == 0 else ""}"><div class="nl-score">{s["score"]:.0f}</div>'
-                     f'<div class="nl-rank">{i + 1}위</div><div class="nl-title">{_esc(labels[s["theme"]])}</div>'
+        # 배지가 없어도 같은 높이를 비워 둬서 카드끼리 줄 위치가 맞게
+        badge = f'<div class="nl-badge-row">{_IMPROVING if t.get("improving") else ""}</div>'
+        cards.append(f'<div class="nl-card {"top" if i == 0 else ""}"><div class="nl-head"><div>'
+                     f'<div class="nl-rank">{i + 1}위</div><div class="nl-title">{_esc(labels[s["theme"]])}</div></div>'
+                     f'<div class="nl-score">{s["score"]:.0f}</div></div>'
                      f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stocks}</div></div>')
     st.markdown('<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
 
@@ -507,7 +511,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + (f'<th>{jjin_lbl}</th>' if rebound else '')
-            + f'<th>{peak_lbl}</th><th>고점 대비</th><th title="섹터 종목 중 종가가 10EMA 위인 비율 — 2주 전 → 1주 전 → 기준일">10EMA 위 종목 비율 (2주전→1주전→지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
+            + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -549,8 +553,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
         + (f'<th>{jjin_lbl}</th>' if rebound else '')
-        + f'<th>{peak_lbl}</th><th>고점 대비 (3개월)</th><th>저점</th><th>상승/하락 거래량</th>'
-        '<th>21EMA</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
+        + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
+        '<th>21EMA (기준일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     parts = ' + '.join(f'{k} {v}' for k, v in (
         {'찐반등 후 회복': 25, '덜 빠짐': 20, '고점 근접': 20, '21EMA 위': 15, '거래량 우위': 10, '양봉 렐볼': 10}
