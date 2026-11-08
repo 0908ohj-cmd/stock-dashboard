@@ -349,6 +349,43 @@ def _leader_type(r: dict) -> str:
     return 'OTHER'
 
 
+def attach_trend(latest: list, earlier: list) -> None:
+    """latest: 기준일 섹터 결과. earlier: [1주 전 섹터 결과, 2주 전 섹터 결과] (없으면 빈 리스트).
+
+    각 섹터에 붙이는 값:
+      history       — [{asof, pctAbove10, score, medianNrs5, pctBullishRvol15_5D}] 오래된 순 (3주 추이)
+      scoreChange   — 1주 전 대비 점수 변화 (둘 다 점수가 있을 때만)
+      improving     — 1주 전 대비 10EMA 위 비율 +10%p 이상 · 5일 RS/ADR 상승 · RVOL 확산 비감소가
+                      동시에 성립 (명세 '변화 감지': 세 가지가 함께 좋아지는 섹터를 따로 강조)
+    """
+    keys = ('pctAbove10', 'score', 'medianNrs5', 'pctBullishRvol15_5D')
+    past = [{s['theme']: s for s in rep} for rep in earlier]
+    for s in latest:
+        hist = []
+        for m in reversed(past):
+            p = m.get(s['theme'])
+            if p:
+                hist.append({'asof': p['asOf'], **{k: p.get(k) for k in keys}})
+        hist.append({'asof': s['asOf'], **{k: s.get(k) for k in keys}})
+        s['history'] = hist
+        prev = past[0].get(s['theme']) if past else None
+        s['scoreChange'] = (s['score'] - prev['score']
+                            if prev and s['score'] is not None and prev['score'] is not None else None)
+        s['improving'] = bool(
+            prev and None not in (s['pctAbove10'], prev['pctAbove10'], s['medianNrs5'], prev['medianNrs5'],
+                                  s['pctBullishRvol15_5D'], prev['pctBullishRvol15_5D'])
+            and s['pctAbove10'] - prev['pctAbove10'] >= 0.10
+            and s['medianNrs5'] > prev['medianNrs5']
+            and s['pctBullishRvol15_5D'] >= prev['pctBullishRvol15_5D'])
+
+
+def grade_bucket(s: dict) -> str:
+    """A/B 외 섹터를 명세대로 관찰(45~59점)·후순위(45점 미만)로 나눈다."""
+    if s['grade'] in ('A_CONFIRMED', 'B_EMERGING', 'UNVERIFIED'):
+        return s['grade']
+    return 'C_WATCH' if (s['score'] or 0) >= 45 else 'D_LOW'
+
+
 @dataclass
 class Report:
     asof: str

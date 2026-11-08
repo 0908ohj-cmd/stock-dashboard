@@ -4,6 +4,7 @@
 표시하고 실시간으로 받지 않는다 (명세 3장: 화면에서 일괄 다운로드 금지).
 """
 import base64
+import html
 import json
 import pathlib
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ import streamlit as st
 
 from data import classification as cls
 from data import store
+from strategy import next_leaders as nl
 from strategy import sector_strength as ss
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -35,15 +37,16 @@ class Market:
     liquidity_value: float | None
     value_unit: str          # 거래대금 표시 단위
     value_div: float
+    phase_index: str         # 국면 판정 지수 (추세추종 탭과 같은 지수)
 
 
 MARKETS = {
     'US': Market('US', '나스닥 기술·혁신 성장주 210종목', ('QQQ', 'IWM'), 'US', (),
-                 1_000_000, None, '$M', 1e6),
+                 1_000_000, None, '$M', 1e6, 'NASDAQ'),
     'KR_KOSPI': Market('KR_KOSPI', '코스피 와치리스트', ('KOSPI', 'KOSDAQ'), 'indices',
-                       ('kospi.tickers', 'kospi_10ema.tickers'), None, 5e9, '억원', 1e8),
+                       ('kospi.tickers', 'kospi_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSPI'),
     'KR_KOSDAQ': Market('KR_KOSDAQ', '코스닥 와치리스트', ('KOSPI', 'KOSDAQ'), 'indices',
-                        ('kosdaq.tickers', 'kosdaq_10ema.tickers'), None, 5e9, '억원', 1e8),
+                        ('kosdaq.tickers', 'kosdaq_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSDAQ'),
 }
 
 GRADE_LABEL = {
@@ -112,14 +115,34 @@ def _compute(market_key: str, asof: str, data_key: tuple) -> dict:
     tax = cls.load_taxonomy(m.key)
     main = {t['code'] for t in tax['themes'] if t['main']}
     theme_of = cls.primary_map(m.key, tickers)
-    rep = ss.run(bars, tickers, theme_of, main, asof, tax['version'], bench_names=m.bench,
-                 liquidity_shares=m.liquidity_shares, liquidity_value=m.liquidity_value)
+    kw = dict(bench_names=m.bench, liquidity_shares=m.liquidity_shares, liquidity_value=m.liquidity_value)
+    rep = ss.run(bars, tickers, theme_of, main, asof, tax['version'], **kw)
+    # 변화 감지 — 1주(5거래일)·2주 전 같은 구성으로 다시 계산해 섹터 추이를 붙인다
+    bench_dates = [d.strftime('%Y-%m-%d') for d in rep.bench.dates]
+    pos = bench_dates.index(rep.asof)
+    earlier = []
+    for back in (5, 10):
+        if pos - back >= 0:
+            try:
+                earlier.append(ss.run(bars, tickers, theme_of, main, bench_dates[pos - back],
+                                      tax['version'], **kw).sectors)
+            except ValueError:
+                break
+    ss.attach_trend(rep.sectors, earlier)
+    idx_rec = store.load_snapshot('indices').get('data', {}).get(m.phase_index)
+    phase, picks, ranked, thin = None, [], [], []
+    if idx_rec:
+        idx_df = store._records_to_df(idx_rec)
+        phase = nl.detect_phase(idx_df, asof)
+        picks = nl.score_stocks(rep.stocks, bars, idx_df, theme_of, main, phase, asof)
+        ranked, thin = nl.rank_sectors(picks)
     return {
         'asof': rep.asof,
         'bench': {'names': list(rep.bench.names), 'ret5': rep.bench.ret5, 'ret21': rep.bench.ret21,
                   'blend5': rep.bench.blend5, 'blend21': rep.bench.blend21},
         'stocks': rep.stocks, 'sectors': rep.sectors, 'leaders': rep.leaders,
         'coverage': rep.coverage, 'taxonomyVersion': tax['version'],
+        'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
     }
 
 
@@ -148,65 +171,378 @@ def _num(v, digits=2, signed=True):
     return f'{v:+.{digits}f}' if signed else f'{v:.{digits}f}'
 
 
-# ── 섹션 ─────────────────────────────────────────────────
+# ── 핵심 화면: 차기 주도섹터 · 차기 주도주 ─────────────────
+# 판정 기준은 뉴스나 하루 상승폭이 아니라 1주·1개월 상대강도와 10EMA 위 유지 비율이다.
 
-def _overview(m: Market, res: dict, labels: dict):
+_CSS = """<style>
+.sl-wrap{overflow-x:auto;margin:4px 0 18px}
+.sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+.sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
+  padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
+.sl-t td{padding:9px 10px;border-bottom:1px solid rgba(128,128,128,.12);vertical-align:middle;white-space:nowrap}
+.sl-t tr.dim td{opacity:.45}
+.sl-name{font-weight:600}
+.sl-sub{font-size:.74rem;opacity:.55;margin-left:4px}
+.sl-badge{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.sl-A{background:#16a34a;color:#fff}
+.sl-B{background:#f59e0b;color:#1f1300}
+.sl-C{border:1px solid rgba(128,128,128,.5);opacity:.8}
+.sl-U{border:1px dashed rgba(128,128,128,.5);opacity:.6}
+.sl-bar{position:relative;height:6px;width:110px;background:rgba(128,128,128,.15);border-radius:3px;margin-top:3px}
+.sl-bar i{position:absolute;top:0;height:6px;border-radius:3px}
+.sl-bar b{position:absolute;top:-3px;width:1px;height:12px;background:rgba(128,128,128,.7)}
+.sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
+.sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
+.sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
+.sl-mkt{display:flex;flex-wrap:wrap;gap:18px;font-size:.85rem;margin:2px 0 14px}
+.sl-mkt span{opacity:.6;margin-right:4px}
+</style>"""
+
+_GRADE_BADGE = {
+    'A_CONFIRMED': ('sl-A', 'A 주도 확인'),
+    'B_EMERGING': ('sl-B', 'B 차기 후보'),
+    'C_WATCH': ('sl-C', '관찰'),
+    'D_LOW': ('sl-U', '후순위'),
+    'UNVERIFIED': ('sl-U', '판정 불가'),
+}
+_IMPROVING = '<span class="sl-badge sl-A" title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 동시 개선</span>'
+
+
+def _trend_txt(history: list | None) -> str:
+    """10EMA 위 비율 2주 전 → 1주 전 → 기준일."""
+    pts = [h['pctAbove10'] for h in (history or []) if h.get('pctAbove10') is not None]
+    if not pts:
+        return '<span class="sl-sub">—</span>'
+    out = []
+    for i, p in enumerate(pts):
+        txt = f'{100 * p:.0f}%'
+        if i == len(pts) - 1 and len(pts) > 1:
+            cls_ = 'sl-pos' if p > pts[-2] else 'sl-neg' if p < pts[-2] else ''
+            txt = f'<b class="{cls_}">{txt}</b>'
+        else:
+            txt = f'<span class="sl-sub" style="margin:0">{txt}</span>'
+        out.append(txt)
+    return ' → '.join(out)
+_SHORT_CHECK = {
+    '점수 ≥75': '점수 75↑', '점수 ≥60': '점수 60↑',
+    '5일 RS(평균) > 0': '1주 RS 플러스',
+    '10EMA 위 ≥40% 또는 5일 전 대비 +20%p': '10EMA 위 40%↑',
+    '10EMA 위 ≥60%': '10EMA 위 60%↑', '10EMA 3/5 유지 ≥50%': '3/5 유지 50%↑',
+    '21EMA 위 ≥40%': '21EMA 위 40%↑',
+}
+
+
+def _esc(v) -> str:
+    return html.escape(str(v))
+
+
+def _signed(v, unit='%p', digits=1) -> str:
+    if v is None:
+        return '<span class="sl-sub">—</span>'
+    cls_ = 'sl-pos' if v > 0 else 'sl-neg' if v < 0 else ''
+    return f'<span class="{cls_}">{v:+.{digits}f}{unit}</span>'
+
+
+def _rs_cell(v, scale) -> str:
+    """부호 있는 값 + 0을 가운데 둔 막대."""
+    if v is None:
+        return _signed(None)
+    half = 55
+    w = min(abs(v) / scale, 1) * half if scale else 0
+    left = half if v >= 0 else half - w
+    color = '#16a34a' if v >= 0 else '#dc2626'
+    return (f'{_signed(v)}<div class="sl-bar"><b style="left:{half}px"></b>'
+            f'<i style="left:{left:.0f}px;width:{w:.0f}px;background:{color}"></i></div>')
+
+
+def _ratio_cell(p, change_pp=None, marks=(40, 60)) -> str:
+    """0~100% 막대 + 기준선(B 40%, A 60%) + 5일 전 대비 변화."""
+    if p is None:
+        return _signed(None)
+    pct = 100 * p
+    color = '#16a34a' if pct >= marks[-1] else '#f59e0b' if pct >= marks[0] else '#9ca3af'
+    ticks = ''.join(f'<b style="left:{1.1 * m:.0f}px"></b>' for m in marks)
+    delta = ''
+    if change_pp is not None and abs(change_pp) >= 1:
+        delta = f' <span class="sl-sub">{"▲" if change_pp > 0 else "▼"}{abs(change_pp):.0f}</span>'
+    return (f'{pct:.0f}%{delta}<div class="sl-bar">'
+            f'<i style="left:0;width:{1.1 * pct:.0f}px;background:{color}"></i>{ticks}</div>')
+
+
+def _next_step(s: dict) -> str:
+    """이 섹터가 한 단계 올라가려면 무엇이 부족한지."""
+    if s['grade'] == 'UNVERIFIED':
+        return _esc(' · '.join(s['gatingReasons'][:2]) or '데이터 부족')
+    checks = s.get('gateChecks') or {}
+    if s['grade'] == 'A_CONFIRMED':
+        return '모든 조건 충족'
+    target = 'A' if s['grade'] == 'B_EMERGING' else 'B'
+    miss = [_SHORT_CHECK.get(k, k) for k, ok in checks.get(target, {}).items() if not ok]
+    return f'{target}까지: ' + _esc(', '.join(miss)) if miss else ''
+
+
+def _market_strip(m: Market, res: dict):
     b, cov = res['bench'], res['coverage']
-    b1, b2 = b['names']
+    parts = [f'<div><span>기준일</span><b>{_esc(res["asof"])}</b></div>']
+    for n in b['names']:
+        parts.append(f'<div><span>{_esc(n)} 1주</span>{_signed(b["ret5"][n], "%")}'
+                     f' <span>1개월</span>{_signed(b["ret21"][n], "%")}</div>')
+    parts.append(f'<div><span>데이터</span>{cov["full"]}/{cov["total"]}</div>')
+    st.markdown(_CSS + '<div class="sl-mkt">' + ''.join(parts) + '</div>', unsafe_allow_html=True)
+    if res.get('phase') is None and b['blend5'] < 0 and b['blend21'] < 0:   # 국면 안내가 있으면 중복
+        st.caption(f"⚠️ 시장({'·'.join(b['names'])} 평균)이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
+
+
+def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
+    names, records = names or {}, records or {}
+    st.markdown('### 차기 주도섹터 — 추세 확인 기준 (A/B)')
+    st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 평균 대비, 종목 중앙값)와 '
+                '<b>10EMA 위에서 버티는 종목 비율</b>로 판정합니다. A·B가 아니면 45점 이상 관찰, 미만 후순위. '
+                '<b>📈 동시 개선</b> = 1주 전보다 10EMA 회복률·ADR 보정 RS·거래량 확산이 함께 좋아진 섹터.</div>',
+                unsafe_allow_html=True)
     sectors = [s for s in res['sectors'] if s['inMainRanking']]
-    a = [s for s in sectors if s['grade'] == 'A_CONFIRMED']
-    bb = [s for s in sectors if s['grade'] == 'B_EMERGING']
-    scored = [s for s in sectors if s['score'] is not None]
+    order = {'A_CONFIRMED': 0, 'B_EMERGING': 1, 'C_WATCH': 2, 'D_LOW': 3, 'UNVERIFIED': 4}
+    sectors.sort(key=lambda s: (order[ss.grade_bucket(s)], not s.get('improving'), -(s['score'] or -1)))
+    vals = [abs(v) for s in sectors for v in (s['medianRs5'], s['medianRs21']) if v is not None]
+    scale = max(vals) if vals else 1
+    leaders: dict = {}
+    for r in sorted(res['leaders'], key=lambda r: -r['leaderScore']):
+        leaders.setdefault(r['primaryTheme'], []).append(r)
+    rows = []
+    for s in sectors:
+        bucket = ss.grade_bucket(s)
+        badge_cls, badge = _GRADE_BADGE[bucket]
+        score = '—' if s['score'] is None else f"{s['score']:.0f}"
+        chg = '' if s.get('scoreChange') is None else f'<div>{_signed(s["scoreChange"], "", 0)}</div>'
+        top = ', '.join(_esc(names.get(r['ticker']) or (records.get(r['ticker']) or {}).get('companyName')
+                             or r['ticker']) for r in leaders.get(s['theme'], [])[:2])
+        rows.append(
+            f'<tr class="{"dim" if bucket in ("UNVERIFIED", "D_LOW") else ""}">'
+            f'<td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
+            f'<span class="sl-sub">{s["validCount"]}종목</span>'
+            + (f'<div style="margin-top:3px">{_IMPROVING}</div>' if s.get('improving') else '') + '</td>'
+            f'<td><span class="sl-badge {badge_cls}">{badge}</span></td>'
+            f'<td><b>{score}</b>{chg}</td>'
+            f'<td>{_rs_cell(s["medianRs5"], scale)}</td>'
+            f'<td>{_rs_cell(s["medianRs21"], scale)}</td>'
+            f'<td>{_ratio_cell(s["pctAbove10"])}<div class="sl-sub" style="margin:2px 0 0">{_trend_txt(s.get("history"))}</div></td>'
+            f'<td>{_ratio_cell(s["pctEma10Persist3Of5"], marks=(50,))}</td>'
+            f'<td class="sl-need">{top}</td>'
+            f'<td class="sl-need">{_next_step(s)}</td></tr>')
+    st.markdown(
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr>'
+        '<th>섹터</th><th>판정</th><th>점수 (전주 대비)</th><th>1주 RS</th><th>1개월 RS</th>'
+        '<th>10EMA 위 비율 (2주 전 → 지금)</th><th>10EMA 3/5일 유지</th><th>핵심 주도주</th><th>올라가려면</th>'
+        '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
 
-    c = st.columns(6)
-    c[0].metric('기준일', res['asof'])
-    c[1].metric(f'{b1} 5일 / 21일', f"{b['ret5'][b1]:+.2f}% / {b['ret21'][b1]:+.2f}%")
-    c[2].metric(f'{b2} 5일 / 21일', f"{b['ret5'][b2]:+.2f}% / {b['ret21'][b2]:+.2f}%")
-    c[3].metric('데이터 확보', f"{cov['full']}/{cov['total']}")
-    c[4].metric('근거 확인된 분류', f"{cov['classified']}/{cov['total']}")
-    c[5].metric('A / B 섹터', f'{len(a)} / {len(bb)}')
 
-    lines = []
-    if not scored:
-        lines.append('점수를 낼 수 있는 섹터가 없습니다. A가 없는 것이 아니라 **판정할 수 없는 상태**입니다.')
+def _stock_rows_html(rows: list, labels: dict, names: dict, records: dict, grade_of: dict) -> str:
+    vals = [abs(v) for r in rows for v in (r['rs5Blend'], r['rs21Blend'])]
+    scale = max(vals) if vals else 1
+    out = []
+    for r in rows:
+        t = r['ticker']
+        name = names.get(t) or (records.get(t) or {}).get('companyName', '')
+        title = (f'<span class="sl-name">{_esc(name)}</span><span class="sl-sub">{_esc(t)}</span>'
+                 if name else f'<span class="sl-name">{_esc(t)}</span>')
+        g = grade_of.get(r['primaryTheme'])
+        mark = (f' <span class="sl-badge {_GRADE_BADGE[g][0]}">{g[0]}</span>'
+                if g in ('A_CONFIRMED', 'B_EMERGING') else '')
+        detail = (records.get(t) or {}).get('detail', '')
+        dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
+        out.append(
+            f'<tr><td>{title}</td>'
+            f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{mark}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
+            f'<td>{_rs_cell(r["rs5Blend"], scale)}</td>'
+            f'<td>{_rs_cell(r["rs21Blend"], scale)}</td>'
+            f'<td>{_signed(r["nrs5"], "", 2)}</td>'
+            f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
+            f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
+            f'<td><b>{r["leaderScore"]:.0f}</b></td></tr>')
+    return ('<div class="sl-wrap"><table class="sl-t"><thead><tr>'
+            '<th>종목</th><th>섹터 · 테마</th><th>1주 RS</th><th>1개월 RS</th><th>1주 RS/ADR</th>'
+            '<th>10EMA 최근 5일</th><th>양봉 렐볼</th><th>점수</th>'
+            '</tr></thead><tbody>' + ''.join(out) + '</tbody></table></div>')
+
+
+def _next_stocks(m: Market, res: dict, labels: dict, names: dict):
+    st.markdown('### 차기 주도주')
+    grade_of = {s['theme']: s['grade'] for s in res['sectors']}
+    records = cls.load_store(m.key)
+    groups = {
+        '차기 주도주 후보': ('1주 RS가 플러스로 돌아서고 10EMA 위로 올라왔지만, 1개월 RS나 50일선은 아직 회복 전인 종목',
+                       [r for r in res['leaders'] if r['leaderType'] in ('EMERGING', 'REBOUND')]),
+        '이미 강한 주도주': ('1주·1개월 RS 모두 플러스이고 10·21EMA·50SMA 위에 있는 종목',
+                       [r for r in res['leaders'] if r['leaderType'] == 'LEADER_TREND']),
+    }
+    pick = st.segmented_control('종목 구분', list(groups), default='차기 주도주 후보',
+                                key=f'{m.key}_stock_group', label_visibility='collapsed') or '차기 주도주 후보'
+    desc, rows = groups[pick]
+    rows = sorted(rows, key=lambda r: -r['leaderScore'])[:20]
+    st.markdown(f'<div class="sl-note">{_esc(desc)} · 주도주 점수순 상위 {len(rows)}개. '
+                'A·B 배지는 그 종목의 섹터 판정. 점수는 매수 신호가 아니며, 5분봉 렐볼 기준봉 확인 전까지는 관찰만.</div>',
+                unsafe_allow_html=True)
+    if not rows:
+        st.caption('해당 종목 없음')
+        return
+    st.markdown(_stock_rows_html(rows, labels, names, records, grade_of), unsafe_allow_html=True)
+
+
+# ── 국면별 차기 주도섹터 · 차기 주도주 ─────────────────────
+
+_CARD_CSS = """<style>
+.nl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:6px 0 14px}
+.nl-card{border:1px solid rgba(128,128,128,.25);border-radius:12px;padding:14px 16px}
+.nl-card.top{border-color:#16a34a;box-shadow:0 0 0 1px #16a34a inset}
+.nl-rank{font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:.55}
+.nl-title{font-size:1.15rem;font-weight:700;margin:2px 0 8px}
+.nl-score{float:right;font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
+.nl-line{font-size:.82rem;margin:3px 0;display:flex;justify-content:space-between;gap:8px}
+.nl-line span:first-child{opacity:.6}
+.nl-stocks{font-size:.8rem;margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.15)}
+.nl-phase{border-radius:10px;padding:12px 16px;margin:4px 0 14px;font-size:.92rem;line-height:1.55}
+.nl-phase.correction{background:rgba(220,38,38,.08);border-left:4px solid #dc2626}
+.nl-phase.rebound{background:rgba(245,158,11,.10);border-left:4px solid #f59e0b}
+.nl-phase.uptrend{background:rgba(22,163,74,.08);border-left:4px solid #16a34a}
+.nl-view{font-size:.8rem;opacity:.8;margin:-6px 0 14px;padding:8px 12px;border-radius:8px;
+  background:rgba(128,128,128,.08)}
+.nl-score-bar{display:inline-block;vertical-align:middle;height:6px;border-radius:3px;background:#16a34a;margin-left:6px}
+</style>"""
+
+_DEFENSIVE = {'FINANCE', 'HOLDING_OTHER', 'COSMETICS_CONSUMER', 'TELECOM_NETWORK', 'CONSUMER_OTHER'}
+_STAR = '★'
+
+
+def _phase_banner(m: Market, res: dict):
+    ph = res['phase']
+    idx = m.phase_index
+    if ph['mode'] == 'correction':
+        sp = ph['indexSincePeak']
+        body = (f"<b>🔴 조정 중 (DAY1)</b> — 기산점 {ph['peakDate']:%m/%d} 이후 {idx} "
+                f"<b>{sp:+.1f}%</b>.<br>지금은 주도섹터가 '확정'될 수 없는 구간입니다. 대신 <b>지수가 빠지는 동안 "
+                "덜 빠지고, 고점을 지키고, 먼저 저점을 찍은</b> 섹터·종목을 찾습니다 — 찐반등이 나오면 이들이 먼저 튑니다.")
+    elif ph['mode'] == 'rebound':
+        sj = ph['indexSinceJjin']
+        body = (f"<b>🟡 찐반등 {ph['label']}</b> — 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
+                "조정 중 버틴 종목 가운데 <b>찐반등 이후 지수보다 먼저 치고 나가는</b> 종목이 진짜 주도주입니다. "
+                "회복 속도에 가장 큰 비중을 둡니다.")
     else:
-        best = max((s for s in scored if s['medianNrs5'] is not None), key=lambda s: s['medianNrs5'], default=None)
-        lines.append(f"점수 산출 섹터 {len(scored)}개 중 A {len(a)}개, B {len(bb)}개."
-                     + (f" A: {', '.join(labels[s['theme']] for s in a)}." if a else ' 확인된 주도섹터(A)는 없습니다.'))
-        if best:
-            lines.append(f"5일 ADR 보정 RS가 가장 강한 섹터는 **{labels[best['theme']]}** "
-                         f"(중앙값 {best['medianNrs5']:+.2f}, 10EMA 위 {_pct(best['pctAbove10'])}).")
-    weak_mkt = b['blend5'] < 0 and b['blend21'] < 0
-    lines.append(f'시장({b1}·{b2} 평균)은 5일·21일 모두 하락 — 포지션 규모를 줄이는 환경입니다.' if weak_mkt
-                 else f"시장({b1}·{b2} 평균) 5일 {b['blend5']:+.2f}%, 21일 {b['blend21']:+.2f}%.")
-    unver = [s for s in sectors if s['grade'] == 'UNVERIFIED']
-    if unver:
-        lines.append(f"미검증 섹터 {len(unver)}개 (구성 5종목 미만 또는 데이터 80% 미만) — 아래 표에서 사유 확인.")
-    st.info('\n\n'.join(lines))
+        body = ("<b>🟢 상승 추세</b> — 1주·1개월 상대강도와 10EMA 위에서 버티는 종목 비율로 "
+                "<b>확인된</b> 주도섹터를 봅니다.")
+    st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
 
 
-def _sector_card(s: dict, labels: dict, leaders_by_theme: dict, names: dict, b1: str, b2: str):
-    with st.container(border=True):
-        top = st.columns([3, 1])
-        top[0].markdown(f"**{labels[s['theme']]}** · {s['validCount']}/{s['memberCount']}종목")
-        top[1].markdown(f"**{s['score']:.1f}점**")
-        st.caption(
-            f"5일 RS {_num(s['medianRs5'])}%p ({b1} {_num(s['medianRs5B1'])} · {b2} {_num(s['medianRs5B2'])}) · "
-            f"21일 RS {_num(s['medianRs21'])}%p · RS/ADR 5일 {_num(s['medianNrs5'])} / 21일 {_num(s['medianNrs21'])}")
-        st.caption(
-            f"10EMA 위 {_pct(s['pctAbove10'])} (5일 전 대비 {_num(s['ema10ChangePp'], 0)}%p) · "
-            f"3/5 유지 {_pct(s['pctEma10Persist3Of5'])} · 21EMA 위 {_pct(s['pctAbove21'])} · "
-            f"양봉 RVOL≥1.5 {_pct(s['pctBullishRvol15_5D'])}")
-        checks = s.get('gateChecks', {})
-        if checks:
-            st.caption('A 조건: ' + ' · '.join(('✅ ' if ok else '❌ ') + k for k, ok in checks['A'].items()))
-        top3 = leaders_by_theme.get(s['theme'], [])[:3]
-        if top3:
-            st.caption('대표주: ' + ', '.join(
-                f"{names.get(r['ticker'], r['ticker'])}({r['leaderScore']:.0f})" for r in top3))
-        if 'SCORE_PRELIMINARY' in (s.get('flags') or []):
-            st.caption('⚠️ 평가 가능 섹터가 4개 미만이라 백분위가 불안정합니다 (잠정 점수)')
+def _stock_name(t: str, names: dict, records: dict) -> str:
+    return names.get(t) or (records.get(t) or {}).get('companyName', '') or t
 
+
+def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
+    ph, ranked, thin = res['phase'], res['nextSectors'], res['thinSectors']
+    records = cls.load_store(m.key)
+    st.markdown('### 차기 주도섹터')
+    if not ranked:
+        st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
+        return
+    rebound = ph['mode'] == 'rebound'
+    trend = {s['theme']: s for s in res['sectors']}     # 10EMA 위 비율 3주 추이·동시 개선
+    cards = []
+    for i, s in enumerate(ranked[:3]):
+        t = trend.get(s['theme'], {})
+        stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
+        lines = [('지수 대비 (기산점 이후)', _signed(s['medianSincePeak'])),
+                 ('고점 대비 (3개월)', _signed(s['medianOffHigh'], '%')),
+                 ('10EMA 위 (2주 전 → 지금)', _trend_txt(t.get('history'))),
+                 ('21EMA 위', f"{100 * s['pctAbove21']:.0f}%"),
+                 ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
+        if rebound:
+            lines.insert(0, ('찐반등 후 지수 대비', _signed(s['medianSinceJjin'])))
+        body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
+        badge = f'<div style="margin:-4px 0 6px">{_IMPROVING}</div>' if t.get('improving') else ''
+        cards.append(f'<div class="nl-card {"top" if i == 0 else ""}"><div class="nl-score">{s["score"]:.0f}</div>'
+                     f'<div class="nl-rank">{i + 1}위</div><div class="nl-title">{_esc(labels[s["theme"]])}</div>'
+                     f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stocks}</div></div>')
+    st.markdown('<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+    # 제 판단 — 조정장 상위에 방어 섹터가 섞이면 반등장 주도주가 아닐 수 있다
+    notes = []
+    defensive = [labels[s['theme']] for s in ranked[:3] if s['theme'] in _DEFENSIVE]
+    if ph['mode'] == 'correction':
+        notes.append('조정장에서는 방어 성격 섹터가 덜 빠져 상위에 오르기 쉽습니다. '
+                     '<b>찐반등 후 3~5일 안에 고점 쪽으로 먼저 가는 섹터</b>가 진짜 주도섹터입니다.')
+    if defensive:
+        notes.append(f"상위 3개 중 <b>{', '.join(defensive)}</b>는 방어 성격이 강해 반등장 주도섹터가 되기보다 "
+                     '"덜 빠진" 결과일 가능성이 큽니다. 4위 이하 성장 섹터도 같이 보세요.')
+    if notes:
+        st.markdown('<div class="nl-view">💬 ' + '<br>💬 '.join(notes) + '</div>', unsafe_allow_html=True)
+
+    rest = ranked[3:]
+    if rest:
+        rows = ''.join(
+            f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
+            f'<span class="sl-sub">{s["n"]}종목</span></td><td><b>{s["score"]:.0f}</b></td>'
+            + (f'<td>{_signed(s["medianSinceJjin"])}</td>' if rebound else '')
+            + f'<td>{_signed(s["medianSincePeak"])}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
+            f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
+            + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
+            f'<td>{100 * s["pctAbove21"]:.0f}%</td>'
+            f'<td class="sl-need">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
+            for i, s in enumerate(rest))
+        st.markdown(
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
+            + ('<th>찐반등 후 지수 대비</th>' if rebound else '')
+            + '<th>지수 대비 (기산점 이후)</th><th>고점 대비</th><th>10EMA 위 (2주 전 → 지금)</th><th>21EMA 위</th><th>대표주</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
+    if thin:
+        st.caption('표본 부족(3종목 미만)으로 순위 제외: '
+                   + ', '.join(f"{labels[s['theme']]}({s['n']})" for s in thin))
+
+
+def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
+    ph, picks = res['phase'], res['picks']
+    records = cls.load_store(m.key)
+    st.markdown('### 차기 주도주')
+    if not picks:
+        st.caption('점수를 낼 수 있는 종목이 없습니다.')
+        return
+    top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
+    rebound = ph['mode'] == 'rebound'
+    only_top = st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
+    rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
+                  key=lambda r: -r['nextScore'])[:20]
+    body = []
+    for r in rows:
+        t = r['ticker']
+        nm = _stock_name(t, names, records)
+        title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
+                 if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        star = f' <span style="color:#16a34a">{_STAR}</span>' if r['primaryTheme'] in top_sectors else ''
+        detail = (records.get(t) or {}).get('detail', '')
+        lead = r.get('leadDays')
+        lead_txt = '—' if lead is None else (f'{lead}일 먼저' if lead > 0 else '같이' if lead == 0 else f'{-lead}일 늦게')
+        body.append(
+            f'<tr><td>{title}</td>'
+            f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
+            + (f'<td>{_signed(r.get("sinceJjinExcess"))}</td>' if rebound else '')
+            + f'<td>{_signed(r.get("sincePeakExcess"))}</td>'
+            f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
+            f'<td>{r.get("volRatio", 0):.1f}배</td>'
+            f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
+            f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
+    st.markdown(
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
+        + ('<th>찐반등 후 지수 대비</th>' if rebound else '')
+        + '<th>지수 대비 (기산점 이후)</th><th>고점 대비 (3개월)</th><th>저점</th><th>상승/하락 거래량</th>'
+        '<th>21EMA</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
+        unsafe_allow_html=True)
+    parts = ' + '.join(f'{k} {v}' for k, v in (
+        {'찐반등 후 회복': 25, '덜 빠짐': 20, '고점 근접': 20, '21EMA 위': 15, '거래량 우위': 10, '양봉 렐볼': 10}
+        if rebound else
+        {'덜 빠짐': 30, '고점 근접': 25, '저점 선행': 15, '거래량 우위': 15, '21EMA 위': 15}).items())
+    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 점수(100) = {parts} — 같은 와치리스트 안 상대 순위. '
+               '매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
+
+
+# ── 상세 보기 ─────────────────────────────────────────────
 
 def _sector_table(sectors: list, labels: dict):
     rows = [{
@@ -482,7 +818,6 @@ def _downloads(m: Market, res: dict, labels: dict, names: dict):
 
 def render_sector_leadership_tab(market_key: str = 'US'):
     m = MARKETS[market_key]
-    st.caption(f"{m.title} · {'·'.join(m.bench)} 대비 5일/21일 RS, ADR20 보정 RS, 10EMA 유지력, 거래량 확산")
     if not _universe(m):
         st.info('와치리스트가 비어 있습니다. 사이드바에서 업로드해 주세요.')
         return
@@ -490,46 +825,48 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if not opts:
         st.warning(f"스냅샷에 {'·'.join(m.bench)} 일봉이 없습니다. 다음 배치 수집 후 표시됩니다.")
         return
-    asof = st.selectbox('기준일 (과거 날짜를 고르면 그날 종가까지만 써서 재현)', opts, key=f'{m.key}_asof')
+    head, pick = st.columns([4, 1], vertical_alignment='bottom')
+    head.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
+    asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof',
+                          help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
     try:
         res = _compute(m.key, asof, _data_key(m))
     except ValueError as e:
         st.error(f'계산할 수 없습니다: {e}')
         return
     labels, names = _labels(m), _names(m)
-    b1, b2 = res['bench']['names']
 
-    _overview(m, res, labels)
-    main = [s for s in res['sectors'] if s['inMainRanking']]
-    leaders_by_theme: dict = {}
-    for r in sorted(res['leaders'], key=lambda r: -r['leaderScore']):
-        leaders_by_theme.setdefault(r['primaryTheme'], []).append(r)
+    _market_strip(m, res)
+    phased = res['phase'] is not None and res['phase']['mode'] != 'uptrend'
+    if res['phase'] is not None:
+        _phase_banner(m, res)
+    if phased:
+        _lead_sectors(m, res, labels, names)
+        _lead_stocks(m, res, labels, names)
+    else:
+        # 상승 추세: 1주·1개월 RS + 10EMA 유지로 확인하는 A/B 기준이 메인
+        _next_sectors(res, labels, names, cls.load_store(m.key))
+        _next_stocks(m, res, labels, names)
 
-    has_score = any(s['score'] is not None for s in main)
-    ca, cb = st.columns(2)
-    for col, grade, title in ((ca, 'A_CONFIRMED', 'A 확인된 주도섹터'), (cb, 'B_EMERGING', 'B 차기 전환 후보')):
-        with col:
-            st.markdown(f'#### {title}')
-            picked = [s for s in main if s['grade'] == grade]
-            for s in picked:
-                _sector_card(s, labels, leaders_by_theme, names, b1, b2)
-            if not picked:
-                st.caption('없음' if has_score else '판정 불가 (점수 산출 섹터 없음)')
-
-    t = st.tabs(['섹터 표', '섹터 지도', '섹터 상세', '주도주 순위', '별도 테마', '분류 검토', '계산 방법·감사'])
-    with t[0]:
-        _sector_table(main, labels)
-    with t[1]:
-        _heatmap(m, main, labels)
-    with t[2]:
-        _drilldown(m, res, labels, names)
-    with t[3]:
-        _leaderboards(m, res, labels, names)
-    with t[4]:
-        st.caption('메인 랭킹에서 뺀 테마 (US: 바이오·금속·석유가스·소비, KR: 지주·기타)는 참고로만 보여줍니다.')
-        _sector_table([s for s in res['sectors'] if not s['inMainRanking']], labels)
-    with t[5]:
-        _classification_editor(m, labels, names)
-    with t[6]:
-        _methodology(m, res)
-        _downloads(m, res, labels, names)
+    views = (['상승 추세 확인 (A/B)'] if phased else []) + ['섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
+    with st.expander('자세히 보기 — ' + ' · '.join(views)):
+        view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view',
+                                    label_visibility='collapsed') or views[0]
+        main = [s for s in res['sectors'] if s['inMainRanking']]
+        if view == '상승 추세 확인 (A/B)':
+            st.caption('추세가 살아난 뒤 주도섹터를 "확정"하는 기준입니다. 조정 중에는 대부분 미달이 정상입니다.')
+            _next_sectors(res, labels, names, cls.load_store(m.key))
+            _next_stocks(m, res, labels, names)
+        elif view == '섹터 지도':
+            _heatmap(m, main, labels)
+        elif view == '섹터별 종목':
+            _drilldown(m, res, labels, names)
+        elif view == '전체 순위':
+            _leaderboards(m, res, labels, names)
+        elif view == '분류 수정':
+            _classification_editor(m, labels, names)
+        else:
+            _methodology(m, res)
+            st.markdown('**메인 랭킹 밖 테마** (US: 바이오·금속·석유가스·소비, KR: 지주·기타)')
+            _sector_table([s for s in res['sectors'] if not s['inMainRanking']], labels)
+            _downloads(m, res, labels, names)

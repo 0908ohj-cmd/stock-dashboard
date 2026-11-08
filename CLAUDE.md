@@ -59,6 +59,8 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - RS는 QQQ·IWM 각각과 평균 대비 3종, ADR20 보정 RS = RS(평균) / ADR20. 섹터 값은 종목 **중앙값**. 양봉 = 종가 > 시가, RVOL20 분모는 당일 제외, 10EMA 유지는 각 거래일의 EMA와 비교 — 명세 11장 필수 테스트가 `tests/test_sector_strength.py`에 있다
 - 섹터 100점은 구성 5종목 이상 + 데이터 80% 이상일 때만 산출. 결측은 0점이 아니라 UNVERIFIED. A/B는 점수 + 게이트 모두 통과
 - 기준일 선택 시 그날 이하 일봉만 쓴다 (point-in-time)
+- **국면별 화면** (`strategy/next_leaders.py`): 시장 지수(코스피 KOSPI, 코스닥 KOSDAQ, 나스닥 NASDAQ)의 `get_phase_label`로 국면을 나눈다. 조정(DAY1)은 '버틴 힘'(기산점 이후 지수 대비·고점 근접·저점 선행·거래량비·21EMA), 찐반등(DAY2~7)은 찐반등 후 회복 속도를 더해 차기 주도섹터·주도주를 매긴다. 상승 추세(Normal)일 때만 A/B 표가 메인이고, 그 외에는 '자세히 보기'에 있다. 섹터 순위는 3종목 이상만
+- 변화 감지(`attach_trend`): 1주·2주 전 같은 구성으로 재계산해 10EMA 위 비율 추이·전주 대비 점수를 붙이고, 10EMA 회복률·RS/ADR·RVOL 확산이 함께 좋아지면 '동시 개선'
 
 ### 테마 분류 (`data/classification.py` + `scripts/classify_themes.py`)
 
