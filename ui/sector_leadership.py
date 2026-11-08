@@ -305,7 +305,7 @@ def _market_strip(m: Market, res: dict):
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
     names, records = names or {}, records or {}
-    st.markdown('### 차기 주도섹터 — 추세 확인 기준 (A/B)')
+    st.markdown('#### 섹터 — A 확인된 주도 / B 차기 후보')
     st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 지수 대비, 종목 중앙값)와 '
                 '<b>10EMA 위에서 버티는 종목 비율</b>로 판정합니다. A·B가 아니면 45점 이상 관찰, 미만 후순위. '
                 f'{_IMPROVING_NOTE}.</div>',
@@ -376,7 +376,7 @@ def _stock_rows_html(rows: list, labels: dict, names: dict, records: dict, grade
 
 
 def _next_stocks(m: Market, res: dict, labels: dict, names: dict):
-    st.markdown('### 차기 주도주')
+    st.markdown('#### 종목')
     grade_of = {s['theme']: s['grade'] for s in res['sectors']}
     records = cls.load_store(m.key)
     groups = {
@@ -492,7 +492,6 @@ def _stock_name(t: str, names: dict, records: dict) -> str:
 def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     ph, ranked, thin = res['phase'], res['nextSectors'], res['thinSectors']
     records = cls.load_store(m.key)
-    st.markdown('### 차기 주도섹터')
     if not ranked:
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
@@ -556,7 +555,6 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
 def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     ph, picks = res['phase'], res['picks']
     records = cls.load_store(m.key)
-    st.markdown('### 차기 주도주')
     if not picks:
         st.caption('점수를 낼 수 있는 종목이 없습니다.')
         return
@@ -584,7 +582,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
             + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
             + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
-            f'<td>{r.get("volRatio", 0):.1f}배</td>'
+            + ('<td>—</td>' if r.get('volRatio') is None else f'<td>{r["volRatio"]:.1f}배</td>')
+            +
             f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
@@ -935,27 +934,27 @@ def render_sector_leadership_tab(market_key: str = 'US'):
 
     with strip:
         _market_strip(m, res)
-    phased = res['phase'] is not None and res['phase']['mode'] != 'uptrend'
+    # 화면 배치는 국면과 상관없이 고정 — 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
+    # 국면에 따라 바뀌는 건 각 섹션이 기본으로 펼쳐져 있는지뿐이다.
     if res['phase'] is not None:
         _phase_banner(m, res)
-    if phased:
-        _lead_sectors(m, res, labels, names)
-        _lead_stocks(m, res, labels, names)
-    else:
-        # 상승 추세: 1주·1개월 RS + 10EMA 유지로 확인하는 A/B 기준이 메인
+        with st.expander('**🧭 차기 주도섹터**', expanded=True):
+            _lead_sectors(m, res, labels, names)
+        with st.expander('**🎯 차기 주도주**', expanded=True):
+            _lead_stocks(m, res, labels, names)
+    uptrend = res['phase'] is None or res['phase']['mode'] == 'uptrend'
+    with st.expander('**📈 상승 추세 확인 (A/B) — 1주·1개월 RS와 10EMA 유지로 주도섹터 확정**', expanded=uptrend):
+        if not uptrend:
+            st.caption('추세가 살아난 뒤 주도섹터를 "확정"하는 기준입니다. 조정 중에는 대부분 미달이 정상입니다.')
         _next_sectors(res, labels, names, cls.load_store(m.key))
         _next_stocks(m, res, labels, names)
 
-    views = (['상승 추세 확인 (A/B)'] if phased else []) + ['섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
+    views = ['섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
     with st.expander('자세히 보기 — ' + ' · '.join(views)):
         view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view',
                                     label_visibility='collapsed') or views[0]
         main = [s for s in res['sectors'] if s['inMainRanking']]
-        if view == '상승 추세 확인 (A/B)':
-            st.caption('추세가 살아난 뒤 주도섹터를 "확정"하는 기준입니다. 조정 중에는 대부분 미달이 정상입니다.')
-            _next_sectors(res, labels, names, cls.load_store(m.key))
-            _next_stocks(m, res, labels, names)
-        elif view == '섹터 지도':
+        if view == '섹터 지도':
             _heatmap(m, main, labels)
         elif view == '섹터별 종목':
             _drilldown(m, res, labels, names)
