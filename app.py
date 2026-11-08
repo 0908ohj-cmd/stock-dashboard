@@ -2,12 +2,10 @@ import base64
 import hashlib
 import json
 import pathlib
-import subprocess
-from datetime import datetime, timezone, timedelta, time as dtime
 import requests
 import streamlit as st
 from data.fetcher import parse_tradingview_csv, parse_ticker_txt
-from data import store
+from data import repo_sync, store
 from ui.index_panel import render_index_panel, _load_index
 from ui.watchlist import (
     render_watchlist_tab, _fetch_index_cached,
@@ -68,39 +66,9 @@ def _clear_analysis_caches() -> None:
 
 
 _REPO_ROOT = pathlib.Path(__file__).parent
-_KST       = timezone(timedelta(hours=9))
-_last_auto_pull: list[float] = [0.0]  # 프로세스 레벨 싱글톤 (epoch)
 
-# GitHub Action 스냅샷 커밋 시각 (KST)
-_PULL_SCHEDULES = [dtime(15, 46), dtime(7, 1)]  # KR 15:45 / US 07:00 직후
-
-
-def _pull_due() -> bool:
-    """오늘 스케줄 시각 이후인데 아직 pull 안 한 슬롯이 있으면 True."""
-    now = datetime.now(_KST)
-    if now.weekday() >= 5:  # 주말
-        return False
-    last = _last_auto_pull[0]
-    for t in _PULL_SCHEDULES:
-        sched_ts = datetime.combine(now.date(), t, tzinfo=_KST).timestamp()
-        if now.timestamp() >= sched_ts > last:
-            return True
-    return False
-
-
-def _auto_pull_if_stale() -> bool:
-    """스케줄 시각 직후 한 번만 git pull. 새 커밋 있으면 True 반환."""
-    if not _pull_due():
-        return False
-    _last_auto_pull[0] = datetime.now(_KST).timestamp()
-    try:
-        r = subprocess.run(
-            ['git', 'pull', 'origin', 'main'],
-            capture_output=True, text=True, timeout=30, cwd=_REPO_ROOT,
-        )
-        return bool(r.stdout and 'Already up to date' not in r.stdout)
-    except Exception:
-        return False
+# 배치 데이터 반영 슬롯 — 정의·상태는 data/repo_sync.py (app.py 전역은 rerun마다 초기화된다)
+_PULL_SLOTS_LABEL = '·'.join(t.strftime('%H:%M') for t in repo_sync.PULL_SCHEDULES)
 
 st.set_page_config(
     page_title='Stock Watchlist',
@@ -134,7 +102,7 @@ with st.sidebar:
     if st.button('🔄 데이터 재수집', use_container_width=True,
                  help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
         st.session_state['force_refetch'] = True
-    st.caption('📦 장 마감 후 배치 수집 데이터 (KR 15:45 · US 07:00 KST)')
+    st.caption(f'📦 장 마감 후 배치 수집 데이터 (US 08:10 · KR 17:30 KST 시작, 앱은 {_PULL_SLOTS_LABEL}에 반영)')
     st.divider()
     st.markdown('**💾 티커 백업**')
     backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
@@ -215,9 +183,17 @@ if _any:
         use_container_width=True,
     )
 
-# ── 자동 git pull (1시간마다, 새 데이터 있으면 캐시 클리어) ──
-if _auto_pull_if_stale():
+# ── 배치 데이터 동기화 (슬롯마다 프로세스당 1회, 새 데이터 있으면 캐시 클리어) ──
+_sync = repo_sync.maybe_sync(_REPO_ROOT)
+if _sync and _sync.updated:
     _clear_analysis_caches()
+_last_sync = repo_sync.last_result()
+if _last_sync and not _last_sync.ok:
+    # 조용히 실패하면 낡은 데이터를 최신으로 착각한다 — 다음 슬롯에서 재시도된다
+    st.warning(
+        f"⚠️ 배치 데이터 동기화 실패 ({_last_sync.at:%m-%d %H:%M}) — 화면 데이터가 최신 배치가 "
+        f"아닐 수 있습니다. 사유: {_last_sync.error}"
+    )
 
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
