@@ -76,6 +76,23 @@ def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
     assert ph2['mode'] == 'rebound' and ph2['peakDate'] is not None   # 자동 조정이 없어도 기산점을 잡는다
 
 
+def test_덜빠짐은_ADR_보정값으로_순위를_매긴다():
+    # 두 종목 모두 지수 대비 +10%p지만, 변동성(ADR)이 작은 쪽이 더 '버틴' 것
+    closes = np.array(list(np.linspace(100, 130, 100)) + list(np.linspace(129, 110, 20)))
+    idf = _index(list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 20)))
+    calm, wild = _index(closes), _index(closes)
+    wild['High'], wild['Low'] = closes * 1.05, closes * 0.95
+    peak = idf['Close'].idxmax()
+    phase = {'mode': 'correction', 'correctionStart': peak, 'peakDate': peak,
+             'jjinDate': None, 'indexSinceJjin': None}
+    rows = [{'ticker': t, 'status': 'FULL', 'adr20Pct': adr, 'aboveEma21': False,
+             'hasBullishRvol15InLast5': False} for t, adr in (('CALM', 2.0), ('WILD', 10.5))]
+    out = {r['ticker']: r for r in nl.score_stocks(rows, {'CALM': calm, 'WILD': wild}, idf,
+                                                   {'CALM': 'X', 'WILD': 'X'}, {'X'}, phase, '2026-11-06')}
+    assert out['CALM']['sincePeakExcess'] == pytest.approx(out['WILD']['sincePeakExcess'])
+    assert out['CALM']['nextParts']['덜 빠짐'] > out['WILD']['nextParts']['덜 빠짐']
+
+
 def _sec(theme, above10, nrs5, rvol, score, asof='2026-11-06'):
     return {'theme': theme, 'asOf': asof, 'pctAbove10': above10, 'medianNrs5': nrs5,
             'pctBullishRvol15_5D': rvol, 'score': score}

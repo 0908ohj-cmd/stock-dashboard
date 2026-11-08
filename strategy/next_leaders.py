@@ -102,12 +102,15 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
         s = _since_ret(df, phase['jjinDate'])
         r['sinceJjinExcess'] = None if s is None or phase['indexSinceJjin'] is None else s - phase['indexSinceJjin']
+        adr = r.get('adr20Pct')
+        r['sinceJjinExcessAdr'] = (None if r['sinceJjinExcess'] is None or not adr
+                                   else r['sinceJjinExcess'] / adr)
 
     def pct(key):
         return ss.percentile_rank({r['ticker']: r.get(key) for r in pool})
 
-    p = {k: pct(k) for k in ('sincePeakExcess', 'sincePeakExcessAdr', 'offHigh', 'leadDays', 'volRatio',
-                             'sinceJjinExcess')}
+    # 지수 대비는 ADR 보정값만 점수에 쓴다 — 변동성 큰 종목이 %p만으로 상위를 차지하는 노이즈 제거
+    p = {k: pct(k) for k in ('sincePeakExcessAdr', 'offHigh', 'leadDays', 'volRatio', 'sinceJjinExcessAdr')}
 
     def g(k, t):
         v = p[k][t]
@@ -115,12 +118,12 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
 
     for r in pool:
         t = r['ticker']
-        held = (g('sincePeakExcess', t) + g('sincePeakExcessAdr', t)) / 2
+        held = g('sincePeakExcessAdr', t)
         if phase['mode'] == 'correction':
             parts = {'덜 빠짐': 30 * held, '고점 근접': 25 * g('offHigh', t), '저점 선행': 15 * g('leadDays', t),
                      '거래량 우위': 15 * g('volRatio', t), '21EMA 위': 15 * r['aboveEma21']}
         else:
-            parts = {'덜 빠짐': 20 * held, '찐반등 후 회복': 25 * g('sinceJjinExcess', t),
+            parts = {'덜 빠짐': 20 * held, '찐반등 후 회복': 25 * g('sinceJjinExcessAdr', t),
                      '고점 근접': 20 * g('offHigh', t), '거래량 우위': 10 * g('volRatio', t),
                      '21EMA 위': 15 * r['aboveEma21'], '양봉 렐볼': 10 * r['hasBullishRvol15InLast5']}
         r['nextParts'] = parts
@@ -144,6 +147,7 @@ def rank_sectors(pool: list) -> tuple[list, list]:
             'strongShare': sum(x >= STRONG_SCORE for x in scores) / len(scores),
             'medianSincePeak': med('sincePeakExcess'), 'medianOffHigh': med('offHigh'),
             'medianSinceJjin': med('sinceJjinExcess'), 'medianRs5': med('rs5Blend'),
+            'medianSincePeakAdr': med('sincePeakExcessAdr'), 'medianSinceJjinAdr': med('sinceJjinExcessAdr'),
             'pctAbove21': sum(m['aboveEma21'] for m in members) / len(members),
             'pctAbove10': sum(m['aboveEma10'] for m in members) / len(members),
             'top': sorted(members, key=lambda m: -m['nextScore'])[:3],

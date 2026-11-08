@@ -448,8 +448,20 @@ def _phase_banner(m: Market, res: dict):
 def _range_labels(ph: dict) -> tuple[str, str]:
     """카드·표 머리글에 실제 구간 날짜를 넣는다 — 기산점·찐반등일을 바꾸면 바로 보인다."""
     p, j = ph.get('peakDate'), ph.get('jjinDate')
-    return (f'지수 대비 (기산점 {p:%m/%d} 이후)' if p is not None else '지수 대비 (기산점 이후)',
-            f'지수 대비 (찐반등 {j:%m/%d} 이후)' if j is not None else '지수 대비 (찐반등 이후)')
+    return (f'지수 대비 ADR 배수 (기산점 {p:%m/%d} 이후)' if p is not None else '지수 대비 ADR 배수 (기산점 이후)',
+            f'지수 대비 ADR 배수 (찐반등 {j:%m/%d} 이후)' if j is not None else '지수 대비 ADR 배수 (찐반등 이후)')
+
+
+def _adr_vs(adr, raw) -> str:
+    """ADR 보정 지수 대비(배) + 원래 %p를 작게."""
+    if adr is None:
+        return _signed(None)
+    tail = '' if raw is None else f' <span class="sl-sub" style="margin:0">({raw:+.1f}%p)</span>'
+    return _signed(adr, '배') + tail
+
+
+_ADR_NOTE = ('ADR 배수 = 지수 대비 초과수익(%p) ÷ 종목의 평소 하루 변동폭(ADR20). '
+             '변동성 큰 종목이 많이 움직인 것만으로 앞서지 않게 보정한 값이며, 섹터 값은 종목들의 중앙값')
 
 
 def _stock_name(t: str, names: dict, records: dict) -> str:
@@ -470,13 +482,13 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
-        lines = [(peak_lbl, _signed(s['medianSincePeak'])),
+        lines = [(peak_lbl, _adr_vs(s['medianSincePeakAdr'], s['medianSincePeak'])),
                  ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
                  ('21EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'), 'pctAbove21')),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         if rebound:
-            lines.insert(0, (jjin_lbl, _signed(s['medianSinceJjin'])))
+            lines.insert(0, (jjin_lbl, _adr_vs(s['medianSinceJjinAdr'], s['medianSinceJjin'])))
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
         # 배지가 없어도 같은 높이를 비워 둬서 카드끼리 줄 위치가 맞게
         badge = f'<div class="nl-badge-row">{_IMPROVING if t.get("improving") else ""}</div>'
@@ -485,7 +497,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
                      f'<div class="nl-score">{s["score"]:.0f}</div></div>'
                      f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stocks}</div></div>')
     st.markdown('<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
-    st.caption(_IMPROVING_NOTE)
+    st.caption(_ADR_NOTE + '.  \n' + _IMPROVING_NOTE)
 
     # 제 판단 — 조정장 상위에 방어 섹터가 섞이면 반등장 주도주가 아닐 수 있다
     notes = []
@@ -504,8 +516,8 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         rows = ''.join(
             f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
             f'<span class="sl-sub">{s["n"]}종목</span></td><td><b>{s["score"]:.0f}</b></td>'
-            + (f'<td>{_signed(s["medianSinceJjin"])}</td>' if rebound else '')
-            + f'<td>{_signed(s["medianSincePeak"])}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
+            + (f'<td>{_adr_vs(s["medianSinceJjinAdr"], s["medianSinceJjin"])}</td>' if rebound else '')
+            + f'<td>{_adr_vs(s["medianSincePeakAdr"], s["medianSincePeak"])}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
             + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
@@ -547,8 +559,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         body.append(
             f'<tr><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
-            + (f'<td>{_signed(r.get("sinceJjinExcess"))}</td>' if rebound else '')
-            + f'<td>{_signed(r.get("sincePeakExcess"))}</td>'
+            + (f'<td>{_adr_vs(r.get("sinceJjinExcessAdr"), r.get("sinceJjinExcess"))}</td>' if rebound else '')
+            + f'<td>{_adr_vs(r.get("sincePeakExcessAdr"), r.get("sincePeakExcess"))}</td>'
             f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
             f'<td>{r.get("volRatio", 0):.1f}배</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
