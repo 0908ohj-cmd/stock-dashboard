@@ -194,7 +194,7 @@ _CSS = """<style>
 .sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
 .sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
 .sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
-.sl-mkt{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+.sl-mkt{display:flex;flex-wrap:wrap;gap:10px;margin:0}
 .sl-stat{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 14px;min-width:120px;
   background:rgba(128,128,128,.04)}
 .sl-stat.neg{background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.3)}
@@ -878,7 +878,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         return
     st.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
     # 지수 현황 줄 오른쪽에 기준일 — 선택 상자를 먼저 그려 asof를 얻고, 왼쪽은 계산 뒤 채운다
-    strip, pick = st.columns([5, 1], vertical_alignment='center')
+    strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
     asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof', label_visibility='collapsed',
                           format_func=lambda d: f'기준일 {d}',
                           help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
