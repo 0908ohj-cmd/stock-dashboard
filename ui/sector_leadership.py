@@ -194,8 +194,8 @@ _CSS = """<style>
 .sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
 .sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
 .sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
-.sl-mkt{display:flex;flex-wrap:wrap;gap:10px;margin:0}
-.sl-stat{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 14px;min-width:120px;
+.sl-mkt{display:flex;flex-wrap:wrap;gap:12px;margin:4px 0 16px}
+.sl-stat{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 16px 10px;min-width:120px;
   background:rgba(128,128,128,.04)}
 .sl-stat.neg{background:rgba(220,38,38,.06);border-color:rgba(220,38,38,.3)}
 .sl-stat.pos{background:rgba(22,163,74,.06);border-color:rgba(22,163,74,.3)}
