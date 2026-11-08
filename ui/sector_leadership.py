@@ -472,10 +472,6 @@ def _adr_vs(adr, raw) -> str:
     return _signed(adr, '', 2) + tail
 
 
-_ADR_NOTE = ('RS/ADR = 지수 대비 초과수익(괄호 안 %p) ÷ 종목의 평소 하루 변동폭(ADR20). '
-             '변동성 큰 종목이 많이 움직인 것만으로 앞서지 않게 보정한 값이며, 섹터 값은 종목들의 중앙값')
-
-
 def _stock_name(t: str, names: dict, records: dict) -> str:
     return names.get(t) or (records.get(t) or {}).get('companyName', '') or t
 
@@ -506,7 +502,6 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
                      f'<div class="nl-score">{s["score"]:.0f}</div></div>'
                      f'{badge}{body}<div class="nl-stocks"><span style="opacity:.6">대표 </span>{stocks}</div></div>')
     st.markdown('<div class="nl-cards">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
-    st.caption(_ADR_NOTE + '.  \n' + _IMPROVING_NOTE)
 
     # 제 판단 — 조정장 상위에 방어 섹터가 섞이면 반등장 주도주가 아닐 수 있다
     notes = []
