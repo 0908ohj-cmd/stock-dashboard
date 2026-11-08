@@ -445,17 +445,23 @@ def _phase_banner(m: Market, res: dict):
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
 
 
-def _range_labels(ph: dict) -> tuple[str, str]:
-    """카드·표 머리글에 실제 구간 날짜를 넣는다 — 기산점·찐반등일을 바꾸면 바로 보인다."""
+def _vs_label(ph: dict) -> str:
+    """'지수 대비 ADR 배수' 한 줄 — 국면에 따라 구간이 바뀐다.
+    하락 국면(조정 중): 기산점 ~ 기준일(찐반등 전이므로 지금까지) / 찐반등 이후: 찐반등일 ~ 기준일."""
     p, j = ph.get('peakDate'), ph.get('jjinDate')
-    if p is None:
-        peak = '지수 대비 ADR 배수 (기산점 이후)'
-    elif ph.get('mode') == 'rebound' and j is not None:
-        peak = f'조정 구간 지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 찐반등 {j:%m/%d})'
-    else:
-        peak = f'지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 기준일)'
-    jj = f'반등 구간 지수 대비 ADR 배수 (찐반등 {j:%m/%d} ~ 기준일)' if j is not None else '반등 구간 지수 대비 ADR 배수'
-    return peak, jj
+    if ph.get('mode') == 'rebound' and j is not None:
+        return f'지수 대비 ADR 배수 (찐반등 {j:%m/%d} ~ 기준일)'
+    return f'지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 기준일)' if p is not None else '지수 대비 ADR 배수 (기산점 이후)'
+
+
+def _vs_cell(ph: dict, x: dict, sector: bool) -> str:
+    """x: 섹터(중앙값 키) 또는 종목(개별 키). 국면에 맞는 구간 값."""
+    jj = ph.get('mode') == 'rebound' and ph.get('jjinDate') is not None
+    if sector:
+        return (_adr_vs(x.get('medianSinceJjinAdr'), x.get('medianSinceJjin')) if jj
+                else _adr_vs(x.get('medianSincePeakAdr'), x.get('medianSincePeak')))
+    return (_adr_vs(x.get('sinceJjinExcessAdr'), x.get('sinceJjinExcess')) if jj
+            else _adr_vs(x.get('sincePeakExcessAdr'), x.get('sincePeakExcess')))
 
 
 def _adr_vs(adr, raw) -> str:
@@ -481,20 +487,17 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     if not ranked:
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
-    rebound = ph['mode'] == 'rebound'
-    peak_lbl, jjin_lbl = _range_labels(ph)
+    vs_lbl = _vs_label(ph)
     trend = {s['theme']: s for s in res['sectors']}     # 10EMA 위 비율 3주 추이·동시 개선
     cards = []
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
-        lines = [(peak_lbl, _adr_vs(s['medianSincePeakAdr'], s['medianSincePeak'])),
+        lines = [(vs_lbl, _vs_cell(ph, s, True)),
                  ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
                  ('21EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'), 'pctAbove21')),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
-        if rebound:
-            lines.insert(0, (jjin_lbl, _adr_vs(s['medianSinceJjinAdr'], s['medianSinceJjin'])))
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
         # 배지가 없어도 같은 높이를 비워 둬서 카드끼리 줄 위치가 맞게
         badge = f'<div class="nl-badge-row">{_IMPROVING if t.get("improving") else ""}</div>'
@@ -522,8 +525,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         rows = ''.join(
             f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
             f'<span class="sl-sub">{s["n"]}종목</span></td><td><b>{s["score"]:.0f}</b></td>'
-            + (f'<td>{_adr_vs(s["medianSinceJjinAdr"], s["medianSinceJjin"])}</td>' if rebound else '')
-            + f'<td>{_adr_vs(s["medianSincePeakAdr"], s["medianSincePeak"])}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
+            + f'<td>{_vs_cell(ph, s, True)}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
             + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
@@ -531,8 +533,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
-            + (f'<th>{jjin_lbl}</th>' if rebound else '')
-            + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            + f'<th>{vs_lbl}</th><th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -548,7 +549,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         return
     top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
     rebound = ph['mode'] == 'rebound'
-    peak_lbl, jjin_lbl = _range_labels(ph)
+    vs_lbl = _vs_label(ph)
     only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
     rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
                   key=lambda r: -r['nextScore'])[:20]
@@ -565,16 +566,14 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         body.append(
             f'<tr><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
-            + (f'<td>{_adr_vs(r.get("sinceJjinExcessAdr"), r.get("sinceJjinExcess"))}</td>' if rebound else '')
-            + f'<td>{_adr_vs(r.get("sincePeakExcessAdr"), r.get("sincePeakExcess"))}</td>'
+            + f'<td>{_vs_cell(ph, r, False)}</td>'
             f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
             f'<td>{r.get("volRatio", 0):.1f}배</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
-        + (f'<th>{jjin_lbl}</th>' if rebound else '')
-        + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
+        + f'<th>{vs_lbl}</th><th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
         '<th>21EMA (기준일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     parts = ' + '.join(f'{k} {v}' for k, v in (
