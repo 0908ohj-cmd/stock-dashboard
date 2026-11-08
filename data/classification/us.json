@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-08T20:26:31+09:00",
+ "updatedAt": "2026-11-08T20:31:22+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -2431,29 +2431,51 @@
   },
   "EXTR": {
    "companyName": "Extreme Networks, Inc.",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "AI_DC_HARDWARE",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "AI_DC_HARDWARE",
     "CYBERSECURITY"
    ],
    "detail": "기업 네트워크 장비",
    "businessSummary": "유선·무선·SD-WAN 네트워크 장비와 클라우드 관리 플랫폼(ExtremeCloud IQ, Extreme Platform ONE)을 기업·기관에 판매하는 클라우드 네트워킹 회사다. 2026년 10-K 기준 사업 설명으로 확인했다.",
-   "confidence": "low",
+   "confidence": "high",
    "why": "사업 자체는 10-K 설명과 프로파일로 확인했으나 주력 제품이 기업 캠퍼스·무선·SD-WAN 네트워크 장비라 고정 테마 중 맞는 항목이 없다. AI_DC_HARDWARE는 데이터센터 스위치가 일부일 뿐 주력이 아니고, OPTICAL_INTERCONNECT는 광트랜시버 중심이 아니므로 제외했다. 매출 세그먼트 수치를 확인하지 못해 주력 비중도 검증되지 않았다. 구조적으로 UNCLASSIFIED를 유지하고 필요 시 신규 테마 검토가 필요하다.",
    "evidenceUrls": [
     "https://www.sec.gov/Archives/edgar/data/0001078271/000119312526352872/extr-20260630.htm",
     "https://www.sec.gov/Archives/edgar/data/1078271/000095017025109742/extr-20250630.htm"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "gateReasons": [],
+   "method": "user",
    "taxonomyVersion": "us-v1",
-   "reviewedAt": "2026-11-08T20:26:17+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
+   "reviewedAt": "2026-11-08T20:31:22+09:00",
+   "overrideByUser": true,
+   "overrideReason": "근거 부족으로 자동 미분류 → 사용자가 추천안 확정 (2026-11-08)",
    "history": [
+    {
+     "companyName": "Extreme Networks, Inc.",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "AI_DC_HARDWARE",
+      "CYBERSECURITY"
+     ],
+     "detail": "기업 네트워크 장비",
+     "businessSummary": "유선·무선·SD-WAN 네트워크 장비와 클라우드 관리 플랫폼(ExtremeCloud IQ, Extreme Platform ONE)을 기업·기관에 판매하는 클라우드 네트워킹 회사다. 2026년 10-K 기준 사업 설명으로 확인했다.",
+     "confidence": "low",
+     "why": "사업 자체는 10-K 설명과 프로파일로 확인했으나 주력 제품이 기업 캠퍼스·무선·SD-WAN 네트워크 장비라 고정 테마 중 맞는 항목이 없다. AI_DC_HARDWARE는 데이터센터 스위치가 일부일 뿐 주력이 아니고, OPTICAL_INTERCONNECT는 광트랜시버 중심이 아니므로 제외했다. 매출 세그먼트 수치를 확인하지 못해 주력 비중도 검증되지 않았다. 구조적으로 UNCLASSIFIED를 유지하고 필요 시 신규 테마 검토가 필요하다.",
+     "evidenceUrls": [
+      "https://www.sec.gov/Archives/edgar/data/0001078271/000119312526352872/extr-20260630.htm",
+      "https://www.sec.gov/Archives/edgar/data/1078271/000095017025109742/extr-20250630.htm"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "us-v1",
+     "reviewedAt": "2026-11-08T20:26:17+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
     {
      "companyName": "Extreme Networks, Inc.",
      "primaryTheme": "UNCLASSIFIED",
@@ -3484,30 +3506,53 @@
   },
   "KEYS": {
    "companyName": "Keysight Technologies, Inc.",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
    "secondaryThemes": [
-    "DEFENSE_UNMANNED",
     "OPTICAL_INTERCONNECT",
-    "SEMI_EQUIPMENT"
+    "DEFENSE_UNMANNED"
    ],
    "detail": "전자 테스트·계측 장비",
    "businessSummary": "전자·통신·항공우주·방산 분야의 측정기(오실로스코프, 신호·스펙트럼 분석기, 네트워크 분석기, 전원장치)와 관련 소프트웨어·서비스를 만든다. FY2025(10월 종료) 매출 약 53.7억 달러 중 통신솔루션그룹(CSG)이 약 69%, 전자산업솔루션그룹(EISG)이 약 31%다.",
-   "confidence": "low",
+   "confidence": "high",
    "why": "회사 정체와 매출 구조는 10-K로 확인했지만 주력 사업이 '범용 전자 테스트·계측'이라 고정 테마 목록에 맞는 항목이 없다. 가장 큰 축은 CSG 내 상업 통신 장비 시험(약 67% of CSG)이고, 방산·항공우주 정부 수요는 CSG의 약 33%(전사 기준 약 23%)다. 반도체·전자산업 시험은 EISG(전사 약 31%)에 속하며 SEMI_EQUIPMENT의 주력 기준에는 못 미친다. 따라서 임의로 테마를 고르지 않고 UNCLASSIFIED로 두었다. 세그먼트 비중은 10-K 요약 추출값이라 표 원문으로 재확인이 필요하다.",
    "evidenceUrls": [
     "https://www.sec.gov/Archives/edgar/data/1601046/000160104625000127/keys-20251031.htm",
     "https://www.sec.gov/Archives/edgar/data/1601046/000160104625000121/exhibit991-q425pressrelease.htm"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "gateReasons": [],
+   "method": "user",
    "taxonomyVersion": "us-v1",
-   "reviewedAt": "2026-11-08T20:26:31+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
+   "reviewedAt": "2026-11-08T20:31:22+09:00",
+   "overrideByUser": true,
+   "overrideReason": "근거 부족으로 자동 미분류 → 사용자가 추천안 확정 (2026-11-08)",
    "history": [
+    {
+     "companyName": "Keysight Technologies, Inc.",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [
+      "DEFENSE_UNMANNED",
+      "OPTICAL_INTERCONNECT",
+      "SEMI_EQUIPMENT"
+     ],
+     "detail": "전자 테스트·계측 장비",
+     "businessSummary": "전자·통신·항공우주·방산 분야의 측정기(오실로스코프, 신호·스펙트럼 분석기, 네트워크 분석기, 전원장치)와 관련 소프트웨어·서비스를 만든다. FY2025(10월 종료) 매출 약 53.7억 달러 중 통신솔루션그룹(CSG)이 약 69%, 전자산업솔루션그룹(EISG)이 약 31%다.",
+     "confidence": "low",
+     "why": "회사 정체와 매출 구조는 10-K로 확인했지만 주력 사업이 '범용 전자 테스트·계측'이라 고정 테마 목록에 맞는 항목이 없다. 가장 큰 축은 CSG 내 상업 통신 장비 시험(약 67% of CSG)이고, 방산·항공우주 정부 수요는 CSG의 약 33%(전사 기준 약 23%)다. 반도체·전자산업 시험은 EISG(전사 약 31%)에 속하며 SEMI_EQUIPMENT의 주력 기준에는 못 미친다. 따라서 임의로 테마를 고르지 않고 UNCLASSIFIED로 두었다. 세그먼트 비중은 10-K 요약 추출값이라 표 원문으로 재확인이 필요하다.",
+     "evidenceUrls": [
+      "https://www.sec.gov/Archives/edgar/data/1601046/000160104625000127/keys-20251031.htm",
+      "https://www.sec.gov/Archives/edgar/data/1601046/000160104625000121/exhibit991-q425pressrelease.htm"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "us-v1",
+     "reviewedAt": "2026-11-08T20:26:31+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
     {
      "companyName": "Keysight Technologies, Inc.",
      "primaryTheme": "UNCLASSIFIED",
@@ -4526,26 +4571,46 @@
   },
   "NN": {
    "companyName": "NextNav Inc.",
-   "primaryTheme": "UNCLASSIFIED",
-   "suggestedTheme": "UNCLASSIFIED",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
    "secondaryThemes": [],
    "detail": "지상 측위·위치 인프라",
    "businessSummary": "나스닥 티커 NN으로 거래되는 NextNav는 GPS를 보완하는 지상 기반 3D 측위·항법·타이밍(PNT) 서비스를 판매한다. 주력은 Pinnacle(고도 측위), TerraPoiNT(광역 지상 PNT), NextGen(5G NR 기반 PNT)이며, 이를 뒷받침하는 저대역 지상 측위 주파수 면허를 보유한다.",
-   "confidence": "low",
+   "confidence": "high",
    "why": "현재 NN 티커 회사가 NextNav임은 FY2025 10-K와 보도자료로 확인했다. 그러나 주력 사업인 지상 측위(PNT) 네트워크·주파수 면허는 고정 테마 목록의 어느 항목에도 맞지 않아 확정하지 않았다(방산·우주·로봇·통신장비 어느 쪽도 매출 근거가 불충분). 10-K의 사업 세그먼트 매출 비중을 확인하기 전까지 미분류로 둔다. 이 분류는 티커 NN을 NextNav로 해석한 결과다.",
    "evidenceUrls": [
     "https://www.sec.gov/Archives/edgar/data/1865631/000155485526000328/nn-20251231.htm",
     "https://www.barchart.com/story/news/803671/nextnav-inc-reports-fourth-quarter-and-full-year-2025-results-and-operational-highlights"
    ],
-   "gateReasons": [
-    "신뢰도 low"
-   ],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "gateReasons": [],
+   "method": "user",
    "taxonomyVersion": "us-v1",
-   "reviewedAt": "2026-11-08T20:26:01+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
+   "reviewedAt": "2026-11-08T20:31:22+09:00",
+   "overrideByUser": true,
+   "overrideReason": "근거 부족으로 자동 미분류 → 사용자가 추천안 확정 (2026-11-08)",
    "history": [
+    {
+     "companyName": "NextNav Inc.",
+     "primaryTheme": "UNCLASSIFIED",
+     "suggestedTheme": "UNCLASSIFIED",
+     "secondaryThemes": [],
+     "detail": "지상 측위·위치 인프라",
+     "businessSummary": "나스닥 티커 NN으로 거래되는 NextNav는 GPS를 보완하는 지상 기반 3D 측위·항법·타이밍(PNT) 서비스를 판매한다. 주력은 Pinnacle(고도 측위), TerraPoiNT(광역 지상 PNT), NextGen(5G NR 기반 PNT)이며, 이를 뒷받침하는 저대역 지상 측위 주파수 면허를 보유한다.",
+     "confidence": "low",
+     "why": "현재 NN 티커 회사가 NextNav임은 FY2025 10-K와 보도자료로 확인했다. 그러나 주력 사업인 지상 측위(PNT) 네트워크·주파수 면허는 고정 테마 목록의 어느 항목에도 맞지 않아 확정하지 않았다(방산·우주·로봇·통신장비 어느 쪽도 매출 근거가 불충분). 10-K의 사업 세그먼트 매출 비중을 확인하기 전까지 미분류로 둔다. 이 분류는 티커 NN을 NextNav로 해석한 결과다.",
+     "evidenceUrls": [
+      "https://www.sec.gov/Archives/edgar/data/1865631/000155485526000328/nn-20251231.htm",
+      "https://www.barchart.com/story/news/803671/nextnav-inc-reports-fourth-quarter-and-full-year-2025-results-and-operational-highlights"
+     ],
+     "gateReasons": [
+      "신뢰도 low"
+     ],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "us-v1",
+     "reviewedAt": "2026-11-08T20:26:01+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    },
     {
      "companyName": "확인 불가 (NN 티커 현재 거래 회사 미확인)",
      "primaryTheme": "UNCLASSIFIED",
