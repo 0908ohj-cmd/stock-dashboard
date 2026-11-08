@@ -445,34 +445,34 @@ def _phase_banner(m: Market, res: dict):
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
 
 
-def _vs_label(ph: dict) -> str:
-    """'지수 대비 ADR 배수' 한 줄 — 국면에 따라 구간이 바뀐다.
-    하락 국면(조정 중): 기산점 ~ 기준일(찐반등 전이므로 지금까지) / 찐반등 이후: 찐반등일 ~ 기준일."""
+def _rs_cols(ph: dict) -> list:
+    """RS/ADR 표시 구간 — [(라벨, 섹터 키, 섹터 %p 키, 종목 키, 종목 %p 키)].
+    조정 중: 기산점 ~ 기준일 한 줄. 찐반등 이후: 기산점 ~ 찐반등(조정 구간) + 찐반등 ~ 기준일(반등 구간) 두 줄."""
     p, j = ph.get('peakDate'), ph.get('jjinDate')
+    ps = f'기산점 {p:%m/%d}' if p is not None else '기산점'
     if ph.get('mode') == 'rebound' and j is not None:
-        return f'지수 대비 ADR 배수 (찐반등 {j:%m/%d} ~ 기준일)'
-    return f'지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 기준일)' if p is not None else '지수 대비 ADR 배수 (기산점 이후)'
+        return [(f'RS/ADR ({ps} ~ 찐반등 {j:%m/%d})',
+                 'medianSincePeakAdr', 'medianSincePeak', 'sincePeakExcessAdr', 'sincePeakExcess'),
+                (f'RS/ADR (찐반등 {j:%m/%d} ~ 기준일)',
+                 'medianSinceJjinAdr', 'medianSinceJjin', 'sinceJjinExcessAdr', 'sinceJjinExcess')]
+    return [(f'RS/ADR ({ps} ~ 기준일)',
+             'medianSincePeakAdr', 'medianSincePeak', 'sincePeakExcessAdr', 'sincePeakExcess')]
 
 
-def _vs_cell(ph: dict, x: dict, sector: bool) -> str:
-    """x: 섹터(중앙값 키) 또는 종목(개별 키). 국면에 맞는 구간 값."""
-    jj = ph.get('mode') == 'rebound' and ph.get('jjinDate') is not None
-    if sector:
-        return (_adr_vs(x.get('medianSinceJjinAdr'), x.get('medianSinceJjin')) if jj
-                else _adr_vs(x.get('medianSincePeakAdr'), x.get('medianSincePeak')))
-    return (_adr_vs(x.get('sinceJjinExcessAdr'), x.get('sinceJjinExcess')) if jj
-            else _adr_vs(x.get('sincePeakExcessAdr'), x.get('sincePeakExcess')))
+def _rs_val(ph_col: tuple, x: dict, sector: bool) -> str:
+    _, sa, sr, ka, kr = ph_col
+    return _adr_vs(x.get(sa), x.get(sr)) if sector else _adr_vs(x.get(ka), x.get(kr))
 
 
 def _adr_vs(adr, raw) -> str:
-    """ADR 보정 지수 대비(배) + 원래 %p를 작게."""
+    """RS/ADR + 원래 지수 대비 %p를 작게."""
     if adr is None:
         return _signed(None)
     tail = '' if raw is None else f' <span class="sl-sub" style="margin:0">({raw:+.1f}%p)</span>'
-    return _signed(adr, '배') + tail
+    return _signed(adr, '', 2) + tail
 
 
-_ADR_NOTE = ('ADR 배수 = 지수 대비 초과수익(%p) ÷ 종목의 평소 하루 변동폭(ADR20). '
+_ADR_NOTE = ('RS/ADR = 지수 대비 초과수익(괄호 안 %p) ÷ 종목의 평소 하루 변동폭(ADR20). '
              '변동성 큰 종목이 많이 움직인 것만으로 앞서지 않게 보정한 값이며, 섹터 값은 종목들의 중앙값')
 
 
@@ -487,13 +487,13 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     if not ranked:
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
-    vs_lbl = _vs_label(ph)
+    cols = _rs_cols(ph)
     trend = {s['theme']: s for s in res['sectors']}     # 10EMA 위 비율 3주 추이·동시 개선
     cards = []
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
-        lines = [(vs_lbl, _vs_cell(ph, s, True)),
+        lines = [(c[0], _rs_val(c, s, True)) for c in cols] + [
                  ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
                  ('21EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'), 'pctAbove21')),
@@ -525,7 +525,8 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         rows = ''.join(
             f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
             f'<span class="sl-sub">{s["n"]}종목</span></td><td><b>{s["score"]:.0f}</b></td>'
-            + f'<td>{_vs_cell(ph, s, True)}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
+            + ''.join(f'<td>{_rs_val(c, s, True)}</td>' for c in cols)
+            + f'<td>{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
             + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
@@ -533,7 +534,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
-            + f'<th>{vs_lbl}</th><th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -549,7 +550,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         return
     top_sectors = {s['theme'] for s in res['nextSectors'][:3]}
     rebound = ph['mode'] == 'rebound'
-    vs_lbl = _vs_label(ph)
+    cols = _rs_cols(ph)
     only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
     rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
                   key=lambda r: -r['nextScore'])[:20]
@@ -566,14 +567,14 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         body.append(
             f'<tr><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
-            + f'<td>{_vs_cell(ph, r, False)}</td>'
-            f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
+            + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
+            + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
             f'<td>{r.get("volRatio", 0):.1f}배</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
-        + f'<th>{vs_lbl}</th><th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
+        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
         '<th>21EMA (기준일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     parts = ' + '.join(f'{k} {v}' for k, v in (
