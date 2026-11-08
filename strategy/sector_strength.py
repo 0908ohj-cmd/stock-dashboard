@@ -353,12 +353,12 @@ def attach_trend(latest: list, earlier: list) -> None:
     """latest: 기준일 섹터 결과. earlier: [1주 전 섹터 결과, 2주 전 섹터 결과] (없으면 빈 리스트).
 
     각 섹터에 붙이는 값:
-      history       — [{asof, pctAbove10, score, medianNrs5, pctBullishRvol15_5D}] 오래된 순 (3주 추이)
+      history       — [{asof, pctAbove10, pctAbove21, score, medianNrs5, pctBullishRvol15_5D}] 오래된 순 (3주 추이)
       scoreChange   — 1주 전 대비 점수 변화 (둘 다 점수가 있을 때만)
       improving     — 1주 전 대비 10EMA 위 비율 +10%p 이상 · 5일 RS/ADR 상승 · RVOL 확산 비감소가
                       동시에 성립 (명세 '변화 감지': 세 가지가 함께 좋아지는 섹터를 따로 강조)
     """
-    keys = ('pctAbove10', 'score', 'medianNrs5', 'pctBullishRvol15_5D')
+    keys = ('pctAbove10', 'pctAbove21', 'score', 'medianNrs5', 'pctBullishRvol15_5D')
     past = [{s['theme']: s for s in rep} for rep in earlier]
     for s in latest:
         hist = []

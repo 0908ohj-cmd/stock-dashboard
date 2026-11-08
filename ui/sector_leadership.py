@@ -213,9 +213,9 @@ _GRADE_BADGE = {
 _IMPROVING = '<span class="sl-badge sl-A" title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 동시 개선</span>'
 
 
-def _trend_txt(history: list | None) -> str:
-    """10EMA 위 비율 2주 전 → 1주 전 → 기준일."""
-    pts = [h['pctAbove10'] for h in (history or []) if h.get('pctAbove10') is not None]
+def _trend_txt(history: list | None, key: str = 'pctAbove10') -> str:
+    """EMA 위 종목 비율 2주 전 → 1주 전 → 기준일. key: pctAbove10 | pctAbove21."""
+    pts = [h[key] for h in (history or []) if h.get(key) is not None]
     if not pts:
         return '<span class="sl-sub">—</span>'
     out = []
@@ -469,9 +469,9 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
         t = trend.get(s['theme'], {})
         stocks = ', '.join(f"{_esc(_stock_name(r['ticker'], names, records))} {r['nextScore']:.0f}" for r in s['top'])
         lines = [(peak_lbl, _signed(s['medianSincePeak'])),
-                 ('최근 3개월 고점 대비', _signed(s['medianOffHigh'], '%')),
+                 ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
-                 ('21EMA 위 종목 비율 (기준일)', f"{100 * s['pctAbove21']:.0f}%"),
+                 ('21EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'), 'pctAbove21')),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         if rebound:
             lines.insert(0, (jjin_lbl, _signed(s['medianSinceJjin'])))
@@ -505,13 +505,13 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             + f'<td>{_signed(s["medianSincePeak"])}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
             + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
-            f'<td>{100 * s["pctAbove21"]:.0f}%</td>'
+            f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
             f'<td class="sl-need">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + (f'<th>{jjin_lbl}</th>' if rebound else '')
-            + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (기준일)</th><th>대표주</th></tr></thead>'
+            + f'<th>{peak_lbl}</th><th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
