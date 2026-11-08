@@ -58,7 +58,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "markets=${{ inputs.markets }}" >> "$GITHUB_OUTPUT"
             echo "label=수동 실행" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.schedule }}" = "50 7 * * 1-5" ]; then
+          elif [ "${{ github.event.schedule }}" = "10 9 * * 1-5" ]; then
             echo "markets=kr" >> "$GITHUB_OUTPUT"
             echo "label=Action 폴백" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "50 23 * * 1-5" ]; then
