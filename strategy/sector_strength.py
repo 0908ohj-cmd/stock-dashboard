@@ -174,7 +174,7 @@ def stock_metrics(ticker: str, df: pd.DataFrame | None, bench: Bench,
     avg_sh = float(vol.iloc[-20:].mean())
     c = float(close.iloc[-1])
 
-    b1, b2 = bench.names
+    b1, b2 = bench.names[0], bench.names[-1]     # 벤치마크 1개면 B1 = B2 = 평균
     rs5b, rs21b = r5 - bench.blend5, r21 - bench.blend21
     sma50_v = None if pd.isna(sma50.iloc[-1]) else float(sma50.iloc[-1])
     avg_val = float((vol * close).iloc[-20:].mean())
@@ -240,7 +240,7 @@ def sector_metrics(rows: list, theme_of: dict, main_codes: set, bench: Bench,
             'pctBullishRvol15_5D': _ratio(g('hasBullishRvol15InLast5')),
             'pctPositive5D': _ratio([r > 0 for r in g('ret5')]),
             'pctBeatB1_5D': _ratio([r > bench.ret5[bench.names[0]] for r in g('ret5')]),
-            'pctBeatB2_5D': _ratio([r > bench.ret5[bench.names[1]] for r in g('ret5')]),
+            'pctBeatB2_5D': _ratio([r > bench.ret5[bench.names[-1]] for r in g('ret5')]),
         })
         s['ema10ChangePp'] = (None if s['pctAbove10'] is None or s['pctAbove10Prev5'] is None
                               else 100 * (s['pctAbove10'] - s['pctAbove10Prev5']))

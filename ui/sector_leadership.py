@@ -30,7 +30,7 @@ _GITHUB_REPO = '0908ohj-cmd/stock-dashboard'
 class Market:
     key: str                 # 스냅샷·분류 시장 키
     title: str
-    bench: tuple             # 벤치마크 2개
+    bench: tuple             # 벤치마크 (US 2개, KR은 자기 시장 지수 1개)
     bench_snapshot: str      # 벤치마크 일봉이 있는 스냅샷
     ticker_files: tuple      # 유니버스(US는 고정 파일 사용)
     liquidity_shares: int | None
@@ -43,9 +43,9 @@ class Market:
 MARKETS = {
     'US': Market('US', '나스닥 기술·혁신 성장주 210종목', ('QQQ', 'IWM'), 'US', (),
                  1_000_000, None, '$M', 1e6, 'NASDAQ'),
-    'KR_KOSPI': Market('KR_KOSPI', '코스피 와치리스트', ('KOSPI', 'KOSDAQ'), 'indices',
+    'KR_KOSPI': Market('KR_KOSPI', '코스피 와치리스트', ('KOSPI',), 'indices',
                        ('kospi.tickers', 'kospi_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSPI'),
-    'KR_KOSDAQ': Market('KR_KOSDAQ', '코스닥 와치리스트', ('KOSPI', 'KOSDAQ'), 'indices',
+    'KR_KOSDAQ': Market('KR_KOSDAQ', '코스닥 와치리스트', ('KOSDAQ',), 'indices',
                         ('kosdaq.tickers', 'kosdaq_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSDAQ'),
 }
 
@@ -290,13 +290,13 @@ def _market_strip(m: Market, res: dict):
     parts.append(f'<div><span>데이터</span>{cov["full"]}/{cov["total"]}</div>')
     st.markdown(_CSS + '<div class="sl-mkt">' + ''.join(parts) + '</div>', unsafe_allow_html=True)
     if res.get('phase') is None and b['blend5'] < 0 and b['blend21'] < 0:   # 국면 안내가 있으면 중복
-        st.caption(f"⚠️ 시장({'·'.join(b['names'])} 평균)이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
+        st.caption(f"⚠️ 시장({'·'.join(b['names'])}{' 평균' if len(b['names']) > 1 else ''})이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
     names, records = names or {}, records or {}
     st.markdown('### 차기 주도섹터 — 추세 확인 기준 (A/B)')
-    st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 평균 대비, 종목 중앙값)와 '
+    st.markdown('<div class="sl-note">하루 상승폭이나 뉴스가 아니라 <b>1주·1개월 상대강도</b>(시장 지수 대비, 종목 중앙값)와 '
                 '<b>10EMA 위에서 버티는 종목 비율</b>로 판정합니다. A·B가 아니면 45점 이상 관찰, 미만 후순위. '
                 '<b>📈 동시 개선</b> = 1주 전보다 10EMA 회복률·ADR 보정 RS·거래량 확산이 함께 좋아진 섹터.</div>',
                 unsafe_allow_html=True)
@@ -765,9 +765,12 @@ def _classification_editor(m: Market, labels: dict, names: dict):
 
 
 def _methodology(m: Market, res: dict):
-    b1, b2 = res['bench']['names']
+    names = res['bench']['names']
+    pair = '·'.join(names)
+    rs_def = (f'{names[0]}, {names[1]}, 둘의 평균에 대해 각각 계산 (%p)' if len(names) > 1
+              else f'{names[0]} 지수 대비로 계산 (%p)')
     st.markdown(f"""
-**수익률·RS** — `R_N = 100 × (C_t / C_(t−N) − 1)`, N = 5·21거래일. `RS = R_종목 − R_벤치`를 {b1}, {b2}, 둘의 평균에 대해 각각 계산 (%p).
+**수익률·RS** — `R_N = 100 × (C_t / C_(t−N) − 1)`, N = 5·21거래일. `RS = R_종목 − R_벤치`를 {rs_def}.
 섹터 수익률은 구성 종목 **중앙값** — 한 종목 급등이 섹터 전체를 끌어올리지 않습니다.
 
 **ADR20 보정 RS** — `ADR20 = 최근 20일 평균 100 × (고가 − 저가) / 저가`, `RS/ADR = RS(평균 대비) / ADR20`. 섹터 값은 종목별 보정값의 중앙값. 5일과 21일은 서로 직접 비교하지 않고 각자 섹터 간 백분위로 점수화.
@@ -778,7 +781,7 @@ def _methodology(m: Market, res: dict):
 
 **섹터 100점** — 5일 RS 10 + 5일 RS/ADR 10 + 21일 RS 10 + 21일 RS/ADR 10 (섹터 간 백분위, 최하위 0·최상위 만점) + 10EMA 위 20 + 3/5 유지 15 + 21EMA 위 10 + RVOL 확산 10 + 5일 플러스 종목 5.
 
-**판정 게이트** — 구성 5종목 이상, 데이터 확보 80% 이상이어야 점수를 냅니다. **A** = 75점 이상 + 5일·21일 섹터 수익률이 {b1}·{b2} 모두 초과 + 10EMA 위 60% + 3/5 유지 50% + 21EMA 위 40%. **B** = 60점 이상 + 5일 RS 양수 + (10EMA 위 40% 또는 5일 전 대비 +20%p).
+**판정 게이트** — 구성 5종목 이상, 데이터 확보 80% 이상이어야 점수를 냅니다. **A** = 75점 이상 + 5일·21일 섹터 수익률이 {pair} {'모두 ' if len(names) > 1 else ''}초과 + 10EMA 위 60% + 3/5 유지 50% + 21EMA 위 40%. **B** = 60점 이상 + 5일 RS 양수 + (10EMA 위 40% 또는 5일 전 대비 +20%p).
 뉴스·실적은 점수에 넣지 않습니다.
 """)
     if m.key == 'US':

@@ -77,6 +77,21 @@ def test_KR은_KOSPI_KOSDAQ을_벤치마크로_쓰고_거래대금으로_유동�
     assert a['liquidityOk'] is False              # 1만주 × 약 100원 = 100만원 < 50억
 
 
+def test_벤치마크가_하나면_그_지수만_기준이다():
+    up = make_df(flat_then([100, 100, 100, 100, 100, 102]), adr=1.0)
+    flat = make_df(flat_then([100] * 6), adr=1.0)
+    bars = {'KOSPI': up, 'KOSDAQ': flat,
+            'A': make_df(flat_then([100, 100, 100, 100, 100, 110]))}
+    rep = ss.run(bars, ['A'], {'A': 'SHIPBUILDING'}, {'SHIPBUILDING'}, ASOF, bench_names=('KOSPI',))
+    a = rep.stocks[0]
+    assert rep.bench.names == ('KOSPI',)
+    assert a['rs5Blend'] == pytest.approx(8.0)    # KOSDAQ(0%)이 섞이지 않는다
+    assert a['rs5B1'] == a['rs5B2'] == pytest.approx(8.0)
+    del bars['KOSDAQ']                            # 다른 지수가 없어도 계산된다
+    assert ss.run(bars, ['A'], {'A': 'SHIPBUILDING'}, {'SHIPBUILDING'}, ASOF,
+                  bench_names=('KOSPI',)).stocks[0]['status'] == 'FULL'
+
+
 def test_수익률은_오늘종가_나누기_N거래일전_종가():
     closes = list(range(100, 230))       # 매일 +1
     bars = bench_bars()
