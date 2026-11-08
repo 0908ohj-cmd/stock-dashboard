@@ -469,11 +469,8 @@ def _rs_val(ph_col: tuple, x: dict, sector: bool) -> str:
 
 
 def _adr_vs(adr, raw) -> str:
-    """RS/ADR + 원래 지수 대비 %p를 작게."""
-    if adr is None:
-        return _signed(None)
-    tail = '' if raw is None else f' <span class="sl-sub" style="margin:0">({raw:+.1f}%p)</span>'
-    return _signed(adr, '', 2) + tail
+    """RS/ADR 값만 표시 (raw %p는 헷갈려서 화면에 안 씀)."""
+    return _signed(adr, '', 2)
 
 
 def _stock_name(t: str, names: dict, records: dict) -> str:
