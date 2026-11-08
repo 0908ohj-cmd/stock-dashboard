@@ -100,6 +100,19 @@ def test_덜빠짐은_ADR_보정값으로_순위를_매긴다():
     assert out['CALM']['nextParts']['덜 빠짐'] > out['WILD']['nextParts']['덜 빠짐']
 
 
+def test_찐반등_이후에는_조정구간과_반등구간이_겹치지_않는다():
+    idf = _index(list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 15)) + list(np.linspace(102, 110, 5)))
+    stock = _index(list(np.linspace(100, 130, 100)) + list(np.linspace(129, 115, 15)) + list(np.linspace(118, 140, 5)))
+    peak, jjin = idf['Close'].idxmax(), idf.index[115]
+    phase = {'mode': 'rebound', 'correctionStart': peak, 'peakDate': peak, 'jjinDate': jjin,
+             'indexSinceJjin': 100 * (idf['Close'].iloc[-1] / idf.loc[jjin, 'Close'] - 1)}
+    rows = [{'ticker': 'S', 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': True, 'hasBullishRvol15InLast5': False}]
+    r = nl.score_stocks(rows, {'S': stock}, idf, {'S': 'X'}, {'X'}, phase, '2026-11-06')[0]
+    ret = lambda df, a, b: 100 * (df.loc[b, 'Close'] / df.loc[a, 'Close'] - 1)
+    assert r['sincePeakExcess'] == pytest.approx(ret(stock, peak, jjin) - ret(idf, peak, jjin), abs=0.01)
+    assert r['sinceJjinExcess'] == pytest.approx(ret(stock, jjin, idf.index[-1]) - ret(idf, jjin, idf.index[-1]))
+
+
 def _sec(theme, above10, nrs5, rvol, score, asof='2026-11-06'):
     return {'theme': theme, 'asOf': asof, 'pctAbove10': above10, 'medianNrs5': nrs5,
             'pctBullishRvol15_5D': rvol, 'score': score}

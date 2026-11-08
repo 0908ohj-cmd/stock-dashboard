@@ -95,8 +95,11 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     for r in pool:
         df = bars[r['ticker']]
         df = df[df.index <= asof]
-        corr = calc_correction_rs(df, idf, phase['correctionStart'], None, phase['peakDate'])
-        r['sincePeakExcess'] = corr['excess_pct']           # 기산점 이후 지수 대비 %p
+        # 조정 구간 = 기산점 ~ 찐반등일 (추세추종 탭 RS 구간과 동일). 조정 중이면 찐반등이 없으니 기준일까지.
+        # 찐반등 이후 성과는 sinceJjinExcess가 따로 맡아서 두 항목이 겹치지 않는다.
+        end = phase['jjinDate'] if phase['mode'] == 'rebound' else None
+        corr = calc_correction_rs(df, idf, phase['correctionStart'], end, phase['peakDate'])
+        r['sincePeakExcess'] = corr['excess_pct']           # 조정 구간 지수 대비 %p
         r['sincePeakExcessAdr'] = corr['excess_adr']
         r['leadDays'] = corr['lead_days']                   # +면 지수보다 먼저 저점
         r['volRatio'] = corr['vol_ratio']                   # 상승일/하락일 평균 거래량

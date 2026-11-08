@@ -448,8 +448,14 @@ def _phase_banner(m: Market, res: dict):
 def _range_labels(ph: dict) -> tuple[str, str]:
     """카드·표 머리글에 실제 구간 날짜를 넣는다 — 기산점·찐반등일을 바꾸면 바로 보인다."""
     p, j = ph.get('peakDate'), ph.get('jjinDate')
-    return (f'지수 대비 ADR 배수 (기산점 {p:%m/%d} 이후)' if p is not None else '지수 대비 ADR 배수 (기산점 이후)',
-            f'지수 대비 ADR 배수 (찐반등 {j:%m/%d} 이후)' if j is not None else '지수 대비 ADR 배수 (찐반등 이후)')
+    if p is None:
+        peak = '지수 대비 ADR 배수 (기산점 이후)'
+    elif ph.get('mode') == 'rebound' and j is not None:
+        peak = f'조정 구간 지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 찐반등 {j:%m/%d})'
+    else:
+        peak = f'지수 대비 ADR 배수 (기산점 {p:%m/%d} ~ 기준일)'
+    jj = f'반등 구간 지수 대비 ADR 배수 (찐반등 {j:%m/%d} ~ 기준일)' if j is not None else '반등 구간 지수 대비 ADR 배수'
+    return peak, jj
 
 
 def _adr_vs(adr, raw) -> str:
