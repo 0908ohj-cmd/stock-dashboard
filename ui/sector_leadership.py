@@ -448,19 +448,23 @@ def _phase_banner(m: Market, res: dict):
 def _rs_cols(ph: dict) -> list:
     """RS/ADR 표시 구간 — [(라벨, 섹터 키, 섹터 %p 키, 종목 키, 종목 %p 키)].
     조정 중: 기산점 ~ 기준일 한 줄. 찐반등 이후: 기산점 ~ 찐반등(조정 구간) + 찐반등 ~ 기준일(반등 구간) 두 줄."""
+    # 항상 두 줄: ① 하락국면(기산점 ~ 찐반등, 찐반등 전이면 ~ 기준일) ② 상승국면(찐반등 ~ 기준일, 찐반등 전이면 —)
     p, j = ph.get('peakDate'), ph.get('jjinDate')
     ps = f'기산점 {p:%m/%d}' if p is not None else '기산점'
     if ph.get('mode') == 'rebound' and j is not None:
-        return [(f'RS/ADR ({ps} ~ 찐반등 {j:%m/%d})',
-                 'medianSincePeakAdr', 'medianSincePeak', 'sincePeakExcessAdr', 'sincePeakExcess'),
-                (f'RS/ADR (찐반등 {j:%m/%d} ~ 기준일)',
-                 'medianSinceJjinAdr', 'medianSinceJjin', 'sinceJjinExcessAdr', 'sinceJjinExcess')]
-    return [(f'RS/ADR ({ps} ~ 기준일)',
-             'medianSincePeakAdr', 'medianSincePeak', 'sincePeakExcessAdr', 'sincePeakExcess')]
+        down = f'하락국면 RS/ADR ({ps} ~ 찐반등 {j:%m/%d})'
+        up = (f'상승국면 RS/ADR (찐반등 {j:%m/%d} ~ 기준일)',
+              'medianSinceJjinAdr', 'medianSinceJjin', 'sinceJjinExcessAdr', 'sinceJjinExcess')
+    else:
+        down = f'하락국면 RS/ADR ({ps} ~ 기준일)'
+        up = ('상승국면 RS/ADR (찐반등 전)', None, None, None, None)
+    return [(down, 'medianSincePeakAdr', 'medianSincePeak', 'sincePeakExcessAdr', 'sincePeakExcess'), up]
 
 
 def _rs_val(ph_col: tuple, x: dict, sector: bool) -> str:
     _, sa, sr, ka, kr = ph_col
+    if sa is None:          # 찐반등 전 — 상승국면 값 없음
+        return _signed(None)
     return _adr_vs(x.get(sa), x.get(sr)) if sector else _adr_vs(x.get(ka), x.get(kr))
 
 
