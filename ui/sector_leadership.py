@@ -194,7 +194,7 @@ _CSS = """<style>
 .sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
 .sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
 .sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
-.sl-mkt{display:flex;flex-wrap:wrap;gap:18px;font-size:.85rem;margin:2px 0 14px}
+.sl-mkt{display:flex;flex-wrap:wrap;gap:18px;font-size:.85rem;margin:0}
 .sl-mkt span{opacity:.6;margin-right:4px}
 </style>"""
 
@@ -283,7 +283,7 @@ def _next_step(s: dict) -> str:
 
 def _market_strip(m: Market, res: dict):
     b, cov = res['bench'], res['coverage']
-    parts = [f'<div><span>기준일</span><b>{_esc(res["asof"])}</b></div>']
+    parts = []      # 기준일은 오른쪽 선택 상자가 보여준다
     for n in b['names']:
         parts.append(f'<div><span>{_esc(n)} 1주</span>{_signed(b["ret5"][n], "%")}'
                      f' <span>1개월</span>{_signed(b["ret21"][n], "%")}</div>')
@@ -868,9 +868,11 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if not opts:
         st.warning(f"스냅샷에 {'·'.join(m.bench)} 일봉이 없습니다. 다음 배치 수집 후 표시됩니다.")
         return
-    head, pick = st.columns([4, 1], vertical_alignment='bottom')
-    head.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
-    asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof',
+    st.caption(f"{m.title} · {'·'.join(m.bench)} 대비")
+    # 지수 현황 줄 오른쪽에 기준일 — 선택 상자를 먼저 그려 asof를 얻고, 왼쪽은 계산 뒤 채운다
+    strip, pick = st.columns([5, 1], vertical_alignment='center')
+    asof = pick.selectbox('기준일', opts, key=f'{m.key}_asof', label_visibility='collapsed',
+                          format_func=lambda d: f'기준일 {d}',
                           help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
     peak, jjin = _rs_range(m, asof)
     try:
@@ -880,7 +882,8 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         return
     labels, names = _labels(m), _names(m)
 
-    _market_strip(m, res)
+    with strip:
+        _market_strip(m, res)
     phased = res['phase'] is not None and res['phase']['mode'] != 'uptrend'
     if res['phase'] is not None:
         _phase_banner(m, res)
