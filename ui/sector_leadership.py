@@ -108,6 +108,16 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     tickers = [t for t, _ in _universe(m)]
     data = store.load_snapshot(m.key).get('data', {})
     bars = {t: store._records_to_df(data[t]) for t in tickers if t in data}
+    # 저변동(ADR 낮은) 종목은 아예 제외 — 추세추종 탭과 같은 기준(KR 2%, US 4%, 기준일 직전 20일).
+    # 방어주가 RS/ADR(작은 ADR로 나눠 커짐)로 '덜 빠짐' 상위를 차지하는 것을 막는다.
+    adr_min = 4.0 if m.key == 'US' else 2.0
+    low_adr = []
+    for t in list(bars):
+        d = bars[t][bars[t].index <= pd.Timestamp(asof)].tail(20)
+        if len(d) >= 10 and float(((d['High'] - d['Low']) / d['Close']).mean() * 100) < adr_min:
+            low_adr.append(t)
+            del bars[t]
+    tickers = [t for t in tickers if t not in low_adr]
     bdata = store.load_snapshot(m.bench_snapshot).get('data', {})
     for b in m.bench:
         if b in bdata:
@@ -150,6 +160,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'coverage': rep.coverage, 'taxonomyVersion': tax['version'],
         'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
         'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
+        'lowAdr': sorted(low_adr), 'adrMin': adr_min,
     }
 
 
@@ -305,6 +316,8 @@ def _market_strip(m: Market, res: dict):
         for lbl, v in (('1주', b['ret5'][n]), ('1개월', b['ret21'][n])):
             parts.append(box(f'{_esc(n)} {lbl}', _signed(v, '%'), 'pos' if v > 0 else 'neg' if v < 0 else ''))
     parts.append(box('데이터 확보', f'{cov["full"]}<span style="font-size:.8rem;opacity:.6">/{cov["total"]}</span>'))
+    if res.get('lowAdr'):
+        parts.append(box(f'ADR {res["adrMin"]:.0f}% 미만 제외', f'{len(res["lowAdr"])}종목'))
     st.markdown(_CSS + '<div class="sl-mkt">' + ''.join(parts) + '</div>', unsafe_allow_html=True)
     if res.get('phase') is None and b['blend5'] < 0 and b['blend21'] < 0:   # 국면 안내가 있으면 중복
         st.caption(f"⚠️ 시장({'·'.join(b['names'])}{' 평균' if len(b['names']) > 1 else ''})이 1주·1개월 모두 하락 중 — 주도섹터 확정이 어렵고 포지션 규모를 줄이는 구간입니다.")
