@@ -709,9 +709,9 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     rebound = ph.get('scoring', ph['mode']) == 'rebound'
     cols = _rs_cols(ph)
     in_trend = _trend_tickers(m)
-    tc1, tc2 = st.columns(2)
-    only_top = tc1.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
-    only_trend = tc2.toggle('추세추종 탭 종목만', key=f'{m.key}_only_trend')
+    bar = st.container(horizontal=True, gap='medium')     # 토글을 옆으로 바짝 붙여 배치
+    only_top = bar.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top', width='content')
+    only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_only_trend', width='content')
     rows = sorted((r for r in picks
                    if (not only_top or r['primaryTheme'] in top_sectors)
                    and (not only_trend or r['ticker'] in in_trend)),
