@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-08T20:39:22+09:00",
+ "updatedAt": "2026-11-09T22:56:07+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -6683,27 +6683,51 @@
   },
   "396300": {
    "companyName": "HT로보틱스 (구 세아메카닉스)",
-   "primaryTheme": "ENERGY_TRANSITION",
+   "primaryTheme": "ROBOTICS",
    "suggestedTheme": null,
    "secondaryThemes": [
-    "ROBOTICS",
+    "ENERGY_TRANSITION",
     "SECONDARY_BATTERY",
     "DISPLAY"
    ],
    "detail": "ESS·로봇 다이캐스팅 부품",
    "businessSummary": "알루미늄 다이캐스팅 기반 정밀 부품 기업으로, ESS 부품·이차전지 부품·로봇 부품과 디스플레이 관련 기구물을 생산한다. 2026년 1분기 매출 비중은 부품 사업 72.0%, IT 사업 25.9%이다.",
-   "confidence": "medium",
+   "confidence": "high",
    "why": "2026년 1분기 ESS 매출이 162억 원으로 전체 매출 약 329억 원(부품 242억 + IT 87억)의 절반 가량이다. 부품 사업은 ESS·이차전지·로봇 부품 중심이고, 디스플레이 기구물 IT 사업은 약 26%다. 수치는 증권 기사 기준이며 DART 사업보고서는 직접 확인하지 못했다. 종목코드 396300은 kr_names.json의 세아메카닉스와 일치하며, 검색 결과상 2026년 8월 HT로보틱스로 사명을 변경했다.",
    "evidenceUrls": [
     "https://view.asiae.co.kr/article/2026060208220187900"
    ],
    "gateReasons": [],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "method": "user",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:59:24+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
-   "history": []
+   "reviewedAt": "2026-11-09T22:56:07+09:00",
+   "overrideByUser": true,
+   "overrideReason": "사용자 확정: 로봇 다이캐스팅 부품 — 로봇 섹터로",
+   "history": [
+    {
+     "companyName": "HT로보틱스 (구 세아메카닉스)",
+     "primaryTheme": "ENERGY_TRANSITION",
+     "suggestedTheme": null,
+     "secondaryThemes": [
+      "ROBOTICS",
+      "SECONDARY_BATTERY",
+      "DISPLAY"
+     ],
+     "detail": "ESS·로봇 다이캐스팅 부품",
+     "businessSummary": "알루미늄 다이캐스팅 기반 정밀 부품 기업으로, ESS 부품·이차전지 부품·로봇 부품과 디스플레이 관련 기구물을 생산한다. 2026년 1분기 매출 비중은 부품 사업 72.0%, IT 사업 25.9%이다.",
+     "confidence": "medium",
+     "why": "2026년 1분기 ESS 매출이 162억 원으로 전체 매출 약 329억 원(부품 242억 + IT 87억)의 절반 가량이다. 부품 사업은 ESS·이차전지·로봇 부품 중심이고, 디스플레이 기구물 IT 사업은 약 26%다. 수치는 증권 기사 기준이며 DART 사업보고서는 직접 확인하지 못했다. 종목코드 396300은 kr_names.json의 세아메카닉스와 일치하며, 검색 결과상 2026년 8월 HT로보틱스로 사명을 변경했다.",
+     "evidenceUrls": [
+      "https://view.asiae.co.kr/article/2026060208220187900"
+     ],
+     "gateReasons": [],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:59:24+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "402340": {
    "companyName": "SK스퀘어",
