@@ -146,12 +146,14 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         idx_df = store._records_to_df(idx_rec)
         phase = nl.detect_phase(idx_df, asof, peak or None, jjin or None)
         picks = nl.score_stocks(rep.stocks, bars, idx_df, theme_of, main, phase, asof)
-        ranked, thin = nl.rank_sectors(picks)
+        # 섹터 순위는 메인 테마만 ('기타 소비'·'지주·기타' 같은 잡다한 묶음은 섹터로 의미가 없어서). 종목 표에는 전부 나온다.
+        in_main = lambda pool: [p for p in pool if p['primaryTheme'] in main]
+        ranked, thin = nl.rank_sectors(in_main(picks))
         # 순환매 — 지금과 2주 전을 같은 방식으로 계산해 '새로' 올라온 섹터를 가린다
         rot_stocks = nl.rotation_scores(rep.stocks, bars, idx_df, theme_of, main, asof)
         prev = (nl.rotation_scores(earlier[1][1].stocks, bars, idx_df, theme_of, main, earlier[1][0])
                 if len(earlier) > 1 else [])
-        rot_ranked, rot_thin = nl.rotation_sectors(rot_stocks, prev)
+        rot_ranked, rot_thin = nl.rotation_sectors(in_main(rot_stocks), in_main(prev))
     return {
         'asof': rep.asof,
         'bench': {'names': list(rep.bench.names), 'ret5': rep.bench.ret5, 'ret21': rep.bench.ret21,

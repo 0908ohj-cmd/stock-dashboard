@@ -107,7 +107,8 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     """rows: sector_strength.stock_metrics 결과(FULL만 점수). 점수는 0~100, 같은 유니버스 안 백분위 기반."""
     asof = pd.Timestamp(asof)
     idf = index_df[index_df.index <= asof]
-    pool = [r for r in rows if r['status'] == 'FULL' and theme_of.get(r['ticker']) in main_codes]
+    # 종목 순위는 테마와 무관하게 분류된 모든 종목 (추세추종 탭과 같은 대상). 섹터 순위만 메인 테마로 거른다.
+    pool = [r for r in rows if r['status'] == 'FULL' and theme_of.get(r['ticker']) not in (None, 'UNCLASSIFIED')]
     if not pool:
         return []
 
@@ -224,7 +225,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
     pool = []
     for r in rows:
         t = r['ticker']
-        if r['status'] != 'FULL' or theme_of.get(t) not in main_codes or t not in bars:
+        if r['status'] != 'FULL' or theme_of.get(t) in (None, 'UNCLASSIFIED') or t not in bars:
             continue
         df = bars[t]
         df = df[df.index <= asof]

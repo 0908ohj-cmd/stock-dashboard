@@ -187,6 +187,19 @@ def test_순환매_점수는_최근_가속과_거래량을_본다():
     assert out['LAG']['rotScore'] > out['EARLY']['rotScore']
 
 
+def test_메인_밖_테마_종목도_종목_순위에는_들어간다():
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 20))
+    idf = _index(closes)
+    peak = idf['Close'].idxmax()
+    phase = {'mode': 'correction', 'correctionStart': peak, 'peakDate': peak, 'jjinDate': None, 'indexSinceJjin': None}
+    rows = [{'ticker': t, 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': False, 'hasBullishRvol15InLast5': False}
+            for t in ('MAIN', 'OTHER', 'NONE')]
+    bars = {t: _index(closes) for t in ('MAIN', 'OTHER', 'NONE')}
+    out = nl.score_stocks(rows, bars, idf, {'MAIN': 'TECH', 'OTHER': 'CONSUMER_OTHER', 'NONE': 'UNCLASSIFIED'},
+                          {'TECH'}, phase, '2026-11-06')
+    assert sorted(r['ticker'] for r in out) == ['MAIN', 'OTHER']     # 미분류만 빠진다
+
+
 def test_차기_주도주_배점은_100점이고_21EMA는_없다():
     for w in nl.WEIGHTS.values():
         assert sum(w.values()) == 100
