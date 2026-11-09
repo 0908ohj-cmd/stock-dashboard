@@ -41,7 +41,7 @@ class Market:
 
 
 MARKETS = {
-    'US': Market('US', '나스닥 기술·혁신 성장주 210종목', ('QQQ', 'IWM'), 'US', (),
+    'US': Market('US', '나스닥 기술·혁신 성장주 210종목', ('NASDAQ',), 'indices', (),
                  1_000_000, None, '$M', 1e6, 'NASDAQ'),
     'KR_KOSPI': Market('KR_KOSPI', '코스피 와치리스트', ('KOSPI',), 'indices',
                        ('kospi.tickers', 'kospi_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSPI'),
