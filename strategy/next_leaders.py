@@ -73,8 +73,16 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
             return None
         return 100 * (float(idf['Close'].iloc[-1]) / float(idf.loc[d, 'Close']) - 1)
 
+    # 반등 구간의 시작점 = 찐반등 '전날' 종가 → 찐반등 당일 상승이 포함돼 그날 저녁부터 값이 나온다
+    # (5년 검증에서 반등 주도형의 효과는 찐반등 당일 세기에서 나왔다)
+    jjin_base = None
+    if jjin_d is not None:
+        p = idf.index.get_loc(jjin_d)
+        jjin_base = idf.index[p - 1] if p > 0 else jjin_d
+
     return {'mode': mode, 'label': label, 'scoring': scoring, 'correctionStart': cs, 'peakDate': peak_d, 'jjinDate': jjin_d,
-            'indexSincePeak': since(peak_d), 'indexSinceJjin': since(jjin_d),
+            'jjinBase': jjin_base,
+            'indexSincePeak': since(peak_d), 'indexSinceJjin': since(jjin_base),
             'autoPeakDate': auto_peak, 'autoJjinDate': auto_jjin,
             'manual': peak is not None or jjin is not None}
 
@@ -114,7 +122,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         r['volRatio'] = corr['vol_ratio']                   # 상승일/하락일 평균 거래량
         hi = float(df['High'].iloc[-LOOKBACK_HIGH:].max())
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
-        s = _since_ret(df, phase['jjinDate'])
+        s = _since_ret(df, phase.get('jjinBase') or phase['jjinDate'])    # 찐반등 전날 종가부터
         r['sinceJjinExcess'] = None if s is None or phase['indexSinceJjin'] is None else s - phase['indexSinceJjin']
         adr = _pre_adr(df, phase['correctionStart'])      # 기산점 쪽과 같은 ADR(조정 시작 전 20일)
         r['sinceJjinExcessAdr'] = (None if r['sinceJjinExcess'] is None or not adr
