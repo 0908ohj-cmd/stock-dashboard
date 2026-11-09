@@ -28,7 +28,9 @@ WEIGHTS = {
 }
 MIN_SECTOR_N = 3
 STRONG_SCORE = 70
-LOOKBACK_HIGH = 63      # 고점 근접 = 최근 63거래일(약 3개월) 고가 대비
+LOOKBACK_HIGH = 63      # 지수 기산점 보완용 창 (약 3개월)
+LOOKBACK_52W = 252      # 종목 고점 근접 = 52주 고가 대비 — 추세추종 탭과 같은 기준.
+                        # 5년 검증: 찐반등날 52주 고점 −20% 이내가 이후 성과 가장 좋았다
 
 
 def _snap(idf: pd.DataFrame, d) -> pd.Timestamp:
@@ -127,7 +129,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         r['sincePeakExcessAdr'] = corr['excess_adr']
         r['leadDays'] = corr['lead_days']                   # +면 지수보다 먼저 저점
         r['volRatio'] = corr['vol_ratio']                   # 상승일/하락일 평균 거래량
-        hi = float(df['High'].iloc[-LOOKBACK_HIGH:].max())
+        hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
         s = _since_ret(df, phase.get('jjinBase') or phase['jjinDate'])    # 찐반등 전날 종가부터
         r['sinceJjinExcess'] = None if s is None or phase['indexSinceJjin'] is None else s - phase['indexSinceJjin']
@@ -239,7 +241,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         up, down = win['Volume'][chg > 0], win['Volume'][chg < 0]
         vol_ratio = (float(up.mean()) / float(down.mean())) if len(up) and len(down) and down.mean() > 0 \
             else (2.0 if len(up) and not len(down) else 0.0)
-        hi = float(df['High'].iloc[-LOOKBACK_HIGH:].max())
+        hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
         pool.append({
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
             'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,

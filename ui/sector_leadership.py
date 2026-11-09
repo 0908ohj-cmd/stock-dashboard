@@ -373,7 +373,7 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
                  ('RS 가속 (지난주 대비, 중앙값)', _signed(s['medianRotAccel'], '', 2)),
                  ('양봉 렐볼 나온 종목 비율 (최근 5일)', f"{100 * s['pctBullRvol']:.0f}%"),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
-                 ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
+                 ('52주 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
         badge = f'<div class="nl-badge-row">{_rot_badge(s)}</div>'
@@ -435,7 +435,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
         '<th>1주 RS/ADR</th><th>RS 가속</th><th>양봉 렐볼</th><th>상승/하락 거래량 (2주)</th>'
-        '<th>10EMA 최근 5일</th><th>최근 3개월 고점 대비</th><th>점수</th></tr></thead><tbody>'
+        '<th>10EMA 최근 5일</th><th>52주 고점 대비</th><th>점수</th></tr></thead><tbody>'
         + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption('매수 신호가 아닙니다 — 순환매 섹터 종목 중 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
 
@@ -653,7 +653,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             + ('' if r['ticker'] in in_trend else ' <span class="sl-off">(추세추종 탭에 없음)</span>')
             for r in s['top'])
         lines = [(c[0], _rs_val(c, s, True)) for c in cols] + [
-                 ('최근 3개월 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
+                 ('52주 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
                  ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
                  ('21EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'), 'pctAbove21')),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
@@ -692,7 +692,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
-            + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>최근 3개월 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -742,7 +742,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
+        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
@@ -753,7 +753,7 @@ _SCORE_ITEMS = [
     # (배점 키, 항목, 설명)
     ('덜 빠짐', '하락국면 RS/ADR', '기산점 ~ 찐반등(찐반등 전엔 ~ 기준일) 지수 대비 초과수익 ÷ ADR'),
     ('찐반등 후 회복', '상승국면 RS/ADR', '찐반등 전날 종가 ~ 기준일 지수 대비 초과수익 ÷ ADR (찐반등 당일 포함)'),
-    ('고점 근접', '최근 3개월 고점 근접', '기준일 종가가 63거래일 최고가에 얼마나 가까운지'),
+    ('고점 근접', '52주 고점 근접', '기준일 종가가 52주(252거래일) 최고가에 얼마나 가까운지 — 추세추종 탭과 같은 기준'),
     ('저점 선행', '저점 선행', '조정 구간에서 지수보다 며칠 먼저 바닥을 찍었는지'),
     ('거래량 우위', '거래량 우위', '조정 구간 상승일 평균 거래량 ÷ 하락일 평균 거래량'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0'),
