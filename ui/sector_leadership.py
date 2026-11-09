@@ -351,8 +351,7 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
     ranked, thin = res.get('rotSectors') or [], res.get('rotThin') or []
     in_trend = _trend_tickers(m)
     st.markdown('<div class="sl-note">찐반등이 아니라 <b>최근 1~2주</b> 기준으로, 지금 돈이 <b>새로</b> 들어오는 섹터를 찾습니다. '
-                '점수(100) = 1주 RS/ADR 25 + RS 가속(지난주 대비) 15 + 양봉 렐볼 15 + 거래량 우위 10 + '
-                '10EMA 3/5일 유지 10 + 21EMA 위 10 + 고점 근접 15. 섹터 점수는 차기 주도섹터와 같은 방식'
+                '점수 배점은 아래 순환매 종목 표 밑에 있습니다. 섹터 점수는 차기 주도섹터와 같은 방식'
                 '(중앙값 60% + 70점↑ 비율 40%, 3종목 이상). '
                 f'<b>🆕 새 순환매</b> = 2주 전 {nl.ROT_WAS_WEAK}점 미만 → 지금 {nl.ROT_NOW}점 이상, +{nl.ROT_RISE} 이상.</div>',
                 unsafe_allow_html=True)
@@ -371,11 +370,10 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
     for i, s in enumerate(ranked[:3]):
         t = trend.get(s['theme'], {})
         lines = [('점수 (2주 전 → 지금)', _rot_change(s)),
-                 ('1주 RS/ADR (중앙값)', _signed(s['medianRotRs5'], '', 2)),
-                 ('RS 가속 (지난주 대비, 중앙값)', _signed(s['medianRotAccel'], '', 2)),
-                 ('양봉 렐볼 나온 종목 비율 (최근 5일)', f"{100 * s['pctBullRvol']:.0f}%"),
-                 ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
                  ('52주 고점 대비 (중앙값)', _signed(s['medianOffHigh'], '%')),
+                 ('10EMA 위 종목 비율 (2주전→1주전→기준일)', _trend_txt(t.get('history'))),
+                 ('1주 RS/ADR (중앙값)', _signed(s['medianRotRs5'], '', 2)),
+                 ('양봉 렐볼 나온 종목 비율 (최근 5일)', f"{100 * s['pctBullRvol']:.0f}%"),
                  ('강한 종목 (70점↑)', f"{round(s['strongShare'] * s['n'])}/{s['n']}")]
         body = ''.join(f'<div class="nl-line"><span>{a}</span><span>{b}</span></div>' for a, b in lines)
         badge = f'<div class="nl-badge-row">{_rot_badge(s)}</div>'
@@ -391,15 +389,16 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
             f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
             f'<span class="sl-sub">{s["n"]}종목</span>'
             + (f'<div style="margin-top:3px">{_rot_badge(s)}</div>' if _rot_badge(s) else '') + '</td>'
-            f'<td>{_rot_change(s)}</td><td>{_signed(s["medianRotRs5"], "", 2)}</td>'
-            f'<td>{_signed(s["medianRotAccel"], "", 2)}</td><td>{100 * s["pctBullRvol"]:.0f}%</td>'
+            f'<td>{_rot_change(s)}</td><td>{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}</td>'
+            f'<td>{_signed(s["medianRotRs5"], "", 2)}</td><td>{100 * s["pctBullRvol"]:.0f}%</td>'
             f'<td class="sl-need">{stock_list(s)}</td></tr>'
             for i, s in enumerate(rest))
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th>'
-            '<th>점수 (2주 전 → 지금)</th><th>1주 RS/ADR</th><th>RS 가속</th><th>양봉 렐볼 비율</th>'
-            '<th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            '<th>점수 (2주 전 → 지금)</th><th>52주 고점 대비 (중앙값)</th>'
+            '<th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>1주 RS/ADR</th><th>양봉 렐볼 비율</th>'
+            '<th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -413,11 +412,18 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     st.markdown('#### 순환매 종목')
     new = {s['theme'] for s in res.get('rotSectors') or [] if s['isNew']}
     in_trend = _trend_tickers(m)
-    only_new = st.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
-                         disabled=not new)
-    rows = sorted((r for r in pool if not only_new or r['primaryTheme'] in new), key=lambda r: -r['rotScore'])[:20]
+    bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
+    only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
+                          disabled=not new, width='content')
+    only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
+    rows = sorted((r for r in pool
+                   if (not only_new or r['primaryTheme'] in new)
+                   and (not only_trend or r['ticker'] in in_trend)),
+                  key=lambda r: -r['rotScore'])[:20]
+    if not rows:
+        st.caption('조건에 맞는 종목이 없습니다.')
     body = []
-    for r in rows:
+    for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
         title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
@@ -427,19 +433,42 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         star = f' <span style="color:#16a34a">🆕</span>' if r['primaryTheme'] in new else ''
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
-            f'<tr><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
+            f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{_signed(r["rotRs5"], "", 2)}</td><td>{_signed(r["rotAccel"], "", 2)}</td>'
-            f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td><td>{r["volRatio"]:.1f}배</td>'
-            f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{_signed(r["offHigh"], "%")}</td>'
+            f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
+            f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
+            f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
             f'<td><b>{r["rotScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["rotScore"]:.0f}px"></span></td></tr>')
+    if rows:
+        st.markdown(
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
+            '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
+            '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
+        st.caption('🆕 = 새 순환매 섹터 소속. 매수 신호가 아닙니다 — 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
+    _rot_score_table()
+
+
+_ROT_ITEMS = [
+    ('고점 근접', '52주 고점 근접', '기준일 종가가 52주 최고가에 얼마나 가까운지 — 차기 주도주·추세추종 탭과 같은 기준'),
+    ('10EMA 유지', '10EMA 유지', '최근 5거래일 중 종가가 10EMA 위였던 날 수 ÷ 5'),
+    ('1주 RS/ADR', '1주 RS/ADR', '최근 5거래일 지수 대비 초과수익 ÷ ADR (ADR은 비교 구간 시작 전 20일)'),
+    ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0 — 차기 주도주와 같은 정의'),
+]
+
+
+def _rot_score_table():
+    w = nl.ROT_WEIGHTS
+    rows = ''.join(
+        f'<tr><td><span class="sl-name">{name}</span><div class="sl-sub" style="margin:0">{desc}</div></td>'
+        f'<td><b>{w.get(k, 0)}</b></td></tr>' for k, name, desc in _ROT_ITEMS)
     st.markdown(
-        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
-        '<th>1주 RS/ADR</th><th>RS 가속</th><th>양봉 렐볼</th><th>상승/하락 거래량 (2주)</th>'
-        '<th>10EMA 최근 5일</th><th>52주 고점 대비</th><th>점수</th></tr></thead><tbody>'
-        + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
-    st.caption('매수 신호가 아닙니다 — 순환매 섹터 종목 중 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
+        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">순환매 점수 배점 (100점)</div>'
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>항목</th><th>배점</th></tr></thead>'
+        f'<tbody>{rows}<tr><td><b>합계</b></td><td><b>{sum(w.values())}</b></td></tr></tbody></table></div>',
+        unsafe_allow_html=True)
+    st.caption('52주 고점·1주 RS/ADR은 같은 와치리스트 안 상대 순위(1등 만점·꼴찌 0점) × 배점. '
+               '5년 검증에서 효과가 없던 RS 가속, 역효과였던 거래량 우위, 10EMA와 겹치는 21EMA는 넣지 않습니다.')
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
@@ -739,12 +768,11 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
             + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
             + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
-            + ('<td>—</td>' if r.get('volRatio') is None else f'<td>{r["volRatio"]:.1f}배</td>')
             + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
+        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
@@ -757,7 +785,6 @@ _SCORE_ITEMS = [
     ('찐반등 후 회복', '상승국면 RS/ADR', '찐반등 전날 종가 ~ 기준일 지수 대비 초과수익 ÷ ADR (찐반등 당일 포함)'),
     ('고점 근접', '52주 고점 근접', '기준일 종가가 52주(252거래일) 최고가에 얼마나 가까운지 — 추세추종 탭과 같은 기준'),
     ('저점 선행', '저점 선행', '조정 구간에서 지수보다 며칠 먼저 바닥을 찍었는지'),
-    ('거래량 우위', '거래량 우위', '조정 구간 상승일 평균 거래량 ÷ 하락일 평균 거래량'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0'),
 ]
 
@@ -784,7 +811,8 @@ def _score_table(rebound: bool):
         f'<th {on if rebound else ""}>상승국면 (찐반등 이후){" · 지금" if rebound else ""}</th>'
         f'</tr></thead><tbody>{rows}{total}</tbody></table></div>', unsafe_allow_html=True)
     st.caption('양봉 렐볼을 뺀 항목은 같은 와치리스트 안 상대 순위(1등 만점·꼴찌 0점) × 배점. '
-               '종목 점수 70점 이상 = "강한 종목". 섹터 점수 = 종목 점수 중앙값 60% + 강한 종목 비율 40%.')
+               '종목 점수 70점 이상 = "강한 종목". 섹터 점수 = 종목 점수 중앙값 60% + 강한 종목 비율 40%. '
+               '5년 검증에서 역효과였던 거래량 우위·21EMA 위는 넣지 않습니다 (추세추종 탭·순환매와 동일).')
 
 
 # ── 상세 보기 ─────────────────────────────────────────────

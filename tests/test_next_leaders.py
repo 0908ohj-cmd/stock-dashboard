@@ -170,7 +170,7 @@ def test_새_순환매는_2주전_약했다가_지금_강해진_섹터만():
     assert by['SPACE']['scoreRise'] == pytest.approx(by['SPACE']['score'] - by['SPACE']['prevScore'])
 
 
-def test_순환매_점수는_최근_가속과_거래량을_본다():
+def test_순환매_점수는_이번주_강한_종목이_높다():
     n = 140
     idf = _index(np.full(n, 100.0))
     base = np.full(n, 100.0)
@@ -183,8 +183,17 @@ def test_순환매_점수는_최근_가속과_거래량을_본다():
              'hasBullishRvol15InLast5': False} for t in bars]
     out = {x['ticker']: x for x in nl.rotation_scores(rows, bars, idf, {'LAG': 'X', 'EARLY': 'X'}, {'X'},
                                                        '2026-11-06')}
-    assert out['LAG']['rotAccel'] > out['EARLY']['rotAccel']
+    assert out['LAG']['rotRs5'] > out['EARLY']['rotRs5']
     assert out['LAG']['rotScore'] > out['EARLY']['rotScore']
+    assert set(out['LAG']['rotParts']) == set(nl.ROT_WEIGHTS)
+
+
+def test_세_화면_공통_재료_일관성():
+    # 거래량 우위·21EMA·RS 가속은 검증에서 효과가 없거나 역효과 → 어느 점수에도 없다
+    for w in list(nl.WEIGHTS.values()) + [nl.ROT_WEIGHTS]:
+        assert sum(w.values()) == 100
+        assert not {'거래량 우위', '21EMA 위', 'RS 가속'} & set(w)
+        assert '고점 근접' in w
 
 
 def test_메인_밖_테마_종목도_종목_순위에는_들어간다():

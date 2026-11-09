@@ -191,7 +191,6 @@ def _build_rows(
                 'RS/ADR':      rs['excess_adr'],
                 '이평선위치':  ma_text,
                 'ma_above_count': ma_above,
-                '거래량비%':   round(rs['vol_ratio'] * 100, 0),
                 '양봉비%':     round(rs['candle_ratio'] * 100, 0),
                 '등급':        sg['grade'],
                 '패턴':        sg['pattern'],
@@ -207,14 +206,12 @@ def _build_rows(
             -r.get('등급점수', 0),
             -(r['RS/ADR'] or 0),
             -r['ma_above_count'],
-            -(r['거래량비%'] or 0),
             (r['고점대비%'] or 0),
         ))
     else:
         rows.sort(key=lambda r: (
             -(r['RS/ADR'] or 0),
             -r['ma_above_count'],
-            -(r['거래량비%'] or 0),
             (r['고점대비%'] or 0),
         ))
     return rows
@@ -351,11 +348,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
         # ③ 핵심 후보
         st.caption('핵심 후보 선별 기준')
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
         c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
-        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+        c3.markdown('**③ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
 
         st.divider()
 
@@ -368,7 +364,6 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
-            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )
@@ -576,7 +571,6 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         'RS/ADR':        r['RS/ADR'],
         '이평선위치':    r['이평선위치'],
         '저점선행(일)':  r['저점선행'],
-        '거래량비%':     r['거래량비%'],
         '양봉비%':       r['양봉비%'],
         '고점대비%':     r['고점대비%'],
     } for r in rows])
@@ -632,7 +626,6 @@ function(valueA, valueB) {
     gb.configure_column('RS/ADR',    filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
-    gb.configure_column('거래량비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_selection('single', use_checkbox=False)
@@ -684,7 +677,6 @@ function(valueA, valueB) {
                                f"&nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
                     st.caption(
                         f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
-                        f"거래량비: **{r['거래량비%']:.0f}%** &nbsp;|&nbsp; "
                         f"고점대비: **{r['고점대비%']:.0f}%**"
                     )
                     st.caption(f"📍 {r['이평선위치']}")
@@ -703,11 +695,12 @@ function(valueA, valueB) {
             return
         with st.expander('📋 매수 후보', expanded=True):
             # 필터 토글 — expander 상단
-            fc1, fc2, fc3, fc4 = st.columns(4)
+            # 거래량비% ≥ 120 필터는 제거 — 2026-11-09 5년 검증에서 통과 종목의 이후 성과가 오히려 나빴다
+            # (주도섹터 탭 차기 주도주·순환매 점수에서도 같은 이유로 뺐다 — 세 화면 일관성)
+            fc1, fc2, fc3 = st.columns(3)
             f_rs   = fc1.checkbox('RS/ADR > 0',       value=True, key=f'f_rs_{market}')
             f_ma   = fc2.checkbox('이평선위치',        value=True, key=f'f_ma_{market}')
-            f_vol  = fc3.checkbox('거래량비% ≥ 120',  value=True, key=f'f_vol_{market}')
-            f_peak = fc4.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
+            f_peak = fc3.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
             st.divider()
 
             def _ma_ok(r):
@@ -718,7 +711,6 @@ function(valueA, valueB) {
                 r for r in cand_rows
                 if (not f_rs   or (r['RS/ADR'] or 0) > 0)
                 and (not f_ma   or _ma_ok(r))
-                and (not f_vol  or (r['거래량비%'] or 0) >= 120)
                 and (not f_peak or (r['고점대비%'] or 0) >= -30)
             ]
             fallback = (
@@ -772,7 +764,6 @@ function(valueA, valueB) {
                             if r['Ticker'] not in seen
                             and (not f_rs   or (r['RS/ADR'] or 0) > 0)
                             and (not f_ma   or r['이평선위치'] == '지수정상' or r['ma_above_count'] > 0)
-                            and (not f_vol  or (r['거래량비%'] or 0) >= 120)
                             and (not f_peak or (r['고점대비%'] or 0) >= -30)
                         ]
 
@@ -961,11 +952,10 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
 
         # ② 핵심 후보
         st.caption('핵심 후보 선별 기준')
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
         c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 거래량비%**  \n상승일/하락일 평균거래량 비율 · **120 이상** = 매집')
-        c4.markdown('**④ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+        c3.markdown('**③ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
 
         st.divider()
 
@@ -978,7 +968,6 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
             '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
-            '| 거래량비% | 상승일 / 하락일 평균거래량 비율 ×100 | **120 이상** = 매집 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
             '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
         )

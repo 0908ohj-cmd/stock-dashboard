@@ -21,10 +21,12 @@ from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_r
 
 # 차기 주도주 배점 (100점). 2026-11-09 5년 검증 반영:
 #  - 찐반등날 21EMA 위 여부는 이후 성과와 오히려 반대(위 −2.9%p vs 아래 −1.0%p, 60일 중앙값) → 제외
+#  - 거래량 우위(상승일/하락일 거래량 = 추세추종 탭 거래량비)도 역효과(≥120% 통과 −2.6%p vs 탈락 −0.3%p) → 제외
+#  - 52주 고점 근접(−20% 이내)이 가장 일관되게 효과 → 비중 확대
 #  - 진짜 반등에서는 반등 세기(찐반등 전날~기준일 RS/ADR)가 하락장 RS보다 예측력이 높았다 → 40점
 WEIGHTS = {
-    'correction': {'덜 빠짐': 35, '고점 근접': 25, '저점 선행': 20, '거래량 우위': 20},
-    'rebound': {'찐반등 후 회복': 40, '덜 빠짐': 20, '고점 근접': 20, '거래량 우위': 10, '양봉 렐볼': 10},
+    'correction': {'덜 빠짐': 35, '고점 근접': 40, '저점 선행': 25},
+    'rebound': {'찐반등 후 회복': 40, '덜 빠짐': 20, '고점 근접': 30, '양봉 렐볼': 10},
 }
 MIN_SECTOR_N = 3
 STRONG_SCORE = 70
@@ -151,14 +153,9 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     for r in pool:
         t = r['ticker']
         held = g('sincePeakExcessAdr', t)
-        w = WEIGHTS[scoring]
-        if scoring == 'correction':
-            parts = {'덜 빠짐': w['덜 빠짐'] * held, '고점 근접': w['고점 근접'] * g('offHigh', t),
-                     '저점 선행': w['저점 선행'] * g('leadDays', t), '거래량 우위': w['거래량 우위'] * g('volRatio', t)}
-        else:
-            parts = {'덜 빠짐': w['덜 빠짐'] * held, '찐반등 후 회복': w['찐반등 후 회복'] * g('sinceJjinExcessAdr', t),
-                     '고점 근접': w['고점 근접'] * g('offHigh', t), '거래량 우위': w['거래량 우위'] * g('volRatio', t),
-                     '양봉 렐볼': w['양봉 렐볼'] * r['hasBullishRvol15InLast5']}
+        val = {'덜 빠짐': held, '찐반등 후 회복': g('sinceJjinExcessAdr', t), '고점 근접': g('offHigh', t),
+               '저점 선행': g('leadDays', t), '양봉 렐볼': float(r['hasBullishRvol15InLast5'])}
+        parts = {k: v * val[k] for k, v in WEIGHTS[scoring].items()}
         r['nextParts'] = parts
         r['nextScore'] = float(sum(parts.values()))
     return pool
@@ -195,14 +192,14 @@ def rank_sectors(pool: list, key: str = 'nextScore') -> tuple[list, list]:
 
 
 # ── 순환매 — 지금 돈이 '새로' 들어오는 섹터 ───────────────────
-# 차기 주도와 같은 재료(지수 대비 RS/ADR·추세·거래량·고점)를 쓰되, 기준 구간이 찐반등이 아니라
-# 최근 1~2주 롤링이고, 목적에 맞게 '변화(가속)'와 '거래량 유입'에 무게를 둔다.
-#   - 덜 빠짐 없음: 순환매 섹터는 보통 조정 때 약했던 곳이라 감점하면 안 잡힌다
-#   - RS 가속: 이번 주 RS/ADR − 지난주 RS/ADR. 흐름이 바뀌는 순간이 순환매의 핵심
-#   - 거래량 유입 25: 양봉 렐볼 + 상승일/하락일 거래량 — 돈이 들어온 흔적
-#   - 고점 근접 15(차기 주도 20~25보다 낮게): 바닥권에서 올라오는 섹터도 잡히도록
-ROT_WEIGHTS = {'1주 RS/ADR': 25, 'RS 가속': 15, '양봉 렐볼': 15, '거래량 우위': 10,
-               '10EMA 유지': 10, '21EMA 위': 10, '고점 근접': 15}
+# 차기 주도와 같은 재료(지수 대비 RS/ADR·52주 고점·양봉 렐볼)를 쓰되, 기준 구간이 찐반등이 아니라
+# 최근 1~2주 롤링이다. 덜 빠짐은 없다(순환매 섹터는 보통 조정 때 약했던 곳).
+# 2026-11-09 5년 검증(상승 추세 구간 297일, 이후 20일 지수 대비):
+#   효과 있음 — 52주 고점 근접(상위20% +0.1%p vs 하위 −2.0%p), 10EMA 5일 유지, 양봉 렐볼
+#   효과 없음 — 1주 RS/ADR, RS 가속(이번 주−지난주) → RS 가속 제외, 1주 RS/ADR은 순환매 정의라 20만 유지
+#   역효과   — 거래량 우위 → 제외 (차기 주도주·추세추종 탭과 동일)
+#   21EMA 위 — 거의 없음 + 10EMA와 중복 → 제외 (차기 주도주와 동일)
+ROT_WEIGHTS = {'고점 근접': 35, '10EMA 유지': 25, '1주 RS/ADR': 20, '양봉 렐볼': 20}
 ROT_WAS_WEAK = 50       # 2주 전 섹터 점수가 이보다 낮았고
 ROT_NOW = 60            # 지금 이 이상이면 🆕 새 순환매
 ROT_RISE = 15           # 그리고 2주 동안 이만큼 이상 올랐으면
@@ -253,17 +250,13 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         })
     if not pool:
         return []
-    p = {k: ss.percentile_rank({x['ticker']: x[k] for x in pool})
-         for k in ('rotRs5', 'rotAccel', 'volRatio', 'offHigh')}
+    p = {k: ss.percentile_rank({x['ticker']: x[k] for x in pool}) for k in ('rotRs5', 'offHigh')}
     g = lambda k, t: p[k][t] or 0.0
-    w = ROT_WEIGHTS
     for x in pool:
         t = x['ticker']
-        parts = {'1주 RS/ADR': w['1주 RS/ADR'] * g('rotRs5', t), 'RS 가속': w['RS 가속'] * g('rotAccel', t),
-                 '양봉 렐볼': w['양봉 렐볼'] * x['hasBullishRvol15InLast5'],
-                 '거래량 우위': w['거래량 우위'] * g('volRatio', t),
-                 '10EMA 유지': w['10EMA 유지'] * x['ema10DaysOfLast5'] / 5,
-                 '21EMA 위': w['21EMA 위'] * x['aboveEma21'], '고점 근접': w['고점 근접'] * g('offHigh', t)}
+        val = {'고점 근접': g('offHigh', t), '10EMA 유지': x['ema10DaysOfLast5'] / 5,
+               '1주 RS/ADR': g('rotRs5', t), '양봉 렐볼': float(x['hasBullishRvol15InLast5'])}
+        parts = {k: v * val[k] for k, v in ROT_WEIGHTS.items()}
         x['rotParts'], x['rotScore'] = parts, float(sum(parts.values()))
     return pool
 
