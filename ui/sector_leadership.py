@@ -709,11 +709,19 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     rebound = ph.get('scoring', ph['mode']) == 'rebound'
     cols = _rs_cols(ph)
     in_trend = _trend_tickers(m)
-    only_top =st.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
-    rows = sorted((r for r in picks if not only_top or r['primaryTheme'] in top_sectors),
+    tc1, tc2 = st.columns(2)
+    only_top = tc1.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top')
+    only_trend = tc2.toggle('추세추종 탭 종목만', key=f'{m.key}_only_trend')
+    rows = sorted((r for r in picks
+                   if (not only_top or r['primaryTheme'] in top_sectors)
+                   and (not only_trend or r['ticker'] in in_trend)),
                   key=lambda r: -r['nextScore'])[:20]
+    if not rows:
+        st.caption('조건에 맞는 종목이 없습니다.')
+        _score_table(rebound)
+        return
     body = []
-    for r in rows:
+    for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
         title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
@@ -725,25 +733,56 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         lead = r.get('leadDays')
         lead_txt = '—' if lead is None else (f'{lead}일 먼저' if lead > 0 else '같이' if lead == 0 else f'{-lead}일 늦게')
         body.append(
-            f'<tr><td>{title}</td>'
+            f'<tr><td>{rank}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
             + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
             + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
             + ('<td>—</td>' if r.get('volRatio') is None else f'<td>{r["volRatio"]:.1f}배</td>')
-            +
-            f'<td><span class="{"sl-pos" if r["aboveEma21"] else "sl-neg"}">{"위" if r["aboveEma21"] else "아래"}</span></td>'
+            + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
-        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>종목</th><th>섹터 · 테마</th>'
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
         + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>최근 3개월 고점 대비</th><th>저점</th><th>상승/하락 거래량</th>'
-        '<th>21EMA (기준일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
+        '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
-    parts = ' + '.join(f'{k} {v}' for k, v in (
-        {'찐반등 후 회복': 25, '덜 빠짐': 20, '고점 근접': 20, '21EMA 위': 15, '거래량 우위': 10, '양봉 렐볼': 10}
-        if rebound else
-        {'덜 빠짐': 30, '고점 근접': 25, '저점 선행': 15, '거래량 우위': 15, '21EMA 위': 15}).items())
-    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 점수(100) = {parts} — 같은 와치리스트 안 상대 순위. '
-               '매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
+    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
+    _score_table(rebound)
+
+
+_SCORE_ITEMS = [
+    # (배점 키, 항목, 설명)
+    ('덜 빠짐', '하락국면 RS/ADR', '기산점 ~ 찐반등(찐반등 전엔 ~ 기준일) 지수 대비 초과수익 ÷ ADR'),
+    ('찐반등 후 회복', '상승국면 RS/ADR', '찐반등 전날 종가 ~ 기준일 지수 대비 초과수익 ÷ ADR (찐반등 당일 포함)'),
+    ('고점 근접', '최근 3개월 고점 근접', '기준일 종가가 63거래일 최고가에 얼마나 가까운지'),
+    ('저점 선행', '저점 선행', '조정 구간에서 지수보다 며칠 먼저 바닥을 찍었는지'),
+    ('거래량 우위', '거래량 우위', '조정 구간 상승일 평균 거래량 ÷ 하락일 평균 거래량'),
+    ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0'),
+]
+
+
+def _score_table(rebound: bool):
+    """차기 주도주 배점표 — 하락국면(찐반등 전) / 상승국면(찐반등 이후). 지금 쓰는 쪽을 강조."""
+    wc, wr = nl.WEIGHTS['correction'], nl.WEIGHTS['rebound']
+    on = 'style="background:rgba(22,163,74,.10);font-weight:700"'
+
+    def cell(w, k, active):
+        v = w.get(k)
+        return f'<td {on if active else ""}>{v if v else "—"}</td>'
+
+    rows = ''.join(
+        f'<tr><td><span class="sl-name">{name}</span><div class="sl-sub" style="margin:0">{desc}</div></td>'
+        + cell(wc, k, not rebound) + cell(wr, k, rebound) + '</tr>'
+        for k, name, desc in _SCORE_ITEMS)
+    total = (f'<tr><td><b>합계</b></td><td {on if not rebound else ""}>{sum(wc.values())}</td>'
+             f'<td {on if rebound else ""}>{sum(wr.values())}</td></tr>')
+    st.markdown(
+        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">점수 배점 (100점)</div>'
+        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>항목</th>'
+        f'<th {on if not rebound else ""}>하락국면 (찐반등 전){" · 지금" if not rebound else ""}</th>'
+        f'<th {on if rebound else ""}>상승국면 (찐반등 이후){" · 지금" if rebound else ""}</th>'
+        f'</tr></thead><tbody>{rows}{total}</tbody></table></div>', unsafe_allow_html=True)
+    st.caption('양봉 렐볼을 뺀 항목은 같은 와치리스트 안 상대 순위(1등 만점·꼴찌 0점) × 배점. '
+               '종목 점수 70점 이상 = "강한 종목". 섹터 점수 = 종목 점수 중앙값 60% + 강한 종목 비율 40%.')
 
 
 # ── 상세 보기 ─────────────────────────────────────────────

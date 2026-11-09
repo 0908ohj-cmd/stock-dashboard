@@ -187,6 +187,13 @@ def test_순환매_점수는_최근_가속과_거래량을_본다():
     assert out['LAG']['rotScore'] > out['EARLY']['rotScore']
 
 
+def test_차기_주도주_배점은_100점이고_21EMA는_없다():
+    for w in nl.WEIGHTS.values():
+        assert sum(w.values()) == 100
+        assert '21EMA 위' not in w
+    assert nl.WEIGHTS['rebound']['찐반등 후 회복'] > nl.WEIGHTS['rebound']['덜 빠짐']
+
+
 def test_관찰_후순위_구분():
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 50}) == 'C_WATCH'
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 44}) == 'D_LOW'

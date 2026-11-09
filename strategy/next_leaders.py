@@ -19,6 +19,13 @@ from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
 from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_rs
 
+# 차기 주도주 배점 (100점). 2026-11-09 5년 검증 반영:
+#  - 찐반등날 21EMA 위 여부는 이후 성과와 오히려 반대(위 −2.9%p vs 아래 −1.0%p, 60일 중앙값) → 제외
+#  - 진짜 반등에서는 반등 세기(찐반등 전날~기준일 RS/ADR)가 하락장 RS보다 예측력이 높았다 → 40점
+WEIGHTS = {
+    'correction': {'덜 빠짐': 35, '고점 근접': 25, '저점 선행': 20, '거래량 우위': 20},
+    'rebound': {'찐반등 후 회복': 40, '덜 빠짐': 20, '고점 근접': 20, '거래량 우위': 10, '양봉 렐볼': 10},
+}
 MIN_SECTOR_N = 3
 STRONG_SCORE = 70
 LOOKBACK_HIGH = 63      # 고점 근접 = 최근 63거래일(약 3개월) 고가 대비
@@ -141,13 +148,14 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     for r in pool:
         t = r['ticker']
         held = g('sincePeakExcessAdr', t)
+        w = WEIGHTS[scoring]
         if scoring == 'correction':
-            parts = {'덜 빠짐': 30 * held, '고점 근접': 25 * g('offHigh', t), '저점 선행': 15 * g('leadDays', t),
-                     '거래량 우위': 15 * g('volRatio', t), '21EMA 위': 15 * r['aboveEma21']}
+            parts = {'덜 빠짐': w['덜 빠짐'] * held, '고점 근접': w['고점 근접'] * g('offHigh', t),
+                     '저점 선행': w['저점 선행'] * g('leadDays', t), '거래량 우위': w['거래량 우위'] * g('volRatio', t)}
         else:
-            parts = {'덜 빠짐': 20 * held, '찐반등 후 회복': 25 * g('sinceJjinExcessAdr', t),
-                     '고점 근접': 20 * g('offHigh', t), '거래량 우위': 10 * g('volRatio', t),
-                     '21EMA 위': 15 * r['aboveEma21'], '양봉 렐볼': 10 * r['hasBullishRvol15InLast5']}
+            parts = {'덜 빠짐': w['덜 빠짐'] * held, '찐반등 후 회복': w['찐반등 후 회복'] * g('sinceJjinExcessAdr', t),
+                     '고점 근접': w['고점 근접'] * g('offHigh', t), '거래량 우위': w['거래량 우위'] * g('volRatio', t),
+                     '양봉 렐볼': w['양봉 렐볼'] * r['hasBullishRvol15InLast5']}
         r['nextParts'] = parts
         r['nextScore'] = float(sum(parts.values()))
     return pool
