@@ -17,6 +17,11 @@ from strategy.rs_correction import calc_correction_rs, _index_peak_date
 from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
 from ui import tv_export
+from ui.sector_leadership import lead_scores
+
+# 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
+SHOW_CANDIDATES = False
+CANDIDATE_TOP_N = 9
 
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
@@ -550,6 +555,16 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.warning('분석 가능한 종목이 없습니다.')
         return
 
+    # 차기 주도주 점수 — 주도섹터 탭과 같은 계산(같은 함수·같은 캐시)을 그대로 읽는다. 세 화면 일관성.
+    # RS 구간 설정(수동 기산점·찐반등일)도 그대로 넘겨 두 탭이 같은 구간으로 계산되게 한다.
+    lead = lead_scores(market, custom_rs_start_str or '', str(custom_jjin) if custom_jjin else '')
+    for r in rows:
+        s = lead.get(r['Ticker'])
+        r['주도주점수'] = None if s is None else round(s['score'], 1)
+        r['주도주순위'] = None if s is None else s['rank']
+    if not swing_dates_str:     # 스윙 등급을 쓸 땐 등급 순서 유지
+        rows.sort(key=lambda r: (r['주도주점수'] is None, -(r['주도주점수'] or 0)))
+
     state = status['state']
     if correction_start_str:
         end_str = jjin_date_str or '진행 중'
@@ -564,6 +579,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '👑': '👑' if r['Ticker'] in crown else '',
         **(({'등급': f"{r['등급']}|{r['패턴']}"} if show_grade else {})),
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
+        '주도주 점수':   r['주도주점수'],
+        '주도주 순위':   r['주도주순위'],
         '섹터':          r['섹터'],
         '테마':          r['테마'],
         'Close':         r['Close'],
@@ -619,6 +636,10 @@ function(valueA, valueB) {
                         resizable=False, suppressSizeToFit=True, flex=0,
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
+    gb.configure_column('주도주 점수', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래')
+    gb.configure_column('주도주 순위', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        headerTooltip='주도섹터 탭 차기 주도주 전체 순위(메인 밖 테마 포함)')
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
     gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
@@ -645,11 +666,23 @@ function(valueA, valueB) {
     # 매수 후보 섹션 — 2026-11-10부터 후보 목록을 여기서 보여주지 않고 주도섹터 탭 '차기 주도주'로 일원화.
     # (5년 검증으로 재료·배점을 정리한 쪽이 주도섹터 탭이라 두 곳에 다른 후보가 뜨면 혼란스럽다)
     # TradingView 내보내기의 추세추종 섹션도 비운다 — 화면에 없는 목록을 내보내지 않는다.
-    tv_export.register_trend(market, [])
+    # 다시 보이게 하려면 SHOW_CANDIDATES = True — 후보는 위 '주도주 점수'(주도섹터 탭과 같은 계산) 상위 종목이다.
     _SECTOR_TAB = {'KR_KOSPI': '🧭 코스피 주도섹터', 'KR_KOSDAQ': '🧭 코스닥 주도섹터', 'US': '🧭 나스닥 주도섹터'}
     with st.expander('📋 매수 후보', expanded=True):
-        st.info(f"매수 후보는 **{_SECTOR_TAB.get(market, '주도섹터')}** 탭의 **🎯 차기 주도주**를 참고하세요. "
-                "'추세추종 탭 종목만'을 켜면 이 와치리스트 종목만 볼 수 있어요.")
+        if SHOW_CANDIDATES:
+            cands = [r for r in rows if r['주도주점수'] is not None][:CANDIDATE_TOP_N]
+            tv_export.register_trend(market, [r['Ticker'] for r in cands])
+            st.caption(f'주도주 점수 상위 {len(cands)}개 — 점수·배점은 {_SECTOR_TAB.get(market, "주도섹터")} 탭 차기 주도주와 동일')
+            cols = st.columns(3)
+            for i, r in enumerate(cands):
+                with cols[i % 3], st.container(border=True):
+                    st.markdown(f"**{r['Ticker']}** {r['종목명']} · **{r['주도주점수']:.0f}점** ({r['주도주순위']}위)")
+                    st.caption(f"🏷 {r['섹터']} | {r['테마']} | ADR {r['ADR']:.1f}% | 52주 고점 {r['고점대비%']:.0f}%")
+        else:
+            tv_export.register_trend(market, [])
+            st.info(f"매수 후보는 **{_SECTOR_TAB.get(market, '주도섹터')}** 탭의 **🎯 차기 주도주**를 참고하세요. "
+                    "'추세추종 탭 종목만'을 켜면 이 와치리스트 종목만 볼 수 있어요. "
+                    "위 표의 **주도주 점수·순위**도 같은 계산입니다.")
 
     idx_key = f'chart_idx_{market}'
     nav_key = f'chart_nav_{market}'

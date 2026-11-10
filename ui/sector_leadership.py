@@ -99,7 +99,9 @@ def _data_key(m: Market) -> tuple:
     """스냅샷·분류·유니버스 파일 mtime — 바뀌면 다시 계산한다."""
     paths = [store._snapshot_path(m.key), store._snapshot_path(m.bench_snapshot),
              cls._store_path(m.key), _US_UNIVERSE] + [_SAVED / f for f in m.ticker_files]
-    return tuple(_mtime(p) for p in paths)
+    # 점수 공식이 바뀌면 SCORE_VERSION을 올린다 — st.cache_data는 다른 모듈(next_leaders) 코드 변경을
+    # 감지하지 못해, 옛 캐시(새 필드 없는 결과)를 새 화면 코드가 읽다 KeyError가 났다(2026-11-10 gap200).
+    return (SCORE_VERSION,) + tuple(_mtime(p) for p in paths)
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -164,6 +166,28 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
     }
+
+
+SCORE_VERSION = 2026_11_10_2     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+
+
+def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
+    """차기 주도주 점수를 다른 탭(추세추종)에서 그대로 쓰기 위한 단일 출처.
+    {ticker: {'score', 'rank', 'parts', 'asof', 'phaseLabel'}} — 순위는 메인 밖 테마 포함 전체 기준.
+    계산은 주도섹터 탭과 같은 _compute(같은 캐시)를 쓰므로 두 탭 점수가 어긋날 수 없다."""
+    m = MARKETS[market_key]
+    opts = _asof_options(m)
+    if not opts:
+        return {}
+    try:
+        res = _compute(m.key, opts[0], _data_key(m), peak, jjin)
+    except ValueError:
+        return {}
+    picks = sorted(res['picks'], key=lambda p: -p['nextScore'])
+    label = (res.get('phase') or {}).get('label', '')
+    return {p['ticker']: {'score': p['nextScore'], 'rank': i, 'parts': p.get('nextParts', {}),
+                          'asof': res['asof'], 'phaseLabel': label}
+            for i, p in enumerate(picks, 1)}
 
 
 def _asof_options(m: Market) -> list:
@@ -442,7 +466,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r["gap200"], "%")}</td>'
+            f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r.get("gap200"), "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
             f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
