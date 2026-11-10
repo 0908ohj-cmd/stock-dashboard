@@ -624,11 +624,11 @@ def _phase_banner(m: Market, res: dict):
 
 
 def _phase_title(m: Market, ph: dict | None) -> str:
-    """시장 현황 접기 제목 — 접어 둬도 국면이 보이게."""
+    """지수 현황 접기 제목 — 접어 둬도 국면이 보이게."""
     if ph is None:
-        return '**📊 시장 현황**'
+        return '**📊 지수 현황**'
     tag = {'correction': f"🔴 조정 중 ({ph['label']})", 'rebound': f"🟡 찐반등 {ph['label']}"}.get(ph['mode'], '🟢 상승 추세')
-    return f"**📊 시장 현황 · {m.phase_index} {tag}{' · 수동 설정' if ph.get('manual') else ''}**"
+    return f"**📊 지수 현황 · {m.phase_index} {tag}{' · 수동 설정' if ph.get('manual') else ''}**"
 
 
 def _rs_cols(ph: dict) -> list:
@@ -1158,7 +1158,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if idx_last and idx_last > opts[0]:
         st.warning(f"⚠️ 종목 데이터가 {opts[0]}까지만 있습니다 ({m.phase_index} 지수는 {idx_last}까지). "
                    "사이드바 '🔄 데이터 재수집'을 누르면 최신 날짜로 계산됩니다.")
-    # 기준일 선택 상자는 '시장 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
+    # 기준일 선택 상자는 '지수 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
     # 위젯 값은 실행 시작 시 session_state에 이미 있으므로 거기서 읽는다.
     key_asof = f'{m.key}_asof'
     if st.session_state.get(key_asof) not in opts:
@@ -1182,7 +1182,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _market_strip(m, res)
         if res['phase'] is not None:
             _phase_banner(m, res)
-    # 화면 배치는 국면과 상관없이 고정 — 시장 현황 → 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
+    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
     # 국면에 따라 바뀌는 건 A/B 섹션이 기본으로 펼쳐져 있는지뿐이다.
     if res['phase'] is not None:
         with st.expander('**🧭 차기 주도섹터**', expanded=True):
