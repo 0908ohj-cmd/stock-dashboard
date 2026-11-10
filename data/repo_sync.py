@@ -152,10 +152,17 @@ def _remote_bytes(repo_root: pathlib.Path, target: str, path: str) -> bytes | No
         return None   # 원격에서 삭제된 파일
 
 
-def sync_from_origin(repo_root: pathlib.Path, branch: str = 'main') -> SyncResult:
+# 공개 저장소 HTTPS 주소. Streamlit Cloud 작업본의 `origin`은 배포 때 쓴 인증 주소라
+# 나중에 fetch하면 "Please make sure you have the correct access rights and the repository
+# exists"로 막힌다(2026-11-10 Cloud에서 확인). 공개 저장소는 인증 없이 받을 수 있으므로
+# 앱은 이 주소로 직접 fetch한다. FETCH_HEAD로 대상 커밋을 잡으니 origin 설정과 무관하다.
+PUBLIC_REPO_URL = 'https://github.com/0908ohj-cmd/stock-dashboard.git'
+
+
+def sync_from_origin(repo_root: pathlib.Path, branch: str = 'main', remote: str = 'origin') -> SyncResult:
     now = datetime.now(KST)
     try:
-        _git(repo_root, 'fetch', '--quiet', 'origin', branch)
+        _git(repo_root, 'fetch', '--quiet', remote, branch)
         head = _git(repo_root, 'rev-parse', 'HEAD').strip()
         target = _git(repo_root, 'rev-parse', 'FETCH_HEAD').strip()
         if head == target:

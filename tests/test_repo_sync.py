@@ -161,6 +161,20 @@ def test_fetch_failure_is_reported(repos):
     assert 'fetch' in r.error
 
 
+def test_origin_이_막혀도_주소를_직접_주면_받아온다(repos):
+    # Streamlit Cloud: origin(배포 인증 주소) fetch가 권한 오류 → 공개 주소로 직접 fetch
+    batch, cloud = repos
+    real = cloud.parent / 'origin.git'
+    _git(cloud, 'remote', 'set-url', 'origin', str(cloud.parent / 'nowhere.git'))
+    _push(batch, {IDX: _snap('2026-11-05T17:34:00+09:00', 200)})
+
+    assert not rs.sync_from_origin(cloud).ok                 # origin으로는 실패
+    r = rs.sync_from_origin(cloud, remote=str(real))
+
+    assert r.ok and r.updated
+    assert json.loads(_read(cloud, IDX))['data']['KOSPI']['close'] == [200]
+
+
 def test_merge_failure_restores_local_edits(repos):
     """fast-forward가 안 되면(이력 갈라짐) 실패를 알리고 로컬 수정은 그대로 둔다."""
     batch, cloud = repos

@@ -184,7 +184,9 @@ if _any:
     )
 
 # ── 배치 데이터 동기화 (슬롯마다 프로세스당 1회, 새 데이터 있으면 캐시 클리어) ──
-_sync = repo_sync.maybe_sync(_REPO_ROOT)
+# origin(배포 때 쓴 인증 주소)이 아니라 공개 HTTPS 주소에서 받는다 — Cloud에선 origin fetch가 권한 오류로 막힌다
+_sync = repo_sync.maybe_sync(
+    _REPO_ROOT, sync_fn=lambda root: repo_sync.sync_from_origin(root, remote=repo_sync.PUBLIC_REPO_URL))
 if _sync and _sync.updated:
     _clear_analysis_caches()
 _last_sync = repo_sync.last_result()
