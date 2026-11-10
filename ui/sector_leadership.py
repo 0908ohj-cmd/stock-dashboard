@@ -442,7 +442,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{_signed(r["offHigh"], "%")}</td>'
+            f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r["gap200"], "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
             f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
@@ -450,7 +450,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     if rows:
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-            '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
+            '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🆕 = 새 순환매 섹터 소속. 매수 신호가 아닙니다 — 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
     _rot_score_table()
@@ -461,6 +461,7 @@ _ROT_ITEMS = [
     ('10EMA 유지', '10EMA 유지', '최근 5거래일 중 종가가 10EMA 위였던 날 수 ÷ 5'),
     ('1주 RS/ADR', '1주 RS/ADR', '최근 5거래일 지수 대비 초과수익 ÷ ADR (ADR은 비교 구간 시작 전 20일)'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0 — 차기 주도주와 같은 정의'),
+    ('장기 추세', '장기 추세 (200일선 이격)', '200일선 위면 만점, 아래라도 이격 0~−15%면 절반, 그보다 멀면 0 — 차기 주도주와 같은 정의'),
 ]
 
 
@@ -789,12 +790,12 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
             f'<tr><td>{rank}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
             + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
-            + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{lead_txt}</td>'
+            + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{_signed(r.get("gap200"), "%")}</td><td>{lead_txt}</td>'
             + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
             f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
     st.markdown(
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>저점</th>'
+        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
@@ -808,6 +809,7 @@ _SCORE_ITEMS = [
     ('고점 근접', '52주 고점 근접', '기준일 종가가 52주(252거래일) 최고가에 얼마나 가까운지 — 추세추종 탭과 같은 기준'),
     ('저점 선행', '저점 선행', '조정 구간에서 지수보다 며칠 먼저 바닥을 찍었는지'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0'),
+    ('장기 추세', '장기 추세 (200일선 이격)', '200일선 위면 만점, 아래라도 이격 0~−15%면 절반, 그보다 멀면 0'),
 ]
 
 

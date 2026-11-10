@@ -188,12 +188,24 @@ def test_순환매_점수는_이번주_강한_종목이_높다():
     assert set(out['LAG']['rotParts']) == set(nl.ROT_WEIGHTS)
 
 
+def test_장기_추세는_200일선_이격으로_단계_점수():
+    assert nl.trend_points(5.0) == 1.0           # 200일선 위
+    assert nl.trend_points(0.0) == 1.0
+    assert nl.trend_points(-9.4) == 0.5          # FLY형: 바로 밑
+    assert nl.trend_points(-15.0) == 0.5
+    assert nl.trend_points(-24.8) == 0.0         # LASR형: 멀리 아래
+    assert nl.trend_points(None) == 0.0          # 이력 200일 미만
+    df = _index(list(np.full(199, 100.0)) + [110.0])
+    assert nl.sma200_gap(df) == pytest.approx(100 * (110 / (199 * 100 + 110) * 200 - 1))
+    assert nl.sma200_gap(_index(np.full(150, 100.0))) is None
+
+
 def test_세_화면_공통_재료_일관성():
     # 거래량 우위·21EMA·RS 가속은 검증에서 효과가 없거나 역효과 → 어느 점수에도 없다
     for w in list(nl.WEIGHTS.values()) + [nl.ROT_WEIGHTS]:
         assert sum(w.values()) == 100
         assert not {'거래량 우위', '21EMA 위', 'RS 가속'} & set(w)
-        assert '고점 근접' in w
+        assert '고점 근접' in w and '장기 추세' in w
 
 
 def test_메인_밖_테마_종목도_종목_순위에는_들어간다():
