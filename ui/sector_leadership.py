@@ -174,6 +174,13 @@ def _asof_options(m: Market) -> list:
     common = set(recs[0]['dates'])
     for r in recs[1:]:
         common &= set(r['dates'])
+    # 지수(indices 스냅샷, KR 배치)가 종목 스냅샷보다 하루 앞설 수 있다 — 예: 2026-11-10 NASDAQ은 11/09까지,
+    # US 종목은 yfinance 지연으로 11/06까지 → 기준일 11/09에 전 종목 '기준일 종가 없음'(0/206).
+    # 종목 데이터가 있는 마지막 날까지만 기준일로 내준다.
+    stocks = store.load_snapshot(m.key).get('data', {})
+    last = max((v['dates'][-1] for k, v in stocks.items() if k not in m.bench and v.get('dates')), default=None)
+    if last:
+        common = {d for d in common if d <= last}
     return sorted(common, reverse=True)[:60]
 
 
@@ -1131,6 +1138,11 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     if not opts:
         st.warning(f"스냅샷에 {'·'.join(m.bench)} 일봉이 없습니다. 다음 배치 수집 후 표시됩니다.")
         return
+    idx_rec = store.load_snapshot('indices').get('data', {}).get(m.phase_index) or {}
+    idx_last = (idx_rec.get('dates') or [None])[-1]
+    if idx_last and idx_last > opts[0]:
+        st.warning(f"⚠️ 종목 데이터가 {opts[0]}까지만 있습니다 ({m.phase_index} 지수는 {idx_last}까지). "
+                   "사이드바 '🔄 데이터 재수집'을 누르면 최신 날짜로 계산됩니다.")
     # 기준일 선택 상자는 '시장 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
     # 위젯 값은 실행 시작 시 session_state에 이미 있으므로 거기서 읽는다.
     key_asof = f'{m.key}_asof'
