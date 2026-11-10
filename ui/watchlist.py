@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit.components.v1 as components
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
-from strategy.trading_days import trading_days_after, nth_trading_day_after
+from strategy.trading_days import trading_days_after
 from data.fetcher import (
     get_stock_name,
     fetch_intraday_for_date, fetch_index_intraday_for_date,
@@ -284,12 +284,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟡 DAY2</div>
     <div style="font-size:0.85em;line-height:1.6">찐반등 감지 당일</div>
-    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
+    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 주도섹터 탭 차기 주도주 확인</div>
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
     <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 동안 매수 유효</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 차기 주도주 순위 변화 확인</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 정상</div>
@@ -347,11 +347,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.divider()
 
         # ③ 핵심 후보
-        st.caption('핵심 후보 선별 기준')
-        c1, c2, c3 = st.columns(3)
-        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+        st.caption('매수 후보')
+        st.markdown('매수 후보는 **🧭 주도섹터 탭 → 🎯 차기 주도주**에서 봅니다. 하락국면·상승국면 RS/ADR, '
+                    '52주 고점 근접 등 5년 검증으로 정한 배점표가 그 표 아래에 있습니다.')
 
         st.divider()
 
@@ -644,178 +642,14 @@ function(valueA, valueB) {
         fit_columns_on_grid_load=True,
     )
 
-    # 핵심 후보: jjin_date 기준 고정 스냅샷 (고점대비%·이평선위치도 해당 날짜 기준)
-    if jjin_date_str:
-        cand_rows  = _build_rows(tuple(tickers), market, correction_start_str, jjin_date_str, custom_rs_start_str, jjin_date_str, swing_dates_str, snap_ts)
-        cand_ma_ok = False  # jjin_date에 지수는 조정 중 → MA 위치 조건 항상 적용
-    else:
-        cand_rows  = rows
-        cand_ma_ok = (state == 'normal')
-
-
-    _GRADE_COLOR = {
-        'S': '#FFD700',
-        'A++': '#00E676', 'A+': '#00C853', 'A': '#69F0AE', 'A-': '#40C4FF', 'A--': '#0091EA',
-        'B++': '#E65100', 'B+': '#F57C00', 'B': '#FF8F00', 'B-': '#FFA000', 'B--': '#FFB300',
-        'C': '#FF1744', 'F': '#9E9E9E',
-    }
-
-    def _render_candidates(cands: list, section_label: str, period_str: str):
-        st.markdown(f'**{section_label}** — {len(cands)}개{period_str}', unsafe_allow_html=True)
-        cols = st.columns(3)
-        for i, r in enumerate(cands):
-            with cols[i % 3]:
-                with st.container(border=True):
-                    grade = r.get('등급', '—')
-                    pattern = r.get('패턴', '')
-                    st.markdown(f"**{r['Ticker']}** {r['종목명']}")
-                    if grade and grade != '—':
-                        gc = _GRADE_COLOR.get(grade, '#888')
-                        st.markdown(
-                            f'<span style="color:{gc};font-weight:700;font-size:0.95em">{grade}</span>'
-                            f'<span style="color:#888;font-size:0.82em;margin-left:6px">{pattern}</span>',
-                            unsafe_allow_html=True,
-                        )
-                    st.caption(f"🏷 {r['섹터']} &nbsp;|&nbsp; {r['테마']} "
-                               f"&nbsp;|&nbsp; ADR {r['ADR']:.1f}%")
-                    st.caption(
-                        f"RS/ADR: **{r['RS/ADR']:.1f}** &nbsp;|&nbsp; "
-                        f"고점대비: **{r['고점대비%']:.0f}%**"
-                    )
-                    st.caption(f"📍 {r['이평선위치']}")
-
-    def _make_period_str(start: str, end: str) -> str:
-        return f'  <span style="font-size:0.85em; color:gray;">({start} ~ {end})</span>'
-
-    pdate_c = status.get('peak_date')
-    rs_start = custom_rs_start_str or (str(pdate_c.date()) if pdate_c else correction_start_str)
-
-    # 후보 섹션 — @st.fragment로 감싸서 필터 변경 시 이 블록만 즉시 재렌더링
-    @st.fragment
-    def _candidates_frag():
-        has_extra = bool(jjin_date_str)
-        if not has_extra and not cand_rows:
-            return
-        with st.expander('📋 매수 후보', expanded=True):
-            # 필터 토글 — expander 상단
-            # 거래량비% ≥ 120 필터는 제거 — 2026-11-09 5년 검증에서 통과 종목의 이후 성과가 오히려 나빴다
-            # (주도섹터 탭 차기 주도주·순환매 점수에서도 같은 이유로 뺐다 — 세 화면 일관성)
-            fc1, fc2, fc3 = st.columns(3)
-            f_rs   = fc1.checkbox('RS/ADR > 0',       value=True, key=f'f_rs_{market}')
-            f_ma   = fc2.checkbox('이평선위치',        value=True, key=f'f_ma_{market}')
-            f_peak = fc3.checkbox('고점대비% ≥ -30',  value=True, key=f'f_peak_{market}')
-            st.divider()
-
-            def _ma_ok(r):
-                # 이평선위치 == '지수정상': 지수가 모든 이평 위 → 테스트 대상 이평 없음 → 통과
-                return cand_ma_ok or r['이평선위치'] == '지수정상' or r['ma_above_count'] > 0
-
-            top_candidates = [
-                r for r in cand_rows
-                if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                and (not f_ma   or _ma_ok(r))
-                and (not f_peak or (r['고점대비%'] or 0) >= -30)
-            ]
-            fallback = (
-                [r for r in cand_rows
-                 if (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                 and (not f_ma   or _ma_ok(r))
-                 and (not f_peak or (r['고점대비%'] or 0) >= -35)][:5]
-                if not top_candidates else []
-            )
-            has_candidates = bool(top_candidates or fallback)
-
-            # 화면에 실제로 뜨는 목록 그대로 내보낸다 (필터 결과 = 후보 카드 = txt)
-            tv_export.register_trend(
-                market, [r['Ticker'] for r in (top_candidates or fallback)]
-            )
-
-            if jjin_date_str:
-                ref_date   = jjin_date_str
-                cand_label = f'⭐ {ref_date} 기준 핵심 후보'
-                period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
-                if has_candidates:
-                    _render_candidates(top_candidates or fallback, cand_label, period_str)
-                else:
-                    st.markdown(f'**{cand_label}** — 없음{period_str}', unsafe_allow_html=True)
-            elif has_candidates:
-                ref_date   = str(pd.Timestamp.today().normalize().date())
-                cand_label = f'⭐ {ref_date} 기준 핵심 후보'
-                period_str = _make_period_str(rs_start, ref_date) if rs_start else ''
-                _render_candidates(top_candidates or fallback, cand_label, period_str)
-
-            # 추가 후보: DAY3~DAY6 기준 고정 스냅샷
-            if jjin_date_str:
-                jjin_ts  = pd.Timestamp(jjin_date_str)
-                _idx_tmp = _fetch_index_cached(INDEX_FOR_MARKET.get(market, 'NASDAQ'))
-                days_since_jjin = trading_days_after(_idx_tmp, jjin_ts) if not _idx_tmp.empty else 0
-
-                if days_since_jjin >= 1:
-                    day3_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 1)
-                    day4_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 2) if days_since_jjin >= 2 else None
-                    day5_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 3) if days_since_jjin >= 3 else None
-                    day6_ts   = nth_trading_day_after(_idx_tmp, jjin_ts, 4) if days_since_jjin >= 4 else None
-                    day3_date = str(day3_ts.date()) if day3_ts is not None else None
-                    day4_date = str(day4_ts.date()) if day4_ts is not None else None
-                    day5_date = str(day5_ts.date()) if day5_ts is not None else None
-                    day6_date = str(day6_ts.date()) if day6_ts is not None else None
-                    core_tickers = {r['Ticker'] for r in (top_candidates or fallback)}
-
-                    def _extra_filter(rows, seen):
-                        return [
-                            r for r in rows
-                            if r['Ticker'] not in seen
-                            and (not f_rs   or (r['RS/ADR'] or 0) > 0)
-                            and (not f_ma   or r['이평선위치'] == '지수정상' or r['ma_above_count'] > 0)
-                            and (not f_peak or (r['고점대비%'] or 0) >= -30)
-                        ]
-
-                    if day3_date:
-                        with st.spinner('추가 후보 확인 중...'):
-                            day3_rows = _build_rows(tuple(tickers), market, correction_start_str, day3_date, custom_rs_start_str, day3_date, swing_dates_str)
-                        day3_new = _extra_filter(day3_rows, core_tickers)
-                        seen = core_tickers | {r['Ticker'] for r in day3_new}
-                        p3 = _make_period_str(rs_start, day3_date) if rs_start else ''
-                        if day3_new:
-                            _render_candidates(day3_new, f'⭐ {day3_date} 기준 추가 후보', p3)
-                        else:
-                            st.markdown(f'**⭐ {day3_date} 기준 추가 후보** — 없음{p3}', unsafe_allow_html=True)
-                    else:
-                        seen = core_tickers
-
-                    if days_since_jjin >= 2 and day4_date:
-                        with st.spinner('추가 후보 확인 중...'):
-                            day4_rows = _build_rows(tuple(tickers), market, correction_start_str, day4_date, custom_rs_start_str, day4_date, swing_dates_str)
-                        day4_new = _extra_filter(day4_rows, seen)
-                        seen = seen | {r['Ticker'] for r in day4_new}
-                        p4 = _make_period_str(rs_start, day4_date) if rs_start else ''
-                        if day4_new:
-                            _render_candidates(day4_new, f'⭐ {day4_date} 기준 추가 후보', p4)
-                        else:
-                            st.markdown(f'**⭐ {day4_date} 기준 추가 후보** — 없음{p4}', unsafe_allow_html=True)
-
-                    if days_since_jjin >= 3:
-                        with st.spinner('추가 후보 확인 중...'):
-                            day5_rows = _build_rows(tuple(tickers), market, correction_start_str, day5_date, custom_rs_start_str, day5_date, swing_dates_str)
-                        day5_new = _extra_filter(day5_rows, seen)
-                        seen = seen | {r['Ticker'] for r in day5_new}
-                        p5 = _make_period_str(rs_start, day5_date) if rs_start else ''
-                        if day5_new:
-                            _render_candidates(day5_new, f'⭐ {day5_date} 기준 추가 후보', p5)
-                        else:
-                            st.markdown(f'**⭐ {day5_date} 기준 추가 후보** — 없음{p5}', unsafe_allow_html=True)
-
-                    if days_since_jjin >= 4:
-                        with st.spinner('추가 후보 확인 중...'):
-                            day6_rows = _build_rows(tuple(tickers), market, correction_start_str, day6_date, custom_rs_start_str, day6_date, swing_dates_str)
-                        day6_new = _extra_filter(day6_rows, seen)
-                        p6 = _make_period_str(rs_start, day6_date) if rs_start else ''
-                        if day6_new:
-                            _render_candidates(day6_new, f'⭐ {day6_date} 기준 추가 후보', p6)
-                        else:
-                            st.markdown(f'**⭐ {day6_date} 기준 추가 후보** — 없음{p6}', unsafe_allow_html=True)
-
-    _candidates_frag()
+    # 매수 후보 섹션 — 2026-11-10부터 후보 목록을 여기서 보여주지 않고 주도섹터 탭 '차기 주도주'로 일원화.
+    # (5년 검증으로 재료·배점을 정리한 쪽이 주도섹터 탭이라 두 곳에 다른 후보가 뜨면 혼란스럽다)
+    # TradingView 내보내기의 추세추종 섹션도 비운다 — 화면에 없는 목록을 내보내지 않는다.
+    tv_export.register_trend(market, [])
+    _SECTOR_TAB = {'KR_KOSPI': '🧭 코스피 주도섹터', 'KR_KOSDAQ': '🧭 코스닥 주도섹터', 'US': '🧭 나스닥 주도섹터'}
+    with st.expander('📋 매수 후보', expanded=True):
+        st.info(f"매수 후보는 **{_SECTOR_TAB.get(market, '주도섹터')}** 탭의 **🎯 차기 주도주**를 참고하세요. "
+                "'추세추종 탭 종목만'을 켜면 이 와치리스트 종목만 볼 수 있어요.")
 
     idx_key = f'chart_idx_{market}'
     nav_key = f'chart_nav_{market}'
@@ -921,12 +755,12 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
   <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟡 DAY2</div>
     <div style="font-size:0.85em;line-height:1.6">찐반등 감지 당일</div>
-    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 핵심 후보 확인</div>
+    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 주도섹터 탭 차기 주도주 확인</div>
   </div>
   <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
     <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 동안 매수 유효</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 추가 후보 확인</div>
+    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 차기 주도주 순위 변화 확인</div>
   </div>
   <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
     <div style="font-weight:700;margin-bottom:6px">🟢 정상</div>
@@ -954,11 +788,9 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
         st.divider()
 
         # ② 핵심 후보
-        st.caption('핵심 후보 선별 기준')
-        c1, c2, c3 = st.columns(3)
-        c1.markdown('**① RS/ADR**  \n조정RS%를 ADR로 나눈 정규화 값 · 높을수록 강함')
-        c2.markdown('**② 이평선위치**  \n지수 이탈 이평선 기준 종목 위/아래 · 위일수록 강함')
-        c3.markdown('**③ 고점대비%**  \n52주 고점 대비 낙폭 · **−30% 이내** 권장')
+        st.caption('매수 후보')
+        st.markdown('매수 후보는 **🧭 주도섹터 탭 → 🎯 차기 주도주**에서 봅니다. 하락국면·상승국면 RS/ADR, '
+                    '52주 고점 근접 등 5년 검증으로 정한 배점표가 그 표 아래에 있습니다.')
 
         st.divider()
 
