@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-10T10:54:10+09:00",
+ "updatedAt": "2026-11-11T08:14:37+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -70,6 +70,27 @@
    "overrideReason": "",
    "history": []
   },
+  "ACAD": {
+   "companyName": "ACADIA Pharmaceuticals Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "신약·정신질환 치료제",
+   "businessSummary": "미국 Nasdaq 상장 신약 개발사로, 파킨슨병 환자의 정신병(PD psychosis) 치료제 NUPLAZID와 레트증후군 치료제 DAYBUE를 판매한다. 2025년 매출은 약 10.7억 달러이며 두 제품 판매가 대부분이다. 파이프라인 핵심은 알츠하이머 정신병 치료 후보 remlifanserin이다.",
+   "confidence": "high",
+   "why": "2025년 GAAP 매출 약 10.7억 달러 중 NUPLAZID 약 6.8억 달러, DAYBUE 약 3.9억 달러로 전부 의약품 매출이다. 회사 공식 실적 발표와 2025 연차보고서 기준이며, 현재 ACAD 티커가 ACADIA Pharmaceuticals에 해당함을 확인했다.",
+   "evidenceUrls": [
+    "https://acadia.com/en-us/media/news-releases/acadia-pharmaceuticals-reports-fourth-quarter-and-full-year-2025-financial-results-and-operating-overview",
+    "https://s21.q4cdn.com/549553000/files/doc_financials/2025/ar/2025-Annual-Report-6.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:33+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "ACHC": {
    "companyName": "Acadia Healthcare Company, Inc.",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -110,6 +131,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:34:21+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ADEA": {
+   "companyName": "Adeia Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_CHIPS_MEMORY"
+   ],
+   "detail": "IP 라이선싱·특허 로열티",
+   "businessSummary": "미디어(케이블·OTT 영상 특허)와 반도체(하이브리드 본딩 DBI 등) 분야의 지식재산권을 라이선싱해 로열티와 고정 수수료를 받는 IP 라이선싱 회사이다. 제조나 제품 판매는 하지 않는다.",
+   "confidence": "medium",
+   "why": "주력은 미디어 IP 라이선싱(가이드·검색·추천 등 영상 특허 로열티)으로 보고 소비·기타로 분류했다. 반도체 DBI·고급 노드 IP는 성장 중인 보조 사업으로 태그했다. 다만 두 세그먼트의 매출 비중은 검색 결과 요약에서 확인하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://stocktitan.net/sec-filings/ADEA/10-k-adeia-inc-files-annual-report-9eb9711f7075.html",
+    "https://app.edgar.tools/companies/ADEA",
+    "https://stockanalysis.com/stocks/adea/company",
+    "https://www.stocknear.com/stocks/ADEA/profile"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:20+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4956,6 +5002,28 @@
    "overrideReason": "",
    "history": []
   },
+  "NWGL": {
+   "companyName": "CL Workshop Group Limited (구 Nature Wood Group Limited)",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "목재·임업 소재",
+   "businessSummary": "마카오에 본사를 둔 수직계열화 임업 회사로, FSC 인증 원목·데킹·바닥재·제재목 등 목재 제품을 생산한다. 페루 천연림 벌채권도 보유하고 있으며, 직구매·ODM 서비스·제조 부문으로 나뉜다.",
+   "confidence": "medium",
+   "why": "사업 내용(원목·데킹·바닥재·제재목, 페루 벌채권, 직구매·ODM 부문)이 여러 프로필 사이트에서 일치하지만 회사 공식 IR이나 사업보고서는 열어 확인하지 못했다. 목재 제품은 AI·반도체·방산 등 고정 테마에 해당하지 않아 소비·기타로 분류했다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/nwgl/company",
+    "https://www.tickergate.com/stocks/nwgl",
+    "https://www.allinvestview.com/dashboard/stock/NWGL/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:18+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "NXT": {
    "companyName": "Nextpower Inc. (구 Nextracker Inc., Nasdaq: NXT)",
    "primaryTheme": "POWER_AI_INFRA",
@@ -6193,6 +6261,32 @@
    "overrideReason": "",
    "history": []
   },
+  "SANM": {
+   "companyName": "Sanmina Corporation",
+   "primaryTheme": "AI_DC_HARDWARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "OPTICAL_INTERCONNECT"
+   ],
+   "detail": "EMS·AI 서버 랙 제조",
+   "businessSummary": "미국 산호세 기반 EMS(전자제품 위탁생산) 기업으로, 산업·의료·방산·자동차 OEM 제품을 설계·조립·테스트하며 ZT Systems 데이터센터 인프라 사업 인수 후 AI 서버·랙 제조를 키우고 있다.",
+   "confidence": "medium",
+   "why": "FY2025(9월 말) 매출 81.3억 달러 중 IMS 부문 65.1억 달러, 통신망·클라우드 인프라 약 31억 달러로 단일 테마 중 가장 크다. 산업·의료·방산 등 나머지 비중이 더 커서 확신도는 medium이며, 800G·1.6T 광트랜시버 생산은 보조 태그로 둔다.",
+   "evidenceUrls": [
+    "https://ir.sanmina.com/news/news-details/2025/SANMINA-REPORTS-FOURTH-QUARTER-AND-FISCAL-2025-FINANCIAL-RESULTS/default.aspx",
+    "https://app.edgar.tools/companies/SANM/disclosures/revenue",
+    "https://last10k.com/sec-filings/sanm/0000897723-25-000036.htm",
+    "https://www.nasdaq.com/articles/sanm-focusing-more-ai-infrastructure-key-growth-driver",
+    "https://www.nasdaq.com/articles/can-sanmina-keep-winning-ai-infrastructure-buildout"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:16+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "SATL": {
    "companyName": "Satellogic Inc.",
    "primaryTheme": "SPACE_LAUNCH_SATELLITES",
@@ -6968,6 +7062,28 @@
    "overrideReason": "",
    "history": []
   },
+  "TGTX": {
+   "companyName": "TG Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "B세포 표적 항체 신약",
+   "businessSummary": "다발성경화증(MS) 치료제 BRIUMVI(ublituximab-xiiy)를 상업화하는 바이오의약품 회사다. 2025년 BRIUMVI 미국 매출이 약 5.9억 달러로 전체 사업의 대부분을 차지한다.",
+   "confidence": "high",
+   "why": "매출 대부분이 MS 치료제 BRIUMVI 판매에서 나온다(2025년 미국 순매출 약 5.9억 달러, 4분기 1.83억 달러). 제약·바이오 기업이므로 신약 분류가 맞고, 기술성장 테마와 연결되는 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/tgtx/company",
+    "https://www.1stoncology.com/blog/?p=109002",
+    "https://last10k.com/sec-filings/tgtx/0001437749-26-005733.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:31+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "TH": {
    "companyName": "Target Hospitality Corp",
    "primaryTheme": "CONSUMER_OTHER",
@@ -7167,6 +7283,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:47:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "TTD": {
+   "companyName": "The Trade Desk, Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "AI 광고기술 DSP",
+   "businessSummary": "광고주와 대행사가 디지털 광고 노출 위치와 입찰을 결정하도록 돕는 클라우드 기반 자체 서비스형 수요측 플랫폼(DSP)을 운영한다. 웹·앱·CTV 등 프로그래매틱 광고 구매가 핵심이며, AI 기반 미디어 바잉 플랫폼 Kokai를 주력으로 한다.",
+   "confidence": "medium",
+   "why": "사업 실체는 DSP 광고기술 플랫폼으로 확인된다. 2025년 총 광고 집행액 약 134억 달러 규모의 플랫폼 중개 사업이므로 AI 광고기술·데이터 플랫폼 테마에 넣었다. 다만 10-K Item 1 본문은 열어 보지 못하고 2차 자료로 확인했고, 매출 약 29억 달러는 집계 사이트 수치라 미검증이다. 2026년 2월 실적 자료와 10-K 본문으로 한 번 더 확인하면 confidence를 high로 올릴 수 있다.",
+   "evidenceUrls": [
+    "https://www.boardroomalpha.com/sec/ttd-10-k-2026-02-27-0001671933-26-000014",
+    "https://assets.thetradedesk.com/assets/documents/TTD-Fact-Sheet.pdf",
+    "https://www.businesswire.com/news/home/20230606005921/en/The-Trade-Desk-Launches-Kokai-a-New-Media-Buying-Platform-that-Brings-the-Full-Power-of-AI-to-Digital-Marketing",
+    "https://ppc.land/trade-desk-posts-2-9b-in-2025-revenue-but-growth-slows-to-18/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:37+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -7725,6 +7864,28 @@
      "overrideReason": ""
     }
    ]
+  },
+  "WGS": {
+   "companyName": "GeneDx Holdings Corp.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "임상 유전체 진단",
+   "businessSummary": "희귀·소아 유전질환 진단을 위해 엑솜·게놈 시퀀싱, 신속 시퀀싱, 유전 상담을 미국 병원·의료기관과 보험자(Medicaid 포함)에 제공하는 임상 유전체 진단 기업이다.",
+   "confidence": "high",
+   "why": "매출의 대부분이 임상 유전체 검사(엑솜·게놈 시퀀싱)에서 나오는 진단·헬스케어 서비스 기업이다. 기술 플랫폼이 있어도 고객과 수익 구조가 의료 진단이므로 바이오·헬스케어로 분류했다.",
+   "evidenceUrls": [
+    "https://ir.genedx.com/news-releases/news-release-details/genedx-reports-fourth-quarter-and-full-year-2024-financial",
+    "https://www.businesswire.com/news/home/20250218001560/en",
+    "https://app.edgar.tools/companies/WGS"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-11T08:14:15+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
   },
   "WING": {
    "companyName": "Wingstop Inc.",
