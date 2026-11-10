@@ -94,6 +94,8 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 ### 캐싱
 
+- ⚠️ `strategy/next_leaders.py`(점수 공식·필드)를 바꾸면 `ui/sector_leadership.SCORE_VERSION`을 반드시 올릴 것 — st.cache_data는 다른 모듈 코드 변경을 감지하지 못해 배포 후 옛 캐시를 읽다 KeyError가 난다(2026-11-10 gap200 사고)
+- 추세추종 탭의 '주도주 점수·순위'는 `sector_leadership.lead_scores`(주도섹터 탭과 같은 `_compute`)를 읽는다 — 점수 계산을 두 곳에 만들지 말 것
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
 - 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
