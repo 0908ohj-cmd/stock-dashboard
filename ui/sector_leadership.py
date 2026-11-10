@@ -782,7 +782,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     # 기본은 꺼짐(제외) — 켜면 그 테마 종목도 표에 넣는다. 실제로 종목이 있는 테마만 토글을 보여준다.
     present = {r['primaryTheme'] for r in picks}
     # (테마, 기본 켜짐) — 국장은 바이오·제약·금융도 켜고 끌 수 있게 (메인 테마라 기본은 포함)
-    extra = [(c, True) for c in _THEME_TOGGLES.get(m.key, ()) if c in present]
+    extra = [(c, False) for c in _THEME_TOGGLES.get(m.key, ()) if c in present]   # 기본 꺼짐 (사용자 요청)
     side = extra + [(t['code'], False) for t in cls.load_taxonomy(m.key)['themes']
                     if not t['main'] and t['code'] != 'UNCLASSIFIED' and t['code'] in present]
     hidden = {code for code, default in side
