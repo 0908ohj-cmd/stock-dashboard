@@ -7,6 +7,7 @@
 import argparse
 import pathlib
 import sys
+import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
@@ -24,6 +25,10 @@ MARKET_GROUPS = {
     'all': ['KR_KOSPI', 'KR_KOSDAQ', 'US'],
 }
 MIN_SUCCESS_RATE = 0.7
+# 종목 마지막 거래일이 같은 배치에서 받은 시장 지수보다 늦으면(소스 지연) 기다렸다 다시 받는다.
+# 2026-11-10 US: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 → 하루 낡은 채 저장됐다.
+MARKET_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
+LAG_RETRY_WAITS_SEC = (300, 900)
 
 
 def load_tickers(market: str) -> list:
@@ -41,13 +46,30 @@ def load_tickers(market: str) -> list:
     return result
 
 
-def run_market(market: str) -> bool:
-    """수집 → 성공률 게이트 통과 시에만 전체 교체 저장. 통과 여부 반환."""
+def _index_last(market: str) -> str | None:
+    rec = store.load_snapshot('indices').get('data', {}).get(MARKET_INDEX.get(market, ''))
+    return rec['dates'][-1] if rec and rec.get('dates') else None
+
+
+def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep) -> bool:
+    """수집 → 성공률 게이트 통과 시에만 전체 교체 저장. 통과 여부 반환.
+    종목이 시장 지수보다 늦으면 waits 간격으로 다시 받는다(그래도 늦으면 경고 후 저장)."""
     tickers = load_tickers(market)
     if not tickers:
         print(f'[{market}] 티커 파일 없음 — 건너뜀')
         return True
     snap = store.build_market_snapshot(market, tickers)
+    want = _index_last(market)
+    for wait in waits:
+        have = snap.get('last_trading_date')
+        if not want or not have or have >= want:
+            break
+        print(f'[{market}] 종목 마지막 거래일 {have} < {MARKET_INDEX[market]} {want} — {wait}초 뒤 재수집')
+        sleep(wait)
+        snap = store.build_market_snapshot(market, tickers)
+    if want and snap.get('last_trading_date') and snap['last_trading_date'] < want:
+        print(f"[{market}] ⚠️ 재시도 후에도 종목 {snap['last_trading_date']} < 지수 {want} — "
+              '폴백 배치가 다시 받는다 (check_snapshot_fresh)')
     # 분모는 실제 시도 수(성공+실패) — 티커 파일 중복 라인에 왜곡되지 않는다
     attempted = snap['ticker_count'] + len(snap['failed'])
     rate = snap['ticker_count'] / attempted if attempted else 1.0
@@ -65,9 +87,10 @@ def main() -> int:
     ap.add_argument('--markets', choices=['kr', 'us', 'all'], default='all')
     args = ap.parse_args()
 
-    results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
+    # 지수를 먼저 받는다 — 종목이 지수보다 늦은지(소스 지연) 판정하는 기준이다
     store.refetch_indices(args.markets)
     print(f'[indices] {args.markets} 지수 갱신')
+    results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
     return 0 if all(results) else 1
 
 

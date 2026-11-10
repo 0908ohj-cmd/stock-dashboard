@@ -612,3 +612,22 @@ def test_freshness_missing_file_not_stale(tmp_store):
     fr = store.get_freshness('US')
     assert fr['is_stale'] is False
     assert fr['fetched_at'] is None
+
+
+def test_freshness_종목이_지수보다_늦으면_stale(tmp_store):
+    """2026-11-10 US: 배치는 회차 뒤에 돌았지만 종목 11/06, NASDAQ 11/09 → 재수집 안내."""
+    import json as _j
+    from datetime import datetime as _dt
+    now = _dt(2026, 11, 10, 12, 0, tzinfo=store.KST)
+    (tmp_store / 'US.json').write_text(_j.dumps({'market': 'US', 'fetched_at': '2026-11-10T10:53:15+09:00',
+                                                 'last_trading_date': '2026-11-06', 'data': {}}), encoding='utf-8')
+    (tmp_store / 'indices.json').write_text(_j.dumps({'market': 'indices', 'fetched_at': '2026-11-10T10:53:15+09:00',
+                                                      'data': {'NASDAQ': {'dates': ['2026-11-06', '2026-11-09']}}}),
+                                            encoding='utf-8')
+    fr = store.get_freshness('US', now)
+    assert fr['is_stale'] is True and fr['behind_index'] == '2026-11-09'
+    store._snap_cache.clear()
+    (tmp_store / 'US.json').write_text(_j.dumps({'market': 'US', 'fetched_at': '2026-11-10T10:53:15+09:00',
+                                                 'last_trading_date': '2026-11-09', 'data': {}}), encoding='utf-8')
+    fr = store.get_freshness('US', now)
+    assert fr['is_stale'] is False and 'behind_index' not in fr

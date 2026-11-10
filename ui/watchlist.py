@@ -434,7 +434,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             f"📅 {fr['last_trading_date']} 장마감 기준 · "
             f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
         )
-    if fr['is_stale']:
+    if fr.get('behind_index'):
+        st.warning(f"⚠️ 종목 데이터가 {fr['last_trading_date']}까지만 있습니다 (지수는 {fr['behind_index']}까지) — "
+                   '사이드바 [데이터 재수집]을 눌러 주세요. 그 전 후보는 하루 늦은 데이터로 계산된 것입니다.')
+    elif fr['is_stale']:
         st.warning('⚠️ 배치 수집이 실패한 것 같습니다 — 사이드바 [데이터 재수집]을 눌러 주세요.')
 
     snap_ts = _snapshot_ts(market)

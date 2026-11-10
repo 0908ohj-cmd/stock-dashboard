@@ -230,6 +230,7 @@ _GRACE_HOURS = 6   # 배치 지연·재배포 여유
 # 안에 잡으므로, 이 값이 커져 늦어지는 건 "배치는 돌았는데 소스가 동결된"
 # 드문 경우의 탐지뿐이다.
 _MAX_TRADING_GAP_DAYS = 8
+_SNAPSHOT_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}   # 같은 배치가 받는 시장 지수
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -282,7 +283,17 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
             stale_by_data = (now.date() - last_td).days > _MAX_TRADING_GAP_DAYS
         except ValueError:
             pass
-    result['is_stale'] = stale_by_batch or stale_by_data
+    # 배치가 돌았어도 종목이 같은 시장 지수보다 하루 늦으면 낡은 것이다 (2026-11-10 US: 지수 11/09·종목 11/06).
+    # 휴장일엔 지수에도 그날이 없어 오경보가 나지 않는다.
+    stale_by_index = False
+    idx_name = _SNAPSHOT_INDEX.get(market)
+    if idx_name and last_td_s:
+        rec = load_snapshot('indices').get('data', {}).get(idx_name) or {}
+        idx_last = (rec.get('dates') or [None])[-1]
+        if idx_last and last_td_s < idx_last:
+            stale_by_index = True
+            result['behind_index'] = idx_last
+    result['is_stale'] = stale_by_batch or stale_by_data or stale_by_index
     return result
 
 

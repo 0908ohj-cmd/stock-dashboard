@@ -47,6 +47,11 @@ MARKET_FILES = {
 }
 # 맥과 러너 시계가 몇 분 어긋나는 정도는 허용한다. 그 이상 미래면 시계 오류로 본다.
 FUTURE_TOLERANCE = timedelta(minutes=10)
+# 종목 스냅샷 ↔ 같은 배치가 받는 시장 지수 (indices.json). 종목 마지막 거래일이 지수보다
+# 앞서지 못하면 '돌긴 돌았는데 소스가 하루 늦은' 수집이다 — 2026-11-10 US 배치가 NASDAQ은
+# 11/09까지, 종목 일괄 다운로드는 11/06까지만 받아 대시보드가 하루 낡은 채로 있었다.
+# 휴장일엔 지수에도 그날이 없어 오경보가 나지 않는다.
+SNAPSHOT_INDEX = {'KR_KOSPI.json': 'KOSPI', 'KR_KOSDAQ.json': 'KOSDAQ', 'US.json': 'NASDAQ'}
 
 
 def last_local_slot(market: str, now: datetime) -> datetime:
@@ -88,21 +93,49 @@ def _fetched_at(text: str | None) -> datetime | None:
         return None
 
 
+def _last_trading_date(text: str | None) -> str | None:
+    try:
+        return json.loads(text)['last_trading_date'] if text else None
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def _index_last_dates(text: str | None) -> dict:
+    """indices.json → {지수명: 마지막 날짜}. 못 읽으면 빈 dict(비교 생략)."""
+    try:
+        data = json.loads(text)['data'] if text else {}
+        return {k: v['dates'][-1] for k, v in data.items() if v.get('dates')}
+    except (ValueError, KeyError, TypeError, IndexError):
+        return {}
+
+
+def behind_index(name: str, snap_text: str | None, idx_last: dict) -> str | None:
+    """종목 스냅샷 마지막 거래일이 같은 시장 지수보다 늦으면 지수 날짜를, 아니면 None."""
+    want = idx_last.get(SNAPSHOT_INDEX.get(name, ''))
+    have = _last_trading_date(snap_text)
+    return want if want and have and have < want else None
+
+
 def is_fresh(markets: str, now: datetime | None = None,
              ohlcv_dir: pathlib.Path | None = None, ref: str | None = None) -> bool:
-    """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐으면 True.
+    """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐고, 종목 마지막 거래일이
+    같은 시장 지수에 뒤지지 않으면 True.
 
-    하나라도 읽을 수 없거나 회차 전 것이거나 시계 오류로 미래면 False —
-    폴백이 도는 쪽으로 기운다. 판정 불능을 '신선'으로 보면 로컬이 죽었을 때
-    아무도 수집하지 않는다.
+    하나라도 읽을 수 없거나 회차 전 것이거나 시계 오류로 미래거나 지수보다 하루 이상
+    늦으면 False — 폴백이 도는 쪽으로 기운다. 판정 불능을 '신선'으로 보면 로컬이 죽었을 때
+    아무도 수집하지 않는다. (indices.json을 못 읽으면 지수 비교만 건너뛴다.)
     """
     now = now or datetime.now(KST)
     directory = ohlcv_dir or OHLCV_DIR
+    idx_last = _index_last_dates(_read('indices.json', directory, ref))
     for market in (['kr', 'us'] if markets == 'all' else [markets]):
         slot = last_local_slot(market, now)
         for name in MARKET_FILES[market]:
-            fetched = _fetched_at(_read(name, directory, ref))
+            text = _read(name, directory, ref)
+            fetched = _fetched_at(text)
             if fetched is None or fetched < slot or fetched > now + FUTURE_TOLERANCE:
+                return False
+            if behind_index(name, text, idx_last):
                 return False
     return True
 

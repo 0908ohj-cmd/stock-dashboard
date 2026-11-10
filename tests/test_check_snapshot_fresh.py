@@ -23,6 +23,34 @@ def _kr(dirpath, fetched_at):
     _write(dirpath, 'KR_KOSDAQ.json', fetched_at)
 
 
+def _snap_dated(dirpath, name, fetched_at, last_td):
+    (dirpath / name).write_text(json.dumps({'market': name, 'fetched_at': fetched_at,
+                                            'last_trading_date': last_td, 'data': {}}), encoding='utf-8')
+
+
+def _indices(dirpath, **last):
+    (dirpath / 'indices.json').write_text(json.dumps({'market': 'indices', 'data': {
+        k: {'dates': ['2026-11-05', v]} for k, v in last.items()}}), encoding='utf-8')
+
+
+def test_us_stale_when_stocks_lag_index_same_batch(tmp_path):
+    """2026-11-10 사례: 배치는 회차 뒤에 돌았지만 종목은 11/06, NASDAQ은 11/09 → 폴백이 다시 받아야 한다."""
+    now = datetime(2026, 11, 10, 12, 0, tzinfo=KST)
+    _snap_dated(tmp_path, 'US.json', '2026-11-10T10:53:15+09:00', '2026-11-06')
+    _indices(tmp_path, NASDAQ='2026-11-09')
+    assert cs.is_fresh('us', now=now, ohlcv_dir=tmp_path) is False
+    _snap_dated(tmp_path, 'US.json', '2026-11-10T10:53:15+09:00', '2026-11-09')
+    assert cs.is_fresh('us', now=now, ohlcv_dir=tmp_path) is True
+
+
+def test_holiday_is_not_flagged_when_index_also_lacks_the_day(tmp_path):
+    now = datetime(2026, 11, 10, 18, 0, tzinfo=KST)
+    for n in ('KR_KOSPI.json', 'KR_KOSDAQ.json'):
+        _snap_dated(tmp_path, n, '2026-11-10T17:34:00+09:00', '2026-11-09')
+    _indices(tmp_path, KOSPI='2026-11-09', KOSDAQ='2026-11-09')      # 지수도 11/09 → 11/10은 휴장
+    assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is True
+
+
 # ── 로컬 회차 계산 ───────────────────────────────────────────
 
 def test_last_local_slot_kr():

@@ -37,3 +37,27 @@ def test_run_market_rate_ignores_duplicate_lines(monkeypatch):
     monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: saved.append(m))
     assert fs.run_market('US') is True
     assert saved == ['US']
+
+
+def test_run_market_retries_when_stocks_lag_index(monkeypatch):
+    """종목 마지막 거래일이 시장 지수보다 늦으면 기다렸다 다시 받는다 (2026-11-10 US 사례)."""
+    monkeypatch.setattr(fs, 'load_tickers', lambda m: ['A'])
+    monkeypatch.setattr(fs, '_index_last', lambda m: '2026-11-09')
+    snaps = iter([{'ticker_count': 1, 'failed': [], 'data': {}, 'last_trading_date': d}
+                  for d in ('2026-11-06', '2026-11-06', '2026-11-09')])
+    monkeypatch.setattr(fs.store, 'build_market_snapshot', lambda *a, **k: next(snaps))
+    saved, slept = [], []
+    monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: saved.append(s['last_trading_date']))
+    assert fs.run_market('US', waits=(1, 2), sleep=slept.append) is True
+    assert slept == [1, 2] and saved == ['2026-11-09']
+
+
+def test_run_market_no_retry_when_up_to_date(monkeypatch):
+    monkeypatch.setattr(fs, 'load_tickers', lambda m: ['A'])
+    monkeypatch.setattr(fs, '_index_last', lambda m: '2026-11-09')
+    monkeypatch.setattr(fs.store, 'build_market_snapshot',
+                        lambda *a, **k: {'ticker_count': 1, 'failed': [], 'data': {}, 'last_trading_date': '2026-11-09'})
+    monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: None)
+    slept = []
+    assert fs.run_market('US', waits=(1, 2), sleep=slept.append) is True
+    assert slept == []

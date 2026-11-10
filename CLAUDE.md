@@ -85,6 +85,13 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 담긴 섹션·종목 수는 버튼 툴팁(`summarize_sections`)으로 보여준다 — 제목 옆 좁은 자리라 목록을 펼치면 화면을 밀어낸다
 - 후보 필터는 `@st.fragment` 안이라 필터만 바꾸면 버튼이 한 박자 늦는다 — 옆의 `🔄` 버튼이 전체 재실행을 걸어 맞춘다
 
+### 배치 데이터 신선도
+
+- "배치가 돌았나"(회차 시각) + "종목 마지막 거래일이 같은 배치가 받은 시장 지수(KOSPI·KOSDAQ·NASDAQ)에 뒤지지 않나"를 함께 본다. 휴장일엔 지수도 그날이 없어 오경보가 없다
+- `scripts/fetch_snapshot.py`는 지수를 먼저 받고, 종목이 지수보다 늦으면 5분·15분 뒤 재수집. 그래도 늦으면 `scripts/check_snapshot_fresh.py`가 fresh=false → GitHub 폴백이 다시 받는다. 앱은 `store.get_freshness`의 `behind_index`로 재수집 안내
+- 2026-11-10 US 배치: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 받아 하루 낡은 채로 남았던 사례가 계기
+- Cloud 앱의 배치 반영(`data/repo_sync.py`)은 `origin`이 아니라 공개 HTTPS 주소에서 fetch (Cloud의 origin은 인증 오류)
+
 ### 캐싱
 
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
