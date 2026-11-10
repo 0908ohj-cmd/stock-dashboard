@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-09T22:56:07+09:00",
+ "updatedAt": "2026-11-10T17:34:56+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -282,6 +282,27 @@
    "overrideReason": "",
    "history": []
   },
+  "003010": {
+   "companyName": "혜인",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "건설기계·엔진 유통",
+   "businessSummary": "캐터필러(Caterpillar)·융하인리히(Jungheinrich) 건설기계·산업차량 유통이 주력이며, 매출의 약 55%를 차지한다고 보고된다. 대형 디젤엔진·발전기(약 25%)와 정비·부품이 뒤를 잇는다.",
+   "confidence": "medium",
+   "why": "건설기계·산업차량 유통이 매출 비중 최대(약 55%)라는 점으로 기계·운송 테마를 골랐다. 다만 비중 수치는 alphadistill 리서치 보고서 한 곳에서만 나왔고, Morningstar는 Caterpillar 엔진·발전기 공급사로 소개한다. DART 사업보고서 원문은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://alphadistill.com/report/3077",
+    "https://www.morningstar.com.au/investments/security/xkrx/003010/summary"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-10T17:34:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "003160": {
    "companyName": "디아이",
    "primaryTheme": "SEMI_EQUIPMENT",
@@ -512,6 +533,32 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:03:32+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "005290": {
+   "companyName": "동진쎄미켐",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DISPLAY",
+    "SECONDARY_BATTERY",
+    "CONSTRUCTION_MATERIALS"
+   ],
+   "detail": "반도체 포토레지스트 소재",
+   "businessSummary": "반도체·디스플레이 전자재료(포토레지스트, 씬너, BARC, CMP 슬러리, 반도체급 황산 등)를 주력으로 만들며, 발포제와 이차전지·대체에너지 소재를 함께 생산한다. 발포제 사업은 2026년 1월 1일부로 신설 자회사(동진이노켐, 가칭)에 물적분할됐다.",
+   "confidence": "medium",
+   "why": "전자재료 부문이 전체 매출의 절대다수를 차지한다는 기사가 있으나 출처마다 수치가 다르다(한국경제 약 59% 이상, 다른 자료 약 90% 이상). 포토레지스트·씬너·CMP 슬러리 등은 웨이퍼 공정에서 소모되는 소재이므로 소재·소모품 테마로 분류했다. 2025년 사업보고서(DART)의 부문별 매출 표는 확인하지 못해 confidence를 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.hankyung.com/article/202509091696a",
+    "https://core.asiae.co.kr/article/2025112708465584484",
+    "https://quartr.com/events/dongjin-semichem-co-ltd-005290-q2-2026_F1ytsp2b"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-10T17:34:55+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5567,6 +5614,27 @@
    "overrideReason": "",
    "history": []
   },
+  "267850": {
+   "companyName": "아시아나아이디티",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "항공 IT 서비스",
+   "businessSummary": "아시아나항공 계열의 IT 서비스 회사로, 항공 여객·운항·화물 전산시스템의 구축(SI)과 운영·유지보수를 주로 한다. 인천국제공항공사 통합정보시스템 고도화 등 공항 IT 사업도 수행한다.",
+   "confidence": "medium",
+   "why": "매출 대부분이 모회사 항공사를 상대로 한 운영유지보수·SI(IT 서비스)로 확인되며, 항공기·부품 제조나 운송 사업이 아니므로 IT 서비스 테마로 분류했다. 다만 DART 사업보고서 원문과 매출 비중 수치는 직접 열어 확인하지 못해 신뢰도는 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/quote/krx/267850/company",
+    "https://biz.newdaily.co.kr/site/data/html/2024/05/28/2024052800138.amp.html"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-10T17:34:46+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "272210": {
    "companyName": "한화시스템 주식회사",
    "primaryTheme": "DEFENSE",
@@ -7336,6 +7404,33 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:07:46+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "486510": {
+   "companyName": "글로벌테크놀로지(Global Technologies Co., Ltd.)",
+   "primaryTheme": "SEMI_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DISPLAY",
+    "AUTO_MOBILITY"
+   ],
+   "detail": "LED 드라이버 IC",
+   "businessSummary": "팹리스 시스템반도체 회사로, LED 구동 IC(LDI)와 RGB 드라이버 IC 등 디스플레이 드라이버 칩을 설계·판매한다. 디지털 사이니지, 차량용 디스플레이 모듈도 사업 영역에 포함된다.",
+   "confidence": "medium",
+   "why": "공식 사이트가 '팹리스 시스템반도체·LED Driver IC'로 소개하고 사업 영역의 중심이 디스플레이 드라이버 칩이다. 2026년 1분기 LED 구동 IC 매출이 전체의 53.0%(64억9400만원)로 보도됐다. 다만 사업보고서(DART) 원문으로 확인하지 못했고 매출 비중은 언론 보도 수치라 신뢰도는 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.glbltech.com/",
+    "https://www.glbltech.com/eng/main.php",
+    "https://zdnet.co.kr/view/?no=20260921151731",
+    "https://www.finance-scope.com/article/view/scp202607210010",
+    "https://www.smarttoday.co.kr/ko-kr/articles/110154"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-10T17:34:56+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
