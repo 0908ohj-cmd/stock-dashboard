@@ -234,13 +234,14 @@ _tv_export_slot = _tv_export_col.empty()
 # 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 직전 실행 기준 목록으로 먼저
 # 자리를 채워 둔다. 스크립트 맨 아래에서 최신 목록으로 덮어쓴다.
 tv_export.render_export_button(_tv_export_slot, key='early', pending=True)
-(tab_kospi, tab_kosdaq, tab_us,
- tab_sector_kospi, tab_sector_kosdaq, tab_sector_us,
+(tab_sector_kospi, tab_sector_kosdaq, tab_sector_us,
+ tab_kospi, tab_kosdaq, tab_us,
  tab_10ema_kospi, tab_10ema_kosdaq, tab_10ema_us) = st.tabs([
-    '🇰🇷 코스피', '🇰🇷 코스닥', '🇺🇸 나스닥',
     '🧭 코스피 주도섹터', '🧭 코스닥 주도섹터', '🧭 나스닥 주도섹터',
-    '📈 10EMA 코스피 (PP)', '📈 10EMA 코스닥 (PP)', '📈 10EMA 나스닥 (PP)'
+    '🇰🇷 코스피(추세추종)', '🇰🇷 코스닥(추세추종)', '🇺🇸 나스닥(추세추종)',
+    '📈 코스피 10EMA(PP)', '📈 코스닥 10EMA(PP)', '📈 나스닥 10EMA(PP)'
 ])
+# 렌더 순서는 탭 위치와 무관 — 추세추종 탭이 lead_scores로 주도섹터 계산(같은 캐시)을 읽는다
 with tab_kospi:
     render_watchlist_tab(kr_kospi, 'KR_KOSPI', 'KOSPI')
 with tab_kosdaq:
