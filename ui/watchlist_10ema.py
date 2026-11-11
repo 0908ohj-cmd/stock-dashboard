@@ -10,7 +10,7 @@ from data.sector import get_sectors, get_display_sectors
 from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
-from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope
+from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter
 from ui import tv_export
 
 # 정렬: 케이스1 → 케이스2 → 이탈류 → 없음
@@ -60,29 +60,11 @@ def _ma_score(df: pd.DataFrame, close: float) -> int:
 def _process_one(ticker: str, market: str) -> dict | None:
     try:
         df = load_daily(ticker, market=market)
-        if df.empty or len(df) < 70:
+        # ADR 6%↑ · 10EMA>21EMA>50SMA 정배열 · 종가 150·200SMA 위 — 순환매 'PP 셋업만' 토글과 같은 함수
+        pre = pp_prefilter(df)
+        if pre is None:
             return None
-
-        # ADR 6% 미만 제외 (변동성 부족 종목)
-        adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
-        if adr < 6.0:
-            return None
-
-        # 현재 시점 이평선 필터
-        last_close = float(df['Close'].iloc[-1])
-        ema10_v = float(calc_ema(df, 10).iloc[-1])
-        ema21_v = float(calc_ema(df, 21).iloc[-1])
-        sma50_v = df['Close'].rolling(50).mean().iloc[-1]
-        sma150  = df['Close'].rolling(150).mean().iloc[-1]
-        sma200  = df['Close'].rolling(200).mean().iloc[-1]
-
-        # 10EMA > 21EMA > 50SMA 정배열 미충족 제외
-        if pd.isna(sma50_v) or not (ema10_v > ema21_v > float(sma50_v)):
-            return None
-        # 종가 > 150SMA · 200SMA 미충족 제외
-        if (not pd.isna(sma150) and last_close < float(sma150)) or \
-           (not pd.isna(sma200) and last_close < float(sma200)):
-            return None
+        adr, last_close, ema10_v = pre['adr'], pre['close'], pre['ema10']
 
         pivot  = find_pivot_candle(df)
         state  = classify_case(df, pivot)
@@ -139,7 +121,7 @@ def _process_one(ticker: str, market: str) -> dict | None:
         return None
 
 
-_ROW_SCHEMA_VER = 22  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 23  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:

@@ -264,3 +264,36 @@ def classify_case(
         if (above_high & above_high.shift(1)).any():
             return '돌파완료'
     return '셋업(케이스2)'
+
+
+PP_MIN_ADR = 6.0
+PP_MIN_ROWS = 70
+
+
+def pp_prefilter(df: pd.DataFrame) -> dict | None:
+    """10EMA PP 탭의 사전 필터 — ADR 6%↑, 10EMA>21EMA>50SMA 정배열, 종가 150·200SMA 위.
+    통과하면 {'adr','close','ema10'}, 아니면 None. 10EMA 탭과 순환매 'PP 셋업만' 토글이 같이 쓴다."""
+    if df.empty or len(df) < PP_MIN_ROWS:
+        return None
+    adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)
+    if adr < PP_MIN_ADR:
+        return None
+    close = float(df['Close'].iloc[-1])
+    ema10_v = float(calc_ema(df, 10).iloc[-1])
+    ema21_v = float(calc_ema(df, 21).iloc[-1])
+    sma50 = df['Close'].rolling(50).mean().iloc[-1]
+    sma150 = df['Close'].rolling(150).mean().iloc[-1]
+    sma200 = df['Close'].rolling(200).mean().iloc[-1]
+    if pd.isna(sma50) or not (ema10_v > ema21_v > float(sma50)):
+        return None
+    if (not pd.isna(sma150) and close < float(sma150)) or (not pd.isna(sma200) and close < float(sma200)):
+        return None
+    return {'adr': adr, 'close': close, 'ema10': ema10_v}
+
+
+def pp_setup_state(df: pd.DataFrame) -> str | None:
+    """10EMA 탭 기준 셋업이면 '셋업(케이스1)'/'셋업(케이스2)', 아니면 None."""
+    if pp_prefilter(df) is None:
+        return None
+    state = classify_case(df, find_pivot_candle(df))
+    return state if state in ('셋업(케이스1)', '셋업(케이스2)') else None

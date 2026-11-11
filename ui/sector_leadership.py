@@ -18,6 +18,7 @@ from data import classification as cls
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
+from strategy.pivot_candle import pp_setup_state
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -102,6 +103,23 @@ def _data_key(m: Market) -> tuple:
     # 점수 공식이 바뀌면 SCORE_VERSION을 올린다 — st.cache_data는 다른 모듈(next_leaders) 코드 변경을
     # 감지하지 못해, 옛 캐시(새 필드 없는 결과)를 새 화면 코드가 읽다 KeyError가 났다(2026-11-10 gap200).
     return (SCORE_VERSION,) + tuple(_mtime(p) for p in paths)
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _pp_setups(market_key: str, asof: str, tickers: tuple, data_key: tuple) -> set:
+    """기준일 시점 10EMA PP 셋업(케이스1·2) 종목 — 10EMA 탭과 같은 판정(pivot_candle.pp_setup_state)."""
+    data = store.load_snapshot(market_key).get('data', {})
+    out = set()
+    for t in tickers:
+        if t not in data:
+            continue
+        df = store._records_to_df(data[t])
+        try:
+            if pp_setup_state(df[df.index <= pd.Timestamp(asof)]):
+                out.add(t)
+        except Exception:
+            continue
+    return out
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -451,9 +469,14 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
                           disabled=not new, width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
+    only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
+                         help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
+    pp = (_pp_setups(m.key, res['asof'], tuple(sorted(r['ticker'] for r in pool)), _data_key(m))
+          if only_pp else set())
     rows = sorted((r for r in pool
                    if (not only_new or r['primaryTheme'] in new)
-                   and (not only_trend or r['ticker'] in in_trend)),
+                   and (not only_trend or r['ticker'] in in_trend)
+                   and (not only_pp or r['ticker'] in pp)),
                   key=lambda r: -r['rotScore'])[:20]
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
