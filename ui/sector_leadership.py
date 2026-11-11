@@ -423,7 +423,6 @@ def _rot_change(s: dict) -> str:
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     """🔥 돈 몰린 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
-    st.markdown('##### 🔥 돈 몰린 섹터 (최근 6주)')
     st.markdown(f'<div class="sl-note">섹터 종목의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
                 f'<b>거래량 {nl.HOT_RVOL}배↑ 양봉</b>을 내면 🔥. 지나간 🔥도 약 6주({nl.HOT_LOOKBACK}거래일) 남겨 둡니다 — '
                 '돈이 몰린 뒤 쉬었다가 PP 셋업이 나오기까지 몇 주 걸리기 때문입니다. '
@@ -446,11 +445,12 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>렐볼 양봉 비율 (지금)</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+    st.info('**쓰는 법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
+            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 순환매 종목 \'PP 셋업만\' 토글)', icon='💡')
 
 
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
-    _hot_block(res, labels, names, records)
-    st.markdown('##### 순환매 점수 순위')
+    """순환매 점수 섹터 순위 — 2026-11-11부터 '자세히 보기'로 이동 (급부상 감지는 🔥가 더 빠르고 정확)."""
     ranked, thin = res.get('rotSectors') or [], res.get('rotThin') or []
     in_trend = _trend_tickers(m)
     st.markdown('<div class="sl-note">찐반등이 아니라 <b>최근 1~2주</b> 기준으로, 지금 돈이 <b>새로</b> 들어오는 섹터를 찾습니다. '
@@ -515,11 +515,12 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     new = {s['theme'] for s in res.get('rotSectors') or [] if s['isNew']}
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
-    only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
+    # 기본 꺼짐 — 2026-11-11 검증에서 🆕는 급부상을 늦게·적게 잡아 🔥가 기본 필터를 맡는다
+    only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=False, key=f'{m.key}_rot_only_new',
                           disabled=not new, width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
     hot = res.get('hot') or {}
-    only_hot = bar.toggle('🔥 섹터 종목만', key=f'{m.key}_rot_only_hot', width='content', disabled=not hot,
+    only_hot = bar.toggle('🔥 섹터 종목만', value=bool(hot), key=f'{m.key}_rot_only_hot', width='content', disabled=not hot,
                           help='지금 🔥이거나 최근 6주 안에 🔥였던 섹터 소속 종목만')
     only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
                          help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
@@ -1311,12 +1312,12 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _lead_stocks(m, res, labels, names)
     # 순환매는 10EMA PP와 함께 국면과 상관없이 보므로 늘 펼친다
     records = cls.load_store(m.key)
-    with st.expander('**🔄 순환매 섹터 — 지금 돈이 새로 들어오는 섹터 (최근 1~2주)**', expanded=True):
-        _rotation_sectors(m, res, labels, names, records)
+    with st.expander('**🔥 순환매 섹터 — 갑자기 돈 몰린 섹터 (최근 6주)**', expanded=True):
+        _hot_block(res, labels, names, records)
     with st.expander('**🔄 순환매 종목**', expanded=True):
         _rotation_stocks(m, res, labels, names, records)
 
-    views = ['A/B 판정', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
+    views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
     with st.expander('자세히 보기 — ' + ' · '.join(views)):
         view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view',
                                     label_visibility='collapsed') or views[0]
@@ -1325,6 +1326,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             st.caption('1주·1개월 RS와 10EMA 유지로 주도섹터를 "확정"하는 기준 (A 확인된 주도 / B 차기 후보).')
             _next_sectors(res, labels, names, cls.load_store(m.key))
             _next_stocks(m, res, labels, names)
+        elif view == '순환매 점수 순위':
+            st.caption('최근 1~2주 순환매 점수로 매긴 섹터 순위 (예전 메인 화면). 갑자기 핫해지는 섹터는 위 🔥 표가 더 빨리 잡습니다.')
+            _rotation_sectors(m, res, labels, names, cls.load_store(m.key))
         elif view == '섹터 지도':
             _heatmap(m, main, labels)
         elif view == '섹터별 종목':
