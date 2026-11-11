@@ -441,10 +441,14 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 '<th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
-               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.  \n'
-               '**상태** — **지금 🔥**: 오늘도 돈이 몰리는 중 · '
-               '**꺼짐 · N거래일 전 시작**: N거래일 전에 🔥가 켜졌다가 지금은 꺼짐 (돈이 몰린 뒤 쉬는 중 — PP 기준봉을 기다릴 구간) · '
-               '**꺼짐 · 6주보다 전에 시작**: 6주 창이 시작될 때 이미 🔥여서 시작일을 알 수 없고, 지금은 꺼짐.')
+               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.')
+    st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
+                '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'
+                '<tr><td><span class="sl-badge sl-C">꺼짐 · N거래일 전 시작</span></td>'
+                '<td>N거래일 전에 🔥가 켜졌다가 지금은 꺼짐 — 돈이 몰린 뒤 쉬는 중, PP 기준봉을 기다릴 구간</td></tr>'
+                '<tr><td><span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span></td>'
+                '<td>6주 창이 시작될 때 이미 🔥여서 시작일을 알 수 없고, 지금은 꺼짐</td></tr>'
+                '</tbody></table></div>', unsafe_allow_html=True)
 
 
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
@@ -564,10 +568,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
-        st.caption('🔥 지금 = 오늘도 급부상 중 · 🔥 날짜 = 그날 급부상 시작(최근 6주) · '
-                   f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정이 안 되는데, '
-                   '최근 5일 안에 렐볼 양봉이 나온 종목. '
-                   '매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
+        st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
     _rot_score_table()
 
 
@@ -1308,7 +1309,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _market_strip(m, res)
         if res['phase'] is not None:
             _phase_banner(m, res)
-    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 🔥 급부상 섹터 → 🔥 급부상 섹터 종목 → 자세히 보기.
+    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 🔥 급부상 섹터 → 🔥 급부상 종목 → 자세히 보기.
     # 두 묶음 — 차기 주도(추세추종용) · 급부상(10EMA PP용). 묶음 머리에 사용 방법, 안에 섹터·종목 칸
     if res['phase'] is not None:
         with st.container(border=True):
@@ -1334,7 +1335,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
                 icon='💡')
         with st.expander('**🔥 급부상 섹터**', expanded=False):
             _hot_block(res, labels, names, records)
-        with st.expander('**🔥 급부상 섹터 종목**', expanded=False):
+        with st.expander('**🔥 급부상 종목**', expanded=False):
             _rotation_stocks(m, res, labels, names, records)
 
     views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
