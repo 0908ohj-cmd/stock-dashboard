@@ -923,7 +923,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
-    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다: 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
+    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
     _score_table(rebound)
 
 
