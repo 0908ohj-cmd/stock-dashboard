@@ -616,6 +616,7 @@ _CARD_CSS = """<style>
 .nl-phase{border-radius:10px;padding:12px 16px;margin:4px 0 14px;font-size:.92rem;line-height:1.55}
 .nl-phase.correction{background:rgba(220,38,38,.08);border-left:4px solid #dc2626}
 .nl-phase.rebound{background:rgba(245,158,11,.10);border-left:4px solid #f59e0b}
+.nl-phase.rebound.late{background:rgba(37,99,235,.08);border-left:4px solid #2563eb}
 .nl-phase.uptrend{background:rgba(22,163,74,.08);border-left:4px solid #16a34a}
 .nl-view{font-size:.8rem;opacity:.8;margin:-6px 0 14px;padding:8px 12px;border-radius:8px;
   background:rgba(128,128,128,.08)}
@@ -650,7 +651,8 @@ def _phase_banner(m: Market, res: dict):
                 if ph.get('jjinDate') is not None and ph.get('indexSinceJjin') is not None else '')
         body = (f"<b>🟢 상승 추세</b>{last}.<br>차기 주도섹터·주도주는 다음 조정(21EMA 이탈) 전까지 마지막 기산점·찐반등 기준을 "
                 "그대로 이어 갑니다. 찐반등 2주 뒤부터 새로 치고 올라오는 섹터는 아래 <b>'🔄 순환매'</b>에서 봅니다.")
-    st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}">{body}</div>', unsafe_allow_html=True)
+    late = ' late' if ph['mode'] == 'rebound' and _rebound_ball(ph['label']) == '🔵' else ''
+    st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}{late}">{body}</div>', unsafe_allow_html=True)
 
 
 def _phase_title(m: Market, ph: dict | None) -> str:
