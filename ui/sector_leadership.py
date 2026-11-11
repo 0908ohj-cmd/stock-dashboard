@@ -256,8 +256,19 @@ _CSS = """<style>
 .sl-wrap{overflow-x:auto;margin:4px 0 18px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
-  padding:6px 10px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
-.sl-t td{padding:9px 10px;border-bottom:1px solid rgba(128,128,128,.12);vertical-align:middle;white-space:nowrap}
+  padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
+.sl-t td{padding:11px 14px;border-bottom:1px solid rgba(128,128,128,.12);vertical-align:middle;white-space:nowrap}
+.sl-t tbody tr:hover td{background:rgba(128,128,128,.05)}
+/* 메인 네 표(차기 주도섹터·차기 주도주·급부상 섹터·급부상 종목) 공통 — 열 폭 고정, 긴 머리글·설명은 줄바꿈 */
+.sl-t.fx{table-layout:fixed}
+.sl-t.fx th{white-space:normal;line-height:1.3;vertical-align:bottom}
+.sl-t.fx td{white-space:normal;line-height:1.45}
+.sl-t td.rk{opacity:.5;font-variant-numeric:tabular-nums}
+.sl-t .two{font-size:.74rem;opacity:.55;font-weight:400;margin-top:2px}
+.hb-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.hb-bar{position:relative;height:4px;width:100%;max-width:110px;margin-top:6px;border-radius:2px;
+  background:rgba(128,128,128,.16);overflow:hidden}
+.hb-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
 .sl-t tr.dim td{opacity:.45}
 .sl-name{font-weight:600}
 .sl-sub{font-size:.74rem;opacity:.55;margin-left:4px}
@@ -405,6 +416,23 @@ def _rot_change(s: dict) -> str:
             f'{_signed(s["scoreRise"], "", 0)}')
 
 
+def _bar_cell(v: float, scale: float = 100, color: str = '#16a34a', text: str | None = None, sub: str = '') -> str:
+    """숫자 + 가는 막대 — 메인 네 표의 점수·비율 칸 공통 모양. v는 0~scale."""
+    w = 0 if v is None else max(0.0, min(1.0, v / scale)) * 100
+    return (f'<div class="hb-num"><b>{text if text is not None else f"{v:.0f}"}</b>{sub}</div>'
+            f'<div class="hb-bar"><i style="width:{w:.0f}%;background:{color}"></i></div>')
+
+
+def _colgroup(widths: list) -> str:
+    return '<colgroup>' + ''.join(f'<col style="width:{w}%">' for w in widths) + '</colgroup>'
+
+
+def _stock_title(t: str, nm: str) -> str:
+    """종목 칸 — 이름 굵게, 아래 줄에 티커."""
+    return (f'<div class="sl-name">{_esc(nm)}</div><div class="two">{_esc(t)}</div>' if nm != t
+            else f'<div class="sl-name">{_esc(t)}</div>')
+
+
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     """🔥 급부상 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
@@ -414,9 +442,7 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     # 지금 🔥 먼저, 그 안에서 정배열 종목 비율 높은 순 (검증: 정배열 비율 높을수록 이후 기준봉이 더 자주 나옴)
     items = sorted(hot.items(), key=lambda kv: (not kv[1]['now'], -kv[1].get('alignedShare', 0)))
     def pct_bar(v, color, sub=''):
-        """비율 숫자 + 가는 막대 — 숫자 열이 한눈에 비교되게."""
-        return (f'<div class="hb-num"><b>{100 * v:.0f}%</b>{sub}</div>'
-                f'<div class="hb-bar"><i style="width:{max(0, min(1, v)) * 100:.0f}%;background:{color}"></i></div>')
+        return _bar_cell(v, 1, color, f'{100 * v:.0f}%', sub)
 
     rows = []
     for th, h in items:
@@ -425,26 +451,14 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                  else '<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>')
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
-        peak = '<span class="hb-sub"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
-        rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="hb-sub">{h["n"]}종목</div></td>'
-                    f'<td>{state}</td><td class="hb-date">{fires}</td>'
+        peak = '<span class="two" style="display:inline"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
+        rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="two">{h["n"]}종목</div></td>'
+                    f'<td>{state}</td><td class="hb-num" style="white-space:normal">{fires}</td>'
                     f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb")}</td>'
                     f'<td>{pct_bar(h["share"], "#f97316", peak)}</td>'
-                    f'<td class="hb-who">{who or "—"}</td></tr>')
-    css = ('<style>'
-           '.hb-t{table-layout:fixed;min-width:820px}'
-           '.hb-t td{vertical-align:middle;padding:12px 14px}.hb-t th{padding:8px 14px}'
-           '.hb-sub{font-size:.74rem;opacity:.55;font-weight:400}'
-           '.hb-num{font-variant-numeric:tabular-nums;white-space:nowrap}'
-           '.hb-bar{position:relative;height:4px;width:100%;max-width:120px;margin-top:6px;border-radius:2px;'
-           'background:rgba(128,128,128,.16);overflow:hidden}'
-           '.hb-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}'
-           '.hb-date{font-variant-numeric:tabular-nums;white-space:normal}'
-           '.hb-who{white-space:normal;line-height:1.5;font-size:.84rem}'
-           '</style>')
-    st.markdown(css + '<div class="sl-wrap"><table class="sl-t hb-t">'
-                '<colgroup><col style="width:15%"><col style="width:17%"><col style="width:10%">'
-                '<col style="width:13%"><col style="width:15%"><col style="width:30%"></colgroup>'
+                    f'<td style="font-size:.84rem">{who or "—"}</td></tr>')
+    st.markdown('<div class="sl-wrap"><table class="sl-t fx" style="min-width:820px">'
+                + _colgroup([15, 17, 10, 13, 15, 30]) +
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
@@ -599,32 +613,32 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
-                 if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        title = _stock_title(t, nm)
         d, unknown = entry(r)
         is_new = d is not None and not unknown and d == asof
         if is_new:
-            title = '<span class="sl-badge sl-A" style="margin-right:6px">NEW</span>' + title
+            title = '<span class="sl-badge sl-A" style="margin-bottom:3px">NEW</span>' + title
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         if t in solo:
             title += '<div class="sl-off">섹터 종목 부족 · 단독 렐볼</div>'
         h = hot.get(r['primaryTheme'])
-        star = f' <span class="sl-sub">🔥{" 지금" if h["now"] else ""}</span>' if h else ''
+        star = f' <span class="two" style="display:inline">🔥{" 지금" if h["now"] else ""}</span>' if h else ''
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
-            f'<tr><td>{rank}</td><td>{title}</td>'
+            f'<tr><td class="rk">{rank}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
-            f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{_signed(r["offHigh"], "%")}</td>'
+            f'<div class="two">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
+            f'<td class="hb-num">{_signed(r["offHigh"], "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{"✓" if r["aligned"] else ""}</td>'
-            f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
+            f'<td class="hb-num">{_signed(r["rotRs5"], "", 2)}</td>'
             f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
-            f'<td><b>{r["ppScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["ppScore"]:.0f}px"></span></td></tr>')
+            f'<td>{_bar_cell(r["ppScore"])}</td></tr>')
     if rows:
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
+            '<div class="sl-wrap"><table class="sl-t fx" style="min-width:900px">' + _colgroup([5, 17, 21, 9, 10, 7, 9, 9, 13])
+            + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
             + '</tbody></table></div>', unsafe_allow_html=True)
@@ -904,17 +918,19 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     rest = ranked[3:]
     if rest:
         rows = ''.join(
-            f'<tr><td>{i + 4}</td><td><span class="sl-name">{_esc(labels[s["theme"]])}</span>'
-            f'<span class="sl-sub">{s["n"]}종목</span></td><td><b>{s["score"]:.0f}</b></td>'
-            + ''.join(f'<td>{_rs_val(c, s, True)}</td>' for c in cols)
-            + f'<td>{_signed(s["medianOffHigh"], "%")}</td>'
+            f'<tr><td class="rk">{i + 4}</td><td><div class="sl-name">{_esc(labels[s["theme"]])}</div>'
+            f'<div class="two">{s["n"]}종목</div></td><td>{_bar_cell(s["score"])}</td>'
+            + ''.join(f'<td class="hb-num">{_rs_val(c, s, True)}</td>' for c in cols)
+            + f'<td class="hb-num">{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
             + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
-            f'<td class="sl-need">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
+            f'<td style="font-size:.84rem">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
             for i, s in enumerate(rest))
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
+            '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
+            + _colgroup([5, 13, 10] + [9] * len(cols) + [9, 13, 13, 19])
+            + '<thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
@@ -965,8 +981,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
-                 if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        title = _stock_title(t, nm)
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         star = f' <span style="color:#16a34a">{_STAR}</span>' if r['primaryTheme'] in top_sectors else ''
@@ -974,14 +989,17 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         lead = r.get('leadDays')
         lead_txt = '—' if lead is None else (f'{lead}일 먼저' if lead > 0 else '같이' if lead == 0 else f'{-lead}일 늦게')
         body.append(
-            f'<tr><td>{rank}</td><td>{title}</td>'
-            f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="sl-sub" style="margin:0">{_esc(detail)}</div></td>'
-            + ''.join(f'<td>{_rs_val(c, r, False)}</td>' for c in cols)
-            + f'<td>{_signed(r.get("offHigh"), "%")}</td><td>{_signed(r.get("gap200"), "%")}</td><td>{lead_txt}</td>'
+            f'<tr><td class="rk">{rank}</td><td>{title}</td>'
+            f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="two">{_esc(detail)}</div></td>'
+            + ''.join(f'<td class="hb-num">{_rs_val(c, r, False)}</td>' for c in cols)
+            + f'<td class="hb-num">{_signed(r.get("offHigh"), "%")}</td><td class="hb-num">{_signed(r.get("gap200"), "%")}</td>'
+            f'<td>{lead_txt}</td>'
             + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
-            f'<td><b>{r["nextScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["nextScore"]:.0f}px"></span></td></tr>')
+            f'<td>{_bar_cell(r["nextScore"])}</td></tr>')
     st.markdown(
-        '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
+        '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
+        + _colgroup([5, 15, 18] + [9] * len(cols) + [8, 8, 8, 8, 12])
+        + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
         + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
