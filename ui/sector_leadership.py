@@ -506,9 +506,15 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
     # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 순환매 종목 점수(52주 고점·10EMA·렐볼 등)
     hot = res.get('hot') or {}
-    pool = [r for r in res.get('rotStocks') or [] if r['primaryTheme'] in hot]
+    # 섹터 종목이 3개 미만이라 🔥 판정을 못 받는 종목 — 최근 5일 렐볼 양봉이면 '단독 급등 종목'으로 함께 보여준다
+    size: dict = {}
+    for th in (res.get('themeOf') or {}).values():
+        size[th] = size.get(th, 0) + 1
+    solo = {r['ticker'] for r in res.get('rotStocks') or []
+            if size.get(r['primaryTheme'], 0) < nl.MIN_SECTOR_N and r['hasBullishRvol15InLast5']}
+    pool = [r for r in res.get('rotStocks') or [] if r['primaryTheme'] in hot or r['ticker'] in solo]
     if not pool:
-        st.caption('최근 6주 안에 🔥 급부상 섹터가 없습니다.')
+        st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
         return
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
@@ -533,9 +539,14 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                  if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
-        h = hot[r['primaryTheme']]
-        since = ' 지금' if h['now'] else ' 6주 전부터' if h['last'] is None else h['last'].strftime(' %m/%d')
-        star = f' <span class="sl-sub">🔥{since}</span>'
+        h = hot.get(r['primaryTheme'])
+        if h:
+            since = ' 지금' if h['now'] else ' 6주 전부터' if h['last'] is None else h['last'].strftime(' %m/%d')
+            star = f' <span class="sl-sub">🔥{since}</span>'
+        else:
+            star = ''
+        if t in solo:
+            title += '<div class="sl-off">단독 급등 종목</div>'
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
@@ -550,7 +561,9 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
-        st.caption('🔥 지금 = 오늘도 급부상 중 · 🔥 날짜 = 그날 급부상 시작(최근 6주). 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
+        st.caption('🔥 지금 = 오늘도 급부상 중 · 🔥 날짜 = 그날 급부상 시작(최근 6주) · '
+                   f'단독 급등 종목 = 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정이 안 되지만 최근 5일 렐볼 양봉이 나온 종목. '
+                   '매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
     _rot_score_table()
 
 
