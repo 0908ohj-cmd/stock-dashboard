@@ -61,7 +61,7 @@ def _ma_score(df: pd.DataFrame, close: float) -> int:
 def _process_one(ticker: str, market: str) -> dict | None:
     try:
         df = load_daily(ticker, market=market)
-        # ADR 6%↑ · 10EMA>21EMA>50SMA 정배열 · 종가 150·200SMA 위 — 순환매 'PP 셋업만' 토글과 같은 함수
+        # ADR 6%↑ · 10EMA>21EMA>50SMA 정배열 · 종가 150·200SMA 위
         pre = pp_prefilter(df)
         if pre is None:
             return None
@@ -357,8 +357,8 @@ def render_10ema_tab(market: str, label: str):
     near_rows   = [r for r in case2_rows if abs(r['현재→타점%'] or 99) <= 5]
     entry_rows  = case1_rows + case2_rows
 
-    # 화면 표시 필터(형성중 포함·이탈 보기)와 무관하게 진입 후보(셋업 케이스1+2)만 내보낸다
-    tv_export.register_ema10(market, [r['Ticker'] for r in entry_rows])
+    # 2026-11-11 사용자 요청으로 10EMA 섹션은 TradingView 내보내기에서 뺐다 (맨 위에서 빈 목록 등록만 유지).
+    # 다시 넣으려면: tv_export.register_ema10(market, [r['Ticker'] for r in entry_rows])
     m1, m2, m3, m4 = st.columns(4)
     ital_cnt = len([r for r in rows if r['상태'] not in ('셋업(케이스1)', '셋업(케이스2)')])
     m1.metric('🟠 케이스1', f'{len(case1_rows)}개')

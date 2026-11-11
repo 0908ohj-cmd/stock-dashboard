@@ -272,7 +272,7 @@ PP_MIN_ROWS = 70
 
 def pp_prefilter(df: pd.DataFrame) -> dict | None:
     """10EMA PP 탭의 사전 필터 — ADR 6%↑, 10EMA>21EMA>50SMA 정배열, 종가 150·200SMA 위.
-    통과하면 {'adr','close','ema10'}, 아니면 None. 10EMA 탭과 순환매 'PP 셋업만' 토글이 같이 쓴다."""
+    통과하면 {'adr','close','ema10'}, 아니면 None. 10EMA 탭이 쓴다."""
     if df.empty or len(df) < PP_MIN_ROWS:
         return None
     adr = float(((df['High'] - df['Low']) / df['Close']).iloc[-20:].mean() * 100)

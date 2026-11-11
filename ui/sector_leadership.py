@@ -20,7 +20,6 @@ from data import classification as cls
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
-from strategy.pivot_candle import pp_setup_state
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -105,23 +104,6 @@ def _data_key(m: Market) -> tuple:
     # 점수 공식이 바뀌면 SCORE_VERSION을 올린다 — st.cache_data는 다른 모듈(next_leaders) 코드 변경을
     # 감지하지 못해, 옛 캐시(새 필드 없는 결과)를 새 화면 코드가 읽다 KeyError가 났다(2026-11-10 gap200).
     return (SCORE_VERSION,) + tuple(_mtime(p) for p in paths)
-
-
-@st.cache_data(ttl=1800, show_spinner=False)
-def _pp_setups(market_key: str, asof: str, tickers: tuple, data_key: tuple) -> set:
-    """기준일 시점 10EMA PP 셋업(케이스1·2) 종목 — 10EMA 탭과 같은 판정(pivot_candle.pp_setup_state)."""
-    data = store.load_snapshot(market_key).get('data', {})
-    out = set()
-    for t in tickers:
-        if t not in data:
-            continue
-        df = store._records_to_df(data[t])
-        try:
-            if pp_setup_state(df[df.index <= pd.Timestamp(asof)]):
-                out.add(t)
-        except Exception:
-            continue
-    return out
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -547,8 +529,6 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
 
     for r in pool:
         r['ddAdr'] = drawdown_adr(r)
-    dropped = [r for r in pool if r['ddAdr'] <= -nl.PP_DROP_ADR]
-    weak = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and r['ppScore'] < nl.PP_MIN_SCORE]
     pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR]
     if not pool:
         st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
@@ -560,18 +540,12 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                            help=f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 종목도 표에 넣습니다 (기본은 숨김)')
     if not show_weak:
         pool = [r for r in pool if r['ppScore'] >= nl.PP_MIN_SCORE]
-    only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
-                         help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
-    pp = (_pp_setups(m.key, res['asof'], tuple(sorted(r['ticker'] for r in pool)), _data_key(m))
-          if only_pp else set())
     rows = sorted((r for r in pool
                    if (not only_trend or r['ticker'] in in_trend)
-                   and (not only_pp or r['ticker'] in pp)
                    and r['primaryTheme'] not in hidden),
-                  key=lambda r: (not r['ppEligible'], -r['ppScore']))
-    rows = rows[:30]
-    tv_export.register_hot(m.key, [r['ticker'] for r in rows if r['ppEligible']])   # 화면 표 그대로(PP 대상만)
+                  key=lambda r: -r['ppScore'])[:30]
+    tv_export.register_hot(m.key, [r['ticker'] for r in rows])   # 화면 표 그대로
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
     asof = pd.Timestamp(res['asof'])
@@ -598,17 +572,13 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         if t in solo:
             title += '<div class="sl-off">섹터 종목 부족 · 단독 렐볼</div>'
-        if not r['ppEligible']:
-            title += f'<div class="sl-off">ADR {r["adrNow"]:.1f}% — PP 대상 아님 (6% 미만)</div>'
         h = hot.get(r['primaryTheme'])
         star = f' <span class="sl-sub">🔥{" 지금" if h["now"] else ""}</span>' if h else ''
-        since_txt = '—' if d is None else ('6주보다 전' if unknown else f'{d:%m/%d}')
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
-            f'<tr class="{"" if r["ppEligible"] else "dim"}"><td>{rank}</td><td>{title}</td>'
+            f'<tr><td>{rank}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{since_txt}</td>'
             f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r.get("gap200"), "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{"✓" if r["aligned"] else ""}</td>'
@@ -617,23 +587,13 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             f'<td><b>{r["ppScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["ppScore"]:.0f}px"></span></td></tr>')
     if rows:
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th><th>편입일</th>'
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
             + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.  \n'
                    f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
-                   '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.  \n'
-                   'NEW = 오늘 처음 목록에 들어온 종목 · 편입일 = 섹터 🔥가 처음 켜진 날(단독 렐볼은 첫 렐볼 양봉 날)')
-    hidden_txt = []
-    if weak and not show_weak:
-        hidden_txt.append(f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 {len(weak)}개')
-    if dropped:
-        hidden_txt.append(f'편입 후 고점에서 {nl.PP_DROP_ADR:.0f} ADR↑ 하락해 탈락 {len(dropped)}개 ('
-                          + ', '.join(_stock_name(r['ticker'], names, records) for r in
-                                      sorted(dropped, key=lambda r: r['ddAdr'])[:8]) + (' …' if len(dropped) > 8 else '') + ')')
-    if hidden_txt:
-        st.caption('숨김: ' + ' · '.join(hidden_txt) + ' — ADR 6% 미만은 10EMA 탭 대상이 아니라 제외')
+                   '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.')
     _pp_score_table()
 
 
