@@ -363,8 +363,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         st.markdown(
             '| 컬럼 | 설명 | 기준 |\n'
             '|------|------|------|\n'
-            '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
-            '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
+            '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
+            '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
@@ -562,6 +562,8 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         s = lead.get(r['Ticker'])
         r['주도주점수'] = None if s is None else round(s['score'], 1)
         r['주도주순위'] = None if s is None else s['rank']
+        r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
+        r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
     if not swing_dates_str:     # 스윙 등급을 쓸 땐 등급 순서 유지
         rows.sort(key=lambda r: (r['주도주점수'] is None, -(r['주도주점수'] or 0)))
 
@@ -570,7 +572,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         end_str = jjin_date_str or '진행 중'
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
-        st.caption(f"📅 조정RS 기준기간: {start_str} ~ {end_str}")
+        st.caption(f"📅 하락국면 RS 기준기간: {start_str} ~ {end_str}")
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
@@ -583,10 +585,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '주도주 순위':   r['주도주순위'],
         '섹터':          r['섹터'],
         '테마':          r['테마'],
-        'Close':         r['Close'],
+        '종가':          r['Close'],
         '등락%':         r['등락%'],
-        '조정RS%':       r['조정RS%'],
-        'RS/ADR':        r['RS/ADR'],
+        '하락국면 RS/ADR': r['하락RS'],
+        '상승국면 RS/ADR': r['상승RS'],
         '이평선위치':    r['이평선위치'],
         '저점선행(일)':  r['저점선행'],
         '양봉비%':       r['양봉비%'],
@@ -642,16 +644,21 @@ function(valueA, valueB) {
                         headerTooltip='주도섹터 탭 차기 주도주 전체 순위(메인 밖 테마 포함)')
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
-    gb.configure_column('Close', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
+    gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
     gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
-    gb.configure_column('조정RS%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
-    gb.configure_column('RS/ADR',    filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
+    gb.configure_column('하락국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
+    gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_selection('single', use_checkbox=False)
-    gb.configure_grid_options(domLayout='autoHeight', rowHeight=28, localeText=KO_LOCALE)
+    # 숨은 탭에서 처음 그려지면 폭이 0이라 fit이 안 먹고 오른쪽이 빈다 — 크기가 잡힐 때마다 다시 맞춘다
+    _fit = JsCode("function(p){ p.api.sizeColumnsToFit(); }")
+    gb.configure_grid_options(domLayout='autoHeight', rowHeight=28, localeText=KO_LOCALE,
+                              onGridSizeChanged=_fit, onFirstDataRendered=_fit)
 
     grid_response = AgGrid(
         display_df,
@@ -832,8 +839,8 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
         st.markdown(
             '| 컬럼 | 설명 | 기준 |\n'
             '|------|------|------|\n'
-            '| 조정RS% | 고점→찐반등 구간 종목수익률 − 지수수익률 | 높을수록 강함 |\n'
-            '| RS/ADR | 조정RS%를 ADR로 나눈 정규화 값 | 높을수록 강함 |\n'
+            '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
+            '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'

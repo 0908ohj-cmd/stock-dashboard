@@ -184,9 +184,13 @@ def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
     except ValueError:
         return {}
     picks = sorted(res['picks'], key=lambda p: -p['nextScore'])
-    label = (res.get('phase') or {}).get('label', '')
+    ph = res.get('phase') or {}
+    label = ph.get('label', '')
+    has_jjin = ph.get('jjinDate') is not None     # 찐반등 전엔 상승국면 값 없음 — 주도섹터 탭과 같게
     return {p['ticker']: {'score': p['nextScore'], 'rank': i, 'parts': p.get('nextParts', {}),
-                          'asof': res['asof'], 'phaseLabel': label}
+                          'asof': res['asof'], 'phaseLabel': label,
+                          'downAdr': p.get('sincePeakExcessAdr'),
+                          'upAdr': p.get('sinceJjinExcessAdr') if has_jjin else None}
             for i, p in enumerate(picks, 1)}
 
 
