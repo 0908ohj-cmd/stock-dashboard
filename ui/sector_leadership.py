@@ -626,6 +626,11 @@ _DEFENSIVE = {'FINANCE', 'HOLDING_OTHER', 'COSMETICS_CONSUMER', 'TELECOM_NETWORK
 _STAR = '★'
 
 
+def _rebound_ball(label: str) -> str:
+    """찐반등 국면 공 색 — 추세추종 탭과 같게: DAY2 🟡, DAY3~7 🔵."""
+    return '🟡' if label == 'DAY2' else '🔵'
+
+
 def _phase_banner(m: Market, res: dict):
     ph = res['phase']
     idx = m.phase_index
@@ -637,7 +642,7 @@ def _phase_banner(m: Market, res: dict):
                 "덜 빠지고, 고점을 지키고, 먼저 저점을 찍은</b> 섹터·종목을 찾습니다 — 찐반등이 나오면 이들이 먼저 튑니다.")
     elif ph['mode'] == 'rebound':
         sj = ph['indexSinceJjin']
-        body = (f"<b>🟡 찐반등 {ph['label']}{manual}</b> — 기산점 {ph['peakDate']:%m/%d} · 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
+        body = (f"<b>{_rebound_ball(ph['label'])} 찐반등 {ph['label']}{manual}</b> — 기산점 {ph['peakDate']:%m/%d} · 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
                 "조정 중 버틴 종목 가운데 <b>찐반등 이후 지수보다 먼저 치고 나가는</b> 종목이 진짜 주도주입니다. "
                 "회복 속도에 가장 큰 비중을 둡니다.")
     else:
@@ -652,7 +657,7 @@ def _phase_title(m: Market, ph: dict | None) -> str:
     """지수 현황 접기 제목 — 접어 둬도 국면이 보이게."""
     if ph is None:
         return '**📊 지수 현황**'
-    tag = {'correction': f"🔴 조정 중 ({ph['label']})", 'rebound': f"🟡 찐반등 {ph['label']}"}.get(ph['mode'], '🟢 상승 추세')
+    tag = {'correction': f"🔴 조정 중 ({ph['label']})", 'rebound': f"{_rebound_ball(ph['label'])} 찐반등 {ph['label']}"}.get(ph['mode'], '🟢 상승 추세')
     return f"**📊 지수 현황 · {m.phase_index} {tag}{' · 수동 설정' if ph.get('manual') else ''}**"
 
 
