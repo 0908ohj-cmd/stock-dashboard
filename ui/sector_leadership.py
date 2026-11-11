@@ -470,12 +470,14 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
     only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
                          help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
+    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
     pp = (_pp_setups(m.key, res['asof'], tuple(sorted(r['ticker'] for r in pool)), _data_key(m))
           if only_pp else set())
     rows = sorted((r for r in pool
                    if (not only_new or r['primaryTheme'] in new)
                    and (not only_trend or r['ticker'] in in_trend)
-                   and (not only_pp or r['ticker'] in pp)),
+                   and (not only_pp or r['ticker'] in pp)
+                   and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['rotScore'])[:20]
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
@@ -798,6 +800,18 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
 _THEME_TOGGLES = {'KR_KOSPI': ('BIO_PHARMA', 'FINANCE'), 'KR_KOSDAQ': ('BIO_PHARMA', 'FINANCE')}
 
 
+def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str) -> set:
+    """테마별 켜고 끄는 토글 — 차기 주도주·순환매 종목 표 공통. 끈(숨길) 테마 코드 집합을 돌려준다.
+    국장 바이오·제약·금융 + 메인 밖 테마(KR 지주·기타, US 바이오·헬스케어·금속·소재 등), 모두 기본 꺼짐.
+    실제로 종목이 있는 테마만 토글을 보여준다."""
+    side = [c for c in _THEME_TOGGLES.get(m.key, ()) if c in present]
+    side += [t['code'] for t in cls.load_taxonomy(m.key)['themes']
+             if not t['main'] and t['code'] != 'UNCLASSIFIED' and t['code'] in present]
+    return {code for code in side
+            if not bar.toggle(labels.get(code, code), value=False, key=f'{key_prefix}_{code}', width='content',
+                              help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}
+
+
 def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     ph, picks = res['phase'], res['picks']
     records = cls.load_store(m.key)
@@ -811,17 +825,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     bar = st.container(horizontal=True, gap='medium')     # 토글을 옆으로 바짝 붙여 배치
     only_top = bar.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top', width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_only_trend', width='content')
-    # 메인 밖 테마(US: 소비·기타·바이오·헬스케어·금속·소재 등, KR: 지주·기타)는 테마별로 켜고 끈다.
-    # 기본은 꺼짐(제외) — 켜면 그 테마 종목도 표에 넣는다. 실제로 종목이 있는 테마만 토글을 보여준다.
-    present = {r['primaryTheme'] for r in picks}
-    # (테마, 기본 켜짐) — 국장은 바이오·제약·금융도 켜고 끌 수 있게 (메인 테마라 기본은 포함)
-    extra = [(c, False) for c in _THEME_TOGGLES.get(m.key, ()) if c in present]   # 기본 꺼짐 (사용자 요청)
-    side = extra + [(t['code'], False) for t in cls.load_taxonomy(m.key)['themes']
-                    if not t['main'] and t['code'] != 'UNCLASSIFIED' and t['code'] in present]
-    hidden = {code for code, default in side
-              if not bar.toggle(labels.get(code, code), value=default, key=f'{m.key}_show_{code}', width='content',
-                                help='끄면 이 테마 종목을 표에서 뺍니다'
-                                     + ('' if default else ' (메인 랭킹 밖 테마 — 기본은 빠져 있음)'))}
+    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in picks}, key_prefix=f'{m.key}_show')
     rows = sorted((r for r in picks
                    if (not only_top or r['primaryTheme'] in top_sectors)
                    and (not only_trend or r['ticker'] in in_trend)
