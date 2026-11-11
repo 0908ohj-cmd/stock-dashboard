@@ -1,5 +1,5 @@
 import streamlit as st
-from data import store
+from data import live_index, store
 from strategy.indicators import calc_adr, calc_ema
 from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
@@ -43,6 +43,12 @@ def _load_index(name: str):
     return store.load_index(name)
 
 
+# 현재가는 접속·새로고침 때 갱신 — 1분 캐시를 모든 세션이 공유해 yfinance 호출은 분당 지수당 1회 이하
+@st.cache_data(ttl=60, show_spinner=False)
+def _live_quote(name: str):
+    return live_index.fetch_live_quote(name)
+
+
 def render_index_panel():
     st.subheader('지수 현황')
     fr = store.get_freshness('indices')
@@ -76,14 +82,16 @@ def render_index_panel():
                     icon = '⚫'
                     desc = '정상 (찐반등 미확인)'
 
-            last = float(df['Close'].iloc[-1])
-            prev = float(df['Close'].iloc[-2])
-            delta_pct = (last - prev) / prev * 100
+            # 현재가·등락률만 실시간 — 국면·ADR·PP는 위에서 배치 확정 일봉으로 계산했다
+            disp = live_index.display_values(df, _live_quote(name))
 
             st.metric(
                 label=f'{icon} {name}',
-                value=f'{last:,.2f}',
-                delta=f'{delta_pct:+.2f}%',
+                value=f'{disp.value:,.2f}',
+                delta=f'{disp.delta_pct:+.2f}%',
             )
             pp = '✅ 10EMA (PP) 거래 가능' if _pp_ok(df) else '❌ 10EMA (PP) 거래 불가'
             st.caption(f'ADR {adr:.2f}%  |  **{phase}** {desc}  |  {pp}')
+            if disp.live:
+                st.caption(f'🔴 실시간 {disp.fetched_at:%H:%M} 조회 (yfinance, 잠정) · '
+                           f'등락률은 {df.index[-1]:%m-%d} 확정 종가 대비 · 국면은 장마감 확정 기준')
