@@ -300,6 +300,19 @@ _GRADE_BADGE = {
     'UNVERIFIED': ('sl-U', '판정 불가'),
 }
 _IMPROVING = '<span class="sl-badge sl-A" title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 1주 전보다 10EMA·RS·거래량 모두 개선</span>'
+# 표 안에서 쓰는 짧은 배지 — 긴 문구는 좁은 열에서 두 줄로 깨져 읽기 어렵다 (뜻은 마우스를 올리면)
+_IMPROVING_SHORT = ('<span class="sl-badge sl-A" style="white-space:nowrap" '
+                    'title="1주 전보다 10EMA 위 비율 +10%p 이상, 5일 RS/ADR 상승, 거래량 확산 유지가 동시에 성립">📈 동시 개선</span>')
+
+
+def _th_two(label: str) -> str:
+    """'하락국면 RS/ADR (기산점 10/06 ~ 찐반등 11/10)' → 위 줄 이름, 아래 줄 작게 기간 — 머리글이 어중간하게 끊기지 않게."""
+    if ' (' in label and label.endswith(')'):
+        head, rest = label.split(' (', 1)
+        return f'{head}<div class="two" style="opacity:.9">{rest[:-1]}</div>'
+    return label
+
+
 _IMPROVING_NOTE = ('📈 배지 = 1주 전과 비교해 ① 10EMA 위 종목 비율 +10%p 이상 ② 5일 RS/ADR(변동성 감안 지수 대비 강도) 상승 '
                    '③ 거래량 실린 양봉(RVOL 1.5배↑)이 나온 종목 비율 유지 — 세 가지가 모두 성립한 섹터')
 
@@ -923,7 +936,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             + ''.join(f'<td class="hb-num">{_rs_val(c, s, True)}</td>' for c in cols)
             + f'<td class="hb-num">{_signed(s["medianOffHigh"], "%")}</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"))}'
-            + (f' {_IMPROVING}' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
+            + (f'<div style="margin-top:4px">{_IMPROVING_SHORT}</div>' if trend.get(s['theme'], {}).get('improving') else '') + '</td>'
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
             f'<td style="font-size:.84rem">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
             for i, s in enumerate(rest))
@@ -931,7 +944,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
             + _colgroup([5, 13, 10] + [9] * len(cols) + [9, 13, 13, 19])
             + '<thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
-            + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비 (중앙값)</th><th>10EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>21EMA 위 종목 비율 (2주전→1주전→기준일)</th><th>대표주</th></tr></thead>'
+            + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>' + _th_two('52주 고점 대비 (중앙값)') + '</th><th>' + _th_two('10EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>' + _th_two('21EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>대표주</th></tr></thead>'
             f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
     if thin:
         st.caption('표본 부족(3종목 미만)으로 순위 제외: '
@@ -1000,7 +1013,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
         + _colgroup([5, 15, 18] + [9] * len(cols) + [8, 8, 8, 8, 12])
         + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-        + ''.join(f'<th>{c[0]}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
+        + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
