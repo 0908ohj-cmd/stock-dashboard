@@ -531,7 +531,9 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         r['ddAdr'] = drawdown_adr(r)
     # 탈락 2 — 종가가 50일선 아래 (검증: 3 ADR에 안 걸린 종목 중 이후 30일 기준봉 8.6~9.8% vs 평균 16~17%).
     # 두 규칙 모두 매일 다시 계산 — 회복하면 다음 날 목록에 돌아온다
-    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and not r['belowSma50']]
+    # 탈락 3 — 종가가 200일선 아래 (PP 기준봉 조건이 150·200일선 위라 '50점 미만도 보기'에서도 뺀다)
+    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and not r['belowSma50']
+            and not (r.get('gap200') is not None and r['gap200'] < 0)]
     if not pool:
         st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
         return
@@ -622,7 +624,7 @@ def _pp_score_table():
     st.caption('5년 검증(🔥 1,011회): 이런 조건을 갖춘 종목일수록 30일 안에 PP 기준봉이 더 자주 나왔습니다(평균 10% → 15~18%). '
                '다만 이후 수익 예측력은 약합니다 — 기다릴 후보를 좁히는 순서일 뿐. '
                f'{nl.PP_MIN_SCORE}점 이상만 표에 보이고(50↑ 24~30%, 30~40 14%), 편입 후 종가 고점에서 '
-               f'{nl.PP_DROP_ADR:.0f} ADR 이상 밀리거나 종가가 50일선 아래면 탈락합니다(이후 기준봉 4% 안팎·9% 안팎). 회복하면 다시 들어옵니다.')
+               f'{nl.PP_DROP_ADR:.0f} ADR 이상 밀리거나 종가가 50일선·200일선 아래면 탈락합니다(이후 기준봉 4%·9% 안팎, 200일선 아래는 PP 기준봉 조건 밖). 회복하면 다시 들어옵니다.')
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
