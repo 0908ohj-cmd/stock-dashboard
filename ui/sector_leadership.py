@@ -261,7 +261,7 @@ _CSS = """<style>
 .sl-t tbody tr:hover td{background:rgba(128,128,128,.05)}
 /* 메인 네 표(차기 주도섹터·차기 주도주·급부상 섹터·급부상 종목) 공통 — 열 폭 고정, 긴 머리글·설명은 줄바꿈 */
 .sl-t.fx{table-layout:fixed}
-.sl-t.fx th{white-space:normal;line-height:1.3;vertical-align:bottom}
+.sl-t.fx th{white-space:normal;line-height:1.3;vertical-align:middle}
 .sl-t.fx td{white-space:normal;line-height:1.45}
 .sl-t td.rk{opacity:.5;font-variant-numeric:tabular-nums}
 .sl-t .two{font-size:.74rem;opacity:.55;font-weight:400;margin-top:2px}
@@ -309,7 +309,7 @@ def _th_two(label: str) -> str:
     """'하락국면 RS/ADR (기산점 10/06 ~ 찐반등 11/10)' → 위 줄 이름, 아래 줄 작게 기간 — 머리글이 어중간하게 끊기지 않게."""
     if ' (' in label and label.endswith(')'):
         head, rest = label.split(' (', 1)
-        return f'{head}<div class="two" style="opacity:.9">{rest[:-1]}</div>'
+        return f'{head}<div class="two" style="opacity:.9">({rest[:-1]})</div>'
     return label
 
 
