@@ -30,11 +30,21 @@ from typing import Callable
 
 KST = timezone(timedelta(hours=9))
 
-# 맥 launchd 배치 푸시 직후 시각 (KST) — scripts/launchd/*.plist와 맞출 것.
-#   US 화~토 08:10 시작(≈08:13 푸시) → 08:30, 폴백 11:30
-#   KR 월~금 17:30 시작(≈17:34 푸시) → 17:50, 폴백 20:30
-# 폴백 슬롯은 배치가 지연·재시도돼도 같은 날 안에 따라잡기 위한 것이다.
-PULL_SCHEDULES: tuple[dtime, ...] = (dtime(8, 30), dtime(11, 30), dtime(17, 50), dtime(20, 30))
+# 데이터가 푸시되는 네 경로 각각의 직후 — 본 슬롯 + 보조 슬롯 (KST).
+#   KR 예약 폴백  18:10 예약, 실측 00:17~04:43 실행(GitHub cron 지연) → 03:00, 05:30
+#   US 맥 배치    화~토 08:10 시작, ≈08:14 푸시                   → 08:30
+#                 + 종목<지수 재시도(최대 +20분)·즉시 폴백(lib_fallback.sh) → 09:15
+#   US 예약 폴백  08:50 예약, 실측 11:00~13:49 실행               → 12:30, 14:30
+#   KR 맥 배치    월~금 17:30 시작, ≈17:34 푸시                   → 17:50
+#                 + 재시도·즉시 폴백                               → 18:40
+# 맥 배치 시각은 scripts/launchd/*.plist, 예약 폴백은 .github/workflows/fetch-data.yml 기준.
+# 슬롯은 "그 시각 이후 첫 접속"에 동기화한다 — 새벽 슬롯은 아침 첫 접속 때 반영된다.
+PULL_SCHEDULES: tuple[dtime, ...] = (
+    dtime(3, 0), dtime(5, 30),     # KR 예약 폴백
+    dtime(8, 30), dtime(9, 15),    # US 맥 배치
+    dtime(12, 30), dtime(14, 30),  # US 예약 폴백
+    dtime(17, 50), dtime(18, 40),  # KR 맥 배치
+)
 
 SNAPSHOT_PREFIX = 'data/ohlcv/'
 GIT_TIMEOUT_SEC = 30
@@ -58,9 +68,11 @@ _last_result: SyncResult | None = None
 
 def pull_due(now: datetime, last_attempt: datetime | None,
              schedules: tuple[dtime, ...] = PULL_SCHEDULES) -> bool:
-    """오늘 지난 슬롯 중 마지막 시도 이후에 온 것이 있으면 True. 주말은 쉰다."""
-    if now.weekday() >= 5:
-        return False
+    """오늘 지난 슬롯 중 마지막 시도 이후에 온 것이 있으면 True.
+
+    주말도 쉬지 않는다 — 토요일에 금요일분 KR 예약 폴백과 US 배치(금요일 미장)가 올라온다.
+    바뀐 게 없으면 fetch 한 번으로 끝난다.
+    """
     for t in schedules:
         slot = datetime.combine(now.date(), t, tzinfo=KST)
         if now >= slot and (last_attempt is None or last_attempt < slot):

@@ -203,17 +203,21 @@ def _at(day, h, m):
 
 
 def test_pull_due_before_first_slot_is_false():
-    assert rs.pull_due(_at(5, 8, 0), None) is False
+    assert rs.pull_due(_at(5, 2, 59), None) is False
 
 
 def test_pull_due_once_per_slot():
-    assert rs.pull_due(_at(5, 8, 31), None) is True
-    assert rs.pull_due(_at(5, 9, 0), _at(5, 8, 31)) is False
-    assert rs.pull_due(_at(5, 11, 31), _at(5, 8, 31)) is True
-    assert rs.pull_due(_at(5, 17, 49), _at(5, 11, 31)) is False
-    assert rs.pull_due(_at(5, 17, 50), _at(5, 11, 31)) is True
-    assert rs.pull_due(_at(5, 20, 31), _at(5, 17, 50)) is True
-    assert rs.pull_due(_at(5, 23, 0), _at(5, 20, 31)) is False
+    """하루 8개 슬롯 — 각 슬롯을 지난 뒤 첫 접속에서 한 번씩만."""
+    steps = [  # (시, 분, 기대) — 직전 True 시각이 다음 단계의 last_attempt
+        (3, 1, True), (5, 0, False), (5, 31, True), (8, 29, False), (8, 31, True),
+        (9, 0, False), (9, 16, True), (12, 29, False), (12, 31, True), (14, 31, True),
+        (17, 49, False), (17, 51, True), (18, 39, False), (18, 41, True), (23, 59, False),
+    ]
+    last = None
+    for h, m, expected in steps:
+        assert rs.pull_due(_at(5, h, m), last) is expected, f'{h:02d}:{m:02d}'
+        if expected:
+            last = _at(5, h, m)
 
 
 def test_pull_due_catches_up_after_process_restart():
@@ -221,23 +225,34 @@ def test_pull_due_catches_up_after_process_restart():
     assert rs.pull_due(_at(5, 22, 0), None) is True
 
 
-def test_pull_due_skips_weekend():
-    assert rs.pull_due(_at(7, 9, 0), None) is False
-    assert rs.pull_due(_at(8, 21, 0), None) is False
+def test_pull_due_runs_on_weekend():
+    """토요일에 금요일분 KR 예약 폴백(새벽)과 US 배치(08:10)가 올라온다 — 주말도 당긴다."""
+    assert rs.pull_due(_at(7, 3, 1), None) is True               # 토 새벽 KR 폴백
+    assert rs.pull_due(_at(7, 8, 31), _at(7, 5, 31)) is True     # 토 US 배치
+    assert rs.pull_due(_at(8, 9, 0), None) is True               # 일요일도 막지 않는다
 
 
-def test_kr_main_slot_follows_kr_batch():
-    """본 슬롯은 각 로컬 배치 시작 후 30분 안에 있어야 한다 — 배치보다 앞서면 헛돌고
-    (15:46/07:01 슬롯이 그랬다) 폴백(20:30)만 남는다."""
+def _minutes(t):
+    return t.hour * 60 + t.minute
+
+
+def test_slots_follow_mac_batches():
+    """맥 배치마다 본 슬롯(시작 후 30분 내)과 보조 슬롯(재시도 최대 20분 + 즉시 폴백, 75분 내)."""
     from scripts.check_snapshot_fresh import LOCAL_SLOTS
 
-    def minutes(h, m):
-        return h * 60 + m
-
-    slots = [minutes(s.hour, s.minute) for s in rs.PULL_SCHEDULES]
+    slots = [_minutes(s) for s in rs.PULL_SCHEDULES]
     for market in ('kr', 'us'):
-        start = minutes(LOCAL_SLOTS[market]['hour'], LOCAL_SLOTS[market]['minute'])
-        assert any(0 < s - start <= 30 for s in slots), market
+        start = LOCAL_SLOTS[market]['hour'] * 60 + LOCAL_SLOTS[market]['minute']
+        assert any(0 < s - start <= 30 for s in slots), f'{market} 본 슬롯'
+        assert any(30 < s - start <= 75 for s in slots), f'{market} 보조 슬롯'
+
+
+def test_slots_follow_measured_scheduled_fallbacks():
+    """예약 폴백은 GitHub cron 지연으로 실측 KR 00:17~04:43, US 11:00~13:49에 돈다(2026-10~11).
+    가장 늦은 실측 이후 90분 안에 슬롯이 있어야 같은 날 오전·오후에 반영된다."""
+    slots = [_minutes(s) for s in rs.PULL_SCHEDULES]
+    for label, latest in (('KR', 4 * 60 + 43), ('US', 13 * 60 + 49)):
+        assert any(0 < s - latest <= 90 for s in slots), label
 
 
 # ── maybe_sync: 상태가 rerun·세션을 넘어 유지된다 ─────────

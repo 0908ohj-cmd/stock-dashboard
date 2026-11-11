@@ -68,7 +68,7 @@ def _clear_analysis_caches() -> None:
 _REPO_ROOT = pathlib.Path(__file__).parent
 
 # 배치 데이터 반영 슬롯 — 정의·상태는 data/repo_sync.py (app.py 전역은 rerun마다 초기화된다)
-_PULL_SLOTS_LABEL = '·'.join(t.strftime('%H:%M') for t in repo_sync.PULL_SCHEDULES)
+_PULL_SLOTS_LABEL = ' '.join(t.strftime('%H:%M') for t in repo_sync.PULL_SCHEDULES)
 
 st.set_page_config(
     page_title='Stock Watchlist',
@@ -107,7 +107,8 @@ with st.sidebar:
     if st.button('🔄 데이터 재수집', use_container_width=True,
                  help='전 시장 시세를 지금 즉시 다시 수집합니다 (비상용)'):
         st.session_state['force_refetch'] = True
-    st.caption(f'📦 장 마감 후 배치 수집 데이터 (US 08:10 · KR 17:30 KST 시작, 앱은 {_PULL_SLOTS_LABEL}에 반영)')
+    st.caption(f'📦 장 마감 후 배치 수집 데이터 (US 08:10 · KR 17:30 KST 시작). '
+               f'배치·폴백 직후 하루 8회 앱에 반영: {_PULL_SLOTS_LABEL}')
     st.divider()
     st.markdown('**💾 티커 백업**')
     backup_restore_file = st.file_uploader('백업 복원 (JSON)', type=['json'], key='backup_restore')
