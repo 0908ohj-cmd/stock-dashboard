@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-11T08:14:37+09:00",
+ "updatedAt": "2026-11-12T08:14:22+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -937,6 +937,27 @@
    "overrideReason": "",
    "history": []
   },
+  "AXGN": {
+   "companyName": "Axogen, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "신경 재생 의료기기",
+   "businessSummary": "말초신경 손상 치료용 생체조직 신경이식재 Avance(2025년 12월 FDA BLA 승인)와 Axoguard 신경 보호재를 병원에 공급하는 의료기기·바이오 기업. 2025년 매출은 2억 2,520만 달러로 전년 대비 20.2% 증가했다.",
+   "confidence": "high",
+   "why": "매출 대부분이 말초신경 수술용 이식재·보호재 판매에서 나오며, 2025년 회사 발표에서도 Avance가 핵심 성장 동력으로 설명됨. 반도체·AI·기타 테마와 무관한 의료 사업이다.",
+   "evidenceUrls": [
+    "https://ir.axogeninc.com/press-releases/detail/1019/axogen-inc-reports-fourth-quarter-and-full-year-2025",
+    "https://quantisnow.com/insight/axogen-inc-reports-fourth-quarter-and-full-year-2025-financial-results-6408641"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-12T08:14:22+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "AXON": {
    "companyName": "Axon Enterprise, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -1718,6 +1739,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:44:16+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "COGT": {
+   "companyName": "Cogent Biosciences, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "정밀항암 바이오텍",
+   "businessSummary": "유전적으로 정의된 질환을 겨냥한 정밀 표적치료제를 개발하는 임상단계 바이오텍이다. 주력 후보물질 bezuclastinib(KIT 억제제)은 전신비만세포증과 진행성 위장관기질종양(GIST) 대상 3상 중이며, 2026년 하반기 미국 출시를 목표로 한다. 현재 제품 매출은 사실상 없다.",
+   "confidence": "high",
+   "why": "회사는 2026년 현재에도 Cogent Biosciences(COGT)로 거래되며, 2025년 실적 발표와 FY2025 10-K 기준 사업이 신약 개발(bezuclastinib 3상·NDA 제출)이다. 제품 매출이 없어 주력은 바이오·헬스케어가 확실하고, 별도 보조 테마는 두지 않았다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/cogt/company/",
+    "https://www.biospace.com/press-releases/cogent-biosciences-reports-recent-business-highlights-and-fourth-quarter-and-full-year-2025-financial-results",
+    "https://last10k.com/sec-filings/cogt/0001193125-26-053334.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-12T08:14:22+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
