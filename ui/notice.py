@@ -41,8 +41,8 @@ def _dialog():
         st.session_state['notice_seen'] = NOTICE_VERSION
         st.rerun()
     _, hide = st.columns([3, 1])      # 오른쪽 아래에 작게
-    if hide.button('7일간 보지 않기', type='tertiary', width='stretch',
-                   help=f'게시가 끝나는 {NOTICE_UNTIL:%m/%d}까지 이 브라우저에서 다시 띄우지 않습니다'):
+    if hide.button('다시 보지 않기', type='tertiary', width='stretch',
+                   help='이 안내를 이 브라우저에서 다시 띄우지 않습니다 (새 안내가 올라오면 다시 뜹니다)'):
         st.session_state['notice_seen'] = NOTICE_VERSION
         st.session_state['notice_set_cookie'] = True
         st.rerun()
