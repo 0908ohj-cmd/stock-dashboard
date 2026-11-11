@@ -340,29 +340,41 @@ HOT_SHARE = 0.5         # 섹터 종목 중 이 비율 이상이 최근 5일 렐
 HOT_LOOKBACK = 30       # 🔥 이력을 남기는 기간(거래일, 약 6주) — 돈이 몰리고 PP 셋업이 나오기까지 몇 주 걸린다
 HOT_RVOL = 1.5
 HOT_GAP = 10            # 이 기간 안에 다시 켜진 건 같은 🔥로 본다 (50% 근처 깜빡임)
+# 섹터 정배열 종목 비율이 이 미만이면 🔥여도 제외 — 2026-11-11 검증(🔥 섹터 1,005개): 20% 미만(35%)은 30일 안
+# 기준봉 나온 섹터 26%·종목당 5.3%, 20~50% 43~46%·10%, 50%↑ 53~54%·13~14%. 200일선 위 비율·렐볼 강도는 효과 없음.
+HOT_MIN_ALIGNED = 0.2
 
 
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
-                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N) -> dict:
+                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
     """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [🔥 시작일…], 'last': 마지막 🔥 시작일,
     'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
     렐볼 양봉 = 종가 > 시가 & 거래량 ≥ 직전 20일 평균 × 1.5 (sector_strength와 같은 정의)."""
     asof = pd.Timestamp(asof)
-    flags, groups = {}, {}
+    flags, groups, aligned = {}, {}, {}
     for t, df in bars.items():
         th = theme_of.get(t)
         if th in (None, 'UNCLASSIFIED'):
             continue
-        d = df[df.index <= asof].tail(lookback + HOT_GAP + 30)
+        full = df[df.index <= asof]
+        d = full.tail(lookback + HOT_GAP + 30)
         if len(d) < 30:
             continue
         avgv = d['Volume'].shift(1).rolling(20).mean()
         bull = (d['Close'] > d['Open']) & (d['Volume'] >= HOT_RVOL * avgv)
         flags[t] = bull.astype(float).rolling(5, min_periods=1).max().fillna(0).astype(bool)
         groups.setdefault(th, []).append(t)
+        c = full['Close'].tail(250)
+        s50 = c.rolling(50).mean().iloc[-1]
+        aligned[t] = bool(not pd.isna(s50) and c.ewm(span=10, adjust=False).mean().iloc[-1]
+                          > c.ewm(span=21, adjust=False).mean().iloc[-1] > s50)
     out = {}
     for th, ts in groups.items():
         if len(ts) < min_n:
+            continue
+        # 섹터 품질 — 정배열(10EMA>21EMA>50SMA) 종목 비율이 낮으면 🔥여도 뺀다 (바닥권 종목들이 거래량만 터진 경우)
+        al_share = sum(aligned[t] for t in ts) / len(ts)
+        if al_share < (HOT_MIN_ALIGNED if min_aligned is None else min_aligned):
             continue
         f = pd.DataFrame({t: flags[t] for t in ts})
         f = f[f.index <= asof].tail(lookback + HOT_GAP)     # 창 앞 HOT_GAP일은 '그 전부터 켜져 있었나' 판단용
@@ -382,7 +394,7 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         started_before = since not in fires
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[HOT_GAP:].max()),
-                   'since': since, 'startedBefore': started_before,
+                   'since': since, 'startedBefore': started_before, 'alignedShare': al_share,
                    'daysAgo': (len(on) - 1 - f.index.get_loc(last)) if last is not None else lookback,
                    'tickers': [t for t in ts if f[t].astype(float).iloc[-1] == 1]}
     return out

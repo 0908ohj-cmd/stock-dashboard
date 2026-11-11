@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_11_4     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_11_5     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -411,7 +411,8 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     if not hot:
         st.caption('최근 6주 안에 🔥였던 섹터가 없습니다.')
         return
-    items = sorted(hot.items(), key=lambda kv: (not kv[1]['now'], kv[1]['daysAgo']))
+    # 지금 🔥 먼저, 그 안에서 정배열 종목 비율 높은 순 (검증: 정배열 비율 높을수록 이후 기준봉이 더 자주 나옴)
+    items = sorted(hot.items(), key=lambda kv: (not kv[1]['now'], -kv[1].get('alignedShare', 0)))
     rows = []
     for th, h in items:
         state = ('<span class="sl-badge sl-A">지금 🔥</span>' if h['now']
@@ -420,13 +421,15 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
         rows.append(f'<tr><td><span class="sl-name">{_esc(labels.get(th, th))}</span><span class="sl-sub">{h["n"]}종목</span></td>'
-                    f'<td>{state}</td><td>{fires}</td><td>{100 * h["share"]:.0f}% <span class="sl-sub">최고 {100 * h["peakShare"]:.0f}%</span></td>'
+                    f'<td>{state}</td><td>{fires}</td><td><b>{100 * h.get("alignedShare", 0):.0f}%</b></td>'
+                    f'<td>{100 * h["share"]:.0f}% <span class="sl-sub">최고 {100 * h["peakShare"]:.0f}%</span></td>'
                     f'<td class="sl-need">{who or "—"}</td></tr>')
     st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
-                '<th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
+                '<th>정배열 종목 비율</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
-               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.')
+               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다. '
+               f'단, 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 미만이면 🔥여도 뺍니다.')
     st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">상태 설명</div>'
                 '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
                 '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'

@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-11T17:34:45+09:00",
+ "updatedAt": "2026-11-11T22:56:01+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -1056,16 +1056,16 @@
   },
   "010060": {
    "companyName": "OCI홀딩스",
-   "primaryTheme": "HOLDING_OTHER",
+   "primaryTheme": "ENERGY_TRANSITION",
    "suggestedTheme": null,
    "secondaryThemes": [
-    "ENERGY_TRANSITION",
+    "HOLDING_OTHER",
     "BIO_PHARMA",
     "CONSTRUCTION_MATERIALS"
    ],
    "detail": "태양광 폴리실리콘 지주사",
    "businessSummary": "OCI홀딩스는 OCI TerraSus(말레이시아 폴리실리콘), OCI Enterprises·OCI Energy(미국 태양광 발전사업), DCRE(도시개발) 등을 거느린 순수 지주회사다. 신재생에너지, 첨단소재, 제약·바이오 부문으로 재편 중이다.",
-   "confidence": "medium",
+   "confidence": "high",
    "why": "지주사이고 단일 자회사가 매출 대부분을 차지한다는 근거가 없다. 2025년 기준 OCI TerraSus 매출 비중은 약 14%로 보도됐고, 태양광 발전·도시개발·제약 바이오가 함께 있어 핵심 자회사 테마로 좁히기 어렵다. 사업보고서 원문의 부문별 매출 표는 확인하지 못했다.",
    "evidenceUrls": [
     "https://alphadistill.com/report/589",
@@ -1075,12 +1075,40 @@
     "https://news.mtn.co.kr/news-detail/2024080516364583757"
    ],
    "gateReasons": [],
-   "method": "llm:claude-haiku-5-5+websearch",
+   "method": "user",
    "taxonomyVersion": "kr-v1",
-   "reviewedAt": "2026-11-08T15:52:42+09:00",
-   "overrideByUser": false,
-   "overrideReason": "",
-   "history": []
+   "reviewedAt": "2026-11-11T22:56:01+09:00",
+   "overrideByUser": true,
+   "overrideReason": "사용자 확정: 태양광(폴리실리콘·태양광 발전) 중심 — 신재생·수소",
+   "history": [
+    {
+     "companyName": "OCI홀딩스",
+     "primaryTheme": "HOLDING_OTHER",
+     "suggestedTheme": null,
+     "secondaryThemes": [
+      "ENERGY_TRANSITION",
+      "BIO_PHARMA",
+      "CONSTRUCTION_MATERIALS"
+     ],
+     "detail": "태양광 폴리실리콘 지주사",
+     "businessSummary": "OCI홀딩스는 OCI TerraSus(말레이시아 폴리실리콘), OCI Enterprises·OCI Energy(미국 태양광 발전사업), DCRE(도시개발) 등을 거느린 순수 지주회사다. 신재생에너지, 첨단소재, 제약·바이오 부문으로 재편 중이다.",
+     "confidence": "medium",
+     "why": "지주사이고 단일 자회사가 매출 대부분을 차지한다는 근거가 없다. 2025년 기준 OCI TerraSus 매출 비중은 약 14%로 보도됐고, 태양광 발전·도시개발·제약 바이오가 함께 있어 핵심 자회사 테마로 좁히기 어렵다. 사업보고서 원문의 부문별 매출 표는 확인하지 못했다.",
+     "evidenceUrls": [
+      "https://alphadistill.com/report/589",
+      "https://newstomato.com/ReadNews.aspx?no=1239900",
+      "https://www.inews24.com/view/1749837",
+      "https://mobile.newsis.com/view/NISX20260723_0003720614",
+      "https://news.mtn.co.kr/news-detail/2024080516364583757"
+     ],
+     "gateReasons": [],
+     "method": "llm:claude-haiku-5-5+websearch",
+     "taxonomyVersion": "kr-v1",
+     "reviewedAt": "2026-11-08T15:52:42+09:00",
+     "overrideByUser": false,
+     "overrideReason": ""
+    }
+   ]
   },
   "010120": {
    "companyName": "LS일렉트릭 주식회사",
