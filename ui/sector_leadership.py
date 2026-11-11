@@ -423,8 +423,6 @@ def _rot_change(s: dict) -> str:
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     """🔥 급부상 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
-    st.info('**사용 방법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
-            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
     if not hot:
         st.caption('최근 6주 안에 🔥였던 섹터가 없습니다.')
         return
@@ -785,11 +783,6 @@ def _stock_name(t: str, names: dict, records: dict) -> str:
 def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     ph, ranked, thin = res['phase'], res['nextSectors'], res['thinSectors']
     records = cls.load_store(m.key)
-    st.info('**사용 방법**  \n'
-            '**📉 하락국면** (기산점 ~ 찐반등) — 지수가 빠지는 동안 **덜 빠지고 · 52주 고점을 지키고 · 저점을 먼저 찍은** '
-            '섹터·종목을 관심 목록에 둡니다. 이 구간엔 사지 않고 찐반등을 기다립니다.  \n'
-            '**📈 상승국면** (찐반등 이후 ~ 다음 21EMA 이탈) — 관심 목록 중 **찐반등 이후 지수보다 먼저 치고 나가는** '
-            '(상승국면 RS/ADR이 높은) 종목을 추세추종 탭에서 진입 규칙·손절대로 봅니다.', icon='💡')
     if not ranked:
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
@@ -1299,17 +1292,30 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         if res['phase'] is not None:
             _phase_banner(m, res)
     # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 🔥 급부상 섹터 → 🔥 급부상 섹터 종목 → 자세히 보기.
+    # 두 묶음 — 차기 주도(추세추종용) · 급부상(10EMA PP용). 묶음 머리에 사용 방법, 안에 섹터·종목 칸
     if res['phase'] is not None:
-        with st.expander('**🧭 차기 주도섹터**', expanded=True):
-            _lead_sectors(m, res, labels, names)
-        with st.expander('**🎯 차기 주도주**', expanded=True):
-            _lead_stocks(m, res, labels, names)
-    # 순환매는 10EMA PP와 함께 국면과 상관없이 보므로 늘 펼친다
+        with st.container(border=True):
+            st.markdown('#### 🧭 차기 주도 <span style="font-size:.8rem;opacity:.6;font-weight:500">— 추세추종용</span>',
+                        unsafe_allow_html=True)
+            st.info('**사용 방법**  \n'
+                    '**📉 하락국면** (기산점 ~ 찐반등) — 지수가 빠지는 동안 **덜 빠지고 · 52주 고점을 지키고 · 저점을 먼저 찍은** '
+                    '섹터·종목을 관심 목록에 둡니다. 이 구간엔 사지 않고 찐반등을 기다립니다.  \n'
+                    '**📈 상승국면** (찐반등 이후 ~ 다음 21EMA 이탈) — 관심 목록 중 **찐반등 이후 지수보다 먼저 치고 나가는** '
+                    '(상승국면 RS/ADR이 높은) 종목을 추세추종 탭에서 진입 규칙·손절대로 봅니다.', icon='💡')
+            with st.expander('**🧭 차기 주도섹터**', expanded=True):
+                _lead_sectors(m, res, labels, names)
+            with st.expander('**🎯 차기 주도주**', expanded=True):
+                _lead_stocks(m, res, labels, names)
     records = cls.load_store(m.key)
-    with st.expander('**🔥 급부상 섹터 (최근 6주)**', expanded=True):
-        _hot_block(res, labels, names, records)
-    with st.expander('**🔥 급부상 섹터 종목**', expanded=True):
-        _rotation_stocks(m, res, labels, names, records)
+    with st.container(border=True):
+        st.markdown('#### 🔥 급부상 <span style="font-size:.8rem;opacity:.6;font-weight:500">— 10EMA PP용</span>',
+                    unsafe_allow_html=True)
+        st.info('**사용 방법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
+                '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
+        with st.expander('**🔥 급부상 섹터 (최근 6주)**', expanded=True):
+            _hot_block(res, labels, names, records)
+        with st.expander('**🔥 급부상 섹터 종목**', expanded=True):
+            _rotation_stocks(m, res, labels, names, records)
 
     views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
     with st.expander('자세히 보기 — ' + ' · '.join(views)):
