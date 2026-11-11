@@ -441,7 +441,10 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 '<th>렐볼 양봉 비율 (지금)</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
-               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.')
+               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.  \n'
+               '**상태** — **지금 🔥**: 오늘도 돈이 몰리는 중 · '
+               '**꺼짐 · N거래일 전 시작**: N거래일 전에 🔥가 켜졌다가 지금은 꺼짐 (돈이 몰린 뒤 쉬는 중 — PP 기준봉을 기다릴 구간) · '
+               '**꺼짐 · 6주보다 전에 시작**: 6주 창이 시작될 때 이미 🔥여서 시작일을 알 수 없고, 지금은 꺼짐.')
 
 
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
@@ -546,7 +549,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         else:
             star = ''
         if t in solo:
-            title += '<div class="sl-off">단독 급등 종목</div>'
+            title += '<div class="sl-off">섹터 종목 부족 · 단독 렐볼</div>'
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
@@ -562,7 +565,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🔥 지금 = 오늘도 급부상 중 · 🔥 날짜 = 그날 급부상 시작(최근 6주) · '
-                   f'단독 급등 종목 = 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정이 안 되지만 최근 5일 렐볼 양봉이 나온 종목. '
+                   f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정이 안 되는데, '
+                   '최근 5일 안에 렐볼 양봉이 나온 종목. '
                    '매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
     _rot_score_table()
 
