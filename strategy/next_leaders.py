@@ -262,7 +262,15 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         vol_ratio = (float(up.mean()) / float(down.mean())) if len(up) and len(down) and down.mean() > 0 \
             else (2.0 if len(up) and not len(down) else 0.0)
         hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
+        c = df['Close']
+        e10 = float(c.ewm(span=10, adjust=False).mean().iloc[-1])
+        e21 = float(c.ewm(span=21, adjust=False).mean().iloc[-1])
+        s50 = c.rolling(50).mean().iloc[-1]
+        last20 = df.tail(20)
+        adr_now = float(((last20['High'] - last20['Low']) / last20['Close'] * 100).mean())
         pool.append({
+            'aligned': bool(not pd.isna(s50) and e10 > e21 > float(s50)),     # 10EMA > 21EMA > 50SMA (PP 기준봉 조건)
+            'adrNow': adr_now,
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
             'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
             'volRatio': vol_ratio, 'offHigh': 100 * (float(df['Close'].iloc[-1]) / hi - 1),
@@ -282,7 +290,32 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
                '장기 추세': trend_points(x['gap200'])}
         parts = {k: v * val[k] for k, v in ROT_WEIGHTS.items()}
         x['rotParts'], x['rotScore'] = parts, float(sum(parts.values()))
+        pv = {'고점 근접': 1.0 if x['offHigh'] >= PP_NEAR_HIGH else 0.0,
+              '10EMA 유지': x['ema10DaysOfLast5'] / 5, '정배열': float(x['aligned']),
+              '장기 추세': pp_trend_points(x['gap200']), '양봉 렐볼': float(x['hasBullishRvol15InLast5']),
+              '1주 RS/ADR': g('rotRs5', t)}
+        pparts = {k: v * pv[k] for k, v in PP_WEIGHTS.items()}
+        x['ppParts'], x['ppScore'] = pparts, float(sum(pparts.values()))
+        x['ppEligible'] = x['adrNow'] >= PP_MIN_ADR
     return pool
+
+
+# ── 🔥 급부상 종목 'PP 준비도' — 기준봉을 만들어낼 가능성 ───────────────────
+# 2026-11-11 5년 검증(🔥 1,011회 × 섹터 종목 7,512, 30일 안 PP 기준봉 비율 평균 10%):
+#   ADR 6%↑ 17~18% vs 4%↓ 3% (10EMA 탭 대상 자체가 6%↑) · 정배열 15% vs 7% · 200일선 +50%↑ 17% vs −15%↓ 5%
+#   10EMA 5/5 14% vs 0/5 4% · 52주 고점 −20% 이내 14% vs 밖 8% (−10~0과 −20~−10 차이 없음 → 이내면 만점)
+#   1주 RS/ADR 상위 12.5% vs 하위 7% · 양봉 렐볼 11% vs 8% (🔥 섹터라 변별력 약함)
+# 이후 수익 예측력은 약함 — '기준봉에 가까운 모양' 순서일 뿐. ADR 6% 미만은 점수와 별개로 'PP 대상 아님' 표시.
+PP_WEIGHTS = {'고점 근접': 25, '10EMA 유지': 20, '정배열': 20, '장기 추세': 15, '양봉 렐볼': 10, '1주 RS/ADR': 10}
+PP_NEAR_HIGH = -20.0
+PP_MIN_ADR = 6.0
+
+
+def pp_trend_points(gap) -> float:
+    """200일선 이격 단계 — 위로 멀수록 기준봉이 잘 나왔다 (+50%↑ 1 · +20~50 0.75 · 0~20 0.5 · −15~0 0.25 · 그 밑 0)."""
+    if gap is None:
+        return 0.0
+    return 1.0 if gap >= 50 else 0.75 if gap >= 20 else 0.5 if gap >= 0 else 0.25 if gap >= TREND_NEAR_PCT else 0.0
 
 
 def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:
@@ -344,8 +377,28 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
             continue
         fires = [f.index[i] for i in starts]
         last = fires[-1] if fires else None      # None = 창(약 6주)보다 전부터 이어진 🔥
+        # 편입일 = 창 안에서 처음 켜진 날. 그날이 🔥 시작이 아니면(창 앞부터 이어짐) 시작일을 모른다
+        first_on = HOT_GAP + int(np.argmax(win_on))
+        since = f.index[first_on]
+        started_before = since not in fires
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[HOT_GAP:].max()),
+                   'since': since, 'startedBefore': started_before,
                    'daysAgo': (len(on) - 1 - f.index.get_loc(last)) if last is not None else lookback,
                    'tickers': [t for t in ts if f[t].astype(float).iloc[-1] == 1]}
+    return out
+
+
+def bull_since(bars: dict, asof) -> dict:
+    """{티커: 최근 5일 안 첫 렐볼 양봉 날} — 지금 '최근 5일 렐볼 양봉'인 종목만. 단독 렐볼 종목의 편입일."""
+    asof = pd.Timestamp(asof)
+    out = {}
+    for t, df in bars.items():
+        d = df[df.index <= asof].tail(26)
+        if len(d) < 21:
+            continue
+        avgv = d['Volume'].shift(1).rolling(20).mean()
+        bull = ((d['Close'] > d['Open']) & (d['Volume'] >= HOT_RVOL * avgv)).tail(5)
+        if bull.any():
+            out[t] = bull[bull].index[0]
     return out

@@ -263,3 +263,19 @@ def test_hot_sectors_지나간_불도_이력에_남는다():
 def test_hot_sectors_3종목_미만이나_미분류는_빠진다():
     bars = {t: _bars(80, (1,)) for t in 'ABC'}
     assert nl.hot_sectors(bars, {'A': 'X', 'B': 'X', 'C': 'UNCLASSIFIED'}, bars['A'].index[-1]) == {}
+
+def test_pp_준비도_배점_합100_200일선_단계():
+    assert sum(nl.PP_WEIGHTS.values()) == 100
+    assert [nl.pp_trend_points(g) for g in (60, 30, 5, -10, -20, None)] == [1.0, 0.75, 0.5, 0.25, 0.0, 0.0]
+
+
+def test_hot_sectors_편입일은_창안_첫_불():
+    bars = {t: _bars(80, (15, 3)) for t in 'ABC'}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1])['OPT']
+    assert h['since'] == bars['A'].index[-15] and not h['startedBefore']
+
+
+def test_bull_since_최근5일_첫_렐볼양봉():
+    bars = {'A': _bars(80, (4, 2)), 'B': _bars(80, (9,))}
+    out = nl.bull_since(bars, bars['A'].index[-1])
+    assert out == {'A': bars['A'].index[-4]}

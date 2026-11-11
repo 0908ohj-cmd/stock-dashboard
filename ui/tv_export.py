@@ -52,6 +52,30 @@ def register_trend(market: str, tickers) -> None:
     _register(f'trend_{market}', _TREND_TITLE.get(market, market), tickers, market)
 
 
+_LEAD_TITLE = {
+    'KR_KOSPI':  '🎯 코스피 차기 주도주',
+    'KR_KOSDAQ': '🎯 코스닥 차기 주도주',
+    'US':        '🎯 나스닥 차기 주도주',
+}
+
+
+def register_lead(market: str, tickers) -> None:
+    """주도섹터 탭 '🎯 차기 주도주' (점수 순, 토글 반영 화면 그대로)."""
+    _register(f'lead_{market}', _LEAD_TITLE.get(market, market), tickers, market)
+
+
+_HOT_TITLE = {
+    'KR_KOSPI':  '🔥 코스피 급부상',
+    'KR_KOSDAQ': '🔥 코스닥 급부상',
+    'US':        '🔥 나스닥 급부상',
+}
+
+
+def register_hot(market: str, tickers) -> None:
+    """주도섹터 탭 '🔥 급부상 종목' (PP 준비도 순, 토글 반영 화면 그대로)."""
+    _register(f'hot_{market}', _HOT_TITLE.get(market, market), tickers, market)
+
+
 def register_ema10(market: str, tickers) -> None:
     """10EMA 탭의 셋업 완성 종목."""
     _register(f'ema10_{market}', _EMA10_TITLE.get(market, market), tickers, market)

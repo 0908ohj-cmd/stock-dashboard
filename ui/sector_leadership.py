@@ -14,6 +14,8 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
+from ui import tv_export
+
 from data import classification as cls
 from data import store
 from strategy import next_leaders as nl
@@ -184,10 +186,11 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
         'hot': nl.hot_sectors(bars, theme_of, asof), 'themeOf': dict(theme_of),
+        'bullSince': nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof),
     }
 
 
-SCORE_VERSION = 2026_11_11_1     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_11_2     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -512,7 +515,8 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
-    # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 순환매 종목 점수(52주 고점·10EMA·렐볼 등)
+    # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 PP 준비도
+    tv_export.register_hot(m.key, [])       # 조기 return 때 직전 목록이 남지 않게 먼저 비운다
     hot = res.get('hot') or {}
     # 섹터 종목이 3개 미만이라 🔥 판정을 못 받는 종목 — 최근 5일 렐볼 양봉이면 '단독 급등 종목'으로 함께 보여준다
     size: dict = {}
@@ -536,66 +540,89 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    if (not only_trend or r['ticker'] in in_trend)
                    and (not only_pp or r['ticker'] in pp)
                    and r['primaryTheme'] not in hidden),
-                  key=lambda r: -r['rotScore'])[:20]
+                  key=lambda r: (not r['ppEligible'], -r['ppScore']))
+    rows = rows[:30]
+    tv_export.register_hot(m.key, [r['ticker'] for r in rows if r['ppEligible']])   # 화면 표 그대로(PP 대상만)
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
+    asof = pd.Timestamp(res['asof'])
+    bull = res.get('bullSince') or {}
+
+    def entry(r):
+        """(편입일, 날짜 모름) — 🔥 섹터면 섹터가 처음 켜진 날, 단독 렐볼이면 최근 5일 첫 렐볼 양봉 날."""
+        h = hot.get(r['primaryTheme'])
+        if h:
+            return h['since'], h['startedBefore']
+        return bull.get(r['ticker']), False
+
     body = []
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
         title = (f'<span class="sl-name">{_esc(nm)}</span><span class="sl-sub">{_esc(t)}</span>'
                  if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
+        d, unknown = entry(r)
+        is_new = d is not None and not unknown and d == asof
+        if is_new:
+            title = '<span class="sl-badge sl-A" style="margin-right:6px">NEW</span>' + title
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
-        h = hot.get(r['primaryTheme'])
-        if h:
-            since = ' 지금' if h['now'] else ' 6주 전부터' if h['last'] is None else h['last'].strftime(' %m/%d')
-            star = f' <span class="sl-sub">🔥{since}</span>'
-        else:
-            star = ''
         if t in solo:
             title += '<div class="sl-off">섹터 종목 부족 · 단독 렐볼</div>'
+        if not r['ppEligible']:
+            title += f'<div class="sl-off">ADR {r["adrNow"]:.1f}% — PP 대상 아님 (6% 미만)</div>'
+        h = hot.get(r['primaryTheme'])
+        star = f' <span class="sl-sub">🔥{" 지금" if h["now"] else ""}</span>' if h else ''
+        since_txt = '—' if d is None else ('6주보다 전' if unknown else f'{d:%m/%d}')
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
-            f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
+            f'<tr class="{"" if r["ppEligible"] else "dim"}"><td>{rank}</td><td>{title}</td>'
+            f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
+            f'<td>{since_txt}</td>'
             f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r.get("gap200"), "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
+            f'<td>{"✓" if r["aligned"] else ""}</td>'
             f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
             f'<td>{"✓" if r["hasBullishRvol15InLast5"] else ""}</td>'
-            f'<td><b>{r["rotScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["rotScore"]:.0f}px"></span></td></tr>')
+            f'<td><b>{r["ppScore"]:.0f}</b><span class="nl-score-bar" style="width:{0.5 * r["ppScore"]:.0f}px"></span></td></tr>')
     if rows:
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-            '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
-            '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th><th>편입일</th>'
+            '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
+            '<th>양봉 렐볼 (최근 5일)</th><th>PP 준비도</th></tr></thead><tbody>' + ''.join(body)
+            + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.  \n'
                    f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
-                   '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.')
-    _rot_score_table()
+                   '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.  \n'
+                   'NEW = 오늘 처음 목록에 들어온 종목 · 편입일 = 섹터 🔥가 처음 켜진 날(단독 렐볼은 첫 렐볼 양봉 날) · '
+                   'ADR 6% 미만은 10EMA 탭 판정 대상이 아니라 흐리게, 맨 아래로. '
+                   'TradingView 내보내기에 \'🔥 급부상\' 섹션으로 담깁니다(PP 대상 종목만).')
+    _pp_score_table()
 
 
-_ROT_ITEMS = [
-    ('고점 근접', '52주 고점 근접', '기준일 종가가 52주 최고가에 얼마나 가까운지 — 차기 주도주·추세추종 탭과 같은 기준'),
+_PP_ITEMS = [
+    ('고점 근접', '52주 고점 근접', '52주 최고가 대비 −20% 이내면 만점, 밖이면 0'),
     ('10EMA 유지', '10EMA 유지', '최근 5거래일 중 종가가 10EMA 위였던 날 수 ÷ 5'),
-    ('1주 RS/ADR', '1주 RS/ADR', '최근 5거래일 지수 대비 초과수익 ÷ ADR (ADR은 비교 구간 시작 전 20일)'),
-    ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0 — 차기 주도주와 같은 정의'),
-    ('장기 추세', '장기 추세 (200일선 이격)', '200일선 위면 만점, 아래라도 이격 0~−15%면 절반, 그보다 멀면 0 — 차기 주도주와 같은 정의'),
+    ('정배열', '정배열 (10EMA > 21EMA > 50SMA)', '맞으면 만점 — 10EMA 탭 기준봉 조건'),
+    ('장기 추세', '장기 추세 (200일선 이격)', '+50%↑ 만점 · +20~50% 0.75 · 0~20% 0.5 · 0~−15% 0.25 · 그 밑 0'),
+    ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점'),
+    ('1주 RS/ADR', '1주 RS/ADR', '최근 5거래일 지수 대비 초과수익 ÷ ADR — 와치리스트 안 상대 순위'),
 ]
 
 
-def _rot_score_table():
-    w = nl.ROT_WEIGHTS
+def _pp_score_table():
+    w = nl.PP_WEIGHTS
     rows = ''.join(
         f'<tr><td><span class="sl-name">{name}</span><div class="sl-sub" style="margin:0">{desc}</div></td>'
-        f'<td><b>{w.get(k, 0)}</b></td></tr>' for k, name, desc in _ROT_ITEMS)
+        f'<td><b>{w.get(k, 0)}</b></td></tr>' for k, name, desc in _PP_ITEMS)
     st.markdown(
-        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">종목 점수 배점 (100점) — 표 정렬 기준</div>'
+        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">PP 준비도 배점 (100점) — 기준봉을 만들어낼 가능성</div>'
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>항목</th><th>배점</th></tr></thead>'
         f'<tbody>{rows}<tr><td><b>합계</b></td><td><b>{sum(w.values())}</b></td></tr></tbody></table></div>',
         unsafe_allow_html=True)
-    st.caption('52주 고점·1주 RS/ADR은 같은 와치리스트 안 상대 순위(1등 만점·꼴찌 0점) × 배점. '
-               '5년 검증에서 효과가 없던 RS 가속, 역효과였던 거래량 우위, 10EMA와 겹치는 21EMA는 넣지 않습니다.')
+    st.caption('5년 검증(🔥 1,011회): 이런 조건을 갖춘 종목일수록 30일 안에 PP 기준봉이 더 자주 나왔습니다(평균 10% → 15~18%). '
+               '다만 이후 수익 예측력은 약합니다 — 기다릴 후보를 좁히는 순서일 뿐.')
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):
@@ -898,6 +925,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
                    and (not only_trend or r['ticker'] in in_trend)
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['nextScore'])[:20]
+    tv_export.register_lead(m.key, [r['ticker'] for r in rows])     # 화면 표 그대로(토글 반영, 상위 20)
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
         _score_table(rebound)
@@ -1276,6 +1304,9 @@ def _rs_range(m: Market, asof: str) -> tuple[str, str]:
 
 def render_sector_leadership_tab(market_key: str = 'US'):
     m = MARKETS[market_key]
+    # TradingView 내보내기 섹션을 먼저 비운다 — 아래 어느 조기 return에서도 직전 실행 목록이 남지 않게
+    tv_export.register_lead(m.key, [])
+    tv_export.register_hot(m.key, [])
     if not _universe(m):
         st.info('와치리스트가 비어 있습니다. 사이드바에서 업로드해 주세요.')
         return
@@ -1314,6 +1345,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _phase_banner(m, res)
     # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 🔥 급부상 섹터 → 🔥 급부상 종목 → 자세히 보기.
     # 두 묶음 — 차기 주도(추세추종용) · 급부상(10EMA PP용). 묶음 머리에 사용 방법, 안에 섹터·종목 칸
+    tv_export.register_lead(m.key, [])      # 국면 없음·조기 return 때 직전 목록이 남지 않게 먼저 비운다
     if res['phase'] is not None:
         with st.container(border=True):
             st.markdown('#### 🧭 차기 주도 <span style="font-size:.8rem;opacity:.6;font-weight:500">— 추세추종용</span>',
