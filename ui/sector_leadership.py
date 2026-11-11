@@ -515,7 +515,7 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
-    # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 PP 준비도
+    # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 PP 가능성 점수
     tv_export.register_hot(m.key, [])       # 조기 return 때 직전 목록이 남지 않게 먼저 비운다
     hot = res.get('hot') or {}
     # 섹터 종목이 3개 미만이라 🔥 판정을 못 받는 종목 — 최근 5일 렐볼 양봉이면 '단독 급등 종목'으로 함께 보여준다
@@ -525,6 +525,31 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     solo = {r['ticker'] for r in res.get('rotStocks') or []
             if size.get(r['primaryTheme'], 0) < nl.MIN_SECTOR_N and r['hasBullishRvol15InLast5']}
     pool = [r for r in res.get('rotStocks') or [] if r['primaryTheme'] in hot or r['ticker'] in solo]
+    # ADR 6% 미만은 10EMA 탭 판정 대상이 아니라 아예 뺀다
+    pool = [r for r in pool if r['ppEligible']]
+    # 탈락 — 편입 후 종가 고점에서 3 ADR 이상 밀린 종목 (5년 검증: 이후 30일 기준봉 3.6~3.9% vs 평균 16~17%)
+    asof_ts = pd.Timestamp(res['asof'])
+    bull = res.get('bullSince') or {}
+    data = store.load_snapshot(m.key).get('data', {})
+
+    def drawdown_adr(r):
+        h = hot.get(r['primaryTheme'])
+        since = h['since'] if h else bull.get(r['ticker'])
+        rec = data.get(r['ticker'])
+        if since is None or not rec or not r['adrNow']:
+            return 0.0
+        c = store._records_to_df(rec)['Close']
+        c = c[c.index <= asof_ts]
+        # 🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 급등은 편입일보다 최대 5거래일 앞설 수 있다 — 그 고점부터 잰다
+        pos = c.index.searchsorted(since)
+        c = c.iloc[max(0, pos - 5):]
+        return 0.0 if c.empty else 100 * (float(c.iloc[-1]) / float(c.max()) - 1) / r['adrNow']
+
+    for r in pool:
+        r['ddAdr'] = drawdown_adr(r)
+    dropped = [r for r in pool if r['ddAdr'] <= -nl.PP_DROP_ADR]
+    weak = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and r['ppScore'] < nl.PP_MIN_SCORE]
+    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and r['ppScore'] >= nl.PP_MIN_SCORE]
     if not pool:
         st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
         return
@@ -590,14 +615,21 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th><th>편입일</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
-            '<th>양봉 렐볼 (최근 5일)</th><th>PP 준비도</th></tr></thead><tbody>' + ''.join(body)
+            '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
             + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.  \n'
                    f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
                    '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.  \n'
-                   'NEW = 오늘 처음 목록에 들어온 종목 · 편입일 = 섹터 🔥가 처음 켜진 날(단독 렐볼은 첫 렐볼 양봉 날) · '
-                   'ADR 6% 미만은 10EMA 탭 판정 대상이 아니라 흐리게, 맨 아래로. '
-                   'TradingView 내보내기에 \'🔥 급부상\' 섹션으로 담깁니다(PP 대상 종목만).')
+                   'NEW = 오늘 처음 목록에 들어온 종목 · 편입일 = 섹터 🔥가 처음 켜진 날(단독 렐볼은 첫 렐볼 양봉 날)')
+    hidden_txt = []
+    if weak:
+        hidden_txt.append(f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 {len(weak)}개')
+    if dropped:
+        hidden_txt.append(f'편입 후 고점에서 {nl.PP_DROP_ADR:.0f} ADR↑ 하락해 탈락 {len(dropped)}개 ('
+                          + ', '.join(_stock_name(r['ticker'], names, records) for r in
+                                      sorted(dropped, key=lambda r: r['ddAdr'])[:8]) + (' …' if len(dropped) > 8 else '') + ')')
+    if hidden_txt:
+        st.caption('숨김: ' + ' · '.join(hidden_txt) + ' — ADR 6% 미만은 10EMA 탭 대상이 아니라 제외')
     _pp_score_table()
 
 
@@ -617,12 +649,14 @@ def _pp_score_table():
         f'<tr><td><span class="sl-name">{name}</span><div class="sl-sub" style="margin:0">{desc}</div></td>'
         f'<td><b>{w.get(k, 0)}</b></td></tr>' for k, name, desc in _PP_ITEMS)
     st.markdown(
-        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">PP 준비도 배점 (100점) — 기준봉을 만들어낼 가능성</div>'
+        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">PP 가능성 배점 (100점) — 기준봉을 만들어낼 가능성</div>'
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>항목</th><th>배점</th></tr></thead>'
         f'<tbody>{rows}<tr><td><b>합계</b></td><td><b>{sum(w.values())}</b></td></tr></tbody></table></div>',
         unsafe_allow_html=True)
     st.caption('5년 검증(🔥 1,011회): 이런 조건을 갖춘 종목일수록 30일 안에 PP 기준봉이 더 자주 나왔습니다(평균 10% → 15~18%). '
-               '다만 이후 수익 예측력은 약합니다 — 기다릴 후보를 좁히는 순서일 뿐.')
+               '다만 이후 수익 예측력은 약합니다 — 기다릴 후보를 좁히는 순서일 뿐. '
+               f'{nl.PP_MIN_SCORE}점 이상만 표에 보이고(50↑ 24~30%, 30~40 14%), 편입 후 종가 고점에서 '
+               f'{nl.PP_DROP_ADR:.0f} ADR 이상 밀리면 탈락합니다(이후 기준봉 4% 안팎).')
 
 
 def _next_sectors(res: dict, labels: dict, names: dict | None = None, records: dict | None = None):

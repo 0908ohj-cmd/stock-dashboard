@@ -300,7 +300,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
     return pool
 
 
-# ── 🔥 급부상 종목 'PP 준비도' — 기준봉을 만들어낼 가능성 ───────────────────
+# ── 🔥 급부상 종목 'PP 가능성 점수' — 기준봉을 만들어낼 가능성 ───────────────────
 # 2026-11-11 5년 검증(🔥 1,011회 × 섹터 종목 7,512, 30일 안 PP 기준봉 비율 평균 10%):
 #   ADR 6%↑ 17~18% vs 4%↓ 3% (10EMA 탭 대상 자체가 6%↑) · 정배열 15% vs 7% · 200일선 +50%↑ 17% vs −15%↓ 5%
 #   10EMA 5/5 14% vs 0/5 4% · 52주 고점 −20% 이내 14% vs 밖 8% (−10~0과 −20~−10 차이 없음 → 이내면 만점)
@@ -308,7 +308,9 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
 # 이후 수익 예측력은 약함 — '기준봉에 가까운 모양' 순서일 뿐. ADR 6% 미만은 점수와 별개로 'PP 대상 아님' 표시.
 PP_WEIGHTS = {'고점 근접': 25, '10EMA 유지': 20, '정배열': 20, '장기 추세': 15, '양봉 렐볼': 10, '1주 RS/ADR': 10}
 PP_NEAR_HIGH = -20.0
-PP_MIN_ADR = 6.0
+PP_MIN_ADR = 6.0        # 미만은 10EMA 탭 판정 대상이 아니라 급부상 종목에서 제외
+PP_MIN_SCORE = 50       # 이상만 표시 — 검증: 50↑ 30일 안 기준봉 24~30%, 30~40 14%, 30↓ 9% (ADR 6%↑ 평균 17%)
+PP_DROP_ADR = 3.0       # 편입 후 종가 고점에서 이 ADR 배수 이상 밀리면 탈락 — 검증: 이후 기준봉 3.6~3.9%
 
 
 def pp_trend_points(gap) -> float:

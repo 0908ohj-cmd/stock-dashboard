@@ -72,7 +72,7 @@ _HOT_TITLE = {
 
 
 def register_hot(market: str, tickers) -> None:
-    """주도섹터 탭 '🔥 급부상 종목' (PP 준비도 순, 토글 반영 화면 그대로)."""
+    """주도섹터 탭 '🔥 급부상 종목' (PP 가능성 점수 순, 토글 반영 화면 그대로)."""
     _register(f'hot_{market}', _HOT_TITLE.get(market, market), tickers, market)
 
 
