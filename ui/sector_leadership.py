@@ -413,6 +413,11 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
         return
     # 지금 🔥 먼저, 그 안에서 정배열 종목 비율 높은 순 (검증: 정배열 비율 높을수록 이후 기준봉이 더 자주 나옴)
     items = sorted(hot.items(), key=lambda kv: (not kv[1]['now'], -kv[1].get('alignedShare', 0)))
+    def pct_bar(v, color, sub=''):
+        """비율 숫자 + 가는 막대 — 숫자 열이 한눈에 비교되게."""
+        return (f'<div class="hb-num"><b>{100 * v:.0f}%</b>{sub}</div>'
+                f'<div class="hb-bar"><i style="width:{max(0, min(1, v)) * 100:.0f}%;background:{color}"></i></div>')
+
     rows = []
     for th, h in items:
         state = ('<span class="sl-badge sl-A">지금 🔥</span>' if h['now']
@@ -420,11 +425,27 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                  else '<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>')
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
-        rows.append(f'<tr><td><span class="sl-name">{_esc(labels.get(th, th))}</span><span class="sl-sub">{h["n"]}종목</span></td>'
-                    f'<td>{state}</td><td>{fires}</td><td><b>{100 * h.get("alignedShare", 0):.0f}%</b></td>'
-                    f'<td>{100 * h["share"]:.0f}% <span class="sl-sub">최고 {100 * h["peakShare"]:.0f}%</span></td>'
-                    f'<td class="sl-need">{who or "—"}</td></tr>')
-    st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
+        peak = '<span class="hb-sub"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
+        rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="hb-sub">{h["n"]}종목</div></td>'
+                    f'<td>{state}</td><td class="hb-date">{fires}</td>'
+                    f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb")}</td>'
+                    f'<td>{pct_bar(h["share"], "#f97316", peak)}</td>'
+                    f'<td class="hb-who">{who or "—"}</td></tr>')
+    css = ('<style>'
+           '.hb-t{table-layout:fixed;min-width:820px}'
+           '.hb-t td{vertical-align:middle;padding:12px 14px}.hb-t th{padding:8px 14px}'
+           '.hb-sub{font-size:.74rem;opacity:.55;font-weight:400}'
+           '.hb-num{font-variant-numeric:tabular-nums;white-space:nowrap}'
+           '.hb-bar{position:relative;height:4px;width:100%;max-width:120px;margin-top:6px;border-radius:2px;'
+           'background:rgba(128,128,128,.16);overflow:hidden}'
+           '.hb-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}'
+           '.hb-date{font-variant-numeric:tabular-nums;white-space:normal}'
+           '.hb-who{white-space:normal;line-height:1.5;font-size:.84rem}'
+           '</style>')
+    st.markdown(css + '<div class="sl-wrap"><table class="sl-t hb-t">'
+                '<colgroup><col style="width:15%"><col style="width:17%"><col style="width:10%">'
+                '<col style="width:13%"><col style="width:15%"><col style="width:30%"></colgroup>'
+                '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
