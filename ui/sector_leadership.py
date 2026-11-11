@@ -442,7 +442,8 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
                f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.')
-    st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
+    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">상태 설명</div>'
+                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
                 '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'
                 '<tr><td><span class="sl-badge sl-C">꺼짐 · N거래일 전 시작</span></td>'
                 '<td>N거래일 전에 🔥가 켜졌다가 지금은 꺼짐 — 돈이 몰린 뒤 쉬는 중, PP 기준봉을 기다릴 구간</td></tr>'
