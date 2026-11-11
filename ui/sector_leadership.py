@@ -430,9 +430,9 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     rows = []
     for th, h in items:
         state = ('<span class="sl-badge sl-A">지금 🔥</span>' if h['now']
-                 else f'<span class="sl-badge sl-C">{h["daysAgo"]}거래일 전</span>' if h['last'] is not None
-                 else '<span class="sl-badge sl-C">6주 넘게 전</span>')
-        fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주 전부터 이어짐'
+                 else f'<span class="sl-badge sl-C">꺼짐 · {h["daysAgo"]}거래일 전 시작</span>' if h['last'] is not None
+                 else '<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>')
+        fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
         rows.append(f'<tr><td><span class="sl-name">{_esc(labels.get(th, th))}</span><span class="sl-sub">{h["n"]}종목</span></td>'
                     f'<td>{state}</td><td>{fires}</td><td>{100 * h["share"]:.0f}% <span class="sl-sub">최고 {100 * h["peakShare"]:.0f}%</span></td>'
