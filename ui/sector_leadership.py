@@ -1310,8 +1310,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
     with st.container(border=True):
         st.markdown('#### 🔥 급부상 <span style="font-size:.8rem;opacity:.6;font-weight:500">— 10EMA PP용</span>',
                     unsafe_allow_html=True)
-        st.info('**사용 방법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
-                '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
+        st.info('**사용 방법**  \n'
+                '🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 나오길 기다립니다.',
+                icon='💡')
         with st.expander('**🔥 급부상 섹터 (최근 6주)**', expanded=True):
             _hot_block(res, labels, names, records)
         with st.expander('**🔥 급부상 섹터 종목**', expanded=True):
