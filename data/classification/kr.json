@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-10T17:34:56+09:00",
+ "updatedAt": "2026-11-11T17:34:45+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -2554,6 +2554,31 @@
      "overrideReason": ""
     }
    ]
+  },
+  "058470": {
+   "companyName": "리노공업",
+   "primaryTheme": "SEMI_MATERIALS_PARTS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "MEDICAL_DEVICE"
+   ],
+   "detail": "반도체 테스트 소켓·프로브",
+   "businessSummary": "반도체 IC 검사용 테스트 소켓과 포고핀(프로브 핀)을 자체 브랜드로 개발·생산하는 회사. 초음파 진단기 등 의료기기 부품 제조도 병행한다.",
+   "confidence": "medium",
+   "why": "테스트 소켓과 포고핀은 반도체 검사 공정에서 반복 소모되는 소모성 검사 부품이라 장비가 아닌 소재·부품 테마에 해당한다. 다만 검색으로는 부문별 매출 비중 수치를 확인하지 못했으므로 매출 기준 근거는 사업보고서로 추가 검증이 필요하다.",
+   "evidenceUrls": [
+    "https://thecheck.co.kr/%eb%a6%ac%eb%85%b8%ea%b3%b5%ec%97%85-%ec%a2%85%eb%aa%a9-%eb%b6%84%ec%84%9d-ai-%eb%b0%98%eb%8f%84%ec%b2%b4-%ea%b4%80%eb%a0%a8%ec%a3%bc-%ed%85%8c%ec%8a%a4%ed%8a%b8-%ec%86%8c%ec%bc%93-%ec%a0%88%eb%8c%80/",
+    "https://komachine.com/en/companies/leeno/products/47152",
+    "https://www.komachine.com/companies/leeno",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/250620_%EB%A6%AC%EB%85%B8%EA%B3%B5%EC%97%85%28%EA%B8%80%EC%84%B8%29.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-11T17:34:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
   },
   "058610": {
    "companyName": "에스피지(SPG Co., Ltd.)",
