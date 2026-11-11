@@ -462,7 +462,6 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     pool = res.get('rotStocks') or []
     if not pool:
         return
-    st.markdown('#### 순환매 종목')
     new = {s['theme'] for s in res.get('rotSectors') or [] if s['isNew']}
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
@@ -677,7 +676,7 @@ def _phase_banner(m: Market, res: dict):
         last = (f" — 마지막 찐반등 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{ph['indexSinceJjin']:+.1f}%</b>"
                 if ph.get('jjinDate') is not None and ph.get('indexSinceJjin') is not None else '')
         body = (f"<b>🟢 상승 추세</b>{last}.<br>차기 주도섹터·주도주는 다음 조정(21EMA 이탈) 전까지 마지막 기산점·찐반등 기준을 "
-                "그대로 이어 갑니다. 찐반등 2주 뒤부터 새로 치고 올라오는 섹터는 아래 <b>'🔄 순환매'</b>에서 봅니다.")
+                "그대로 이어 갑니다. 찐반등 2주 뒤부터 새로 치고 올라오는 섹터는 아래 <b>'🔄 순환매 섹터·종목'</b>에서 봅니다.")
     late = ' late' if ph['mode'] == 'rebound' and _rebound_ball(ph['label']) == '🔵' else ''
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}{late}">{body}</div>', unsafe_allow_html=True)
 
@@ -1242,19 +1241,17 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _market_strip(m, res)
         if res['phase'] is not None:
             _phase_banner(m, res)
-    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 상승 추세 확인(A/B) → 자세히 보기.
-    # 국면에 따라 바뀌는 건 A/B 섹션이 기본으로 펼쳐져 있는지뿐이다.
+    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 순환매 섹터 → 순환매 종목 → 자세히 보기.
     if res['phase'] is not None:
         with st.expander('**🧭 차기 주도섹터**', expanded=True):
             _lead_sectors(m, res, labels, names)
         with st.expander('**🎯 차기 주도주**', expanded=True):
             _lead_stocks(m, res, labels, names)
-    uptrend = res['phase'] is None or res['phase']['mode'] == 'uptrend'
-    with st.expander('**🔄 순환매 — 지금 돈이 새로 들어오는 섹터 (최근 1~2주)**', expanded=uptrend):
-        if not uptrend:
-            st.caption('찐반등 2주 뒤부터 주로 보는 섹션입니다. 조정 중에는 지수 자체가 약해 참고용입니다.')
-        records = cls.load_store(m.key)
+    # 순환매는 10EMA PP와 함께 국면과 상관없이 보므로 늘 펼친다
+    records = cls.load_store(m.key)
+    with st.expander('**🔄 순환매 섹터 — 지금 돈이 새로 들어오는 섹터 (최근 1~2주)**', expanded=True):
         _rotation_sectors(m, res, labels, names, records)
+    with st.expander('**🔄 순환매 종목**', expanded=True):
         _rotation_stocks(m, res, labels, names, records)
 
     views = ['A/B 판정', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
