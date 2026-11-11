@@ -549,13 +549,17 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         r['ddAdr'] = drawdown_adr(r)
     dropped = [r for r in pool if r['ddAdr'] <= -nl.PP_DROP_ADR]
     weak = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and r['ppScore'] < nl.PP_MIN_SCORE]
-    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and r['ppScore'] >= nl.PP_MIN_SCORE]
+    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR]
     if not pool:
         st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
         return
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
+    show_weak = bar.toggle(f'{nl.PP_MIN_SCORE}점 미만도 보기', key=f'{m.key}_rot_show_weak', width='content',
+                           help=f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 종목도 표에 넣습니다 (기본은 숨김)')
+    if not show_weak:
+        pool = [r for r in pool if r['ppScore'] >= nl.PP_MIN_SCORE]
     only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
                          help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
@@ -622,7 +626,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.  \n'
                    'NEW = 오늘 처음 목록에 들어온 종목 · 편입일 = 섹터 🔥가 처음 켜진 날(단독 렐볼은 첫 렐볼 양봉 날)')
     hidden_txt = []
-    if weak:
+    if weak and not show_weak:
         hidden_txt.append(f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 {len(weak)}개')
     if dropped:
         hidden_txt.append(f'편입 후 고점에서 {nl.PP_DROP_ADR:.0f} ADR↑ 하락해 탈락 {len(dropped)}개 ('
