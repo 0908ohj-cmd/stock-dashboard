@@ -849,10 +849,10 @@ _THEME_TOGGLES = {'KR_KOSPI': ('BIO_PHARMA', 'FINANCE'), 'KR_KOSDAQ': ('BIO_PHAR
 def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str) -> set:
     """테마별 켜고 끄는 토글 — 차기 주도주·순환매 종목 표 공통. 끈(숨길) 테마 코드 집합을 돌려준다.
     국장 바이오·제약·금융 + 메인 밖 테마(KR 지주·기타, US 바이오·헬스케어·금속·소재 등), 모두 기본 꺼짐.
-    실제로 종목이 있는 테마만 토글을 보여준다."""
-    side = [c for c in _THEME_TOGGLES.get(m.key, ()) if c in present]
+    두 표가 같은 토글 목록을 보이도록 표에 그 테마 종목이 없어도 항상 보여준다 (present는 쓰지 않음)."""
+    side = list(_THEME_TOGGLES.get(m.key, ()))
     side += [t['code'] for t in cls.load_taxonomy(m.key)['themes']
-             if not t['main'] and t['code'] != 'UNCLASSIFIED' and t['code'] in present]
+             if not t['main'] and t['code'] != 'UNCLASSIFIED']
     return {code for code in side
             if not bar.toggle(labels.get(code, code), value=False, key=f'{key_prefix}_{code}', width='content',
                               help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}
@@ -1302,9 +1302,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
                     '섹터·종목을 관심 목록에 둡니다. 이 구간엔 사지 않고 찐반등을 기다립니다.  \n'
                     '**📈 상승국면** (찐반등 이후 ~ 다음 21EMA 이탈) — 관심 목록 중 **찐반등 이후 지수보다 먼저 치고 나가는** '
                     '(상승국면 RS/ADR이 높은) 종목을 추세추종 탭에서 진입 규칙·손절대로 봅니다.', icon='💡')
-            with st.expander('**🧭 차기 주도섹터**', expanded=True):
+            with st.expander('**🧭 차기 주도섹터**', expanded=False):
                 _lead_sectors(m, res, labels, names)
-            with st.expander('**🎯 차기 주도주**', expanded=True):
+            with st.expander('**🎯 차기 주도주**', expanded=False):
                 _lead_stocks(m, res, labels, names)
     records = cls.load_store(m.key)
     with st.container(border=True):
@@ -1315,9 +1315,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
                 '*주의: 10EMA PP 셋업이 꼭 급부상 섹터에서만 나오는 건 아닙니다 — 급부상 섹터·종목에 없어도 '
                 '10EMA 탭에 셋업으로 뜰 수 있습니다. 🔥는 우선순위를 높이는 참고일 뿐 필수 조건이 아닙니다.*',
                 icon='💡')
-        with st.expander('**🔥 급부상 섹터 (최근 6주)**', expanded=True):
+        with st.expander('**🔥 급부상 섹터**', expanded=False):
             _hot_block(res, labels, names, records)
-        with st.expander('**🔥 급부상 섹터 종목**', expanded=True):
+        with st.expander('**🔥 급부상 섹터 종목**', expanded=False):
             _rotation_stocks(m, res, labels, names, records)
 
     views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
