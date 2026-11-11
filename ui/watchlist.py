@@ -564,6 +564,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['주도주순위'] = None if s is None else s['rank']
         r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
         r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
+    # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
+    scored = sorted((r for r in rows if r['주도주점수'] is not None), key=lambda r: -r['주도주점수'])
+    for i, r in enumerate(scored, 1):
+        r['주도주순위'] = i
     if not swing_dates_str:     # 스윙 등급을 쓸 땐 등급 순서 유지
         rows.sort(key=lambda r: (r['주도주점수'] is None, -(r['주도주점수'] or 0)))
 
@@ -641,7 +645,7 @@ function(valueA, valueB) {
     gb.configure_column('주도주 점수', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
                         headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래')
     gb.configure_column('주도주 순위', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
-                        headerTooltip='주도섹터 탭 차기 주도주 전체 순위(메인 밖 테마 포함)')
+                        headerTooltip='이 탭 종목끼리 매긴 주도주 점수 순위')
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
     gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
