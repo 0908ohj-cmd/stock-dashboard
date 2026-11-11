@@ -293,7 +293,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         x['rotParts'], x['rotScore'] = parts, float(sum(parts.values()))
         pv = {'고점 근접': 1.0 if x['offHigh'] >= PP_NEAR_HIGH else 0.0,
               '10EMA 유지': x['ema10DaysOfLast5'] / 5, '정배열': float(x['aligned']),
-              '장기 추세': pp_trend_points(x['gap200']), '양봉 렐볼': float(x['hasBullishRvol15InLast5']),
+              '양봉 렐볼': float(x['hasBullishRvol15InLast5']),
               '1주 RS/ADR': g('rotRs5', t)}
         pparts = {k: v * pv[k] for k, v in PP_WEIGHTS.items()}
         x['ppParts'], x['ppScore'] = pparts, float(sum(pparts.values()))
@@ -307,18 +307,14 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
 #   10EMA 5/5 14% vs 0/5 4% · 52주 고점 −20% 이내 14% vs 밖 8% (−10~0과 −20~−10 차이 없음 → 이내면 만점)
 #   1주 RS/ADR 상위 12.5% vs 하위 7% · 양봉 렐볼 11% vs 8% (🔥 섹터라 변별력 약함)
 # 이후 수익 예측력은 약함 — '기준봉에 가까운 모양' 순서일 뿐. ADR 6% 미만은 점수와 별개로 'PP 대상 아님' 표시.
-PP_WEIGHTS = {'고점 근접': 25, '10EMA 유지': 20, '정배열': 20, '장기 추세': 15, '양봉 렐볼': 10, '1주 RS/ADR': 10}
+# 2026-11-11 장기 추세(200일선 이격) 삭제 — 200일선 아래를 급부상 종목에서 빼고 나니(관문) 위 종목끼리는 이격 단계별
+# 기준봉 비율에 일관된 차이가 없었고, 빼고 재배분해도 상위 25% 기준봉 24.7% → 24.4%로 같았다.
+PP_WEIGHTS = {'고점 근접': 30, '10EMA 유지': 25, '정배열': 25, '양봉 렐볼': 10, '1주 RS/ADR': 10}
 PP_NEAR_HIGH = -20.0
 PP_MIN_ADR = 6.0        # 미만은 10EMA 탭 판정 대상이 아니라 급부상 종목에서 제외
 PP_MIN_SCORE = 50       # 이상만 표시 — 검증: 50↑ 30일 안 기준봉 24~30%, 30~40 14%, 30↓ 9% (ADR 6%↑ 평균 17%)
 PP_DROP_ADR = 3.0       # 편입 후 종가 고점에서 이 ADR 배수 이상 밀리면 탈락 — 검증: 이후 기준봉 3.6~3.9%
 
-
-def pp_trend_points(gap) -> float:
-    """200일선 이격 단계 — 위로 멀수록 기준봉이 잘 나왔다 (+50%↑ 1 · +20~50 0.75 · 0~20 0.5 · −15~0 0.25 · 그 밑 0)."""
-    if gap is None:
-        return 0.0
-    return 1.0 if gap >= 50 else 0.75 if gap >= 20 else 0.5 if gap >= 0 else 0.25 if gap >= TREND_NEAR_PCT else 0.0
 
 
 def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:

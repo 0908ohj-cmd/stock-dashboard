@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_11_3     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_11_4     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -514,21 +514,30 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     bull = res.get('bullSince') or {}
     data = store.load_snapshot(m.key).get('data', {})
 
-    def drawdown_adr(r):
+    def since_entry(r):
+        """(편입 후 종가 고점 대비 하락 ADR 배수, 편입 후 자기 렐볼 양봉 있었나).
+        🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 움직임은 편입일보다 최대 5거래일 앞설 수 있다 — 그날부터 잰다."""
         h = hot.get(r['primaryTheme'])
         since = h['since'] if h else bull.get(r['ticker'])
         rec = data.get(r['ticker'])
         if since is None or not rec or not r['adrNow']:
-            return 0.0
-        c = store._records_to_df(rec)['Close']
-        c = c[c.index <= asof_ts]
-        # 🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 급등은 편입일보다 최대 5거래일 앞설 수 있다 — 그 고점부터 잰다
-        pos = c.index.searchsorted(since)
-        c = c.iloc[max(0, pos - 5):]
-        return 0.0 if c.empty else 100 * (float(c.iloc[-1]) / float(c.max()) - 1) / r['adrNow']
+            return 0.0, bool(r['hasBullishRvol15InLast5'])
+        df = store._records_to_df(rec)
+        df = df[df.index <= asof_ts]
+        avgv = df['Volume'].shift(1).rolling(20).mean()
+        own = (df['Close'] > df['Open']) & (df['Volume'] >= nl.HOT_RVOL * avgv)
+        pos = df.index.searchsorted(since)
+        w = df.iloc[max(0, pos - 5):]
+        if w.empty:
+            return 0.0, bool(r['hasBullishRvol15InLast5'])
+        dd = 100 * (float(w['Close'].iloc[-1]) / float(w['Close'].max()) - 1) / r['adrNow']
+        return dd, bool(own.iloc[max(0, pos - 5):].any())
 
     for r in pool:
-        r['ddAdr'] = drawdown_adr(r)
+        r['ddAdr'], r['ownBull'] = since_entry(r)
+    # 종목 자신도 핫해야 한다 — 편입 후 자기 렐볼 양봉이 한 번도 없으면 섹터만 뜨겁고 종목은 안 움직인 것.
+    # 검증(🔥 뒤 0·10·20일): 없음 4~36%, 이후 30일 기준봉 17~21% vs 있음 21~25%
+    pool = [r for r in pool if r['ownBull']]
     # 탈락 2 — 종가가 50일선 아래 (검증: 3 ADR에 안 걸린 종목 중 이후 30일 기준봉 8.6~9.8% vs 평균 16~17%).
     # 두 규칙 모두 매일 다시 계산 — 회복하면 다음 날 목록에 돌아온다
     # 탈락 3 — 종가가 200일선 아래 (PP 기준봉 조건이 150·200일선 위라 '50점 미만도 보기'에서도 뺀다)
@@ -583,7 +592,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             f'<tr><td>{rank}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
             f'<div class="sl-sub" style="margin:0">{_esc((records.get(t) or {}).get("detail", ""))}</div></td>'
-            f'<td>{_signed(r["offHigh"], "%")}</td><td>{_signed(r.get("gap200"), "%")}</td>'
+            f'<td>{_signed(r["offHigh"], "%")}</td>'
             f'<td><span class="{"sl-pos" if r["aboveEma10"] else "sl-neg"}">{dots}</span></td>'
             f'<td>{"✓" if r["aligned"] else ""}</td>'
             f'<td>{_signed(r["rotRs5"], "", 2)}</td>'
@@ -592,7 +601,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     if rows:
         st.markdown(
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-            '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
+            '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
             + '</tbody></table></div>', unsafe_allow_html=True)
         st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.  \n'
@@ -605,7 +614,6 @@ _PP_ITEMS = [
     ('고점 근접', '52주 고점 근접', '52주 최고가 대비 −20% 이내면 만점, 밖이면 0'),
     ('10EMA 유지', '10EMA 유지', '최근 5거래일 중 종가가 10EMA 위였던 날 수 ÷ 5'),
     ('정배열', '정배열 (10EMA > 21EMA > 50SMA)', '맞으면 만점 — 10EMA 탭 기준봉 조건'),
-    ('장기 추세', '장기 추세 (200일선 이격)', '+50%↑ 만점 · +20~50% 0.75 · 0~20% 0.5 · 0~−15% 0.25 · 그 밑 0'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점'),
     ('1주 RS/ADR', '1주 RS/ADR', '최근 5거래일 지수 대비 초과수익 ÷ ADR — 와치리스트 안 상대 순위'),
 ]
