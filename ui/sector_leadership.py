@@ -1372,8 +1372,10 @@ def render_sector_leadership_tab(market_key: str = 'US'):
                     unsafe_allow_html=True)
         st.info('**사용 방법**  \n'
                 '돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 나오길 기다립니다.  \n'
-                '*주의: 10EMA PP 셋업이 꼭 급부상 섹터에서만 나오는 건 아닙니다 — 급부상 섹터·종목에 없어도 '
-                '10EMA 탭에 셋업으로 뜰 수 있습니다. 🔥는 우선순위를 높이는 참고일 뿐 필수 조건이 아닙니다.*',
+                '**주의**  \n'
+                '1) 10EMA PP 셋업이 꼭 급부상 섹터에서만 나오는 건 아닙니다 — 급부상 섹터·종목에 없어도 '
+                '10EMA 탭에 셋업으로 뜰 수 있습니다. 🔥는 우선순위를 높이는 참고일 뿐 필수 조건이 아닙니다.  \n'
+                '2) 급부상 섹터이더라도 개별 종목이 200일 이평선 밑이라면 급부상 종목에 노출되지 않습니다.',
                 icon='💡')
         with st.expander('**🔥 급부상 섹터**', expanded=False):
             _hot_block(res, labels, names, records)
