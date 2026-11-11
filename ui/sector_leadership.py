@@ -183,10 +183,30 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
         'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
+        'hot': nl.hot_sectors(bars, theme_of, asof), 'themeOf': dict(theme_of),
     }
 
 
-SCORE_VERSION = 2026_11_10_2     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_11_1     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+
+
+def hot_history(market_key: str) -> tuple[dict, dict, dict]:
+    """(🔥 섹터 {테마: 정보}, {티커: 테마}, {테마: 라벨}) — 최신 기준일. 10EMA 탭 배지용 단일 출처."""
+    m = MARKETS[market_key]
+    opts = _asof_options(m)
+    if not opts:
+        return {}, {}, {}
+    try:
+        res = _compute(m.key, opts[0], _data_key(m))
+    except ValueError:
+        return {}, {}, {}
+    return res.get('hot') or {}, res.get('themeOf') or {}, _labels(m)
+
+
+def hot_badge(info: dict, label: str) -> str:
+    """'🔥 광통신 (지금)' / '🔥 광통신 10/20'."""
+    when = ('지금' if info['now'] else '6주 전부터' if info['last'] is None else f"{info['last']:%m/%d}")
+    return f"🔥 {label} ({when})"
 
 
 def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
@@ -400,7 +420,37 @@ def _rot_change(s: dict) -> str:
             f'{_signed(s["scoreRise"], "", 0)}')
 
 
+def _hot_block(res: dict, labels: dict, names: dict, records: dict):
+    """🔥 돈 몰린 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
+    hot = res.get('hot') or {}
+    st.markdown('##### 🔥 돈 몰린 섹터 (최근 6주)')
+    st.markdown(f'<div class="sl-note">섹터 종목의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
+                f'<b>거래량 {nl.HOT_RVOL}배↑ 양봉</b>을 내면 🔥. 지나간 🔥도 약 6주({nl.HOT_LOOKBACK}거래일) 남겨 둡니다 — '
+                '돈이 몰린 뒤 쉬었다가 PP 셋업이 나오기까지 몇 주 걸리기 때문입니다. '
+                '5년 검증에서 급부상 섹터의 약 60%를 1~2일 안에 잡았지만, 🔥 뒤 계속 오를지는 예측하지 못합니다 — 알림 용도.</div>',
+                unsafe_allow_html=True)
+    if not hot:
+        st.caption('최근 6주 안에 🔥였던 섹터가 없습니다.')
+        return
+    items = sorted(hot.items(), key=lambda kv: (not kv[1]['now'], kv[1]['daysAgo']))
+    rows = []
+    for th, h in items:
+        state = ('<span class="sl-badge sl-A">지금 🔥</span>' if h['now']
+                 else f'<span class="sl-badge sl-C">{h["daysAgo"]}거래일 전</span>' if h['last'] is not None
+                 else '<span class="sl-badge sl-C">6주 넘게 전</span>')
+        fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주 전부터 이어짐'
+        who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
+        rows.append(f'<tr><td><span class="sl-name">{_esc(labels.get(th, th))}</span><span class="sl-sub">{h["n"]}종목</span></td>'
+                    f'<td>{state}</td><td>{fires}</td><td>{100 * h["share"]:.0f}% <span class="sl-sub">최고 {100 * h["peakShare"]:.0f}%</span></td>'
+                    f'<td class="sl-need">{who or "—"}</td></tr>')
+    st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
+                '<th>렐볼 양봉 비율 (지금)</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
+                + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+
+
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
+    _hot_block(res, labels, names, records)
+    st.markdown('##### 순환매 점수 순위')
     ranked, thin = res.get('rotSectors') or [], res.get('rotThin') or []
     in_trend = _trend_tickers(m)
     st.markdown('<div class="sl-note">찐반등이 아니라 <b>최근 1~2주</b> 기준으로, 지금 돈이 <b>새로</b> 들어오는 섹터를 찾습니다. '
@@ -468,6 +518,9 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=bool(new), key=f'{m.key}_rot_only_new',
                           disabled=not new, width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
+    hot = res.get('hot') or {}
+    only_hot = bar.toggle('🔥 섹터 종목만', key=f'{m.key}_rot_only_hot', width='content', disabled=not hot,
+                          help='지금 🔥이거나 최근 6주 안에 🔥였던 섹터 소속 종목만')
     only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
                          help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
@@ -477,6 +530,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    if (not only_new or r['primaryTheme'] in new)
                    and (not only_trend or r['ticker'] in in_trend)
                    and (not only_pp or r['ticker'] in pp)
+                   and (not only_hot or r['primaryTheme'] in hot)
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['rotScore'])[:20]
     if not rows:
@@ -490,6 +544,10 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         star = f' <span style="color:#16a34a">🆕</span>' if r['primaryTheme'] in new else ''
+        h = hot.get(r['primaryTheme'])
+        if h:
+            since = '' if h['now'] or h['last'] is None else h['last'].strftime(' %m/%d')
+            star += f' <span>🔥{since}</span>'
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
@@ -504,7 +562,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
-        st.caption('🆕 = 새 순환매 섹터 소속. 매수 신호가 아닙니다 — 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
+        st.caption('🆕 = 새 순환매 섹터 소속 · 🔥 = 지금 🔥 섹터 (날짜가 붙으면 그날 🔥 시작, 최근 6주). 매수 신호가 아닙니다 — 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
     _rot_score_table()
 
 

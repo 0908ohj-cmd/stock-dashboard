@@ -12,6 +12,7 @@ from data import leaderboard_store
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter
 from ui import tv_export
+from ui.sector_leadership import hot_history, hot_badge
 
 # 정렬: 케이스1 → 케이스2 → 이탈류 → 없음
 # 케이스1 내부: 현재→타점%(10EMA 거리) 오름차순 — 가까울수록 위
@@ -375,10 +376,21 @@ def render_10ema_tab(market: str, label: str):
         return
 
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
+    # 🔥 돈 몰린 섹터(지금 또는 최근 6주) 소속이면 배지 — 주도섹터 탭 순환매와 같은 계산
+    try:
+        hot, theme_of, hot_labels = hot_history(market)
+    except Exception:
+        hot, theme_of, hot_labels = {}, {}, {}
+
+    def _hot(t):
+        th = theme_of.get(t)
+        return hot_badge(hot[th], hot_labels.get(th, th)) if th in hot else ''
+
     display_df = pd.DataFrame([{
         # 배지는 별도 컬럼 — 티커 문자열에 섞으면 정렬·필터가 그 접두사까지 보게 된다
         '👑': '👑' if r['Ticker'] in crown else '',
         '티커 | 종목명':  f"{r['Ticker']} | {r['종목명']}",
+        '🔥 섹터':        _hot(r['Ticker']),
         '상태':           STATE_BADGE.get(r['상태'], r['상태']),
         '섹터':           r['섹터'],
         '테마':           r['테마'],
@@ -405,6 +417,8 @@ def render_10ema_tab(market: str, label: str):
                         resizable=False, suppressSizeToFit=True, pinned='left', flex=0,
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
+    gb.configure_column('🔥 섹터', filter='agTextColumnFilter', minWidth=130, flex=1,
+                        headerTooltip='지금 또는 최근 6주 안에 돈이 몰렸던(🔥) 섹터 소속 — 괄호는 🔥 시작일. 주도섹터 탭 순환매 섹터와 같은 계산')
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
     gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)

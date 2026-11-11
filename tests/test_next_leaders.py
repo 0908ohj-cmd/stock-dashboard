@@ -232,3 +232,34 @@ def test_관찰_후순위_구분():
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 50}) == 'C_WATCH'
     assert ss.grade_bucket({'grade': 'C_WATCH', 'score': 44}) == 'D_LOW'
     assert ss.grade_bucket({'grade': 'B_EMERGING', 'score': 61}) == 'B_EMERGING'
+
+
+def _bars(n, bull_days=()):
+    """n거래일 평범한 봉(음봉·거래량 100), bull_days(뒤에서 몇 번째) 날만 거래량 300 양봉."""
+    idx = pd.bdate_range('2026-01-01', periods=n)
+    o = np.full(n, 10.0); c = np.full(n, 9.9); v = np.full(n, 100.0)
+    for k in bull_days:
+        c[n - k] = 10.5; v[n - k] = 300.0
+    return pd.DataFrame({'Open': o, 'High': np.maximum(o, c) + .1, 'Low': np.minimum(o, c) - .1,
+                         'Close': c, 'Volume': v}, index=idx)
+
+
+def test_hot_sectors_절반이상_렐볼양봉이면_지금_불():
+    bars = {'A': _bars(80, (1,)), 'B': _bars(80, (2,)), 'C': _bars(80), 'D': _bars(80, (3,))}
+    theme = {t: 'OPT' for t in bars}
+    h = nl.hot_sectors(bars, theme, bars['A'].index[-1])
+    assert h['OPT']['now'] and h['OPT']['share'] == 0.75
+    assert sorted(h['OPT']['tickers']) == ['A', 'B', 'D']
+
+
+def test_hot_sectors_지나간_불도_이력에_남는다():
+    # 15거래일 전에 3종목이 렐볼 양봉 → 지금은 아니지만 이력에 남음
+    bars = {t: _bars(80, (15,)) for t in 'ABC'}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1])
+    assert not h['OPT']['now']
+    assert h['OPT']['last'] == bars['A'].index[-15] and h['OPT']['daysAgo'] == 14
+
+
+def test_hot_sectors_3종목_미만이나_미분류는_빠진다():
+    bars = {t: _bars(80, (1,)) for t in 'ABC'}
+    assert nl.hot_sectors(bars, {'A': 'X', 'B': 'X', 'C': 'UNCLASSIFIED'}, bars['A'].index[-1]) == {}

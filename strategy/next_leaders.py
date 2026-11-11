@@ -298,3 +298,54 @@ def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:
                           and s['score'] >= ROT_NOW and s['scoreRise'] >= ROT_RISE)
     ranked.sort(key=lambda s: (not s['isNew'], -s['score']))
     return ranked, thin
+
+
+# ── 🔥 돈 몰린 섹터 — 갑자기 핫해지는 섹터 감지 ───────────────────
+# 2026-11-11 5년 검증(섹터 64개, 급부상 467회 = 이후 20일 섹터 초과수익 ≥10%p 시작일):
+#   '섹터 종목 절반 이상이 최근 5일 안에 렐볼(1.5배) 양봉' → 급부상의 61%를 시작 1~2일 뒤에 잡음 (가장 빠르고 많이)
+#   순환매 점수 ≥60·🆕는 20~29%를 5~6일 늦게 잡음. 단, 어떤 신호든 '신호 뒤 계속 오를지'는 예측 못 함 → 알림 용도.
+HOT_SHARE = 0.5         # 섹터 종목 중 이 비율 이상이 최근 5일 렐볼 양봉이면 🔥
+HOT_LOOKBACK = 30       # 🔥 이력을 남기는 기간(거래일, 약 6주) — 돈이 몰리고 PP 셋업이 나오기까지 몇 주 걸린다
+HOT_RVOL = 1.5
+HOT_GAP = 10            # 이 기간 안에 다시 켜진 건 같은 🔥로 본다 (50% 근처 깜빡임)
+
+
+def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
+                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N) -> dict:
+    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [🔥 시작일…], 'last': 마지막 🔥 시작일,
+    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    렐볼 양봉 = 종가 > 시가 & 거래량 ≥ 직전 20일 평균 × 1.5 (sector_strength와 같은 정의)."""
+    asof = pd.Timestamp(asof)
+    flags, groups = {}, {}
+    for t, df in bars.items():
+        th = theme_of.get(t)
+        if th in (None, 'UNCLASSIFIED'):
+            continue
+        d = df[df.index <= asof].tail(lookback + HOT_GAP + 30)
+        if len(d) < 30:
+            continue
+        avgv = d['Volume'].shift(1).rolling(20).mean()
+        bull = (d['Close'] > d['Open']) & (d['Volume'] >= HOT_RVOL * avgv)
+        flags[t] = bull.astype(float).rolling(5, min_periods=1).max().fillna(0).astype(bool)
+        groups.setdefault(th, []).append(t)
+    out = {}
+    for th, ts in groups.items():
+        if len(ts) < min_n:
+            continue
+        f = pd.DataFrame({t: flags[t] for t in ts})
+        f = f[f.index <= asof].tail(lookback + HOT_GAP)     # 창 앞 HOT_GAP일은 '그 전부터 켜져 있었나' 판단용
+        n = f.notna().sum(axis=1)
+        sh = (f.astype(float).fillna(0).sum(axis=1) / n.where(n >= min_n)).fillna(0)
+        on = (sh >= share).to_numpy()
+        # 🔥 시작 = 켜졌는데 직전 HOT_GAP거래일 동안 한 번도 안 켜졌던 날 (검증과 같은 정의 — 깜빡임은 한 번으로)
+        starts = [i for i in range(HOT_GAP, len(on)) if on[i] and not on[i - HOT_GAP:i].any()]
+        win_on = on[HOT_GAP:]
+        if not win_on.any():
+            continue
+        fires = [f.index[i] for i in starts]
+        last = fires[-1] if fires else None      # None = 창(약 6주)보다 전부터 이어진 🔥
+        out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
+                   'fires': fires, 'last': last, 'peakShare': float(sh.iloc[HOT_GAP:].max()),
+                   'daysAgo': (len(on) - 1 - f.index.get_loc(last)) if last is not None else lookback,
+                   'tickers': [t for t in ts if f[t].astype(float).iloc[-1] == 1]}
+    return out
