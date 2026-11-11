@@ -423,11 +423,8 @@ def _rot_change(s: dict) -> str:
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     """🔥 급부상 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
-    st.markdown(f'<div class="sl-note">섹터 종목의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
-                f'<b>거래량 {nl.HOT_RVOL}배↑ 양봉</b>을 내면 🔥. 지나간 🔥도 약 6주({nl.HOT_LOOKBACK}거래일) 남겨 둡니다 — '
-                '돈이 몰린 뒤 쉬었다가 PP 셋업이 나오기까지 몇 주 걸리기 때문입니다. '
-                '5년 검증에서 급부상 섹터의 약 60%를 1~2일 안에 잡았지만, 🔥 뒤 계속 오를지는 예측하지 못합니다 — 알림 용도.</div>',
-                unsafe_allow_html=True)
+    st.info('**사용 방법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
+            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
     if not hot:
         st.caption('최근 6주 안에 🔥였던 섹터가 없습니다.')
         return
@@ -445,8 +442,8 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     st.markdown('<div class="sl-wrap"><table class="sl-t"><thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>렐볼 양봉 비율 (지금)</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
-    st.info('**쓰는 법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
-            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
+    st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
+               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.')
 
 
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
@@ -788,6 +785,11 @@ def _stock_name(t: str, names: dict, records: dict) -> str:
 def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
     ph, ranked, thin = res['phase'], res['nextSectors'], res['thinSectors']
     records = cls.load_store(m.key)
+    st.info('**사용 방법**  \n'
+            '**📉 하락국면** (기산점 ~ 찐반등) — 지수가 빠지는 동안 **덜 빠지고 · 52주 고점을 지키고 · 저점을 먼저 찍은** '
+            '섹터·종목을 관심 목록에 둡니다. 이 구간엔 사지 않고 찐반등을 기다립니다.  \n'
+            '**📈 상승국면** (찐반등 이후 ~ 다음 21EMA 이탈) — 관심 목록 중 **찐반등 이후 지수보다 먼저 치고 나가는** '
+            '(상승국면 RS/ADR이 높은) 종목을 추세추종 탭에서 진입 규칙·손절대로 봅니다.', icon='💡')
     if not ranked:
         st.caption('3종목 이상인 섹터가 없어 순위를 매길 수 없습니다.')
         return
