@@ -1155,20 +1155,45 @@ def _stock_fmt(m: Market) -> dict:
     return fmt
 
 
-def _drilldown(m: Market, res: dict, labels: dict, names: dict):
-    sectors = res['sectors']
+def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', jjin: str = ''):
+    """섹터별 종목 — 추세추종 탭과 같은 열(같은 행 빌더 _build_rows + 같은 주도주 점수 lead_scores)."""
+    from ui import watchlist as wl      # watchlist가 이 모듈을 import하므로 함수 안에서 (순환 import 방지)
+    sectors = sorted(res['sectors'], key=lambda s: labels.get(s['theme'], s['theme']))
     if not sectors:
         st.caption('분류된 섹터가 없습니다.')
         return
-    opts = {f"{labels[s['theme']]} ({GRADE_LABEL[s['grade']]})": s for s in sectors}
+    opts = {f"{labels[s['theme']]} ({s['memberCount']}종목)": s for s in sectors}
     pick = st.selectbox('섹터 선택', list(opts), key=f'{m.key}_drill')
     s = opts[pick]
-    by_ticker = {r['ticker']: r for r in res['stocks']}
-    members = [by_ticker[t] for t in s['members'] if t in by_ticker]
-    members.sort(key=lambda r: -(r.get('leaderScore') or -1))
-    st.caption(f"구성 {s['memberCount']}종목, 데이터 확보 {s['validCount']}종목. 구성은 분류 기록(주력 테마) 기준입니다.")
-    st.dataframe(_stock_frame(m, members, labels, names), hide_index=True, width='stretch',
-                 column_config=_stock_fmt(m))
+    status = wl._get_market_status_cached(m.key, wl._snapshot_ts('indices'))
+    cs, jd = status['correction_start'], status['jjin_date']
+    rows = wl._build_rows(tuple(sorted(s['members'])), m.key,
+                          str(cs.date()) if cs else None, jjin or (str(jd.date()) if jd else None),
+                          peak or None, None, None, wl._snapshot_ts(m.key))
+    if not rows:
+        st.caption('표시할 종목이 없습니다 (데이터 부족 또는 ADR 필터).')
+        return
+    lead = lead_scores(m.key, peak, jjin)
+    for r in rows:
+        x = lead.get(r['Ticker']) or {}
+        r['점수'] = None if x.get('score') is None else round(x['score'], 1)
+        r['하락RS'] = None if x.get('downAdr') is None else round(x['downAdr'], 2)
+        r['상승RS'] = None if x.get('upAdr') is None else round(x['upAdr'], 2)
+    rows.sort(key=lambda r: (r['점수'] is None, -(r['점수'] or 0)))
+    for i, r in enumerate([r for r in rows if r['점수'] is not None], 1):
+        r['순위'] = i
+    df = pd.DataFrame([{
+        '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
+        '주도주 점수': r['점수'], '주도주 순위': r.get('순위'),
+        '섹터': r['섹터'], '테마': r['테마'], '종가': r['Close'], '등락%': r['등락%'],
+        '하락국면 RS/ADR': r['하락RS'], '상승국면 RS/ADR': r['상승RS'],
+        '이평선위치': r['이평선위치'], '저점선행(일)': r['저점선행'], '양봉비%': r['양봉비%'], '고점대비%': r['고점대비%'],
+    } for r in rows])
+    st.caption(f"{labels[s['theme']]} {len(rows)}종목 — 추세추종 탭과 같은 열·같은 주도주 점수 (순위는 이 섹터 안). "
+               '구성은 분류 기록(주력 테마) 기준이고, ADR 필터(국장 2%·미장 4%) 미만은 빠집니다.')
+    money = '₩%d' if m.key.startswith('KR') else '$%.2f'
+    st.dataframe(df, hide_index=True, width='stretch',
+                 column_config={'종가': st.column_config.NumberColumn(format=money)})
 
 
 def _leaderboards(m: Market, res: dict, labels: dict, names: dict):
@@ -1439,28 +1464,13 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         with st.expander('**🔥 급부상 종목**', expanded=False):
             _rotation_stocks(m, res, labels, names, records)
 
-    views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
+    # 2026-11-11 정리 — A/B 판정·순환매 점수 순위·섹터 지도·전체 순위·계산 방법은 화면에서 뺐다
+    # (차기 주도·급부상으로 대체되거나 겹침). 계산 함수는 다른 곳에서도 쓰여 코드는 남겨 둔다.
+    views = ['섹터별 종목', '분류 수정']
     with st.expander('자세히 보기 — ' + ' · '.join(views)):
-        view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view',
+        view = st.segmented_control('보기', views, default=views[0], key=f'{m.key}_detail_view2',
                                     label_visibility='collapsed') or views[0]
-        main = [s for s in res['sectors'] if s['inMainRanking']]
-        if view == 'A/B 판정':
-            st.caption('1주·1개월 RS와 10EMA 유지로 주도섹터를 "확정"하는 기준 (A 확인된 주도 / B 차기 후보).')
-            _next_sectors(res, labels, names, cls.load_store(m.key))
-            _next_stocks(m, res, labels, names)
-        elif view == '순환매 점수 순위':
-            st.caption('최근 1~2주 순환매 점수로 매긴 섹터 순위 (예전 메인 화면). 갑자기 핫해지는 섹터는 위 🔥 표가 더 빨리 잡습니다.')
-            _rotation_sectors(m, res, labels, names, cls.load_store(m.key))
-        elif view == '섹터 지도':
-            _heatmap(m, main, labels)
-        elif view == '섹터별 종목':
-            _drilldown(m, res, labels, names)
-        elif view == '전체 순위':
-            _leaderboards(m, res, labels, names)
-        elif view == '분류 수정':
-            _classification_editor(m, labels, names)
+        if view == '섹터별 종목':
+            _drilldown(m, res, labels, names, peak, jjin)
         else:
-            _methodology(m, res)
-            st.markdown('**메인 랭킹 밖 테마** (US: 바이오·금속·석유가스·소비, KR: 지주·기타)')
-            _sector_table([s for s in res['sectors'] if not s['inMainRanking']], labels)
-            _downloads(m, res, labels, names)
+            _classification_editor(m, labels, names)
