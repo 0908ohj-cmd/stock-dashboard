@@ -39,7 +39,46 @@ notify() {
         "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" || true
 }
 
-die() { log "FAIL: $1"; notify "실패 — $1"; exit 1; }
+# 맥이 이번 회차를 못 채우면 GitHub 폴백을 즉시 띄운다 — 예약 폴백은 3~8시간 늦다(lib_fallback.sh).
+# 한 실행에서 한 번만 요청한다. dry-run은 실제 수집이 아니므로 띄우지 않는다.
+. "$REPO/scripts/lib_fallback.sh" 2>/dev/null || true
+FALLBACK_REQUESTED=""
+fallback_now() {
+    [ "$DRY_RUN" = "--dry-run" ] && return 0
+    [ -z "$FALLBACK_REQUESTED" ] || return 0
+    FALLBACK_REQUESTED=1
+    local out
+    if ! type request_fallback >/dev/null 2>&1; then
+        log "WARN: lib_fallback.sh 없음 — 폴백 즉시 실행 불가, 예약 폴백 대기"
+        return 0
+    fi
+    if out="$(request_fallback "$MARKET")"; then
+        log "GitHub 폴백 즉시 실행 요청 — $1"
+        notify "GitHub 폴백 즉시 실행 요청 — $1"
+    else
+        log "WARN: GitHub 폴백 실행 요청 실패 — $1 / ${out:-출력 없음}"
+        notify "GitHub 폴백 요청 실패, 예약 폴백 대기 — $1"
+    fi
+}
+
+die() { log "FAIL: $1"; notify "실패 — $1"; fallback_now "$1"; exit 1; }
+
+# 성공 종료 직전: 올린 결과가 이번 회차를 채웠는지 폴백 게이트와 같은 기준으로 본다.
+# fetch_snapshot.py가 재시도 후에도 종목이 지수보다 늦은 채 저장한 경우가 여기서 걸린다.
+verify_round() {
+    local out rc
+    if ! type round_is_fresh >/dev/null 2>&1; then
+        log "WARN: lib_fallback.sh 없음 — 회차 판정 생략"
+        return 0
+    fi
+    out="$(round_is_fresh "$PYTHON" "$MARKET" "$REPO")"; rc=$?
+    echo "$out" >>"$LOG"
+    case $rc in
+        0) ;;
+        1) fallback_now "올린 데이터가 이번 회차 기준 미달 — $out" ;;
+        *) log "WARN: 회차 판정 불가 — 폴백 요청 생략 / $out" ;;
+    esac
+}
 
 # launchd의 파일 열기 기본 한도는 256이다(`launchctl limit maxfiles`). 유니버스
 # 빌더는 yfinance로 수백 종목을 스레드로 한꺼번에 받아 소켓·캐시 DB를 동시에
@@ -117,6 +156,7 @@ git add data/ohlcv data/classification \
     || die "git add 실패"
 if git diff --cached --quiet; then
     log "변경 없음 — 종료"
+    verify_round
     exit 0
 fi
 
@@ -141,3 +181,4 @@ case $? in
 esac
 
 log "완료"
+verify_round
