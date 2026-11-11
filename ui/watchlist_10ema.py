@@ -418,7 +418,7 @@ def render_10ema_tab(market: str, label: str):
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', pinned='left', minWidth=170, flex=2)
     gb.configure_column('🔥 섹터', filter='agTextColumnFilter', minWidth=130, flex=1,
-                        headerTooltip='지금 또는 최근 6주 안에 돈이 몰렸던(🔥) 섹터 소속 — 괄호는 🔥 시작일. 주도섹터 탭 순환매 섹터와 같은 계산')
+                        headerTooltip='지금 또는 최근 6주 안에 🔥 급부상했던 섹터 소속 — 괄호는 🔥 시작일. 주도섹터 탭 🔥 급부상 섹터와 같은 계산')
     gb.configure_column('상태',  filter='agSetColumnFilter', minWidth=120, flex=1)
     gb.configure_column('섹터', filter='agSetColumnFilter', minWidth=110, flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', minWidth=110, flex=1)

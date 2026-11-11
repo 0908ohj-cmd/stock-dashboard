@@ -421,7 +421,7 @@ def _rot_change(s: dict) -> str:
 
 
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
-    """🔥 돈 몰린 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
+    """🔥 급부상 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
     st.markdown(f'<div class="sl-note">섹터 종목의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
                 f'<b>거래량 {nl.HOT_RVOL}배↑ 양봉</b>을 내면 🔥. 지나간 🔥도 약 6주({nl.HOT_LOOKBACK}거래일) 남겨 둡니다 — '
@@ -446,7 +446,7 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 '<th>렐볼 양봉 비율 (지금)</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.info('**쓰는 법** — 🔥로 돈이 몰린 섹터를 알아두고, 그 섹터 종목에서 **6주 안에 10EMA PP 기준봉이나 셋업**이 '
-            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 순환매 종목 \'PP 셋업만\' 토글)', icon='💡')
+            '나오길 기다립니다. (10EMA 탭 \'🔥 섹터\' 열, 아래 급부상 섹터 종목 \'PP 셋업만\' 토글)', icon='💡')
 
 
 def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: dict):
@@ -509,29 +509,23 @@ def _rotation_sectors(m: Market, res: dict, labels: dict, names: dict, records: 
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
-    pool = res.get('rotStocks') or []
+    # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 순환매 종목 점수(52주 고점·10EMA·렐볼 등)
+    hot = res.get('hot') or {}
+    pool = [r for r in res.get('rotStocks') or [] if r['primaryTheme'] in hot]
     if not pool:
+        st.caption('최근 6주 안에 🔥 급부상 섹터가 없습니다.')
         return
-    new = {s['theme'] for s in res.get('rotSectors') or [] if s['isNew']}
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
-    # 기본 꺼짐 — 2026-11-11 검증에서 🆕는 급부상을 늦게·적게 잡아 🔥가 기본 필터를 맡는다
-    only_new = bar.toggle('🆕 새 순환매 섹터 종목만', value=False, key=f'{m.key}_rot_only_new',
-                          disabled=not new, width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_rot_only_trend', width='content')
-    hot = res.get('hot') or {}
-    only_hot = bar.toggle('🔥 섹터 종목만', value=bool(hot), key=f'{m.key}_rot_only_hot', width='content', disabled=not hot,
-                          help='지금 🔥이거나 최근 6주 안에 🔥였던 섹터 소속 종목만')
     only_pp = bar.toggle('PP 셋업만', key=f'{m.key}_rot_only_pp', width='content',
                          help='10EMA PP 탭 기준 셋업(케이스1 풀백·케이스2 브레이크아웃)을 갖춘 종목만 — ADR 6% 미만은 판정 대상 아님')
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
     pp = (_pp_setups(m.key, res['asof'], tuple(sorted(r['ticker'] for r in pool)), _data_key(m))
           if only_pp else set())
     rows = sorted((r for r in pool
-                   if (not only_new or r['primaryTheme'] in new)
-                   and (not only_trend or r['ticker'] in in_trend)
+                   if (not only_trend or r['ticker'] in in_trend)
                    and (not only_pp or r['ticker'] in pp)
-                   and (not only_hot or r['primaryTheme'] in hot)
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['rotScore'])[:20]
     if not rows:
@@ -544,11 +538,9 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                  if nm != t else f'<span class="sl-name">{_esc(t)}</span>')
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
-        star = f' <span style="color:#16a34a">🆕</span>' if r['primaryTheme'] in new else ''
-        h = hot.get(r['primaryTheme'])
-        if h:
-            since = '' if h['now'] or h['last'] is None else h['last'].strftime(' %m/%d')
-            star += f' <span>🔥{since}</span>'
+        h = hot[r['primaryTheme']]
+        since = ' 지금' if h['now'] else ' 6주 전부터' if h['last'] is None else h['last'].strftime(' %m/%d')
+        star = f' <span class="sl-sub">🔥{since}</span>'
         dots = '●' * r['ema10DaysOfLast5'] + '○' * (5 - r['ema10DaysOfLast5'])
         body.append(
             f'<tr><td>{rank}</td><td>{title}</td><td>{_esc(labels.get(r["primaryTheme"], ""))}{star}'
@@ -563,7 +555,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>200일선 이격</th><th>10EMA 최근 5일</th><th>1주 RS/ADR</th><th>양봉 렐볼 (최근 5일)</th>'
             '<th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>', unsafe_allow_html=True)
-        st.caption('🆕 = 새 순환매 섹터 소속 · 🔥 = 지금 🔥 섹터 (날짜가 붙으면 그날 🔥 시작, 최근 6주). 매수 신호가 아닙니다 — 10EMA 기준봉 같은 셋업이 나올 때까지 관찰.')
+        st.caption('🔥 지금 = 오늘도 급부상 중 · 🔥 날짜 = 그날 급부상 시작(최근 6주). 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.')
     _rot_score_table()
 
 
@@ -582,7 +574,7 @@ def _rot_score_table():
         f'<tr><td><span class="sl-name">{name}</span><div class="sl-sub" style="margin:0">{desc}</div></td>'
         f'<td><b>{w.get(k, 0)}</b></td></tr>' for k, name, desc in _ROT_ITEMS)
     st.markdown(
-        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">순환매 점수 배점 (100점)</div>'
+        '<div style="margin-top:10px;font-weight:700;font-size:.9rem">종목 점수 배점 (100점) — 표 정렬 기준</div>'
         '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>항목</th><th>배점</th></tr></thead>'
         f'<tbody>{rows}<tr><td><b>합계</b></td><td><b>{sum(w.values())}</b></td></tr></tbody></table></div>',
         unsafe_allow_html=True)
@@ -737,7 +729,7 @@ def _phase_banner(m: Market, res: dict):
         last = (f" — 마지막 찐반등 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{ph['indexSinceJjin']:+.1f}%</b>"
                 if ph.get('jjinDate') is not None and ph.get('indexSinceJjin') is not None else '')
         body = (f"<b>🟢 상승 추세</b>{last}.<br>차기 주도섹터·주도주는 다음 조정(21EMA 이탈) 전까지 마지막 기산점·찐반등 기준을 "
-                "그대로 이어 갑니다. 찐반등 2주 뒤부터 새로 치고 올라오는 섹터는 아래 <b>'🔄 순환매 섹터·종목'</b>에서 봅니다.")
+                "그대로 이어 갑니다. 갑자기 돈이 몰리는 섹터는 아래 <b>'🔥 급부상 섹터'</b>에서 봅니다.")
     late = ' late' if ph['mode'] == 'rebound' and _rebound_ball(ph['label']) == '🔵' else ''
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}{late}">{body}</div>', unsafe_allow_html=True)
 
@@ -1304,7 +1296,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _market_strip(m, res)
         if res['phase'] is not None:
             _phase_banner(m, res)
-    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 순환매 섹터 → 순환매 종목 → 자세히 보기.
+    # 화면 배치는 국면과 상관없이 고정 — 지수 현황 → 차기 주도섹터 → 차기 주도주 → 🔥 급부상 섹터 → 🔥 급부상 섹터 종목 → 자세히 보기.
     if res['phase'] is not None:
         with st.expander('**🧭 차기 주도섹터**', expanded=True):
             _lead_sectors(m, res, labels, names)
@@ -1312,9 +1304,9 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             _lead_stocks(m, res, labels, names)
     # 순환매는 10EMA PP와 함께 국면과 상관없이 보므로 늘 펼친다
     records = cls.load_store(m.key)
-    with st.expander('**🔥 순환매 섹터 — 갑자기 돈 몰린 섹터 (최근 6주)**', expanded=True):
+    with st.expander('**🔥 급부상 섹터 (최근 6주)**', expanded=True):
         _hot_block(res, labels, names, records)
-    with st.expander('**🔄 순환매 종목**', expanded=True):
+    with st.expander('**🔥 급부상 섹터 종목**', expanded=True):
         _rotation_stocks(m, res, labels, names, records)
 
     views = ['A/B 판정', '순환매 점수 순위', '섹터 지도', '섹터별 종목', '전체 순위', '분류 수정', '계산 방법']
