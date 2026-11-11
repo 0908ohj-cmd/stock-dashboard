@@ -82,6 +82,11 @@ if 'grid_initialized' not in st.session_state:
     st.session_state['grid_initialized'] = True
     st.rerun()
 
+# 📢 업데이트 안내 — 위 최초 재실행 뒤에 띄워야 재실행에 닫히지 않는다 (ui/notice.py)
+from ui import notice  # noqa: E402
+notice.show_once()
+notice.sidebar_button()
+
 INDEX_FOR_MARKET = {
     'KR_KOSPI':  'KOSPI',
     'KR_KOSDAQ': 'KOSDAQ',
