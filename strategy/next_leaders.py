@@ -270,6 +270,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         adr_now = float(((last20['High'] - last20['Low']) / last20['Close'] * 100).mean())
         pool.append({
             'aligned': bool(not pd.isna(s50) and e10 > e21 > float(s50)),     # 10EMA > 21EMA > 50SMA (PP 기준봉 조건)
+            'belowSma50': bool(not pd.isna(s50) and float(c.iloc[-1]) < float(s50)),   # 급부상 종목 탈락 규칙
             'adrNow': adr_now,
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
             'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
