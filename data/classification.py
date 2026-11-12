@@ -164,6 +164,38 @@ def set_override(market: str, ticker: str, primary: str, secondary: list,
     return records[ticker]
 
 
+def _reviewed(rec: dict) -> datetime:
+    """reviewedAt 시각. 없거나 깨졌으면 가장 오래된 값으로 본다."""
+    try:
+        dt = datetime.fromisoformat(rec.get('reviewedAt') or '')
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=KST)
+    return dt if dt.tzinfo else dt.replace(tzinfo=KST)
+
+
+def _pick(ours: dict, theirs: dict) -> dict:
+    if theirs.get('overrideByUser'):     # 원격의 사용자 확정이 최우선
+        return theirs
+    if ours.get('overrideByUser'):       # 자동 분류는 사용자 확정을 덮지 않는다 (apply_auto와 같은 규칙)
+        return ours
+    return ours if _reviewed(ours) > _reviewed(theirs) else theirs   # 같으면 원격 — 불필요한 변경을 만들지 않는다
+
+
+def merge_stores(ours: dict, theirs: dict) -> dict:
+    """두 분류 기록({ticker: record})을 종목 단위로 합친 새 dict.
+
+    배치 push가 원격과 엇갈렸을 때 파일을 통째로 고르면 그 사이 앱에서 확정한 분류가 사라진다(#33).
+    - 원격(theirs)의 사용자 확정이 우선, 그다음 로컬(ours)의 사용자 확정
+    - 그 밖에는 reviewedAt이 최신인 쪽 (같으면 원격)
+    - 한쪽에만 있는 종목은 그대로 남긴다
+    """
+    merged = {}
+    for ticker in sorted(set(ours) | set(theirs)):
+        o, r = ours.get(ticker), theirs.get(ticker)
+        merged[ticker] = r if o is None else o if r is None else _pick(o, r)
+    return merged
+
+
 def missing_tickers(market: str, tickers: list) -> list:
     """분류 기록이 아예 없는 종목 (신규 편입 자동 분류 대상)."""
     records = load_store(market)

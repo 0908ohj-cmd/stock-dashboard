@@ -192,7 +192,8 @@ def test_non_snapshot_conflict_keeps_ours(two_clones):
     """스냅샷이 아닌 파일(티커 목록)이 양쪽에서 달라지면 push하는 쪽 것을 쓴다.
 
     같은 날 같은 알고리즘으로 만든 유니버스라 사실상 같다. 병합할 수 없는
-    형식이므로 막히지 않고 끝나는 쪽을 택한다.
+    형식이므로 막히지 않고 끝나는 쪽을 택한다. 테마 분류 파일은 이 전제가 성립하지
+    않아 예외다(사용자 확정이 섞인다) — 아래 #33 테스트 참조.
     """
     remote, local, other = two_clones
     _commit(other, 'data/saved/kospi_10ema.tickers', '000660')
@@ -201,6 +202,74 @@ def test_non_snapshot_conflict_keeps_ours(two_clones):
 
     assert _sync_and_push(local)[0] == 0
     assert _remote_file(remote, 'data/saved/kospi_10ema.tickers') == '005930'
+
+
+# ── 테마 분류 파일 (#33) ───────────────────────────────────
+
+CLS = 'data/classification/kr.json'
+
+
+def _cls_rec(primary, reviewed, user=False):
+    return {'primaryTheme': primary, 'confidence': 'high', 'reviewedAt': reviewed,
+            'overrideByUser': user, 'overrideReason': '직접 확인' if user else '',
+            'method': 'user' if user else 'llm', 'history': []}
+
+
+def _cls_body(records, updated):
+    """data.classification.save_store와 같은 모양(indent=1, 종목 정렬)."""
+    return json.dumps({'market': 'kr', 'taxonomyVersion': 'kr-v1', 'updatedAt': updated,
+                       'records': dict(sorted(records.items()))}, ensure_ascii=False, indent=1)
+
+
+@pytest.fixture
+def cls_clones(two_clones):
+    """원격에 분류 파일이 있고, 로컬 배치·앱(other)이 모두 그 상태에서 출발한다."""
+    remote, local, other = two_clones
+    _commit(other, CLS, _cls_body({'010060': _cls_rec('ENERGY_TRANSITION', '2026-11-08T10:00:00+09:00')},
+                                  '2026-11-08T10:00:00+09:00'))
+    _git(other, 'push', '-q', 'origin', 'main')
+    _git(local, 'pull', '-q', 'origin', 'main')
+    return remote, local, other
+
+
+def test_classification_conflict_keeps_remote_user_override(cls_clones):
+    """배치가 도는 사이 앱이 확정한 분류가 배치 push로 사라지지 않는다.
+
+    11/11 22:59 OCI홀딩스(010060) 확정 커밋 뒤 배치가 신규 편입 종목을 분류해 올리는 상황.
+    분류 파일은 통째로 고르지 않고 종목 단위로 합친다 — 원격의 사용자 확정 + 로컬의 신규 분류.
+    """
+    remote, local, other = cls_clones
+    _commit(other, CLS, _cls_body({'010060': _cls_rec('HOLDING_OTHER', '2026-11-11T22:59:00+09:00', user=True)},
+                                  '2026-11-11T22:59:00+09:00'), msg='data: 010060 테마 수동 확정')
+    _git(other, 'push', '-q', 'origin', 'main')
+    _commit(local, CLS, _cls_body({
+        '010060': _cls_rec('ENERGY_TRANSITION', '2026-11-08T10:00:00+09:00'),
+        '000001': _cls_rec('SHIPBUILDING', '2026-11-12T17:40:00+09:00'),      # 신규 편입 종목
+    }, '2026-11-12T17:40:00+09:00'), msg='data: kr 스냅샷 2026-11-12')
+
+    code, out = _sync_and_push(local)
+
+    assert code == 0, out
+    records = json.loads(_remote_file(remote, CLS))['records']
+    assert records['010060']['primaryTheme'] == 'HOLDING_OTHER'
+    assert records['010060']['overrideByUser'] is True
+    assert records['000001']['primaryTheme'] == 'SHIPBUILDING'
+
+
+def test_classification_merge_equal_to_remote_makes_no_commit(cls_clones):
+    """로컬 재분류가 원격의 사용자 확정에 밀려 결과가 원격과 같으면 새 커밋 없이 끝난다."""
+    remote, local, other = cls_clones
+    _commit(other, CLS, _cls_body({'010060': _cls_rec('HOLDING_OTHER', '2026-11-11T22:59:00+09:00', user=True)},
+                                  '2026-11-11T22:59:00+09:00'))
+    _git(other, 'push', '-q', 'origin', 'main')
+    head = _git(remote, 'rev-parse', 'main').stdout
+    _commit(local, CLS, _cls_body({'010060': _cls_rec('NUCLEAR', '2026-11-12T17:40:00+09:00')},
+                                  '2026-11-12T17:40:00+09:00'))
+
+    code, out = _sync_and_push(local)
+
+    assert code == 0, out
+    assert _git(remote, 'rev-parse', 'main').stdout == head
 
 
 def test_noop_when_already_up_to_date(two_clones):
