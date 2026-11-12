@@ -11,6 +11,8 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+from data._atomic import atomic_write_text
+
 _CACHE_FILE = Path(__file__).parent.parent / 'yf_sector_cache.json'
 
 # 렌더 경로에서 한 번에 새로 조회할 상한 — 유니버스 전체가 미캐시여도 첫 로딩이 멎지 않게 한다.
@@ -23,18 +25,24 @@ _RENDER_WORKERS = 3
 _SESSION_ATTEMPTED: set = set()
 
 
+def _read_cache() -> dict | None:
+    """파일이 없으면 {}, 있는데 파싱이 안 되면 None — 쓰기 경로가 덮어쓰지 않도록 구분한다."""
+    if not _CACHE_FILE.exists():
+        return {}
+    try:
+        return json.loads(_CACHE_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return None
+
+
 def _load_cache() -> dict:
-    if _CACHE_FILE.exists():
-        try:
-            return json.loads(_CACHE_FILE.read_text(encoding='utf-8'))
-        except Exception:
-            return {}
-    return {}
+    cache = _read_cache()
+    return {} if cache is None else cache
 
 
 def _save_cache(cache: dict) -> None:
-    _CACHE_FILE.write_text(
-        json.dumps(cache, ensure_ascii=False, indent=2, sort_keys=True), encoding='utf-8'
+    atomic_write_text(   # 쓰는 도중 읽어도 이전 파일이 온전히 보인다 (#26 같은 패턴)
+        _CACHE_FILE, json.dumps(cache, ensure_ascii=False, indent=2, sort_keys=True)
     )
 
 
@@ -262,7 +270,10 @@ def get_yf_sectors(tickers: list, market: str) -> dict:
     industry는 거의 바뀌지 않으므로 TTL을 두지 않는다 — 갱신은
     scripts/refresh_yf_sectors.py 몫.
     """
-    cache = _load_cache()
+    loaded = _read_cache()
+    # 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 1327개가 2개로 줄었다 (#26 같은 패턴).
+    # 화면 표시는 그대로 하되, 깨진 파일은 덮어쓰지 않는다 (scripts/refresh_yf_sectors.py가 복구)
+    cache = {} if loaded is None else loaded
     result = {}
     to_fetch = []
 
@@ -297,7 +308,7 @@ def get_yf_sectors(tickers: list, market: str) -> dict:
                 cache[ticker] = label
                 dirty = True
             result[ticker] = label or '-'
-        if dirty:
+        if dirty and loaded is not None:
             try:
                 _save_cache(cache)
             except Exception:

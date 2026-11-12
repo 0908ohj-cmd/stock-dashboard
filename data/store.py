@@ -6,10 +6,12 @@ Streamlit 무의존 — 캐시 래핑은 ui/ 계층에서 한다.
 """
 import json
 import pathlib
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+from data._atomic import atomic_write_text
 from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily
 
 OHLCV_DIR = pathlib.Path(__file__).parent / 'ohlcv'
@@ -156,41 +158,72 @@ def _safe_merge(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
 
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
 # 파일 mtime이 바뀌면(배치 재배포·재수집) 자동 무효화. Streamlit rerun 간에도 유지.
+# 캐시된 dict는 여러 스레드·세션이 같이 읽는다 — 절대 제자리에서 고치지 말고 복사본을 저장할 것.
 _snap_cache: dict = {}
 
+# 스냅샷 읽기→수정→쓰기 직렬화 (#26). 10EMA 탭은 ThreadPoolExecutor(10)로 load_daily를 돌려
+# 미스 병합이 동시에 일어난다. RLock — _merge_ticker가 잡은 채로 save_snapshot을 부른다.
+_snap_lock = threading.RLock()
 
-def load_snapshot(market: str) -> dict:
+
+class _UnreadableSnapshot(Exception):
+    """스냅샷 파일이 있는데 파싱할 수 없다. 쓰기 경로는 이 파일을 덮어쓰면 안 된다."""
+
+
+def _read_snapshot(market: str) -> dict:
+    """스냅샷 읽기. 파일이 없으면 {}, 있는데 파싱이 안 되면 _UnreadableSnapshot."""
     path = _snapshot_path(market)
-    if not path.exists():
+    try:
+        mtime = path.stat().st_mtime_ns
+    except FileNotFoundError:
         _snap_cache.pop(market, None)
         return {}
-    mtime = path.stat().st_mtime_ns
     hit = _snap_cache.get(market)
     if hit and hit[0] == mtime:
         return hit[1]
     try:
         snap = json.loads(path.read_text(encoding='utf-8'))
-    except Exception:
-        return {}
+    except Exception as e:
+        raise _UnreadableSnapshot(f'{path.name}: {type(e).__name__}: {e}') from e
+    if not isinstance(snap, dict):
+        raise _UnreadableSnapshot(f'{path.name}: 최상위가 dict가 아님({type(snap).__name__})')
     _snap_cache[market] = (mtime, snap)
     return snap
 
 
+def load_snapshot(market: str) -> dict:
+    """읽기 전용 경로 — 파싱 실패는 빈 스냅샷으로 본다 (화면은 온디맨드 폴백으로 버틴다).
+    쓰기 경로는 이 함수 대신 _read_snapshot을 써서 파싱 실패 시 저장을 건너뛴다."""
+    try:
+        return _read_snapshot(market)
+    except _UnreadableSnapshot:
+        return {}
+
+
 def save_snapshot(market: str, snap: dict) -> None:
-    OHLCV_DIR.mkdir(exist_ok=True)
-    path = _snapshot_path(market)
-    path.write_text(json.dumps(snap, ensure_ascii=False), encoding='utf-8')
-    _snap_cache[market] = (path.stat().st_mtime_ns, snap)
+    """원자적 저장 — 쓰는 도중에 읽어도 이전 파일이 온전히 보인다 (#26)."""
+    with _snap_lock:
+        OHLCV_DIR.mkdir(exist_ok=True)
+        path = _snapshot_path(market)
+        atomic_write_text(path, json.dumps(snap, ensure_ascii=False))
+        _snap_cache[market] = (path.stat().st_mtime_ns, snap)
 
 
 def _merge_ticker(market: str, key: str, df: pd.DataFrame) -> None:
     """미스 폴백 수집분을 로컬 스냅샷에 병합. 메타(fetched_at)는 갱신하지 않는다 —
-    티커 1개 폴백으로 시장 전체가 신선 판정되는 것을 방지."""
-    snap = load_snapshot(market)
-    snap.setdefault('market', market)
-    snap.setdefault('data', {})
-    snap['data'][key] = _df_to_records(df)
-    save_snapshot(market, snap)
+    티커 1개 폴백으로 시장 전체가 신선 판정되는 것을 방지.
+
+    파일을 파싱할 수 없으면 병합을 건너뛴다. 예전엔 파싱 실패를 빈 스냅샷으로 보고 종목
+    1개만 넣어 저장해 시장 전체가 사라졌다 (#26)."""
+    rec = _df_to_records(df)
+    with _snap_lock:
+        try:
+            snap = _read_snapshot(market)
+        except _UnreadableSnapshot as e:
+            print(f'[{market}] 스냅샷을 읽을 수 없어 {key} 병합 생략 — 파일은 그대로 둔다 ({e})')
+            return
+        save_snapshot(market, {**snap, 'market': snap.get('market', market),
+                               'data': {**snap.get('data', {}), key: rec}})
 
 
 def load_daily(ticker: str, market: str) -> pd.DataFrame:
