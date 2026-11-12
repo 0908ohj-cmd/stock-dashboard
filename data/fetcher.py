@@ -1,3 +1,5 @@
+import threading
+import time
 from functools import lru_cache
 
 import numpy as np
@@ -34,8 +36,114 @@ def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
     return df[needed]   # dropna는 호출부에서 처리
 
 
+# ── KR 종목 패치용 전종목 시세 (#34) ──────────────────────
+# 종목마다 pykrx를 부르면 휴장 다음 날 배치 한 번에 수백 회가 나간다 (2026-08 KRX가
+# "자동화 수단을 통한 비정상 대량 조회"로 IP를 1일 차단한 전례). 날짜당 전종목 시세를
+# 1회만 받아 프로세스 안에 두고 종목별로 꺼내 쓴다. 디스크에는 저장하지 않는다.
+_KR_XS_CACHE: dict = {}        # ('stock'|'etf', 'YYYYMMDD') → (만료 시각 | None, DataFrame)
+_KR_XS_LOCK = threading.Lock()
+_KR_XS_RETRY_SEC = 1800        # 확정 안 된 응답(오늘·미래 날짜, 조회 실패)을 재사용하는 시간
+_clock = time.monotonic
+_KR_OHLCV = ['시가', '고가', '저가', '종가', '거래량']
+
+
+def _fetch_kr_section(kind: str, date_str: str) -> pd.DataFrame:
+    """pykrx 전종목 시세 1회 조회 — 주식은 KOSPI·KOSDAQ·KONEX 전체(ALL), ETF는 별도 표.
+    pykrx는 import만 해도 KRX 로그인이 나가므로 함수 안에서 늦게 import한다."""
+    from pykrx import stock as pykrx_stock
+    if kind == 'etf':
+        return pykrx_stock.get_etf_ohlcv_by_ticker(date_str)
+    return pykrx_stock.get_market_ohlcv_by_ticker(date_str, market='ALL')
+
+
+def _normalize_kr_section(raw: pd.DataFrame) -> pd.DataFrame:
+    """티커 인덱스 + 시가~거래량(float). 종가 0 이하 행(휴장일의 0 채움)은 뺀다.
+    컬럼이 없으면 KeyError — 호출부가 조회 실패로 취급한다."""
+    if raw is None or raw.empty:
+        return pd.DataFrame(columns=_KR_OHLCV)
+    xs = raw[_KR_OHLCV].astype(float)
+    xs.index = xs.index.astype(str)
+    xs = xs[~xs.index.duplicated(keep='last')]
+    return xs[xs['종가'] > 0]
+
+
+def _kr_section(kind: str, fetch_date) -> pd.DataFrame:
+    """fetch_date의 전종목 시세. 같은 프로세스에서는 날짜당 1회만 조회한다.
+
+    빈 응답(휴장일)도 캐시해 종목마다 다시 묻지 않는다. 지난 날짜의 응답은 바뀌지
+    않으므로 계속 쓰고, 오늘·미래 날짜의 응답과 조회 실패는 _KR_XS_RETRY_SEC 동안만
+    쓴다 — 오래 사는 Streamlit 프로세스에서 장전·장중 응답이 종일 굳지 않게.
+    """
+    date_str = fetch_date.strftime('%Y%m%d')
+    key = (kind, date_str)
+    with _KR_XS_LOCK:          # 10EMA 탭 스레드들이 동시에 미스를 내도 조회는 1회
+        now = _clock()
+        hit = _KR_XS_CACHE.get(key)
+        if hit is not None and (hit[0] is None or now < hit[0]):
+            return hit[1]
+        settled = fetch_date < datetime.now(_KST).date()
+        try:
+            xs = _normalize_kr_section(_fetch_kr_section(kind, date_str))
+        except Exception:      # 로그인 실패·차단·응답 구조 이상 — 종목마다 재시도하지 않는다
+            xs, settled = pd.DataFrame(columns=_KR_OHLCV), False
+        _KR_XS_CACHE[key] = (None if settled else now + _KR_XS_RETRY_SEC, xs)
+        return xs
+
+
+def _kr_row(fetch_date, ticker: str):
+    """fetch_date의 ticker 시세 (시가, 고가, 저가, 종가, 거래량) 또는 None.
+
+    주식 표에 없으면(KODEX 200 같은 ETF) ETF 표를 본다. 시가·고가·저가가 0인 행
+    (거래정지·무거래)은 저가 0원 봉으로 ADR·EMA를 오염시키므로 쓰지 않는다.
+    """
+    code = str(ticker).zfill(6)
+    xs = _kr_section('stock', fetch_date)
+    if xs.empty:               # 휴장·조회 실패 — ETF 표도 같을 테니 묻지 않는다
+        return None
+    if code not in xs.index:
+        xs = _kr_section('etf', fetch_date)
+        if code not in xs.index:
+            return None
+    row = xs.loc[code]
+    if (row[['시가', '고가', '저가', '종가']] <= 0).any():
+        return None
+    return tuple(float(row[c]) for c in _KR_OHLCV)
+
+
+def _kr_trading_dates() -> set:
+    """indices 스냅샷의 KOSPI·KOSDAQ 거래일(YYYY-MM-DD) 집합. 못 읽으면 빈 집합.
+    배치는 지수를 종목보다 먼저 받으므로 같은 회차의 지수 날짜가 들어 있다."""
+    try:
+        from data import store   # store가 이 모듈을 import한다 — 순환 import 회피용 지연 import
+        data = store.load_snapshot('indices').get('data', {})
+    except Exception:
+        return set()
+    dates = set()
+    for name in ('KOSPI', 'KOSDAQ'):
+        dates.update((data.get(name) or {}).get('dates') or [])
+    return dates
+
+
+def _is_known_kr_holiday(d) -> bool:
+    """d가 KR 휴장일로 확정됐는지 — 지수 스냅샷에 d 앞뒤 거래일이 모두 있는데 d만 없을 때.
+
+    오늘·미래 날짜, 지수가 아직 d 이후를 모르는 경우는 판정하지 않는다(False) —
+    '아직 데이터 없음'을 휴장으로 굳히면 그날 시세를 영영 못 채운다. 판정 불가일 때는
+    조회하되, 전종목 시세 캐시가 날짜당 1회로 묶는다.
+    """
+    if d >= datetime.now(_KST).date():
+        return False
+    dates = _kr_trading_dates()
+    s = d.strftime('%Y-%m-%d')
+    return bool(dates) and s not in dates and min(dates) < s < max(dates)
+
+
 def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx로 채움."""
+    """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx로 채움.
+
+    종목마다 조회하지 않고 날짜당 전종목 시세 1회(_kr_section)에서 꺼내 쓴다 (#34).
+    지수 스냅샷으로 휴장이 확정된 날짜는 조회하지 않는다.
+    """
     if df.empty or 'Close' not in df.columns:
         return df
 
@@ -47,18 +155,15 @@ def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if not last_close_nan and last_date >= yesterday:
         return df
 
+    fetch_date = last_date if last_close_nan else yesterday
+    if _is_known_kr_holiday(fetch_date):
+        return df
     try:
-        from pykrx import stock as pykrx_stock
-        fetch_date = last_date if last_close_nan else yesterday
-        date_str = fetch_date.strftime('%Y%m%d')
-        pk = pykrx_stock.get_market_ohlcv_by_date(date_str, date_str, ticker)
-        if not pk.empty:
+        row = _kr_row(fetch_date, ticker)
+        if row is not None:
             ts = pd.Timestamp(fetch_date)
-            df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
-            df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
-            df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
-            df.loc[ts, 'Close']  = float(pk['종가'].iloc[0])
-            df.loc[ts, 'Volume'] = float(pk['거래량'].iloc[0])
+            for col, val in zip(('Open', 'High', 'Low', 'Close', 'Volume'), row):
+                df.loc[ts, col] = val
             df = df.sort_index()
     except Exception:
         pass
