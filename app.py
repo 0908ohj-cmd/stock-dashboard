@@ -5,7 +5,7 @@ import pathlib
 import requests
 import streamlit as st
 from data.fetcher import parse_tradingview_csv, parse_ticker_txt
-from data import repo_sync, store
+from data import backup, repo_sync, store
 from ui.index_panel import render_index_panel, _load_index
 from ui.watchlist import (
     render_watchlist_tab, _fetch_index_cached,
@@ -169,16 +169,39 @@ for uploaded, key, name in [
             st.sidebar.error(f'파일 오류: {e}')
 
 # ── 백업 복원 처리 ────────────────────────────────────────
-if backup_restore_file:
+# file_uploader는 rerun마다 같은 파일을 돌려준다. 내용 서명 가드 없이 끝에서 st.rerun()을 부르면
+# '복원 → GitHub 커밋 → rerun → 복원 …'이 끝없이 돈다(#36). 같은 내용은 세션당 한 번만 복원하고,
+# 업로더를 비우면 가드를 풀어 같은 파일을 다시 올렸을 때 다시 복원한다.
+_RESTORE_SIG = 'restored_backup_sig'
+_restore_notice = st.session_state.pop('backup_restore_notice', None)
+if _restore_notice:
+    st.sidebar.success(_restore_notice)
+if not backup_restore_file:
+    backup.release(st.session_state, _RESTORE_SIG)
+else:
     try:
-        backup = json.loads(backup_restore_file.read().decode('utf-8'))
-        for key, tickers_list in backup.items():
-            if key in SAVED_PATHS and isinstance(tickers_list, list):
-                content = '\n'.join(t for t in tickers_list if t)
+        _restore_raw = backup_restore_file.getvalue()
+        _restored = backup.parse_backup(_restore_raw, SAVED_PATHS)
+        if backup.claim_new_content(st.session_state, _RESTORE_SIG, _restore_raw):
+            _current = {k: p.read_text(encoding='utf-8') if p.exists() else '' for k, p in SAVED_PATHS.items()}
+            _changed = backup.changed_markets(_restored, _current)
+            for key, content in _changed.items():
                 SAVED_PATHS[key].write_text(content, encoding='utf-8')
                 _github_save(SAVED_PATHS[key].name, content)
-        st.sidebar.success('백업 복원 완료! 새로고침됩니다.')
-        st.rerun()
+            # 업로드 경로와 같게 — 바뀐 시장의 시세를 스냅샷에 받고 캐시를 비운다.
+            # 안 하면 새 종목은 화면에서 종목별 실시간 다운로드로 처리된다.
+            for key in _changed:
+                tickers_list = _restored[key]
+                if not tickers_list:     # 빈 목록으로 재수집하면 그 시장 스냅샷이 통째로 비워진다
+                    continue
+                with st.sidebar:
+                    with st.spinner(f'{key} 시세 수집 중... ({len(tickers_list)}개 종목)'):
+                        store.refetch_market(key, _with_sector_universe(key, tickers_list))
+            if _changed:
+                _clear_analysis_caches()
+            st.session_state['backup_restore_notice'] = (
+                f"백업 복원 완료 — {', '.join(_changed)}" if _changed else '백업 복원 — 저장된 목록과 같아 바뀐 것 없음')
+            st.rerun()      # 위에서 읽은 티커 목록을 복원본으로 다시 읽는다 (같은 파일은 가드가 건너뛴다)
     except Exception as e:
         st.sidebar.error(f'백업 복원 오류: {e}')
 
