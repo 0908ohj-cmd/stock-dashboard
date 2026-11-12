@@ -9,9 +9,10 @@ from data import repo_sync, store
 from ui.index_panel import render_index_panel, _load_index
 from ui.watchlist import (
     render_watchlist_tab, _fetch_index_cached,
-    _build_rows, _get_market_status_cached,
+    _build_rows, _get_market_status_cached, _snapshot_ts,
 )
-from ui.watchlist_10ema import render_10ema_tab
+from ui.watchlist_10ema import render_10ema_tab, _build_10ema_rows
+from data.universe import get_kr_10ema_universe, get_us_10ema_universe
 from ui.leaderboard import render_leaderboard_section
 from ui.sector_leadership import render_sector_leadership_tab
 from ui import tv_export
@@ -59,10 +60,18 @@ def _with_sector_universe(key: str, tickers: list) -> list:
 
 
 def _clear_analysis_caches() -> None:
+    """스냅샷이 바뀐 뒤(재수집·업로드·복원·배치 동기화) 그 스냅샷으로 만든 캐시를 모두 비운다 (#32)."""
+    _snapshot_ts.clear()            # fetched_at 캐시(TTL 120초) — 먼저 비워야 아래 캐시 키가 곧바로 새 값을 본다
     _build_rows.clear()
     _fetch_index_cached.clear()
     _get_market_status_cached.clear()
     _load_index.clear()
+    _build_10ema_rows.clear()
+    # 10EMA 유니버스(TTL 24시간) — 배치가 유니버스 파일을 매 회차 다시 만들어 스냅샷과 같은 커밋으로 올린다.
+    # 안 비우면 하루 동안 옛 종목 목록을 스캔해, 새 스냅샷에 없는 종목은 종목별 실시간 다운로드로 빠진다.
+    # 파일이 저장소에 있으므로 다시 읽는 비용은 텍스트 파일 한 번이다.
+    get_kr_10ema_universe.clear()
+    get_us_10ema_universe.clear()
 
 
 _REPO_ROOT = pathlib.Path(__file__).parent
