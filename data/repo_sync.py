@@ -49,6 +49,13 @@ PULL_SCHEDULES: tuple[dtime, ...] = (
 SNAPSHOT_PREFIX = 'data/ohlcv/'
 GIT_TIMEOUT_SEC = 30
 
+# 동기화가 실패하면(SyncResult.ok=False — git 오류·타임아웃) 다음 슬롯을 기다리지 않고 재시도한다.
+# 슬롯만 기다리면 18:40 실패가 다음 날 03:00까지 8시간 넘게 방치된다(#35).
+# 연속 실패마다 두 배로 늘리되 상한을 둔다 — 동기화는 접속한 세션의 rerun 안에서 돌아
+# git 타임아웃(30초)만큼 화면을 붙잡으므로, git이 계속 죽어 있어도 시간당 1회로 묶는다.
+RETRY_BACKOFF_BASE = timedelta(minutes=10)
+RETRY_BACKOFF_MAX = timedelta(minutes=60)
+
 
 @dataclass
 class SyncResult:
@@ -64,6 +71,7 @@ class SyncResult:
 _lock = threading.Lock()
 _last_attempt: datetime | None = None
 _last_result: SyncResult | None = None
+_fail_streak = 0   # 연속 실패 횟수 — 성공하면 0
 
 
 def pull_due(now: datetime, last_attempt: datetime | None,
@@ -80,27 +88,45 @@ def pull_due(now: datetime, last_attempt: datetime | None,
     return False
 
 
+def retry_backoff(fail_streak: int) -> timedelta:
+    """연속 fail_streak회 실패한 뒤 다음 재시도까지 기다릴 시간 (10 → 20 → 40 → 60분 상한)."""
+    return min(RETRY_BACKOFF_BASE * 2 ** (fail_streak - 1), RETRY_BACKOFF_MAX)
+
+
+def retry_due(now: datetime, last_attempt: datetime | None, fail_streak: int) -> bool:
+    """직전 시도가 실패했고 백오프가 지났으면 True — 슬롯과 무관하게 같은 동기화를 다시 시도."""
+    if fail_streak <= 0 or last_attempt is None:
+        return False
+    return now >= last_attempt + retry_backoff(fail_streak)
+
+
 def last_result() -> SyncResult | None:
     return _last_result
 
 
+def _due(now: datetime) -> bool:
+    return pull_due(now, _last_attempt) or retry_due(now, _last_attempt, _fail_streak)
+
+
 def maybe_sync(repo_root: pathlib.Path, now: datetime | None = None,
                sync_fn: Callable[[pathlib.Path], SyncResult] | None = None) -> SyncResult | None:
-    """슬롯이 됐으면 1회 동기화하고 결과를 반환, 아니면 None.
+    """슬롯이 됐거나 실패 후 백오프가 지났으면 1회 동기화하고 결과를 반환, 아니면 None.
 
     여러 세션이 동시에 들어와도 git은 한 번만 돈다 — 진행 중이면 나머지는 건너뛴다.
+    새 커밋이 없는 것(ok=True, updated=False)은 실패가 아니라 재시도하지 않는다.
     """
-    global _last_attempt, _last_result
+    global _last_attempt, _last_result, _fail_streak
     now = now or datetime.now(KST)
-    if not pull_due(now, _last_attempt):
+    if not _due(now):
         return None
     if not _lock.acquire(blocking=False):
         return None
     try:
-        if not pull_due(now, _last_attempt):   # 락 대기 중 다른 세션이 끝냈을 수 있다
+        if not _due(now):   # 락 대기 중 다른 세션이 끝냈을 수 있다
             return None
         _last_attempt = now
         _last_result = (sync_fn or sync_from_origin)(repo_root)
+        _fail_streak = 0 if _last_result.ok else _fail_streak + 1
         return _last_result
     finally:
         _lock.release()
