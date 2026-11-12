@@ -9,7 +9,7 @@ def _ema21(index_df: pd.DataFrame) -> pd.Series:
 def detect_jjin_bounce(index_df: pd.DataFrame,
                        start: pd.Timestamp | None = None) -> dict | None:
     """
-    찐반등 감지 — 가장 최근 조정 시작일 이후 첫 번째 조건 충족일 반환.
+    찐반등 감지 — 가장 최근 조정 시작일 ~ 첫 EMA21 회복일 사이 첫 번째 조건 충족일 반환.
     조건:
       1. 장중 저가가 EMA21 아래
       2. 당일 양봉, 상승폭 >= ADR(20일) × 0.9
@@ -33,14 +33,18 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
     except KeyError:
         return None
 
-    # 탐색 시작 = 조정 시작일. 조정 구간 최저 Low 기준이면 찐반등 뒤 장중 꼬리 하나가
-    # 찐반등을 범위 밖으로 밀어낸다(#25). 바닥 전의 반등은 _resolve_jjin의 실패 규칙
-    # (저점 아래 종가 · 5거래일 내 EMA21 미회복)이 걸러낸다
+    # 탐색 범위 = 조정 시작일 ~ 첫 EMA21 회복일(그날 돌파형 찐반등 포함).
+    # - 시작: 조정 구간 최저 Low가 아니라 조정 시작일. 최저 Low 기준이면 찐반등 뒤 장중 꼬리
+    #   하나가 찐반등을 범위 밖으로 밀어낸다(#25). 바닥 전의 반등은 _resolve_jjin의 실패 규칙
+    #   (저점 아래 종가 · 5거래일 내 EMA21 미회복)이 걸러낸다
+    # - 끝: 회복 이후 상승 추세 중 21EMA 터치 반등은 찐반등이 아니다(#27)
+    recovered = (~below).iloc[last_start_loc:].to_numpy().nonzero()[0]
+    end_loc   = last_start_loc + int(recovered[0]) if len(recovered) else len(index_df) - 1
     start_loc = max(last_start_loc, 2)
     if start is not None:
         start_loc = max(start_loc, int(index_df.index.searchsorted(start)))
 
-    for i in range(start_loc, len(index_df)):
+    for i in range(start_loc, end_loc + 1):
         row  = index_df.iloc[i]
         prev = index_df.iloc[i - 1]
 

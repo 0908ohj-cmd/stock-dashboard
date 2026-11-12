@@ -194,7 +194,7 @@ def test_failed_jjin_reported_after_ema21_recovery():
     assert status['failed_jjin_date'] == b1_date
 
 
-# ── 찐반등 탐색 시작점 = 조정 시작일 (#25) ─────────────
+# ── 찐반등 탐색 범위: last_start ~ EMA21 회복일 (#25, #27) ─────────────
 # 실패 조건은 '찐반등 저점 아래 종가'와 '5거래일 내 EMA21 미회복' 둘뿐이다.
 # 탐색 시작점을 조정 구간 전체의 최저 Low로 잡으면 찐반등 뒤의 장중 꼬리 하나가
 # 찐반등을 탐색 범위 밖으로 밀어낸다.
@@ -221,6 +221,32 @@ def test_failed_jjin_recorded_when_jjin_bar_made_correction_low():
     assert status['state'] == 'correction'
     assert status['jjin_date'] is None
     assert status['failed_jjin_date'] == b1_date
+
+
+# #27: 찐반등 없이 완만하게 조정 → 완만하게 EMA21 회복 → EMA21 바로 위 횡보 → 21EMA 터치 +2% 양봉
+_SLOW_UP   = [(100 + 0.5 * i, 100.5 + 0.5 * i) for i in range(30)]       # 100 → 115 완만 상승
+_SLOW_DOWN = [(115 - 0.6 * i, 114.4 - 0.6 * i) for i in range(8)]       # 완만 하락 (인덱스 36 봉 EMA21 이탈)
+_SLOW_REC  = [(110.2 + 0.5 * i, 110.7 + 0.5 * i) for i in range(8)]     # 완만 회복 (인덱스 39 봉 EMA21 위, ADR 미달)
+_SIDE      = [(114.2, 114.0), (114.0, 114.3), (114.3, 114.1), (114.1, 114.2)] * 2  # EMA21(≈113) 바로 위 횡보
+
+
+def test_ema21_touch_after_recovery_is_not_jjin():
+    """#27: 찐반등 없이 EMA21을 회복한 뒤(이탈 18거래일 후) 장중 21EMA 터치 +2% 양봉은 찐반등이 아니다."""
+    df = _oc_df(_SLOW_UP + _SLOW_DOWN + _SLOW_REC + _SIDE + [(113.6, 116.5)])
+    df.iloc[-1, df.columns.get_loc('Low')] = 112.8       # 장중 EMA21(≈113.5) 아래
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] is None
+    assert get_phase_label(df, 2.0) == 'Normal'
+
+
+def test_breakout_jjin_on_recovery_day_is_detected():
+    """탐색 상한(EMA21 회복일)은 포함 — 회복일 자체가 찐반등봉(돌파형)이면 DAY2로 인정."""
+    df = _oc_df(_UP + _DOWN + [(97, 115)])          # 종가 97 → 115, EMA21(≈111) 위로 돌파
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] == df.index[-1]
+    assert get_phase_label(df, 2.0) == 'DAY2'
 
 
 def test_jjin_bounce_skips_incomplete_ohlc_row():
