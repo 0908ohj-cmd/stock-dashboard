@@ -364,9 +364,17 @@ HOT_GAP = 10            # 이 기간 안에 다시 켜진 건 같은 🔥로 본
 HOT_MIN_ALIGNED = 0.2
 
 
+def fire_starts(on, gap: int = HOT_GAP) -> list:
+    """🔥 시작 위치 — 켜졌는데 직전 gap거래일 동안 한 번도 안 켜졌던 날 (검증과 같은 정의 — 깜빡임은 한 번으로).
+    앞쪽 gap일은 '그 전부터 켜져 있었나'를 알 수 없어 시작으로 치지 않는다."""
+    on = np.asarray(on, dtype=bool)
+    return [i for i in range(gap, len(on)) if on[i] and not on[i - gap:i].any()]
+
+
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
                 share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
-    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [🔥 시작일…], 'last': 마지막 🔥 시작일,
+    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [창 안 🔥 시작일…],
+    'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
     'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
     렐볼 양봉 = 종가 > 시가 & 거래량 ≥ 직전 20일 평균 × 1.5 (sector_strength와 같은 정의)."""
     asof = pd.Timestamp(asof)
@@ -376,12 +384,14 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         if th in (None, 'UNCLASSIFIED'):
             continue
         full = df[df.index <= asof]
-        d = full.tail(lookback + HOT_GAP + 30)
-        if len(d) < 30:
+        if len(full) < 30:
             continue
-        avgv = d['Volume'].shift(1).rolling(20).mean()
-        bull = (d['Close'] > d['Open']) & (d['Volume'] >= HOT_RVOL * avgv)
-        flags[t] = bull.astype(float).rolling(5, min_periods=1).max().fillna(0).astype(bool)
+        # 편입일을 창 길이에 잘리지 않게 정하려면 창 밖 이력도 필요하다 — 스냅샷 전체(약 240봉)로 계산(#30).
+        # 직전 20일 평균이 없는 첫 20봉은 '안 켜짐'이 아니라 판정 불가(NaN) — 0으로 두면 가짜 공백이 생긴다.
+        avgv = full['Volume'].shift(1).rolling(20).mean()
+        bull = ((full['Close'] > full['Open']) & (full['Volume'] >= HOT_RVOL * avgv)).astype(float)
+        bull.iloc[:20] = np.nan
+        flags[t] = bull.rolling(5, min_periods=1).max()
         groups.setdefault(th, []).append(t)
         c = full['Close'].tail(250)
         s50 = c.rolling(50).mean().iloc[-1]
@@ -396,26 +406,29 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         if al_share < (HOT_MIN_ALIGNED if min_aligned is None else min_aligned):
             continue
         f = pd.DataFrame({t: flags[t] for t in ts})
-        f = f[f.index <= asof].tail(lookback + HOT_GAP)     # 창 앞 HOT_GAP일은 '그 전부터 켜져 있었나' 판단용
         n = f.notna().sum(axis=1)
-        sh = (f.astype(float).fillna(0).sum(axis=1) / n.where(n >= min_n)).fillna(0)
-        on = (sh >= share).to_numpy()
-        # 🔥 시작 = 켜졌는데 직전 HOT_GAP거래일 동안 한 번도 안 켜졌던 날 (검증과 같은 정의 — 깜빡임은 한 번으로)
-        starts = [i for i in range(HOT_GAP, len(on)) if on[i] and not on[i - HOT_GAP:i].any()]
-        win_on = on[HOT_GAP:]
-        if not win_on.any():
+        known = (n >= min_n).to_numpy()
+        if not known.any():
             continue
-        fires = [f.index[i] for i in starts]
-        last = fires[-1] if fires else None      # None = 창(약 6주)보다 전부터 이어진 🔥
-        # 편입일 = 창 안에서 처음 켜진 날. 그날이 🔥 시작이 아니면(창 앞부터 이어짐) 시작일을 모른다
-        first_on = HOT_GAP + int(np.argmax(win_on))
-        since = f.index[first_on]
-        started_before = since not in fires
+        first = int(np.argmax(known))           # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름')
+        f, n = f.iloc[first:], n.iloc[first:]
+        sh = (f.fillna(0).sum(axis=1) / n.where(n >= min_n)).fillna(0)
+        on = (sh >= share).to_numpy()
+        w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
+        if not on[w0:].any():
+            continue
+        starts = fire_starts(on)
+        fires = [f.index[i] for i in starts if i >= w0]
+        # 편입일 = 지금 이어지는 🔥 구간의 시작(= 마지막 🔥 시작). 창 밖이어도 HOT_GAP보다 긴 공백이 나올 때까지
+        # 이력을 거슬러 찾는다 — 창 안 첫 켜짐을 쓰면 창이 밀릴 때마다 편입일이 늦어져 탈락 기준 고점이
+        # 낮아지고, 3 ADR 하락으로 빠진 종목이 가격 회복 없이 돌아왔다(#30)
+        last = f.index[starts[-1]] if starts else None      # None = 이력 처음부터 이어진 🔥 (시작일 모름)
+        since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
-                   'fires': fires, 'last': last, 'peakShare': float(sh.iloc[HOT_GAP:].max()),
-                   'since': since, 'startedBefore': started_before, 'alignedShare': al_share,
-                   'daysAgo': (len(on) - 1 - f.index.get_loc(last)) if last is not None else lookback,
-                   'tickers': [t for t in ts if f[t].astype(float).iloc[-1] == 1]}
+                   'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
+                   'since': since, 'startedBefore': last is None, 'alignedShare': al_share,
+                   'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,
+                   'tickers': [t for t in ts if f[t].iloc[-1] == 1]}
     return out
 
 

@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_13_1     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_13_2     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -567,7 +567,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
 
     def since_entry(r):
         """(편입 후 종가 고점 대비 하락 ADR 배수, 편입 후 자기 렐볼 양봉 있었나).
-        🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 움직임은 편입일보다 최대 5거래일 앞설 수 있다 — 그날부터 잰다."""
+        🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 움직임은 편입일보다 최대 5거래일 앞설 수 있다 — 그날부터 잰다.
+        편입일(hot_sectors 'since')은 지금 이어지는 🔥 구간의 시작이라 창이 밀려도 안 바뀐다 — 기준 고점도 고정(#30)."""
         h = hot.get(r['primaryTheme'])
         since = h['since'] if h else bull.get(r['ticker'])
         rec = data.get(r['ticker'])
@@ -590,7 +591,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     # 검증(🔥 뒤 0·10·20일): 없음 4~36%, 이후 30일 기준봉 17~21% vs 있음 21~25%
     pool = [r for r in pool if r['ownBull']]
     # 탈락 2 — 종가가 50일선 아래 (검증: 3 ADR에 안 걸린 종목 중 이후 30일 기준봉 8.6~9.8% vs 평균 16~17%).
-    # 두 규칙 모두 매일 다시 계산 — 회복하면 다음 날 목록에 돌아온다
+    # 두 규칙 모두 매일 다시 계산 — 가격이 회복하면(또는 섹터가 새로 🔥 시작하면) 다음 날 목록에 돌아온다
     # 탈락 3 — 종가가 200일선 아래 (PP 기준봉 조건이 150·200일선 위라 '50점 미만도 보기'에서도 뺀다)
     pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and not r['belowSma50']
             and not (r.get('gap200') is not None and r['gap200'] < 0)]
@@ -616,7 +617,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     bull = res.get('bullSince') or {}
 
     def entry(r):
-        """(편입일, 날짜 모름) — 🔥 섹터면 섹터가 처음 켜진 날, 단독 렐볼이면 최근 5일 첫 렐볼 양봉 날."""
+        """(편입일, 날짜 모름) — 🔥 섹터면 지금 이어지는 🔥 구간의 시작일(창 밖까지 거슬러 찾음, 이력 처음부터
+        이어졌으면 날짜 모름), 단독 렐볼이면 최근 5일 첫 렐볼 양봉 날."""
         h = hot.get(r['primaryTheme'])
         if h:
             return h['since'], h['startedBefore']

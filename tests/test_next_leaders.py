@@ -350,10 +350,55 @@ def test_pp_준비도_배점_합100_200일선_단계():
     assert '장기 추세' not in nl.PP_WEIGHTS
 
 
-def test_hot_sectors_편입일은_창안_첫_불():
+def test_hot_sectors_HOT_GAP_안_재점화는_같은_불이라_편입일은_그_구간의_첫_켜짐():
     bars = {t: _bars(80, (15, 3)) for t in 'ABC'}
     h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1], min_aligned=0)['OPT']
     assert h['since'] == bars['A'].index[-15] and not h['startedBefore']
+
+
+def _hot_since_by_day(bars, days):
+    """기준일을 하루씩 옮기며 (편입일, startedBefore, last) — 마지막 days+1거래일."""
+    idx = bars['A'].index
+    out = []
+    for asof in idx[-(days + 1):]:
+        h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, asof, min_aligned=0)['OPT']
+        out.append((h['since'], h['startedBefore'], h['last']))
+    return out
+
+
+def test_hot_sectors_편입일은_창이_밀려도_안_바뀐다():
+    # 3종목 섹터가 기준일(day0) 기준 T−29·T−8에 🔥 — 5거래일 뒤까지 매일 편입일이 같아야 한다 (#30).
+    # 창(30거래일) 안 첫 켜짐을 편입일로 쓰면 T−29가 창 밖으로 밀리며 하루씩 늦어지다 T−8로 건너뛴다.
+    n = 85                                                  # day0 = 뒤에서 6번째 날
+    bars = {t: _bars(n, (35, 14)) for t in 'ABC'}
+    t8 = bars['A'].index[n - 14]
+    seq = _hot_since_by_day(bars, 5)
+    assert {s for s, _, _ in seq} == {t8}                   # 현재 🔥 구간(T−8 재점화)의 시작
+    assert not any(b for _, b, _ in seq)
+    assert all(last == s for s, _, last in seq)             # 10EMA 배지·🔥 시작일도 같은 날
+
+
+def test_hot_sectors_창보다_전에_시작한_불은_더_긴_이력으로_시작일을_찾는다():
+    # day0 기준 T−35부터 8거래일마다 재점화(HOT_GAP 안이라 같은 🔥) — 시작이 30거래일 창보다 앞
+    n = 100
+    bars = {t: _bars(n, (41, 33, 25, 17, 9)) for t in 'ABC'}
+    t35 = bars['A'].index[n - 41]
+    seq = _hot_since_by_day(bars, 5)
+    assert {s for s, _, _ in seq} == {t35}
+    assert not any(b for _, b, _ in seq)                    # 이력 안에서 시작일을 찾았으니 '모름' 아님
+    assert all(last == s for s, _, last in seq)
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1], min_aligned=0)['OPT']
+    assert h['fires'] == []                                 # 창 안 🔥 시작일 목록은 그대로 창 기준
+    assert h['daysAgo'] == 40
+
+
+def test_hot_sectors_이력_처음까지_이어진_불은_시작일_모름():
+    # 렐볼 판정이 가능한 첫날(20일 평균 + 5일 창 = 25번째 봉)부터 8거래일마다 켜짐 → 시작일을 알 수 없다
+    n = 60
+    bars = {t: _bars(n, (36, 28, 20, 12, 4)) for t in 'ABC'}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1], min_aligned=0)['OPT']
+    assert h['startedBefore'] and h['last'] is None
+    assert h['since'] == bars['A'].index[n - 36]            # 알 수 있는 이력 안에서 처음 켜진 날
 
 
 def test_bull_since_최근5일_첫_렐볼양봉():
