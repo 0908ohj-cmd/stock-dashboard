@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-12T08:14:22+09:00",
+ "updatedAt": "2026-11-13T08:13:45+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -978,6 +978,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:46:11+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "AXSM": {
+   "companyName": "Axsome Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "CNS 신약·정신신경계 바이오",
+   "businessSummary": "중추신경계(CNS) 질환 치료제를 개발·판매하는 바이오제약사다. 상업 제품은 우울증 치료제 AUVELITY, 기면증·주간졸림증 치료제 SUNOSI, 편두통 치료제 SYMBRAVO이며, 주로 미국에서 판매한다.",
+   "confidence": "high",
+   "why": "매출 대부분이 CNS 의약품(AUVELITY, SUNOSI, SYMBRAVO)에서 나오며, 2025년 3개 제품 합산 매출이 6.385억 달러로 전년 대비 66% 증가했다. 파이프라인도 AD 초조, 기면증, 섬유근육통, 뇌전증 등 CNS 적응증 중심이다. 기술 플랫폼이나 AI 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://www.barchart.com/story/news/360188/axsome-therapeutics-reports-fourth-quarter-and-full-year-2025-financial-results-and-provides-business-update",
+    "https://stockanalysis.com/stocks/axsm/company",
+    "https://business.minstercommunitypost.com/minstercommunitypost/article/finterra-2026-2-23-axsome-therapeutics-axsm-a-cns-powerhouse-at-a-commercial-crossroad",
+    "https://www.globaldata.com/company-profile/axsome-therapeutics-inc/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:39+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2242,6 +2265,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:42:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "DKNG": {
+   "companyName": "DraftKings Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "온라인 스포츠베팅·카지노",
+   "businessSummary": "미국 온라인·모바일 스포츠베팅(Sportsbook)과 온라인 카지노(iGaming)를 운영하는 디지털 게이밍 회사. 2025년 매출 약 60.5억 달러 중 베팅·게이밍이 대부분이다.",
+   "confidence": "high",
+   "why": "10-K 사업 설명과 2025 실적 기준으로 매출 대부분이 스포츠베팅·iGaming(소비자 게이밍)에서 나온다. 고정 목록에 게이밍 전용 테마가 없어 소비·기타로 분류했고, 핀테크·기술 테마는 주력 사업이 아니라 제외했다.",
+   "evidenceUrls": [
+    "https://finviz.com/news/309805/draftkings-reports-fourth-quarter-revenue-growth-of-43",
+    "https://igamingfuture.com/draftkings-delivers-super-fy25-fiscals-predicts-new-year-boom/",
+    "https://stockanalysis.com/stocks/dkng/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:40+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5178,6 +5223,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:35:41+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ORKA": {
+   "companyName": "Oruka Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "바이오 신약 개발",
+   "businessSummary": "미국 캘리포니아 Menlo Park 소재 임상 단계 바이오의약품 회사로, 건선 등 염증·면역 질환용 단클론항체를 개발한다. 주력은 IL-23p19 억제제 ORKA-001(건선 Phase 2b)이며, IL-17A/F 억제제 ORKA-002도 개발 중이다. 승인 제품과 매출은 없다.",
+   "confidence": "high",
+   "why": "매출이 없는 임상 단계 신약 개발사로 파이프라인(ORKA-001·ORKA-002)이 모두 건선 등 면역질환 치료제다. 공식 파이프라인 페이지와 IR 보도자료, 임상시험 등록 정보가 같은 내용을 확인해 준다.",
+   "evidenceUrls": [
+    "https://orukatx.com/our-pipeline/",
+    "https://ir.orukatx.com/news-releases/news-release-details/oruka-therapeutics-announces-positive-week-16-results-orka-001",
+    "https://clinicaltrials.gov/study/NCT07090330",
+    "https://stockanalysis.com/stocks/orka/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:45+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
