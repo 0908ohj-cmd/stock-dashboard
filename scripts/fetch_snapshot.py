@@ -25,9 +25,11 @@ MARKET_GROUPS = {
     'all': ['KR_KOSPI', 'KR_KOSDAQ', 'US'],
 }
 MIN_SUCCESS_RATE = 0.7
-# 종목 마지막 거래일이 같은 배치에서 받은 시장 지수보다 늦으면(소스 지연) 기다렸다 다시 받는다.
-# 2026-11-10 US: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 → 하루 낡은 채 저장됐다.
+# 종목과 같은 배치에서 받은 시장 지수의 마지막 날짜가 어긋나면(소스 지연) 기다렸다 늦은 쪽을 다시 받는다.
+#   종목이 늦다: 2026-11-10 US — NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 → 종목 재수집
+#   지수가 늦다: 2026-11-11·11-12 US — 종목 11-10·11-11, NASDAQ 11-09·11-10 (#24) → 지수 재수집
 MARKET_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
+INDEX_GROUP = {'KR_KOSPI': 'kr', 'KR_KOSDAQ': 'kr', 'US': 'us'}   # store.refetch_indices 인자
 LAG_RETRY_WAITS_SEC = (300, 900)
 
 
@@ -53,22 +55,34 @@ def _index_last(market: str) -> str | None:
 
 def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep) -> bool:
     """수집 → 성공률 게이트 통과 시에만 전체 교체 저장. 통과 여부 반환.
-    종목이 시장 지수보다 늦으면 waits 간격으로 다시 받는다(그래도 늦으면 경고 후 저장)."""
+    종목과 시장 지수의 마지막 날짜가 어긋나면 waits 간격으로 늦은 쪽을 다시 받는다
+    (종목이 늦으면 종목, 지수가 늦으면 지수). 그래도 어긋나면 경고 후 저장 — 폴백 게이트가 잡는다."""
     tickers = load_tickers(market)
     if not tickers:
         print(f'[{market}] 티커 파일 없음 — 건너뜀')
         return True
+    idx_name = MARKET_INDEX[market]
     snap = store.build_market_snapshot(market, tickers)
     want = _index_last(market)
     for wait in waits:
         have = snap.get('last_trading_date')
-        if not want or not have or have >= want:
+        if not want or not have or have == want:
             break
-        print(f'[{market}] 종목 마지막 거래일 {have} < {MARKET_INDEX[market]} {want} — {wait}초 뒤 재수집')
-        sleep(wait)
-        snap = store.build_market_snapshot(market, tickers)
-    if want and snap.get('last_trading_date') and snap['last_trading_date'] < want:
-        print(f"[{market}] ⚠️ 재시도 후에도 종목 {snap['last_trading_date']} < 지수 {want} — "
+        if have < want:
+            print(f'[{market}] 종목 마지막 거래일 {have} < {idx_name} {want} — {wait}초 뒤 종목 재수집')
+            sleep(wait)
+            snap = store.build_market_snapshot(market, tickers)
+        else:
+            print(f'[{market}] {idx_name} 마지막 날짜 {want} < 종목 {have} — {wait}초 뒤 지수 재수집')
+            sleep(wait)
+            store.refetch_indices(INDEX_GROUP[market])
+            want = _index_last(market)
+    have = snap.get('last_trading_date')
+    if want and have and have < want:
+        print(f'[{market}] ⚠️ 재시도 후에도 종목 {have} < 지수 {want} — '
+              '폴백 배치가 다시 받는다 (check_snapshot_fresh)')
+    elif want and have and want < have:
+        print(f'[{market}] ⚠️ 재시도 후에도 {idx_name} {want} < 종목 {have} — '
               '폴백 배치가 다시 받는다 (check_snapshot_fresh)')
     # 분모는 실제 시도 수(성공+실패) — 티커 파일 중복 라인에 왜곡되지 않는다
     attempted = snap['ticker_count'] + len(snap['failed'])
@@ -87,9 +101,9 @@ def main() -> int:
     ap.add_argument('--markets', choices=['kr', 'us', 'all'], default='all')
     args = ap.parse_args()
 
-    # 지수를 먼저 받는다 — 종목이 지수보다 늦은지(소스 지연) 판정하는 기준이다
-    store.refetch_indices(args.markets)
-    print(f'[indices] {args.markets} 지수 갱신')
+    # 지수를 먼저 받는다 — 종목과 지수 중 어느 쪽이 늦은지(소스 지연) 판정하는 기준이다
+    idx = store.refetch_indices(args.markets)
+    print(f'[indices] {args.markets} 지수 갱신' + (f" — 실패 {idx['failed']}" if idx['failed'] else ''))
     results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
     return 0 if all(results) else 1
 

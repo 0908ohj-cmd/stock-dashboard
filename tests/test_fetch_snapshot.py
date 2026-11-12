@@ -61,3 +61,63 @@ def test_run_market_no_retry_when_up_to_date(monkeypatch):
     slept = []
     assert fs.run_market('US', waits=(1, 2), sleep=slept.append) is True
     assert slept == []
+
+
+def _stock_snap(last):
+    return {'ticker_count': 1, 'failed': [], 'data': {}, 'last_trading_date': last}
+
+
+def test_run_market_refetches_index_when_index_lags_stocks(monkeypatch):
+    """#24: 종목 11-11, NASDAQ 11-10 — 지수가 늦으면 기다렸다 지수를 다시 받는다(종목은 다시 안 받는다)."""
+    monkeypatch.setattr(fs, 'load_tickers', lambda m: ['A'])
+    index_last = ['2026-11-10']
+    monkeypatch.setattr(fs, '_index_last', lambda m: index_last[0])
+    builds = []
+    monkeypatch.setattr(fs.store, 'build_market_snapshot',
+                        lambda *a, **k: (builds.append(1), _stock_snap('2026-11-11'))[1])
+    refetched = []
+
+    def refetch(markets):
+        refetched.append(markets)
+        index_last[0] = '2026-11-11'
+    monkeypatch.setattr(fs.store, 'refetch_indices', refetch)
+    saved, slept = [], []
+    monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: saved.append(s['last_trading_date']))
+
+    assert fs.run_market('US', waits=(1, 2), sleep=slept.append) is True
+    assert slept == [1] and refetched == ['us'] and len(builds) == 1
+    assert saved == ['2026-11-11']
+
+
+def test_run_market_index_lag_refetches_own_market_indices(monkeypatch):
+    """KR 시장의 지수 지연은 KR 지수만 다시 받는다 — NASDAQ까지 받을 이유가 없다."""
+    monkeypatch.setattr(fs, 'load_tickers', lambda m: ['A'])
+    index_last = ['2026-11-11']
+    monkeypatch.setattr(fs, '_index_last', lambda m: index_last[0])
+    monkeypatch.setattr(fs.store, 'build_market_snapshot', lambda *a, **k: _stock_snap('2026-11-12'))
+    refetched = []
+
+    def refetch(markets):
+        refetched.append(markets)
+        index_last[0] = '2026-11-12'
+    monkeypatch.setattr(fs.store, 'refetch_indices', refetch)
+    monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: None)
+
+    assert fs.run_market('KR_KOSDAQ', waits=(0,), sleep=lambda s: None) is True
+    assert refetched == ['kr']
+
+
+def test_run_market_saves_with_warning_when_index_still_lags(monkeypatch, capsys):
+    """재시도해도 지수가 늦으면 종목은 저장하고 경고만 — 폴백 게이트(check_snapshot_fresh)가 이어받는다."""
+    monkeypatch.setattr(fs, 'load_tickers', lambda m: ['A'])
+    monkeypatch.setattr(fs, '_index_last', lambda m: '2026-11-10')
+    monkeypatch.setattr(fs.store, 'build_market_snapshot', lambda *a, **k: _stock_snap('2026-11-11'))
+    refetched = []
+    monkeypatch.setattr(fs.store, 'refetch_indices', refetched.append)
+    saved, slept = [], []
+    monkeypatch.setattr(fs.store, 'save_snapshot', lambda m, s: saved.append(m))
+
+    assert fs.run_market('US', waits=(1, 2), sleep=slept.append) is True
+    assert slept == [1, 2] and refetched == ['us', 'us']
+    assert saved == ['US']
+    assert '2026-11-10' in capsys.readouterr().out
