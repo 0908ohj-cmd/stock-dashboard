@@ -3,7 +3,6 @@
 시세는 배치 스냅샷(data/ohlcv/*.json)만 읽는다. 스냅샷에 없는 종목은 MISSING으로
 표시하고 실시간으로 받지 않는다 (명세 3장: 화면에서 일괄 다운로드 금지).
 """
-import base64
 import html
 import json
 import pathlib
@@ -17,6 +16,7 @@ import streamlit as st
 from ui import tv_export
 
 from data import classification as cls
+from data import classification_sync as cls_sync
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
@@ -1225,24 +1225,11 @@ def _leaderboards(m: Market, res: dict, labels: dict, names: dict):
                '반영하지 않습니다. 점수가 높아도 매수 신호가 아닙니다 — 5분봉 렐볼 기준봉 확인 전에는 관찰만.')
 
 
-def _github_commit(path: pathlib.Path, message: str) -> bool:
+def _github_token() -> str:
     try:
-        token = st.secrets.get('GITHUB_TOKEN', '')
+        return st.secrets.get('GITHUB_TOKEN', '')
     except Exception:
-        token = ''
-    if not token:
-        return False
-    rel = path.relative_to(_ROOT).as_posix()
-    url = f'https://api.github.com/repos/{_GITHUB_REPO}/contents/{rel}'
-    hdrs = {'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json'}
-    try:
-        r = requests.get(url, headers=hdrs, timeout=5)
-        body = {'message': message, 'content': base64.b64encode(path.read_bytes()).decode()}
-        if r.ok:
-            body['sha'] = r.json().get('sha')
-        return requests.put(url, json=body, headers=hdrs, timeout=15).ok
-    except Exception:
-        return False
+        return ''
 
 
 def _classification_editor(m: Market, labels: dict, names: dict):
@@ -1296,12 +1283,18 @@ def _classification_editor(m: Market, labels: dict, names: dict):
             if not reason.strip():
                 st.error('수정 이유를 적어 주세요.')
             else:
-                recs = dict(records)
-                cls.set_override(m.key, t, primary, secondary, reason, recs)
-                path = cls.save_store(m.key, recs)
-                pushed = _github_commit(path, f'data: {t} 테마 수동 확정')
+                def apply(recs):
+                    cls.set_override(m.key, t, primary, secondary, reason, recs)
+
+                local = dict(records)
+                apply(local)
+                # 원격 내용 위에 이 종목만 바꿔 커밋한다 — 로컬 파일 전체를 올리면 그 사이 origin에
+                # 들어온 다른 확정·신규 분류가 덮인다(#33). 성공하면 로컬도 올린 내용으로 맞춘다
+                res = cls_sync.commit_store_change(m.key, apply, token=_github_token(), repo=_GITHUB_REPO,
+                                                   message=f'data: {t} 테마 수동 확정', http=requests)
+                cls.save_store(m.key, res.records if res.ok else local)
                 st.cache_data.clear()
-                st.success('저장했습니다.' + ('' if pushed else ' (GitHub 토큰이 없어 이 서버에만 저장됨)'))
+                (st.success if res.ok else st.warning)(f'저장했습니다 — {res.message}')
 
 
 def _methodology(m: Market, res: dict):
