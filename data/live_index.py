@@ -21,6 +21,10 @@ import pandas as pd
 
 KST = timezone(timedelta(hours=9))
 
+# 장중 지연 — 2026-11-12 09:40 측정: KR 지수는 1분봉·fast_info 모두 약 20분 늦다
+# (09:40:47에 마지막 봉 09:20). 장 시작 후 20분간은 당일 데이터가 없어 조회 실패 → 확정값 표시.
+DELAY_NOTE = {'KOSPI': '약 20분 지연', 'KOSDAQ': '약 20분 지연', 'NASDAQ': ''}
+
 # 지수명 → (yfinance 심볼, 거래소 시간대)
 INDEX_SYMBOLS = {
     'KOSPI':  ('^KS11', 'Asia/Seoul'),

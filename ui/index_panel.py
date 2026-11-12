@@ -93,5 +93,7 @@ def render_index_panel():
             pp = '✅ 10EMA (PP) 거래 가능' if _pp_ok(df) else '❌ 10EMA (PP) 거래 불가'
             st.caption(f'ADR {adr:.2f}%  |  **{phase}** {desc}  |  {pp}')
             if disp.live:
-                st.caption(f'🔴 실시간 {disp.fetched_at:%H:%M} 조회 (yfinance, 잠정) · '
+                delay = live_index.DELAY_NOTE.get(name, '')
+                src = f'yfinance {delay}, 잠정' if delay else 'yfinance, 잠정'
+                st.caption(f'🔴 장중 시세 {disp.fetched_at:%H:%M} 조회 ({src}) · '
                            f'등락률은 {df.index[-1]:%m-%d} 확정 종가 대비 · 국면은 장마감 확정 기준')
