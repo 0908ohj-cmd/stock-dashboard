@@ -114,3 +114,90 @@ def test_save_snapshot은_쓰는_도중에도_이전_파일을_온전히_둔다(
     assert seen == [old]                                  # 쓰는 도중 읽어도 이전 버전 그대로
     assert json.loads((tmp_store / 'US.json').read_text(encoding='utf-8')) == new
     assert [p.name for p in tmp_store.iterdir()] == ['US.json']   # 임시 파일이 남지 않는다
+
+
+# ── #31 부분 재수집 ─────────────────────────────────────────
+
+_NEW_DF = _df(dates=('2026-11-12', '2026-11-13'), closes=(103.0, 110.0))
+
+
+def _mock_us_fetch(monkeypatch, bulk=None):
+    monkeypatch.setattr(store, 'fetch_daily_bulk_us',
+                        bulk or (lambda tickers, days: {t: _NEW_DF for t in tickers}))
+    monkeypatch.setattr(store, 'fetch_daily',
+                        lambda *a, **k: pytest.fail('벌크 성공 시 개별 호출 금지'))
+
+
+def test_재수집은_대상_밖_종목을_보존한다(tmp_store, monkeypatch):
+    """#31 재현: 나스닥 10EMA 재스캔(E1~E3)이 추세추종·주도섹터 종목과 QQQ·IWM을 지웠다."""
+    everything = ['AAA', 'BBB', 'E1', 'E2', 'E3', 'IWM', 'QQQ', 'S1', 'S2']
+    _write_snapshot(tmp_store, 'US', everything)
+    _mock_us_fetch(monkeypatch)
+
+    store.refetch_market('US', ['E1', 'E2', 'E3'], throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert sorted(saved['data']) == everything
+    assert saved['data']['E1']['dates'][-1] == '2026-11-13'   # 대상은 새 수집분
+    assert saved['data']['QQQ'] == _rec()                     # 대상 밖은 그대로
+
+
+def test_부분_재수집은_시장_신선도_메타를_바꾸지_않는다(tmp_store, monkeypatch):
+    """일부만 새로 받고 fetched_at을 올리면 ① get_freshness가 남은 종목까지 신선하다고 보고
+    ② repo_sync._local_wins가 이 파일을 더 새 원격 배치보다 우선해 지킨다.
+    시장 메타는 마지막 '전 종목' 수집 기준으로 두고, 부분 갱신 시각은 따로 남긴다."""
+    _write_snapshot(tmp_store, 'US', ['AAA', 'E1'])
+    _mock_us_fetch(monkeypatch)
+
+    store.refetch_market('US', ['E1'], throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert saved['fetched_at'] == BASE_FETCHED_AT
+    assert saved['last_trading_date'] == '2026-11-12'
+    assert saved['ticker_count'] == 2
+    partial_at = datetime.fromisoformat(saved['partial_refetched_at'])
+    assert partial_at > datetime.fromisoformat(BASE_FETCHED_AT)
+
+
+def test_기존_종목을_모두_다시_받으면_fetched_at을_갱신한다(tmp_store, monkeypatch):
+    """대상이 기존 종목을 전부 덮으면 배치와 같은 '전 종목' 수집 — 메타를 새로 쓴다."""
+    _write_snapshot(tmp_store, 'US', ['AAA', 'E1'],
+                    partial_refetched_at='2026-11-12T20:00:00+09:00')
+    _mock_us_fetch(monkeypatch)
+
+    store.refetch_market('US', ['AAA', 'E1', 'NEW'], throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert sorted(saved['data']) == ['AAA', 'E1', 'NEW']
+    assert saved['fetched_at'] != BASE_FETCHED_AT
+    assert saved['last_trading_date'] == '2026-11-13'
+    assert saved['ticker_count'] == 3
+    assert 'partial_refetched_at' not in saved
+
+
+def test_재수집_도중_병합된_미스_종목도_보존한다(tmp_store, monkeypatch):
+    """수집에 수 분이 걸리는 동안 다른 탭의 미스 병합이 끼어들 수 있다 — 수집 시작 때
+    읽은 스냅샷이 아니라 저장 직전 최신본에 합쳐야 그 종목이 살아남는다."""
+    _write_snapshot(tmp_store, 'US', ['AAA', 'E1'])
+
+    def bulk(tickers, days):
+        store._merge_ticker('US', 'LATE', _df())   # 수집 도중 끼어든 미스 병합
+        return {t: _NEW_DF for t in tickers}
+
+    _mock_us_fetch(monkeypatch, bulk)
+
+    store.refetch_market('US', ['E1'], throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert sorted(saved['data']) == ['AAA', 'E1', 'LATE']
+
+
+def test_재수집은_파싱_못_하는_스냅샷을_덮어쓰지_않는다(tmp_store, monkeypatch):
+    path = tmp_store / 'US.json'
+    broken = '{"market": "US", "fetched_at": "2026-11-12T17:34:00+09:00", "data": {"T0'
+    path.write_text(broken, encoding='utf-8')
+    _mock_us_fetch(monkeypatch)
+
+    store.refetch_market('US', ['E1'], throttle_sec=0)
+
+    assert path.read_text(encoding='utf-8') == broken

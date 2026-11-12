@@ -418,15 +418,43 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
 
 
 def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> dict:
-    """전체 수집 후 스냅샷 전체 교체 저장 (업로드 직후·수동 새로고침용).
+    """앱 안 재수집(업로드 직후·🔄 데이터 재수집·탭별 🔄 재스캔) — 받은 종목만 갈아끼우는 부분 갱신.
 
-    전량 실패(네트워크 장애 등) 시에는 저장하지 않는다 — 기존 스냅샷 보존.
+    배치 스냅샷은 여러 티커 파일의 합집합(fetch_snapshot.TICKER_FILES)인데, 호출부는 자기
+    목록만 넘긴다. 예전처럼 그 목록으로 통째 교체하면 다른 탭의 유니버스(10EMA·주도섹터
+    210종목·QQQ·IWM)가 지워졌다 (#31). 대상 밖 종목은 저장 직전 최신본에서 그대로 둔다.
+
+    시장 메타(fetched_at·last_trading_date·ticker_count·failed)는 '전 종목을 언제 받았나'의
+    기록이라 대상이 기존 종목을 전부 덮을 때만 새로 쓴다. 일부만 받았으면 메타는 그대로 두고
+    partial_refetched_at에 시각만 남긴다 — fetched_at을 올리면
+      ① get_freshness가 다시 받지 않은 종목까지 신선하다고 판정하고
+      ② repo_sync._local_wins가 이 파일을 그보다 이른 시각에 찍힌 원격 배치(전 종목 최신)보다
+         우선해, 남은 종목이 다음 배치까지 옛 값에 묶인다.
+    전량 실패(네트워크 장애 등)나 기존 파일 파싱 실패 시에는 저장하지 않는다 — 기존 스냅샷 보존.
+    반환값은 이번 수집 결과(build_market_snapshot — 대상 종목만, ticker_count·failed 포함).
     """
-    snap = build_market_snapshot(market, tickers, throttle_sec=throttle_sec)
-    if snap['ticker_count'] == 0 and tickers:
-        return snap
-    save_snapshot(market, snap)
-    return snap
+    fresh = build_market_snapshot(market, tickers, throttle_sec=throttle_sec)
+    if fresh['ticker_count'] == 0 and tickers:
+        return fresh
+    failed = set(fresh['failed'])
+    with _snap_lock:   # 수집(수 분)은 락 밖, 병합·저장만 안에서 — 그 사이 미스 병합분도 살린다
+        try:
+            latest = _read_snapshot(market)
+        except _UnreadableSnapshot as e:
+            print(f'[{market}] 스냅샷을 읽을 수 없어 재수집분 저장 생략 — 파일은 그대로 둔다 ({e})')
+            return fresh
+        data = dict(latest.get('data', {}))
+        for t, rec in fresh['data'].items():
+            # 실패 종목의 fresh 레코드는 수집 시작 때 읽은 옛 값 — 그 사이 더 새 값이 들어왔으면 유지
+            if t not in failed or t not in data:
+                data[t] = rec
+        if set(latest.get('data', {})) <= set(tickers):
+            snap = {**fresh, 'data': data}                       # 전 종목 수집 — 배치와 같은 의미
+        else:
+            snap = {**latest, 'market': market, 'data': data,
+                    'partial_refetched_at': datetime.now(KST).isoformat(timespec='seconds')}
+        save_snapshot(market, snap)
+    return fresh
 
 
 _MARKET_INDEX_MAP = {
