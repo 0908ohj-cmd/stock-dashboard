@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_11_5     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_13_1     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -812,18 +812,27 @@ def _rebound_ball(label: str) -> str:
     return '🟡' if label == 'DAY2' else '🔵'
 
 
+def _md(d) -> str:
+    """배너 날짜 — 없으면 '—'. None을 그대로 포맷하면 TypeError로 이후 탭이 모두 멈춘다(#29)."""
+    return f'{d:%m/%d}' if d is not None else '—'
+
+
+def _pct1(v) -> str:
+    return f'{v:+.1f}%' if v is not None else '—'
+
+
 def _phase_banner(m: Market, res: dict):
     ph = res['phase']
     idx = m.phase_index
     manual = ' · 수동 설정' if ph.get('manual') else ''
     if ph['mode'] == 'correction':
         sp = ph['indexSincePeak']
-        body = (f"<b>🔴 조정 중 ({ph['label']}{manual})</b> — 기산점 {ph['peakDate']:%m/%d} 이후 {idx} "
-                f"<b>{sp:+.1f}%</b>.<br>지금은 주도섹터가 '확정'될 수 없는 구간입니다. 대신 <b>지수가 빠지는 동안 "
+        body = (f"<b>🔴 조정 중 ({ph['label']}{manual})</b> — 기산점 {_md(ph['peakDate'])} 이후 {idx} "
+                f"<b>{_pct1(sp)}</b>.<br>지금은 주도섹터가 '확정'될 수 없는 구간입니다. 대신 <b>지수가 빠지는 동안 "
                 "덜 빠지고, 고점을 지키고, 먼저 저점을 찍은</b> 섹터·종목을 찾습니다 — 찐반등이 나오면 이들이 먼저 튑니다.")
     elif ph['mode'] == 'rebound':
         sj = ph['indexSinceJjin']
-        body = (f"<b>{_rebound_ball(ph['label'])} 찐반등 {ph['label']}{manual}</b> — 기산점 {ph['peakDate']:%m/%d} · 찐반등일 {ph['jjinDate']:%m/%d} 이후 {idx} <b>{sj:+.1f}%</b>.<br>"
+        body = (f"<b>{_rebound_ball(ph['label'])} 찐반등 {ph['label']}{manual}</b> — 기산점 {_md(ph['peakDate'])} · 찐반등일 {_md(ph['jjinDate'])} 이후 {idx} <b>{_pct1(sj)}</b>.<br>"
                 "조정 중 버틴 종목 가운데 <b>찐반등 이후 지수보다 먼저 치고 나가는</b> 종목이 진짜 주도주입니다. "
                 "회복 속도에 가장 큰 비중을 둡니다.")
     else:
@@ -833,6 +842,8 @@ def _phase_banner(m: Market, res: dict):
                 "그대로 이어 갑니다. 갑자기 돈이 몰리는 섹터는 아래 <b>'🔥 급부상 섹터'</b>에서 봅니다.")
     late = ' late' if ph['mode'] == 'rebound' and _rebound_ball(ph['label']) == '🔵' else ''
     st.markdown(_CARD_CSS + f'<div class="nl-phase {ph["mode"]}{late}">{body}</div>', unsafe_allow_html=True)
+    if ph.get('warning'):       # 수동 기산점·찐반등일을 무시·조정한 경우 (detect_phase가 이유를 넘긴다)
+        st.warning(f"**RS 구간 설정** — {ph['warning']}", icon='⚠️')
 
 
 def _phase_title(m: Market, ph: dict | None) -> str:

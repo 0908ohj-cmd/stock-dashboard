@@ -88,6 +88,8 @@ def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
     assert ph['mode'] == 'correction' and ph['jjinDate'] is None
     ph2 = nl.detect_phase(idf, '2026-11-06', jjin='2026-11-02')
     assert ph2['mode'] == 'rebound' and ph2['peakDate'] is not None   # 자동 조정이 없어도 기산점을 잡는다
+    # 기산점은 찐반등일 '이전' 최고 종가 — 상승 추세에선 찐반등일 당일이 최고라 같은 날이 되면 빈 구간(#29)
+    assert ph2['peakDate'] < ph2['jjinDate'] and ph2['warning'] is None
     # 수동 구간으로도 종목 점수가 계산돼야 한다 (자동 조정 시작일이 없을 때 ADR 기준 시점 보완)
     stock = _index(np.linspace(100, 170, 120))
     rows = [{'ticker': 'S', 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': True,
@@ -95,6 +97,85 @@ def test_상승추세에서_기산점만_지정하면_버틴힘_화면():
     for p in (ph, ph2):
         out = nl.score_stocks(rows, {'S': stock}, idf, {'S': 'X'}, {'X'}, p, '2026-11-06')
         assert out and out[0]['sincePeakExcessAdr'] is not None
+
+
+def _day3_index():
+    """자동 DAY3 — 조정 → 찐반등(뒤에서 2번째 날) → 다음 날이 기준일."""
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 105, 12)) + [112, 113]
+    idf = _index(closes)
+    j = idf.index[112]
+    idf.loc[j, ['Open', 'Low']] = [104.0, 103.0]
+    return idf, j
+
+
+def _assert_formattable(ph):
+    """배너가 포맷하는 날짜·수치가 국면에 맞게 모두 있어야 한다 (None 포맷 → TypeError, #29)."""
+    if ph['mode'] == 'rebound':
+        assert ph['jjinDate'] is not None and ph['peakDate'] is not None and ph['indexSinceJjin'] is not None
+    if ph['mode'] == 'correction':
+        assert ph['peakDate'] is not None and ph['indexSincePeak'] is not None
+
+
+def test_자동_DAY3에서_기산점을_찐반등일_이후로_지정하면_조정_국면과_경고():
+    idf, j = _day3_index()
+    asof = idf.index[-1]
+    auto = nl.detect_phase(idf, asof)
+    assert auto['label'] == 'DAY3' and auto['jjinDate'] == j and auto.get('warning') is None
+    for peak in (j, idf.index[-1]):         # 찐반등일 당일 · 그 다음날
+        ph = nl.detect_phase(idf, asof, peak=peak)
+        _assert_formattable(ph)
+        assert ph['mode'] == 'correction' and ph['label'] == '수동 기산점'
+        assert ph['peakDate'] == peak and ph['jjinDate'] is None and ph['scoring'] == 'correction'
+        assert ph['warning'] and f'{j:%m/%d}' in ph['warning']     # 자동 찐반등을 무시했다고 알린다
+
+
+def test_조정중_찐반등일만_기산점보다_앞으로_지정하면_수동값을_무시하고_경고():
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 20))
+    idf = _index(closes)
+    asof = idf.index[-1]
+    auto = nl.detect_phase(idf, asof)
+    early = auto['peakDate'] - pd.Timedelta(days=7)
+    for jjin in (early, auto['peakDate']):      # 기산점보다 앞 · 같은 날
+        ph = nl.detect_phase(idf, asof, jjin=jjin)
+        _assert_formattable(ph)
+        assert ph['warning']
+        assert not ph['manual']
+        assert {k: ph[k] for k in ('mode', 'label', 'scoring', 'peakDate', 'jjinDate')} == \
+               {k: auto[k] for k in ('mode', 'label', 'scoring', 'peakDate', 'jjinDate')}
+    # 무시된 결과로 점수를 내면 '덜 빠짐'이 종목마다 달라야 한다 (빈 구간이면 전원 0 → 동점)
+    bars, rows = {}, []
+    for k, end in enumerate((120, 110, 90)):
+        s = _index(list(np.linspace(100, 130, 100)) + list(np.linspace(129, end, 20)))
+        bars[f'S{k}'] = s
+        rows.append({'ticker': f'S{k}', 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': True,
+                     'hasBullishRvol15InLast5': False})
+    out = nl.score_stocks(rows, bars, idf, {t: 'X' for t in bars}, {'X'}, ph, asof)
+    assert len({r['sincePeakExcessAdr'] for r in out}) == 3
+
+
+def test_기산점과_찐반등일을_둘다_지정했는데_순서가_뒤집히면_기산점을_무시한다():
+    idf, j = _day3_index()
+    asof = idf.index[-1]
+    auto = nl.detect_phase(idf, asof)
+    # 같은 주말(토·일)을 고르면 둘 다 직전 금요일로 맞춰져 같은 날이 된다 — 화면 검사(peak >= jjin)를 빠져나가는 경우
+    sat = pd.Timestamp('2026-10-31')
+    fri = pd.Timestamp('2026-10-30')
+    assert auto['peakDate'] < fri < asof
+    ph = nl.detect_phase(idf, asof, peak=sat + pd.Timedelta(days=1), jjin=sat)
+    _assert_formattable(ph)
+    assert ph['warning']
+    # 화면 규칙과 같게 기산점만 버리고 찐반등일은 살린다 → 기산점은 자동값
+    assert ph['jjinDate'] == fri and ph['peakDate'] == auto['peakDate'] and ph['mode'] == 'rebound'
+
+
+def test_RS_구간은_기산점이_찐반등일보다_앞일_때만_성립():
+    from strategy.rs_correction import is_valid_rs_range
+    a, b = pd.Timestamp('2026-10-01'), pd.Timestamp('2026-10-10')
+    assert is_valid_rs_range(a, b)
+    assert not is_valid_rs_range(b, a)
+    assert not is_valid_rs_range(a, a)            # 같은 날 = 빈 구간
+    assert is_valid_rs_range(None, a) and is_valid_rs_range(a, None) and is_valid_rs_range(None, None)
+    assert is_valid_rs_range('2026-10-01', '2026-10-10')
 
 
 def test_덜빠짐은_ADR_보정값으로_순위를_매긴다():

@@ -17,7 +17,7 @@ from strategy import sector_strength as ss
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
-from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_rs
+from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_rs, is_valid_rs_range
 
 # 차기 주도주 배점 (100점). 2026-11-09 5년 검증 반영:
 #  - 찐반등날 21EMA 위 여부는 이후 성과와 오히려 반대(위 −2.9%p vs 아래 −1.0%p, 60일 중앙값) → 제외
@@ -65,6 +65,8 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
 
     - jjin 지정 → 찐반등 이후 국면으로 본다 (라벨은 찐반등 다음 날부터 DAY2…, 6거래일 넘으면 '+N일')
     - peak만 지정 → 자동 국면이 상승 추세여도 그 날짜부터 '버틴 힘'을 계산한다
+    - 수동 값 때문에 기산점이 찐반등일과 같거나 뒤가 되면 그 수동 값을 무시한다 (#29)
+    'warning': 수동 값을 무시·조정했을 때 화면에 띄울 문구, 없으면 None
     """
     idf = index_df[index_df.index <= pd.Timestamp(asof)]
     label = get_phase_label(idf, calc_adr(idf))
@@ -76,6 +78,7 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
     # (get_market_status가 normal 상태에서도 둘을 넘겨준다 — 추세추종 탭과 같은 규칙)
     auto_jjin = st.get('jjin_date') if mode != 'correction' else None
     peak_d, jjin_d = auto_peak, auto_jjin
+    warning = None
 
     if jjin is not None:
         jjin_d = _snap(idf, jjin)
@@ -84,17 +87,33 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
     if peak is not None:
         peak_d = _snap(idf, peak)
         if jjin is None and jjin_d is not None and jjin_d <= peak_d:
+            warning = (f"수동 기산점({peak_d:%m/%d})이 자동 찐반등일({jjin_d:%m/%d})과 같거나 뒤라 그 찐반등을 무시하고 "
+                       "기산점부터 조정 국면('버틴 힘')으로 계산합니다.")
             jjin_d = None       # 수동 기산점이 자동 찐반등보다 뒤면 그 찐반등은 무효
-        if jjin_d is None and mode == 'uptrend':
+        if jjin_d is None and mode != 'correction':
+            # 찐반등 국면(DAY2~)이든 상승 추세든 찐반등이 없어졌으면 조정 국면 — 'rebound'로 남으면
+            # 찐반등일 없는 찐반등 화면이 되어 배너가 None을 포맷하다 죽는다(#29)
             mode, label = 'correction', '수동 기산점'
     if jjin_d is not None and peak_d is None:
-        # 찐반등일만 있고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로
-        win = idf[idf.index <= jjin_d].tail(LOOKBACK_HIGH)
-        peak_d = win['Close'].idxmax()
+        # 찐반등일만 있고 자동 조정이 없을 때 — 찐반등일 이전 3개월 최고 종가를 기산점으로.
+        # 찐반등일 당일은 뺀다: 상승 추세에선 그날이 최고 종가라 기산점 = 찐반등일 → 빈 구간(#29)
+        win = idf[idf.index < jjin_d].tail(LOOKBACK_HIGH)
+        peak_d = win['Close'].idxmax() if len(win) else jjin_d     # 이전 거래일이 없으면 아래 검증에서 무시
     if mode == 'correction' and peak_d is None:
         peak_d = idf.tail(LOOKBACK_HIGH)['Close'].idxmax()
     if peak_d is not None and (cs is None or (peak is not None and cs < peak_d)):
         cs = peak_d     # 자동 조정이 없거나 기산점을 뒤로 옮기면 ADR 기준 시점도 기산점으로
+    # 최종 구간 검증 — 기산점이 찐반등일과 같거나 뒤면 하락국면 구간(calc_correction_rs)이 비어
+    # 전 종목 '덜 빠짐'이 같은 점수로 고정된다(#29). 원인이 된 수동 값을 버리고 다시 계산한다.
+    if (peak is not None or jjin is not None) and not is_valid_rs_range(peak_d, jjin_d):
+        if peak is not None and jjin is not None:
+            ignored, res = '수동 기산점', detect_phase(index_df, asof, None, jjin)   # 화면 규칙과 같게 기산점부터
+        else:
+            ignored, res = ('수동 기산점' if peak is not None else '수동 찐반등일'), detect_phase(index_df, asof)
+        msg = (f'기산점({peak_d:%m/%d})이 찐반등일({jjin_d:%m/%d})과 같거나 뒤라 RS 구간이 비므로 {ignored}을 '
+               '무시했습니다 — 기산점은 찐반등일보다 앞이어야 합니다.')
+        res['warning'] = msg if not res.get('warning') else f"{msg} {res['warning']}"
+        return res
     # 점수 공식: 찐반등이 있으면 (찐반등 이후·상승 추세 모두) 반등 공식, 기산점만 있으면 조정 공식
     scoring = 'rebound' if jjin_d is not None else 'correction' if peak_d is not None else 'leader'
 
@@ -114,7 +133,7 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
             'jjinBase': jjin_base,
             'indexSincePeak': since(peak_d), 'indexSinceJjin': since(jjin_base),
             'autoPeakDate': auto_peak, 'autoJjinDate': auto_jjin,
-            'manual': peak is not None or jjin is not None}
+            'manual': peak is not None or jjin is not None, 'warning': warning}
 
 
 def _since_ret(df: pd.DataFrame, d) -> float | None:

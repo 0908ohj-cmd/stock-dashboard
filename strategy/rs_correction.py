@@ -67,6 +67,16 @@ def _index_peak_date(index_df: pd.DataFrame, correction_start: pd.Timestamp, loo
     return window['Close'].idxmax()
 
 
+def is_valid_rs_range(peak_date, jjin_date) -> bool:
+    """RS 구간(기산점 ~ 찐반등일)이 성립하나 — 기산점이 찐반등일보다 앞이어야 한다.
+    같거나 뒤면 calc_correction_rs 구간이 비어 전 종목 0(덜 빠짐 전원 동점)이 된다(#29).
+    한쪽이라도 없으면 검사할 구간이 없으므로 True. 주도섹터 탭(next_leaders.detect_phase)이 쓰고,
+    추세추종 탭 RS 구간 설정도 같은 검증을 재사용할 수 있게 여기 둔다."""
+    if peak_date is None or jjin_date is None:
+        return True
+    return pd.Timestamp(peak_date) < pd.Timestamp(jjin_date)
+
+
 def calc_correction_rs(
     stock_df: pd.DataFrame,
     index_df: pd.DataFrame,
