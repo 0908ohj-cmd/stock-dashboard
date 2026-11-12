@@ -1271,16 +1271,19 @@ def _classification_editor(m: Market, labels: dict, names: dict):
 
     codes = list(labels)
     with st.form(f'{m.key}_cls_form_{t}'):
-        cur = rec.get('primaryTheme') if rec.get('primaryTheme') != 'UNCLASSIFIED' else rec.get('suggestedTheme')
+        # 고를 값이 없으면 빈 선택 — 미분류로 채우면 이유만 적고 저장해도 미분류 확정이 생긴다(#37)
+        cur = cls.review_default(rec)
         primary = st.selectbox('주력 테마', codes,
-                               index=codes.index(cur) if cur in codes else codes.index('UNCLASSIFIED'),
-                               format_func=lambda c: labels[c])
+                               index=codes.index(cur) if cur in codes else None,
+                               placeholder='주력 테마를 고르세요', format_func=lambda c: labels[c])
         secondary = st.multiselect('보조 태그', [c for c in codes if c != 'UNCLASSIFIED'],
                                    default=[c for c in rec.get('secondaryThemes', []) if c in codes],
                                    format_func=lambda c: labels[c])
         reason = st.text_input('수정 이유 (필수)')
         if st.form_submit_button('확정 저장 — 이후 자동 분류가 덮어쓰지 않음'):
-            if not reason.strip():
+            if primary is None:
+                st.error('주력 테마를 골라 주세요. 근거가 부족하면 미분류를 직접 고르면 됩니다.')
+            elif not reason.strip():
                 st.error('수정 이유를 적어 주세요.')
             else:
                 def apply(recs):

@@ -140,3 +140,32 @@ def test_병합은_입력을_바꾸지_않는다():
     cls.merge_stores(ours, theirs)
 
     assert (ours, theirs) == before
+
+
+# ── 분류 검토 폼 기본값 (#37) ─────────────────────────────────
+
+def test_검토폼_기본값은_현재_주력테마():
+    rec = cls.normalize('US', raw(), 't')
+    assert cls.review_default(rec) == 'DEFENSE_DIRECTED_ENERGY'
+
+
+def test_검토폼_기본값은_미분류면_제안값():
+    rec = cls.normalize('US', raw(confidence='low'), 't')
+    assert cls.review_default(rec) == 'DEFENSE_DIRECTED_ENERGY'
+
+
+@pytest.mark.parametrize('rec', [
+    None,
+    {},
+    cls.normalize('US', raw(primaryTheme='MADE_UP'), 't'),   # 미분류 + 제안값 없음
+])
+def test_검토폼_기본값이_없으면_미분류로_채우지_않는다(rec):
+    """이유만 적고 저장하면 overrideByUser=True인 미분류 기록이 생겨 영구히 재분류되지 않던 문제.
+    고를 값이 없으면 빈 선택(None)으로 두어 사용자가 직접 고르게 한다."""
+    assert cls.review_default(rec) is None
+
+
+def test_검토폼_기본값은_사용자가_확정한_미분류면_그대로():
+    records = {}
+    rec = cls.set_override('US', 'AAOI', cls.UNCLASSIFIED, [], '재확인 필요', records)
+    assert cls.review_default(rec) == cls.UNCLASSIFIED

@@ -208,6 +208,20 @@ def primary_map(market: str, tickers: list) -> dict:
     return {t: (records.get(t) or {}).get('primaryTheme', UNCLASSIFIED) for t in tickers}
 
 
+def review_default(rec: dict | None) -> str | None:
+    """분류 검토 폼의 주력 테마 기본값 — 현재 주력 테마, 미분류면 제안값.
+
+    사용자가 미분류로 확정한 기록은 그 상태(UNCLASSIFIED) 그대로. 고를 값이 없으면 None —
+    폼이 빈 선택으로 시작해 사용자가 직접 고르게 한다. 예전엔 UNCLASSIFIED로 채워져서, 이유만
+    적고 저장하면 overrideByUser=True인 미분류 기록이 생겨 영구히 재분류되지 않았다(#37).
+    """
+    rec = rec or {}
+    primary = rec.get('primaryTheme')
+    if primary and (primary != UNCLASSIFIED or rec.get('overrideByUser')):
+        return primary
+    return rec.get('suggestedTheme') or None
+
+
 def _unclassified_label(market: str) -> str:
     return theme_index(market).get(UNCLASSIFIED, {}).get('label') or '미분류'
 
