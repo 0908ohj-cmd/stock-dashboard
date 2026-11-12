@@ -230,7 +230,16 @@ _GRACE_HOURS = 6   # 배치 지연·재배포 여유
 # 안에 잡으므로, 이 값이 커져 늦어지는 건 "배치는 돌았는데 소스가 동결된"
 # 드문 경우의 탐지뿐이다.
 _MAX_TRADING_GAP_DAYS = 8
-_SNAPSHOT_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}   # 같은 배치가 받는 시장 지수
+# 같은 배치가 받는 시장 지수 — 같은 거래소 달력이라 마지막 날짜가 같아야 한다(휴장일엔 둘 다 없다).
+# 다른 시장 지수끼리는 비교하지 않는다: KR 배치(17:30) 뒤엔 매일 KOSPI가 당일, NASDAQ이 전날이다.
+_SNAPSHOT_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
+
+
+def _index_last_dates() -> dict:
+    """indices 스냅샷 → {지수명: 마지막 날짜}. indices의 last_trading_date는 세 지수의
+    최댓값이라 KOSPI가 NASDAQ의 지연을 가린다(#24) — 지연 판정은 반드시 지수별로 한다."""
+    data = load_snapshot('indices').get('data', {})
+    return {n: data[n]['dates'][-1] for n in INDEX_NAMES if (data.get(n) or {}).get('dates')}
 
 
 def _last_deadline(schedule: dict, now: datetime) -> datetime:
@@ -253,6 +262,15 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
         'last_trading_date': snap.get('last_trading_date'),
         'is_stale': False,
     }
+    idx_dates = _index_last_dates()
+    if market == 'indices':
+        # 지수별 마지막 날짜와, 같은 시장 종목 스냅샷보다 늦은 지수 {지수명: 종목 마지막 거래일}
+        result['index_last_dates'] = idx_dates
+        result['lagging_indices'] = {}
+        for stock_market, idx_name in _SNAPSHOT_INDEX.items():
+            stock_last = load_snapshot(stock_market).get('last_trading_date')
+            if idx_dates.get(idx_name) and stock_last and idx_dates[idx_name] < stock_last:
+                result['lagging_indices'][idx_name] = stock_last
     fetched_at_s = snap.get('fetched_at')
     if not fetched_at_s:
         return result   # 파일/메타 없음 → 경고하지 않음 (스펙 8절)
@@ -277,22 +295,30 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     # 배치가 제때 돌았어도 소스가 옛 거래일 데이터를 주면 낡은 것이다 (스펙 §6.6)
     stale_by_data = False
     last_td_s = snap.get('last_trading_date')
-    if last_td_s:
+    # indices는 가장 오래 멈춘 지수 기준 — 최댓값으로 보면 한 지수의 동결이 가려진다
+    data_td_s = (min(idx_dates.values()) if market == 'indices' and idx_dates
+                 else last_td_s)
+    if data_td_s:
         try:
-            last_td = datetime.strptime(last_td_s, '%Y-%m-%d').date()
+            last_td = datetime.strptime(data_td_s, '%Y-%m-%d').date()
             stale_by_data = (now.date() - last_td).days > _MAX_TRADING_GAP_DAYS
         except ValueError:
             pass
-    # 배치가 돌았어도 종목이 같은 시장 지수보다 하루 늦으면 낡은 것이다 (2026-11-10 US: 지수 11/09·종목 11/06).
-    # 휴장일엔 지수에도 그날이 없어 오경보가 나지 않는다.
-    stale_by_index = False
-    idx_name = _SNAPSHOT_INDEX.get(market)
-    if idx_name and last_td_s:
-        rec = load_snapshot('indices').get('data', {}).get(idx_name) or {}
-        idx_last = (rec.get('dates') or [None])[-1]
-        if idx_last and last_td_s < idx_last:
+    # 배치가 돌았어도 종목과 같은 시장 지수의 마지막 날짜가 어긋나면 낡은 것이다 — 양방향:
+    #   종목 < 지수: 2026-11-10 US (지수 11/09·종목 11/06)            → behind_index
+    #   지수 < 종목: 2026-11-11·11-12 US (NASDAQ 11-09·11-10, #24)   → index_behind
+    # 휴장일엔 둘 다 그날이 없어 오경보가 나지 않는다.
+    if market == 'indices':
+        stale_by_index = bool(result['lagging_indices'])
+    else:
+        stale_by_index = False
+        idx_last = idx_dates.get(_SNAPSHOT_INDEX.get(market, ''))
+        if idx_last and last_td_s and last_td_s < idx_last:
             stale_by_index = True
             result['behind_index'] = idx_last
+        elif idx_last and last_td_s and idx_last < last_td_s:
+            stale_by_index = True
+            result['index_behind'] = idx_last
     result['is_stale'] = stale_by_batch or stale_by_data or stale_by_index
     return result
 
@@ -409,19 +435,27 @@ def refetch_indices(markets: str = 'all') -> dict:
     # 기존 데이터 보존 — 업데이트 대상 외 지수(예: KR 배치 시 NASDAQ)는 덮어쓰지 않음
     existing   = load_snapshot('indices')
     merged     = dict(existing.get('data', {}))
+    # 실패한 지수는 기존 값을 유지하되 반드시 남긴다 — 조용히 넘기면 지수 하나가 하루 늦은 채
+    # 저장돼도 아무도 모른다(#24: 2026-11-11·11-12 NASDAQ이 US 종목보다 하루 늦었다)
+    failed     = []
 
     for name in to_update:
         try:
             df = fetch_index_daily(name, days=INDEX_DAYS)
-        except Exception:
+        except Exception as e:
+            print(f'[{name}] 지수 수집 실패({type(e).__name__}: {e}) — 기존 값 유지')
+            failed.append(name)
             continue
         if df.empty:
+            print(f'[{name}] 지수 수집 응답 없음 — 기존 값 유지')
+            failed.append(name)
             continue
         try:
             merged[name] = _df_to_records(
                 _safe_merge(df, merged.get(name), INDEX_DAYS, name))
         except Exception as e:   # 지수 1개의 변환 실패가 나머지 지수까지 미저장시키면 안 된다
             print(f'[{name}] 레코드 변환 실패({type(e).__name__}: {e}) — 기존 값 유지')
+            failed.append(name)
 
     last_date = None
     for rec in merged.values():
@@ -434,7 +468,7 @@ def refetch_indices(markets: str = 'all') -> dict:
         'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
         'last_trading_date': last_date,
         'ticker_count': len(merged),
-        'failed': [],
+        'failed': failed,
         'data': merged,
     }
     if not merged:                    # 전량 실패 — 기존 indices.json 보존
