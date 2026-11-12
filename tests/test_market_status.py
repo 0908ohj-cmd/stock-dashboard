@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import pytest
 from strategy.market_status import detect_jjin_bounce, get_market_status
+from strategy.phases import get_phase_label
 
 
 def _make_df(closes, opens=None, highs=None, lows=None, volumes=None):
@@ -189,6 +190,35 @@ def test_failed_jjin_reported_after_ema21_recovery():
     b1_date = df.index[len(_UP) + len(_DOWN)]
     status = get_market_status(df)
     assert status['state'] == 'normal'
+    assert status['jjin_date'] is None
+    assert status['failed_jjin_date'] == b1_date
+
+
+# ── 찐반등 탐색 시작점 = 조정 시작일 (#25) ─────────────
+# 실패 조건은 '찐반등 저점 아래 종가'와 '5거래일 내 EMA21 미회복' 둘뿐이다.
+# 탐색 시작점을 조정 구간 전체의 최저 Low로 잡으면 찐반등 뒤의 장중 꼬리 하나가
+# 찐반등을 탐색 범위 밖으로 밀어낸다.
+
+def test_jjin_survives_intraday_wick_below_jjin_low():
+    """#25: 찐반등(Low 96.515) 다음 날 장중 저가만 95.5로 깨고 종가 103(저점 위) → 찐반등 유지, DAY4."""
+    df = _oc_df(_UP + _DOWN + _B1 + [(104, 103), (103, 104)])
+    b1_date = df.index[len(_UP) + len(_DOWN)]
+    wick_date = df.index[len(_UP) + len(_DOWN) + 1]
+    df.loc[wick_date, 'Low'] = 95.5
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['jjin_date'] == b1_date
+    assert status['failed_jjin_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY4'
+
+
+def test_failed_jjin_recorded_when_jjin_bar_made_correction_low():
+    """#25: 찐반등봉이 조정 최저가(96.0)를 만든 뒤 종가 95가 그 저점을 깨면 실패 이력이 남아야 한다."""
+    df = _oc_df(_UP + _DOWN + [(97, 105)] + [(104, 101), (101, 95)])
+    b1_date = df.index[len(_UP) + len(_DOWN)]
+    df.loc[b1_date, 'Low'] = 96.0
+    status = get_market_status(df)
+    assert status['state'] == 'correction'
     assert status['jjin_date'] is None
     assert status['failed_jjin_date'] == b1_date
 

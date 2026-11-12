@@ -33,11 +33,10 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
     except KeyError:
         return None
 
-    # 조정 구간 최저 Low 이후부터 탐색 — EMA21이 장기 이탈 중이어도
-    # 가장 최근 바닥 이후 첫 번째 반등을 찐반등으로 인식하기 위함
-    correction_slice = index_df.iloc[last_start_loc:]
-    lowest_low_loc   = last_start_loc + int(correction_slice['Low'].argmin())
-    start_loc        = max(lowest_low_loc, 2)
+    # 탐색 시작 = 조정 시작일. 조정 구간 최저 Low 기준이면 찐반등 뒤 장중 꼬리 하나가
+    # 찐반등을 범위 밖으로 밀어낸다(#25). 바닥 전의 반등은 _resolve_jjin의 실패 규칙
+    # (저점 아래 종가 · 5거래일 내 EMA21 미회복)이 걸러낸다
+    start_loc = max(last_start_loc, 2)
     if start is not None:
         start_loc = max(start_loc, int(index_df.index.searchsorted(start)))
 
