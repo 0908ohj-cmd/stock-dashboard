@@ -100,6 +100,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - ⚠️ `strategy/next_leaders.py`(점수 공식·필드)를 바꾸면 `ui/sector_leadership.SCORE_VERSION`을 반드시 올릴 것 — st.cache_data는 다른 모듈 코드 변경을 감지하지 못해 배포 후 옛 캐시를 읽다 KeyError가 난다(2026-11-10 gap200 사고)
 - 추세추종 탭의 '주도주 점수·순위'는 `sector_leadership.lead_scores`(주도섹터 탭과 같은 `_compute`)를 읽는다 — 점수 계산을 두 곳에 만들지 말 것
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
+- **지수 현황 패널의 현재가·등락률만 실시간**(`data/live_index.py`, `st.cache_data(ttl=60)` — 접속·새로고침 때 갱신). 국면·ADR·PP와 그 밖의 모든 지수 계산은 배치 확정 일봉을 쓴다. 현재가는 yfinance `fast_info.last_price`, 등락률은 배치 확정 종가 대비이고 배치에 이미 있는 날짜는 확정값을 쓴다. yfinance KR 지수의 일봉 마지막 날·`previous_close`는 믿지 말 것(측정상 누락·불일치), Cloud에서 pykrx 호출 금지(KRX 차단)
 - 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
 
