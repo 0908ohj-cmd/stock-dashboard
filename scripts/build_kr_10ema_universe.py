@@ -17,6 +17,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import pandas as pd
 import yfinance as yf
 
+from scripts.universe_guard import save_universe
+
 SAVED_DIR = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'saved'
 
 MIN_ADR         = 6.0            # ADR 6%+
@@ -198,15 +200,10 @@ def main() -> int:
         ('KOSDAQ', '.KQ', 'kosdaq_10ema.tickers'),
         ('KOSPI',  '.KS', 'kospi_10ema.tickers'),
     ]:
-        tickers = build_market(fdr_market, yf_suffix)
-        if not tickers:
-            print(f'[FAIL] {fdr_market} 빌드 실패 — 기존 파일 유지')
+        # 빈 목록·기존 대비 급감이면 그 시장 파일만 지키고 다른 시장은 계속 — 하나라도 막히면 1
+        if not save_universe(SAVED_DIR / filename, build_market(fdr_market, yf_suffix), fdr_market):
             ok = False
-            continue
-        path = SAVED_DIR / filename
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('\n'.join(tickers), encoding='utf-8')
-        print(f'[OK] {path} 저장 완료 ({len(tickers)}개)\n')
+        print()
 
     return 0 if ok else 1
 

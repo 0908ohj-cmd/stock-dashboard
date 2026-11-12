@@ -15,6 +15,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import pandas as pd
 import yfinance as yf
 
+from scripts.universe_guard import save_universe
+
 SAVE_PATH  = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'saved' / 'us_10ema.tickers'
 CHUNK_SIZE = 200   # yfinance 배치 크기
 
@@ -31,7 +33,11 @@ def _clean_symbol(s: str) -> bool:
 
 
 def _get_candidate_tickers() -> list:
-    """FDR로 NASDAQ 전 종목 심볼 가져오기."""
+    """FDR로 NASDAQ 전 종목 심볼 가져오기. 실패하면 빈 목록 — 빌드 실패로 끝낸다.
+
+    예전엔 하드코딩한 62종목을 후보로 썼는데, 그 목록에서 걸러낸 수십 개가 NASDAQ 전체
+    유니버스를 덮어쓰고 정상 종료했다(#38). 기존 파일을 유지하는 편이 낫다.
+    """
     try:
         import FinanceDataReader as fdr
         df = fdr.StockListing('NASDAQ')
@@ -41,20 +47,10 @@ def _get_candidate_tickers() -> list:
             symbols = [s for s in symbols if _clean_symbol(s)]
             print(f'[info] FDR NASDAQ 후보: {len(symbols)}개')
             return symbols
+        print('[warn] FDR NASDAQ 목록이 비어 있음')
     except Exception as e:
         print(f'[warn] FDR 실패: {e}')
-
-    # fallback: 알려진 고성장 NASDAQ 종목
-    return [
-        'NVDA', 'AMD', 'MU', 'MRVL', 'ARM', 'SMCI', 'AVGO', 'QCOM', 'AMAT', 'LRCX', 'KLAC',
-        'CRWD', 'NET', 'DDOG', 'ZS', 'SNOW', 'PLTR', 'APP', 'FTNT', 'PANW', 'S', 'OKTA',
-        'AXON', 'RDDT', 'COIN', 'HOOD', 'MELI', 'SE', 'GRAB', 'NU', 'CAVA', 'DUOL',
-        'MRNA', 'BNTX', 'RXRX', 'VERA', 'RVMD',
-        'VRT', 'ACHR', 'LUNR', 'RKLB', 'ASTS',
-        'SPOT', 'RBLX', 'TTWO', 'EA', 'PINS', 'SNAP',
-        'SHOP', 'DASH', 'RIVN', 'LCID',
-        'AEHR', 'WOLF', 'ONTO', 'ACLS', 'ENTG', 'COHR', 'LITE', 'SNDK', 'STX', 'WDC',
-    ]
+    return []
 
 
 def _filter_by_technicals(symbols: list) -> list:
@@ -126,15 +122,8 @@ def build() -> list:
 
 
 def main() -> int:
-    tickers = build()
-    if not tickers:
-        print('[FAIL] 유니버스 빌드 실패 — 기존 파일 유지')
-        return 1
-
-    SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    SAVE_PATH.write_text('\n'.join(tickers), encoding='utf-8')
-    print(f'[OK] {SAVE_PATH} 저장 완료 ({len(tickers)}개)')
-    return 0
+    # 빈 목록·기존 대비 급감이면 기존 파일을 지키고 1 — run_batch_local.sh가 알림을 보낸다
+    return 0 if save_universe(SAVE_PATH, build(), 'US') else 1
 
 
 if __name__ == '__main__':
