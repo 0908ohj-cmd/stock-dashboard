@@ -49,14 +49,30 @@ def _live_quote(name: str):
     return live_index.fetch_live_quote(name)
 
 
+def _dates_caption(fr: dict) -> str:
+    """지수별 실제 마지막 날짜. indices의 last_trading_date는 세 지수의 최댓값이라
+    지수 하나가 하루 늦어도 가려진다(#24) — 같은 시장 종목보다 늦은 지수엔 ⚠️."""
+    lagging = fr.get('lagging_indices', {})
+    last = fr.get('index_last_dates', {})
+    dates = ' · '.join(f"{n} {last[n]}" + (' ⚠️' if n in lagging else '')
+                       for n in INDEX_NAMES if n in last)
+    return f"📅 장마감 기준 {dates} · 수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+
+
+def _lag_warnings(fr: dict) -> list:
+    last = fr.get('index_last_dates', {})
+    return [f"⚠️ {n} 지수가 {last[n]}까지만 있습니다 (같은 시장 종목은 {stock_last}까지) — "
+            '국면·DAY·찐반등·RS가 늦은 지수로 계산됐습니다. 사이드바 [데이터 재수집]을 눌러 주세요.'
+            for n, stock_last in fr.get('lagging_indices', {}).items()]
+
+
 def render_index_panel():
     st.subheader('지수 현황')
     fr = store.get_freshness('indices')
     if fr['fetched_at']:
-        st.caption(
-            f"📅 {fr['last_trading_date']} 장마감 기준 · "
-            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
-        )
+        st.caption(_dates_caption(fr))
+    for msg in _lag_warnings(fr):
+        st.warning(msg)
     cols = st.columns(len(INDEX_NAMES))
 
     for col, name in zip(cols, INDEX_NAMES):

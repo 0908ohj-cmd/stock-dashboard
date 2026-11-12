@@ -440,6 +440,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if fr.get('behind_index'):
         st.warning(f"⚠️ 종목 데이터가 {fr['last_trading_date']}까지만 있습니다 (지수는 {fr['behind_index']}까지) — "
                    '사이드바 [데이터 재수집]을 눌러 주세요. 그 전 후보는 하루 늦은 데이터로 계산된 것입니다.')
+    elif fr.get('index_behind'):   # 반대로 지수가 늦다 (#24)
+        st.warning(f"⚠️ {INDEX_FOR_MARKET.get(market, 'NASDAQ')} 지수가 {fr['index_behind']}까지만 있습니다 "
+                   f"(종목은 {fr['last_trading_date']}까지) — 사이드바 [데이터 재수집]을 눌러 주세요. "
+                   '그 전 국면·DAY·RS는 늦은 지수로 계산된 것입니다.')
     elif fr['is_stale']:
         st.warning('⚠️ 배치 수집이 실패한 것 같습니다 — 사이드바 [데이터 재수집]을 눌러 주세요.')
 

@@ -88,9 +88,9 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 ### 배치 데이터 신선도
 
-- "배치가 돌았나"(회차 시각) + "종목 마지막 거래일이 같은 배치가 받은 시장 지수(KOSPI·KOSDAQ·NASDAQ)에 뒤지지 않나"를 함께 본다. 휴장일엔 지수도 그날이 없어 오경보가 없다
-- `scripts/fetch_snapshot.py`는 지수를 먼저 받고, 종목이 지수보다 늦으면 5분·15분 뒤 재수집. 그래도 늦으면 `scripts/check_snapshot_fresh.py`가 fresh=false → GitHub 폴백이 다시 받는다. 앱은 `store.get_freshness`의 `behind_index`로 재수집 안내
-- 2026-11-10 US 배치: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 받아 하루 낡은 채로 남았던 사례가 계기
+- "배치가 돌았나"(회차 시각) + "종목 마지막 거래일과 같은 배치가 받은 시장 지수(KOSPI·KOSDAQ·NASDAQ)의 마지막 날짜가 같은가"를 함께 본다 — **양방향**, 어느 쪽이 늦어도 미달. 같은 거래소 달력이라 휴장일엔 둘 다 그날이 없어 오경보가 없다. 다른 시장 지수끼리는 비교하지 않는다(KR 배치 뒤엔 매일 KOSPI가 당일, NASDAQ이 전날)
+- `scripts/fetch_snapshot.py`는 지수를 먼저 받고, 종목이 늦으면 종목을·지수가 늦으면 지수를 5분·15분 뒤 재수집. 그래도 어긋나면 `scripts/check_snapshot_fresh.py`가 fresh=false → GitHub 폴백이 다시 받는다. 앱은 `store.get_freshness`의 `behind_index`(종목 지연)·`index_behind`(지수 지연)로 재수집 안내, 지수 패널은 지수별 마지막 날짜(`index_last_dates`)와 지연 지수(`lagging_indices`)를 표시 — indices의 `last_trading_date`는 세 지수의 최댓값이라 판정에 쓰지 않는다. `refetch_indices`는 수집 실패·빈 응답 지수를 `failed`에 남기고 로그한다
+- 2026-11-10 US 배치: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 받아 하루 낡은 채로 남았던 사례가 계기. 반대 방향은 2026-11-11·11-12 US(종목 11-10·11-11, NASDAQ 11-09·11-10 — 한 방향만 보던 판정 세 곳이 모두 놓쳤다, #24)
 - Cloud 앱의 배치 반영(`data/repo_sync.py`)은 `origin`이 아니라 공개 HTTPS 주소에서 fetch (Cloud의 origin은 인증 오류)
 - **폴백 즉시 실행**: 맥 배치가 실패(`die`)하거나, 올린 결과가 회차 기준 미달(`check_snapshot_fresh.py` fresh=false)이면 `scripts/lib_fallback.sh`가 `gh workflow run`으로 GitHub 폴백을 바로 띄운다. 예약 cron은 실측 3~8시간 늦게 떠서(KR 18:10 → 00:17~04:43, US 08:50 → 11:00~13:49) 맥이 꺼졌을 때의 안전망으로만 남긴다. 게이트 오류(판정 불가)로는 폴백을 띄우지 않는다 — 버그 하나로 매일 KR 폴백이 돌면 KRX 조회가 늘어난다
 - **Cloud 반영 슬롯**(`repo_sync.PULL_SCHEDULES`, 주말 포함 하루 8회): 데이터가 푸시되는 네 경로 직후에 본·보조 슬롯 — KR 예약 폴백 03:00·05:30 / US 맥 배치 08:30·09:15 / US 예약 폴백 12:30·14:30 / KR 맥 배치 17:50·18:40. 배치 시각이나 폴백 cron을 바꾸면 슬롯도 함께 옮길 것(`tests/test_repo_sync.py`가 맥 배치·실측 폴백 시각 대비로 검사)
