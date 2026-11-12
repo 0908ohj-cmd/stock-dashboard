@@ -388,3 +388,38 @@ def test_parallel_misses_share_one_call(monkeypatch, fake_pykrx, _isolate):
 
     assert len(fake.calls) == 1
     assert all(o.index[-1] == pd.Timestamp('2026-11-13') for o in outs)
+
+
+# ── 지수 패치 루프 ────────────────────────────────────────
+def _index_df(rows):
+    return pd.DataFrame({
+        'Open': [r[1] for r in rows], 'High': [r[2] for r in rows],
+        'Low': [r[3] for r in rows], 'Close': [r[4] for r in rows],
+        'Volume': [r[5] for r in rows],
+    }, index=pd.to_datetime([r[0] for r in rows]))
+
+
+def test_index_ohlc_patch_stops_at_first_empty_response(fake_pykrx):
+    """O=H=L=C 불량 행이 여러 날이어도 첫 빈 응답에서 pykrx 루프를 멈춘다."""
+    df = _index_df([('2026-11-10', 3.0, 3.0, 3.0, 3.0, 100.0),
+                    ('2026-11-11', 4.0, 4.0, 4.0, 4.0, 100.0),
+                    ('2026-11-12', 5.0, 5.0, 5.0, 5.0, 100.0)])
+    fake = fake_pykrx()
+
+    out = fetcher._patch_kr_index_ohlc(df.copy(), '^KS11')
+
+    assert len(fake.calls) == 1
+    assert out.equals(df)                                     # 복구 실패 시 원본 유지
+
+
+def test_index_volume_patch_stops_at_first_empty_response(fake_pykrx):
+    """거래량 0 행이 여러 날이어도 FDR 실패 후 pykrx 루프는 첫 빈 응답에서 멈춘다."""
+    df = _index_df([('2026-11-10', 1.0, 2.0, 0.5, 1.5, 0.0),
+                    ('2026-11-11', 1.0, 2.0, 0.5, 1.5, 0.0),
+                    ('2026-11-12', 1.0, 2.0, 0.5, 1.5, 0.0)])
+    fake = fake_pykrx()
+
+    out = fetcher._patch_kr_index_volume(df.copy(), '^KQ11')
+
+    assert len(fake.calls) == 1
+    assert out.equals(df)

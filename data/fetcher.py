@@ -334,14 +334,15 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     if bad.empty:
         return df
 
-    # 1순위: pykrx
+    # 1순위: pykrx — 첫 빈 응답이나 예외에서 루프를 멈춘다 (#34). 날짜마다 KRX를
+    # 두드리지 않게 하고, 남은 불량 행은 아래 FDR이 맡는다
     try:
         from pykrx import stock as pykrx_stock
         for ts in bad:
             date_str = ts.strftime('%Y%m%d')
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty:
-                continue
+                break
             df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
             df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
             df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
@@ -440,7 +441,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
         except Exception:
             pass
 
-    # 2순위: pykrx (FDR 실패 시)
+    # 2순위: pykrx (FDR 실패 시) — 첫 빈 응답이나 예외에서 루프를 멈춘다 (#34)
     still_zero = df.index[df['Volume'] == 0]
     if still_zero.empty or not pykrx_code:
         return df
@@ -450,7 +451,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
             date_str = ts.strftime('%Y%m%d')
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty or '거래량' not in pk.columns:
-                continue
+                break
             vol = float(pk['거래량'].iloc[0])
             if vol > 0:
                 df.loc[ts, 'Volume'] = vol
