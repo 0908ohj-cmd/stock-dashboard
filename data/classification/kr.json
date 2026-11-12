@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-11T22:56:01+09:00",
+ "updatedAt": "2026-11-12T17:35:00+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -7147,6 +7147,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:52:48+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "451760": {
+   "companyName": "컨텍",
+   "primaryTheme": "SPACE_AEROSPACE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SOFTWARE_AI_PLATFORM"
+   ],
+   "detail": "위성·지상국 시스템",
+   "businessSummary": "위성 지상국 시스템 엔지니어링 솔루션과 인공위성 및 부분품 개발을 주력으로 하며, 위성영상 데이터처리 솔루션을 함께 제공한다. 2026년 2분기 기준 매출은 지상국 시스템엔지니어링 49%, 인공위성 개발 38%, 위성영상 데이터처리 12%, 위성통신단말기 1%로 집계된다(제3자 집계, DART 사업보고서 원문 미확인).",
+   "confidence": "medium",
+   "why": "매출의 약 87%가 지상국 시스템과 위성 개발에서 나와 우주·항공 테마가 주력이다. 위성영상 데이터처리(약 12%)는 보조 테마로만 뒀다. 매출 비중은 제3자 사이트 집계이고 DART 사업보고서의 사업의 내용은 열어 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/451760/",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20240820컨텍.pdf",
+    "https://thevc.kr/contec"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-12T17:35:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
