@@ -208,11 +208,34 @@ def primary_map(market: str, tickers: list) -> dict:
     return {t: (records.get(t) or {}).get('primaryTheme', UNCLASSIFIED) for t in tickers}
 
 
+def _unclassified_label(market: str) -> str:
+    return theme_index(market).get(UNCLASSIFIED, {}).get('label') or '미분류'
+
+
 def display_label(market: str, ticker: str) -> str | None:
-    """와치리스트 테마 컬럼용 라벨. 승인된 분류가 없으면 None (호출부가 구 캐시로 폴백)."""
+    """와치리스트 '테마' 컬럼용 라벨. 기록이 아예 없을 때만 None (호출부가 구 캐시로 폴백).
+
+    기록이 있는데 미분류(사용자가 미분류로 확정했거나 승인 게이트에서 탈락)면 '미분류'를 돌려준다.
+    구 라벨로 폴백하면 주도섹터 탭이 집계에서 빼는 종목을 와치리스트는 확정 섹터처럼 보여준다(#37).
+    테마 목록에 없는 코드면 KeyError — 호출부가 로그를 남긴다.
+    """
     rec = load_store(market).get(ticker)
-    if not rec or rec.get('primaryTheme', UNCLASSIFIED) == UNCLASSIFIED:
+    if not rec:
         return None
+    code = rec.get('primaryTheme') or UNCLASSIFIED
+    if code == UNCLASSIFIED:
+        return _unclassified_label(market)
     if rec.get('detail'):
         return rec['detail']
-    return theme_index(market).get(rec['primaryTheme'], {}).get('label')
+    return theme_index(market)[code]['label']
+
+
+def display_major(market: str, ticker: str) -> str | None:
+    """와치리스트 '섹터' 컬럼용 주력 테마 라벨. 규칙은 display_label과 같다(기록 없음만 None)."""
+    rec = load_store(market).get(ticker)
+    if not rec:
+        return None
+    code = rec.get('primaryTheme') or UNCLASSIFIED
+    if code == UNCLASSIFIED:
+        return _unclassified_label(market)
+    return theme_index(market)[code]['label']
