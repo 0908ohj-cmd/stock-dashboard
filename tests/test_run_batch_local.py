@@ -41,3 +41,40 @@ def test_raises_open_file_limit_before_builders():
 def test_rejects_missing_market():
     r = subprocess.run(['bash', str(SCRIPT)], capture_output=True, text=True)
     assert r.returncode == 2
+
+
+# ── 폴백 즉시 실행 연결 (lib_fallback.sh) ─────────────────────
+
+def _lines():
+    return SCRIPT.read_text(encoding='utf-8').splitlines()
+
+
+def test_fallback_lib_is_loaded_before_die_is_defined():
+    """die는 env 로드 전에도 불린다 — 라이브러리가 그보다 먼저 로드돼야 폴백을 띄울 수 있다."""
+    lines = _lines()
+    source_at = next(i for i, l in enumerate(lines) if 'lib_fallback.sh' in l and l.lstrip().startswith('.'))
+    die_at = next(i for i, l in enumerate(lines) if l.startswith('die()'))
+    assert source_at < die_at
+
+
+def test_die_requests_fallback():
+    die = next(l for l in _lines() if l.startswith('die()'))
+    assert 'fallback_now' in die
+    assert die.index('fallback_now') < die.index('exit 1')
+
+
+def test_every_success_exit_verifies_round():
+    """성공 종료 두 곳(변경 없음·완료) 모두 회차 판정을 거친다 — 늦은 데이터를 올리고 끝나면 안 된다."""
+    lines = _lines()
+    no_change = next(i for i, l in enumerate(lines) if '변경 없음 — 종료' in l)
+    done = next(i for i, l in enumerate(lines) if l.strip() == 'log "완료"')
+    assert lines[no_change + 1].strip() == 'verify_round'
+    assert lines[no_change + 2].strip() == 'exit 0'
+    assert lines[done + 1].strip() == 'verify_round'
+
+
+def test_dry_run_never_requests_fallback():
+    text = SCRIPT.read_text(encoding='utf-8')
+    body = text[text.index('fallback_now() {'):]
+    body = body[:body.index('\n}\n')]
+    assert '[ "$DRY_RUN" = "--dry-run" ] && return 0' in body
