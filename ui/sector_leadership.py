@@ -440,10 +440,14 @@ def _colgroup(widths: list) -> str:
     return '<colgroup>' + ''.join(f'<col style="width:{w}%">' for w in widths) + '</colgroup>'
 
 
-def _stock_title(t: str, nm: str) -> str:
-    """종목 칸 — 이름 굵게, 아래 줄에 티커."""
-    return (f'<div class="sl-name">{_esc(nm)}</div><div class="two">{_esc(t)}</div>' if nm != t
-            else f'<div class="sl-name">{_esc(t)}</div>')
+_NEW_TAG = ' <span class="sl-badge sl-A" style="font-size:.66rem;padding:1px 6px;vertical-align:1px">NEW</span>'
+
+
+def _stock_title(t: str, nm: str, new: bool = False) -> str:
+    """종목 칸 — 이름 굵게(+ 바로 옆 NEW), 아래 줄에 티커."""
+    tag = _NEW_TAG if new else ''
+    return (f'<div class="sl-name">{_esc(nm)}{tag}</div><div class="two">{_esc(t)}</div>' if nm != t
+            else f'<div class="sl-name">{_esc(t)}{tag}</div>')
 
 
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
@@ -626,11 +630,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = _stock_title(t, nm)
         d, unknown = entry(r)
-        is_new = d is not None and not unknown and d == asof
-        if is_new:
-            title = '<span class="sl-badge sl-A" style="margin-bottom:3px">NEW</span>' + title
+        title = _stock_title(t, nm, d is not None and not unknown and d == asof)
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         if t in solo:
@@ -997,7 +998,7 @@ def _rank_cell(rank: int, prev: int | None, known: bool) -> str:
     d = prev - rank
     mark = (f'<span class="sl-pos">▲{d}</span>' if d > 0 else f'<span class="sl-neg">▼{-d}</span>' if d < 0
             else '<span style="opacity:.6">–</span>')
-    return f'{num}<div class="two" style="opacity:1;white-space:nowrap">{mark} <span style="opacity:.55">전일 {prev}</span></div>'
+    return f'{num}<div class="two" style="opacity:1;white-space:nowrap">{mark} <span style="opacity:.55">({prev}위)</span></div>'
 
 
 def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = '', jjin: str = ''):
@@ -1032,9 +1033,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = _stock_title(t, nm)
-        if prev_top is not None and t not in prev_top:
-            title = '<span class="sl-badge sl-A" style="margin-bottom:3px">NEW</span>' + title
+        title = _stock_title(t, nm, prev_top is not None and t not in prev_top)
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         star = f' <span style="color:#16a34a">{_STAR}</span>' if r['primaryTheme'] in top_sectors else ''
@@ -1058,7 +1057,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.'
-               + ('  \n순위 아래 ▲▼ = 전일 같은 조건 순위 대비 등락.' if prev_rank is not None else '')
+               + ('  \n순위 아래 ▲▼ (N위) = 직전 거래일 같은 조건 순위 대비 등락.' if prev_rank is not None else '')
                + ('  \nNEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''))
     _score_table(rebound)
 
