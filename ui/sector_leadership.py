@@ -998,7 +998,7 @@ def _rank_cell(rank: int, prev: int | None, known: bool) -> str:
     d = prev - rank
     mark = (f'<span class="sl-pos">▲{d}</span>' if d > 0 else f'<span class="sl-neg">▼{-d}</span>' if d < 0
             else '<span style="opacity:.6">–</span>')
-    return f'{num}<div class="two" style="opacity:1;white-space:nowrap">{mark} <span style="opacity:.55">({prev}위)</span></div>'
+    return f'{num}<div class="two" style="opacity:1;white-space:nowrap">{mark}</div>'
 
 
 def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = '', jjin: str = ''):
@@ -1057,7 +1057,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.'
-               + ('  \n순위 아래 ▲▼ (N위) = 직전 거래일 같은 조건 순위 대비 등락.' if prev_rank is not None else '')
+               + ('  \n순위 아래 ▲▼ = 직전 거래일 같은 조건 순위 대비 등락 (– 같음).' if prev_rank is not None else '')
                + ('  \nNEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''))
     _score_table(rebound)
 
