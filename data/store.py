@@ -410,18 +410,26 @@ def refetch_indices(markets: str = 'all') -> dict:
     existing   = load_snapshot('indices')
     merged     = dict(existing.get('data', {}))
 
+    # 실패한 지수는 기존 값을 남기되 failed에 기록한다 — 조용히 넘기면 낡은 지수가 '갱신'으로
+    # 보인다(2026-11-11·12 US 배치: ^IXIC rate limit → NASDAQ이 하루 묵은 채 저장).
+    failed = []
     for name in to_update:
         try:
             df = fetch_index_daily(name, days=INDEX_DAYS)
-        except Exception:
+        except Exception as e:
+            print(f'[{name}] 지수 수집 실패({type(e).__name__}: {e}) — 기존 값 유지')
+            failed.append(name)
             continue
         if df.empty:
+            print(f'[{name}] 지수 수집 실패(빈 응답) — 기존 값 유지')
+            failed.append(name)
             continue
         try:
             merged[name] = _df_to_records(
                 _safe_merge(df, merged.get(name), INDEX_DAYS, name))
         except Exception as e:   # 지수 1개의 변환 실패가 나머지 지수까지 미저장시키면 안 된다
             print(f'[{name}] 레코드 변환 실패({type(e).__name__}: {e}) — 기존 값 유지')
+            failed.append(name)
 
     last_date = None
     for rec in merged.values():
@@ -434,7 +442,7 @@ def refetch_indices(markets: str = 'all') -> dict:
         'fetched_at': datetime.now(KST).isoformat(timespec='seconds'),
         'last_trading_date': last_date,
         'ticker_count': len(merged),
-        'failed': [],
+        'failed': failed,
         'data': merged,
     }
     if not merged:                    # 전량 실패 — 기존 indices.json 보존
