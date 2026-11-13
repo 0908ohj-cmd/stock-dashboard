@@ -1,9 +1,13 @@
 """KR 시세 패치의 pykrx 호출 수 회귀 테스트 (#34).
 
-2026-08 KRX가 "자동화 수단을 통한 비정상 대량 조회"로 IP를 1일 차단했다. 패치가
-종목마다 pykrx를 부르면 휴장 다음 날 배치 한 번에 261회(재수집까지 최대 ~780회)가
-나간다. 여기서는 진짜 pykrx를 절대 import하지 않는다 — 가짜 모듈을 sys.modules에
-꽂고 **모든 함수의 호출 수**를 센다(어떤 API를 쓰든 총 호출 수가 계약이다).
+2026-08 KRX가 "자동화 수단을 통한 비정상 대량 조회"로 IP를 1일 차단했다. 종목 패치가
+종목마다 조회하면 휴장 다음 날 배치 한 번에 261회(재수집까지 최대 ~780회)가 나간다.
+
+정책: 종목 패치는 KRX 데이터 요청 0회를 유지한다 — 종목별 `get_market_ohlcv_by_date`
+(기본 adjusted=True → 네이버)만 쓰고, 휴장일 생략·(날짜, 티커) 캐시·날짜당 상한으로 묶는다.
+Streamlit Cloud에는 KRX 자격증명이 없어 KRX 전종목 시세를 쓸 수 없다.
+
+진짜 pykrx는 절대 import하지 않는다 — 가짜 모듈을 sys.modules에 꽂고 함수별 호출 수를 센다.
 """
 import json
 import sys
@@ -24,6 +28,9 @@ from data import fetcher, store
 _STOCK_COLS = ['시가', '고가', '저가', '종가', '거래량', '거래대금', '등락률', '시가총액']
 _ETF_COLS = ['NAV', '시가', '고가', '저가', '종가', '거래량', '거래대금', '기초지수']
 _INDEX_COLS = ['시가', '고가', '저가', '종가', '거래량', '거래대금', '상장시가총액']
+# adjusted=True 기본값의 종목별 기간 조회만 네이버(fchart.stock.naver.com)로 나간다
+# (pykrx 1.2.8 stock_api.get_market_ohlcv_by_date). 나머지는 전부 KRX(data.krx.co.kr).
+NAVER_FNS = {'get_market_ohlcv_by_date'}
 
 
 class FakePykrx:
@@ -43,6 +50,14 @@ class FakePykrx:
         self.calls = []
         self._lock = threading.Lock()
 
+    @property
+    def naver_calls(self):
+        return [c for c in self.calls if c[0] in NAVER_FNS]
+
+    @property
+    def krx_calls(self):
+        return [c for c in self.calls if c[0] not in NAVER_FNS]
+
     # 호출 기록 공통부 ------------------------------------------------
     def _hit(self, name, *args, **kwargs):
         with self._lock:
@@ -58,10 +73,11 @@ class FakePykrx:
             out.update(day)
         return sorted(out)
 
-    # 종목별 기간 조회 (adjusted=True면 실제로는 네이버) ------------------
+    # 종목별 기간 조회 (adjusted=True면 네이버, False면 KRX) ---------------
     def get_market_ohlcv_by_date(self, fromdate, todate, ticker, freq='d',
                                  adjusted=True, name_display=False):
-        self._hit('get_market_ohlcv_by_date', fromdate, todate, ticker)
+        self._hit('get_market_ohlcv_by_date' if adjusted else 'krx_market_ohlcv_by_date',
+                  fromdate, todate, ticker)
         rows, idx = [], []
         for d in sorted(set(self.stocks) | set(self.etfs)):
             if not (fromdate <= d <= todate):
@@ -75,7 +91,7 @@ class FakePykrx:
         return pd.DataFrame(rows, columns=['시가', '고가', '저가', '종가', '거래량', '등락률'],
                             index=pd.DatetimeIndex(idx, name='날짜'))
 
-    # 특정 일자 전종목 조회 ---------------------------------------------
+    # 특정 일자 전종목 조회 (KRX) ---------------------------------------
     def get_market_ohlcv_by_ticker(self, date, market='KOSPI', alternative=False):
         self._hit('get_market_ohlcv_by_ticker', date, market=market)
         return self._stock_section(date, market)
@@ -101,9 +117,8 @@ class FakePykrx:
             elif t in day:
                 o, h, lo, c, v = day[t]
                 rows.append([o, h, lo, c, v, int(c * v), 0.0, int(c * 1_000_000)])
-        df = pd.DataFrame(rows, columns=_STOCK_COLS, index=pd.Index(
+        return pd.DataFrame(rows, columns=_STOCK_COLS, index=pd.Index(
             [t for t in tickers if day is None or t in day], name='티커'))
-        return df
 
     def get_etf_ohlcv_by_ticker(self, date):
         self._hit('get_etf_ohlcv_by_ticker', date)
@@ -113,7 +128,7 @@ class FakePykrx:
         rows = [[float(c), o, h, lo, c, v, int(c * v), 100.0] for (o, h, lo, c, v) in day.values()]
         return pd.DataFrame(rows, columns=_ETF_COLS, index=pd.Index(list(day), name='티커'))
 
-    # 지수 ------------------------------------------------------------
+    # 지수 (KRX) -------------------------------------------------------
     def get_index_ohlcv_by_date(self, fromdate, todate, ticker, freq='d', name_display=False):
         self._hit('get_index_ohlcv_by_date', fromdate, todate, ticker)
         return pd.DataFrame(columns=_INDEX_COLS)    # 테스트에서는 항상 빈 응답
@@ -136,10 +151,10 @@ def fake_pykrx(monkeypatch):
 @pytest.fixture(autouse=True)
 def _isolate(monkeypatch, tmp_path):
     """실제 data/ohlcv/*.json을 읽거나 덮어쓰지 않게 저장소 경로를 임시 디렉터리로 돌리고,
-    프로세스 내 캐시를 테스트마다 비운다. 혹시라도 진짜 FDR이 불리지 않게 막는다."""
+    프로세스 내 패치 상태(캐시·호출 수)를 테스트마다 비운다. 진짜 FDR도 막는다."""
     monkeypatch.setattr(store, 'OHLCV_DIR', tmp_path)
     monkeypatch.setattr(store, '_snap_cache', {})
-    monkeypatch.setattr(fetcher, '_KR_XS_CACHE', {}, raising=False)
+    monkeypatch.setattr(fetcher, '_KR_PATCH_STATE', {}, raising=False)
 
     def _no_fdr(*a, **k):
         raise RuntimeError('FDR 호출 금지 (테스트)')
@@ -165,7 +180,7 @@ def _freeze(monkeypatch, kst_iso):
 
 
 def _write_indices(tmp_path, dates):
-    """배치가 먼저 받아 둔 indices 스냅샷(KOSPI·KOSDAQ) — 휴장일 판정의 근거."""
+    """배치가 먼저 받아 둔 indices 스냅샷(KOSPI·KOSDAQ) — 휴장일·거래일 판정의 근거."""
     n = len(dates)
     rec = {'dates': dates, 'open': [1.0] * n, 'high': [2.0] * n, 'low': [0.5] * n,
            'close': [1.5] * n, 'volume': [100.0] * n}
@@ -200,17 +215,19 @@ def _session(tickers, offset=0):
 
 
 # ── (a) 휴장 다음 날 ───────────────────────────────────────
-def test_holiday_batch_261_tickers_calls_pykrx_at_most_once(monkeypatch, fake_pykrx, _isolate):
-    """2027-01-01 17:30 KR 배치 — 직전 평일 12/31이 휴장. 지연 재수집까지 두 번 돌려도
-    pykrx는 최대 1회만 나가야 한다 (수정 전: 패스마다 261회)."""
+def test_holiday_batch_261_tickers_calls_naver_at_most_once(monkeypatch, fake_pykrx, _isolate):
+    """2027-01-01 17:30 KR 배치 — 직전 평일 12/31이 휴장인데 지수엔 그 뒤 거래일이 없어
+    휴장을 확정할 수 없다. 첫 종목 응답이 비면 그 날짜는 다른 종목에 묻지 않는다.
+    지연 재수집까지 세 번 돌려도 네이버 최대 1회, KRX 0회 (수정 전: 패스마다 261회)."""
     _freeze(monkeypatch, '2027-01-01 17:30')
     _write_indices(_isolate, ['2026-12-29', '2026-12-30'])
     _install_yf(monkeypatch, ['2026-12-29', '2026-12-30'])
     fake = fake_pykrx(stocks={'20261229': _session(TICKERS), '20261230': _session(TICKERS)})
 
-    snaps = [store.build_market_snapshot('KR_KOSPI', TICKERS, throttle_sec=0) for _ in range(2)]
+    snaps = [store.build_market_snapshot('KR_KOSPI', TICKERS, throttle_sec=0) for _ in range(3)]
 
-    assert len(fake.calls) <= 1
+    assert len(fake.naver_calls) <= 1
+    assert fake.krx_calls == []
     for snap in snaps:
         assert snap['ticker_count'] == 261
         assert snap['last_trading_date'] == '2026-12-30'   # 휴장일 행을 만들지 않는다
@@ -242,38 +259,43 @@ def test_today_with_no_later_index_date_is_not_treated_as_holiday(monkeypatch, f
 
     assert out.index[-1] == pd.Timestamp('2026-11-13')
     assert float(out['Close'].iloc[-1]) == 1050.0
-    assert len(fake.calls) == 1
+    assert len(fake.naver_calls) == 1 and fake.krx_calls == []
 
 
 # ── (b) 마지막 행 NaN인 평일 ───────────────────────────────
-def test_nan_last_row_261_tickers_one_cross_section_call(monkeypatch, fake_pykrx, _isolate):
-    """평일 장 마감 후 yfinance 마지막 행이 NaN — 코스피·코스닥 261종목을 날짜당 전종목
-    조회 1회로 채우고, 각 종목에는 자기 행의 값이 들어가야 한다."""
+def test_nan_last_row_261_tickers_capped_per_date(monkeypatch, fake_pykrx, _isolate, capsys):
+    """평일 장 마감 후 yfinance 마지막 행이 261종목 모두 NaN — 날짜당 상한까지만 네이버를
+    부르고, 상한 안의 종목은 기존 코드와 같은 값으로 채운다. 상한 밖 종목은 패치하지
+    않은 채 둔다(NaN 행은 dropna로 빠진다). 상한 도달 로그는 한 번만 남긴다."""
+    cap = 30
+    monkeypatch.setattr(fetcher, '_KR_PATCH_MAX_CALLS', cap, raising=False)
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-11', '2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-11', '2026-11-12', '2026-11-13'], last_nan=True)
     kospi, kosdaq = TICKERS[:130], TICKERS[130:]
-    markets = {**{t: 'KOSPI' for t in kospi}, **{t: 'KOSDAQ' for t in kosdaq}}
-    fake = fake_pykrx(stocks={'20261113': _session(TICKERS)}, markets=markets)
+    fake = fake_pykrx(stocks={'20261113': _session(TICKERS)})
 
     snap_p = store.build_market_snapshot('KR_KOSPI', kospi, throttle_sec=0)
     snap_q = store.build_market_snapshot('KR_KOSDAQ', kosdaq, throttle_sec=0)
 
-    assert len(fake.calls) == 1
+    assert len(fake.naver_calls) == cap
+    assert fake.krx_calls == []
     data = {**snap_p['data'], **snap_q['data']}
-    assert snap_p['last_trading_date'] == snap_q['last_trading_date'] == '2026-11-13'
     # 손으로 계산한 기대값: i번째 종목 = (1000+i, 1100+i, 900+i, 1050+i, 10000+i)
-    for i in (0, 1, 129, 130, 260):
+    for i in (0, 1, cap - 1):
         rec = data[TICKERS[i]]
         assert rec['dates'][-1] == '2026-11-13'
         assert (rec['open'][-1], rec['high'][-1], rec['low'][-1],
                 rec['close'][-1], rec['volume'][-1]) == (
             1000 + i, 1100 + i, 900 + i, 1050 + i, 10_000 + i)
+    for i in (cap, 130, 260):                                # 상한 밖 — 패치하지 않음
+        assert data[TICKERS[i]]['dates'][-1] == '2026-11-12'
+    assert len(snap_p['data']) + len(snap_q['data']) == 261  # 수집 자체는 실패하지 않는다
+    assert capsys.readouterr().out.count('상한') == 1
 
 
-def test_missing_previous_weekday_row_filled_from_cross_section(monkeypatch, fake_pykrx,
-                                                                _isolate):
-    """직전 평일 행이 아예 없으면 그 날짜의 전종목 시세로 행을 추가한다 (기존 동작 유지)."""
+def test_missing_previous_weekday_row_filled_from_naver(monkeypatch, fake_pykrx, _isolate):
+    """직전 평일 행이 아예 없으면 그 날짜 일봉으로 행을 추가한다 (기존 동작 유지)."""
     _freeze(monkeypatch, '2026-11-13 08:00')                 # 장 시작 전 — 오늘 행은 아직 없음
     _write_indices(_isolate, ['2026-11-10', '2026-11-11'])
     _install_yf(monkeypatch, ['2026-11-10', '2026-11-11'])   # 11/12 행 누락
@@ -283,43 +305,55 @@ def test_missing_previous_weekday_row_filled_from_cross_section(monkeypatch, fak
 
     assert out.index[-1] == pd.Timestamp('2026-11-12')
     assert list(out.iloc[-1]) == [1001.0, 1101.0, 901.0, 1051.0, 10_001.0]   # 005930 = i=1
-    assert len(fake.calls) == 1
+    assert fake.naver_calls == [('get_market_ohlcv_by_date', ('20261112', '20261112', '005930'),
+                                 {})]
+    assert fake.krx_calls == []
 
 
-def test_etf_missing_from_stock_section_uses_etf_section_once(monkeypatch, fake_pykrx,
-                                                              _isolate):
-    """KODEX 200(069500) 같은 ETF는 주식 전종목 시세에 없다 — ETF 전종목 시세를 날짜당
-    1회만 더 조회해 채운다 (기존 종목별 경로는 ETF도 채웠다)."""
+def test_empty_response_on_confirmed_trading_day_does_not_block_others(monkeypatch, fake_pykrx,
+                                                                       _isolate):
+    """지수로 거래일이 확인된 날짜에서는 한 종목(거래정지·신규상장 등)의 빈 응답이 다른
+    종목의 패치를 막지 않는다."""
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
-    fake = fake_pykrx(stocks={'20261113': _session(['005930'])},
-                      etfs={'20261113': {'069500': (40000, 40500, 39800, 40300, 5_000_000),
-                                         '229200': (12000, 12100, 11900, 12050, 3_000_000)}})
+    fake = fake_pykrx(stocks={'20261113': _session(['005930', '000660'])})
 
-    snap = store.build_market_snapshot('KR_KOSPI', ['005930', '069500', '229200'],
-                                       throttle_sec=0)
+    outs = [fetcher.fetch_daily(t, market='KR_KOSPI') for t in ('000001', '005930', '000660')]
 
-    rec = snap['data']['069500']
-    assert (rec['open'][-1], rec['high'][-1], rec['low'][-1], rec['close'][-1],
-            rec['volume'][-1]) == (40000, 40500, 39800, 40300, 5_000_000)
-    assert snap['data']['229200']['close'][-1] == 12050
-    assert snap['data']['005930']['close'][-1] == 1050
-    assert len(fake.calls) == 2                               # 주식 전종목 1 + ETF 전종목 1
+    assert len(fake.naver_calls) == 3
+    assert outs[0].index[-1] == pd.Timestamp('2026-11-12')
+    assert float(outs[1]['Close'].iloc[-1]) == 1050.0
+    assert float(outs[2]['Close'].iloc[-1]) == 1051.0
+
+
+def test_unconfirmed_date_with_data_seen_keeps_querying(monkeypatch, fake_pykrx, _isolate):
+    """지수에 아직 없는 날짜라도 이미 한 종목이 데이터를 받았으면 거래일이다 — 뒤 종목의
+    빈 응답 하나로 나머지를 건너뛰지 않는다."""
+    _freeze(monkeypatch, '2026-11-13 17:30')
+    _write_indices(_isolate, ['2026-11-11', '2026-11-12'])
+    _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
+    fake = fake_pykrx(stocks={'20261113': _session(['005930', '000660'])})
+
+    outs = [fetcher.fetch_daily(t, market='KR_KOSPI') for t in ('005930', '000001', '000660')]
+
+    assert len(fake.naver_calls) == 3
+    assert float(outs[2]['Close'].iloc[-1]) == 1051.0
 
 
 def test_suspended_zero_ohlc_is_not_written(monkeypatch, fake_pykrx, _isolate):
-    """거래정지 종목은 전종목 시세에서 시가·고가·저가가 0이다 — 0을 써넣으면 저가 0원
-    봉이 생겨 ADR·EMA를 오염시키므로 그 날은 채우지 않는다."""
+    """시가·고가·저가가 0인 응답(거래정지 형식)은 쓰지 않는다 — 0을 써넣으면 저가 0원
+    봉이 생겨 ADR·EMA를 오염시킨다."""
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
-    fake_pykrx(stocks={'20261113': {'005930': (0, 0, 0, 51000, 0)}})
+    fake = fake_pykrx(stocks={'20261113': {'005930': (0, 0, 0, 51000, 0)}})
 
     out = fetcher.fetch_daily('005930', market='KR_KOSPI')
 
     assert out.index[-1] == pd.Timestamp('2026-11-12')       # NaN 행은 dropna로 빠진다
     assert (out[['Open', 'High', 'Low']] > 0).all().all()
+    assert fake.krx_calls == []
 
 
 # ── (c) 정상 ──────────────────────────────────────────────
@@ -337,57 +371,62 @@ def test_complete_data_makes_no_pykrx_call(monkeypatch, fake_pykrx, _isolate):
 
 
 # ── 캐시 수명·예외·동시성 ──────────────────────────────────
-def test_cross_section_failure_is_not_retried_per_ticker(monkeypatch, fake_pykrx, _isolate):
-    """KRX 로그인 실패·차단처럼 조회가 예외를 내도 종목마다 다시 두드리지 않는다."""
+def test_failed_lookup_is_cached_per_ticker(monkeypatch, fake_pykrx, _isolate):
+    """조회가 예외를 내면(차단·네트워크) 같은 종목을 재시도 패스·재수집마다 다시 두드리지
+    않는다 — 5종목을 세 번 수집해도 5회."""
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
-    fake = fake_pykrx(raise_exc=KeyError('시가'))
+    fake = fake_pykrx(raise_exc=ConnectionError('blocked'))
 
-    snap = store.build_market_snapshot('KR_KOSPI', TICKERS, throttle_sec=0)
+    for _ in range(3):
+        snap = store.build_market_snapshot('KR_KOSPI', TICKERS[:5], throttle_sec=0)
 
-    assert len(fake.calls) == 1
+    assert len(fake.naver_calls) == 5
     assert snap['last_trading_date'] == '2026-11-12'
 
 
 def test_unsettled_response_expires_but_settled_one_is_kept(monkeypatch, fake_pykrx, _isolate):
-    """오늘 날짜 응답(장중·미확정)은 일정 시간 뒤 다시 조회할 수 있어야 하고 — 오래 사는
+    """오늘 날짜 응답(장전·장중)은 일정 시간 뒤 다시 조회할 수 있어야 하고 — 오래 사는
     Streamlit 프로세스에서 오전의 빈 응답이 종일 굳으면 안 된다 — 지난 날짜 응답은
     바뀌지 않으므로 계속 재사용한다."""
     _freeze(monkeypatch, '2026-11-13 10:00')
     _write_indices(_isolate, ['2026-11-11', '2026-11-12'])
     clock = [1000.0]
     monkeypatch.setattr(fetcher, '_clock', lambda: clock[0], raising=False)
-    fake = fake_pykrx(stocks={'20261112': _session(['005930', '000660'])})
+    fake = fake_pykrx(stocks={'20261112': _session(['005930'])})
     today_nan = _yf_frame(['2026-11-12', '2026-11-13'], last_nan=True)
     stale = _yf_frame(['2026-11-10', '2026-11-11'])           # 직전 평일(11/12) 행 누락
 
     fetcher._patch_kr_today(today_nan.copy(), '005930')       # 오늘(11/13) 조회 → 빈 응답
     fetcher._patch_kr_today(stale.copy(), '005930')           # 11/12 조회 → 확정 데이터
-    assert len(fake.calls) == 2
-
-    fetcher._patch_kr_today(today_nan.copy(), '000660')       # 같은 시각: 둘 다 캐시
-    fetcher._patch_kr_today(stale.copy(), '000660')
+    fetcher._patch_kr_today(today_nan.copy(), '005930')       # 같은 시각: 둘 다 캐시
+    fetcher._patch_kr_today(stale.copy(), '005930')
     assert len(fake.calls) == 2
 
     clock[0] += 6 * 3600                                       # 몇 시간 뒤
-    fetcher._patch_kr_today(today_nan.copy(), '000660')       # 오늘 날짜는 다시 조회
-    fetcher._patch_kr_today(stale.copy(), '000660')           # 지난 날짜는 그대로 캐시
+    fetcher._patch_kr_today(today_nan.copy(), '005930')       # 오늘 날짜는 다시 조회
+    out = fetcher._patch_kr_today(stale.copy(), '005930')     # 지난 날짜는 그대로 캐시
     assert [c[1][0] for c in fake.calls] == ['20261113', '20261112', '20261113']
+    assert float(out.loc['2026-11-12', 'Close']) == 1050.0
 
 
-def test_parallel_misses_share_one_call(monkeypatch, fake_pykrx, _isolate):
-    """10EMA 탭은 스레드 10개로 미스 폴백을 돌린다 — 동시에 들어와도 조회는 1회."""
+def test_parallel_misses_never_exceed_cap(monkeypatch, fake_pykrx, _isolate, capsys):
+    """10EMA 탭은 스레드 10개로 미스 폴백을 돌린다 — 동시에 들어와도 상한을 넘지 않고,
+    상한 도달 로그도 한 번만 남긴다."""
+    cap = 7
+    monkeypatch.setattr(fetcher, '_KR_PATCH_MAX_CALLS', cap, raising=False)
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
-    fake = fake_pykrx(stocks={'20261113': _session(TICKERS[:20])}, delay=0.05)
+    fake = fake_pykrx(stocks={'20261113': _session(TICKERS[:40])}, delay=0.01)
 
     with ThreadPoolExecutor(max_workers=10) as ex:
-        outs = list(ex.map(lambda t: fetcher.fetch_daily(t, market='KR_KOSPI'), TICKERS[:20]))
+        outs = list(ex.map(lambda t: fetcher.fetch_daily(t, market='KR_KOSPI'), TICKERS[:40]))
 
-    assert len(fake.calls) == 1
-    assert all(o.index[-1] == pd.Timestamp('2026-11-13') for o in outs)
+    assert len(fake.naver_calls) == cap
+    assert sum(o.index[-1] == pd.Timestamp('2026-11-13') for o in outs) == cap
+    assert capsys.readouterr().out.count('상한') == 1
 
 
 # ── 지수 패치 루프 ────────────────────────────────────────
