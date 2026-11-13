@@ -263,12 +263,10 @@ def test_today_with_no_later_index_date_is_not_treated_as_holiday(monkeypatch, f
 
 
 # ── (b) 마지막 행 NaN인 평일 ───────────────────────────────
-def test_nan_last_row_261_tickers_capped_per_date(monkeypatch, fake_pykrx, _isolate, capsys):
-    """평일 장 마감 후 yfinance 마지막 행이 261종목 모두 NaN — 날짜당 상한까지만 네이버를
-    부르고, 상한 안의 종목은 기존 코드와 같은 값으로 채운다. 상한 밖 종목은 패치하지
-    않은 채 둔다(NaN 행은 dropna로 빠진다). 상한 도달 로그는 한 번만 남긴다."""
-    cap = 30
-    monkeypatch.setattr(fetcher, '_KR_PATCH_MAX_CALLS', cap, raising=False)
+def test_nan_last_row_261_tickers_all_patched_once(monkeypatch, fake_pykrx, _isolate, capsys):
+    """평일 마감 후 yfinance 마지막 행이 261종목 모두 NaN(자정 이후 폴백에서 실제 발생) —
+    기존 코드처럼 전 종목을 같은 값으로 채운다. 종목당 1회라 네이버 261회, KRX 0회이고,
+    지연 재수집 패스는 (날짜, 티커) 캐시로 추가 호출이 없다. 상한 로그도 없다."""
     _freeze(monkeypatch, '2026-11-13 17:30')
     _write_indices(_isolate, ['2026-11-11', '2026-11-12', '2026-11-13'])
     _install_yf(monkeypatch, ['2026-11-11', '2026-11-12', '2026-11-13'], last_nan=True)
@@ -277,20 +275,41 @@ def test_nan_last_row_261_tickers_capped_per_date(monkeypatch, fake_pykrx, _isol
 
     snap_p = store.build_market_snapshot('KR_KOSPI', kospi, throttle_sec=0)
     snap_q = store.build_market_snapshot('KR_KOSDAQ', kosdaq, throttle_sec=0)
+    assert len(fake.naver_calls) == 261
+    for _ in range(2):                                         # 지연 재수집 2회
+        store.build_market_snapshot('KR_KOSPI', kospi, throttle_sec=0)
+        store.build_market_snapshot('KR_KOSDAQ', kosdaq, throttle_sec=0)
 
-    assert len(fake.naver_calls) == cap
+    assert len(fake.naver_calls) == 261
     assert fake.krx_calls == []
     data = {**snap_p['data'], **snap_q['data']}
     # 손으로 계산한 기대값: i번째 종목 = (1000+i, 1100+i, 900+i, 1050+i, 10000+i)
-    for i in (0, 1, cap - 1):
-        rec = data[TICKERS[i]]
+    for i, t in enumerate(TICKERS):
+        rec = data[t]
         assert rec['dates'][-1] == '2026-11-13'
         assert (rec['open'][-1], rec['high'][-1], rec['low'][-1],
                 rec['close'][-1], rec['volume'][-1]) == (
             1000 + i, 1100 + i, 900 + i, 1050 + i, 10_000 + i)
-    for i in (cap, 130, 260):                                # 상한 밖 — 패치하지 않음
-        assert data[TICKERS[i]]['dates'][-1] == '2026-11-12'
-    assert len(snap_p['data']) + len(snap_q['data']) == 261  # 수집 자체는 실패하지 않는다
+    assert '상한' not in capsys.readouterr().out
+
+
+def test_cap_stops_runaway_calls_and_logs_once(monkeypatch, fake_pykrx, _isolate, capsys):
+    """상한은 비정상 확장(유니버스 폭증 등) 방지 안전장치 — 상한을 넘으면 더 부르지 않고
+    나머지 종목은 패치하지 않은 채 둔다(NaN 행은 dropna로 빠진다). 로그는 한 번만."""
+    cap = 5
+    monkeypatch.setattr(fetcher, '_KR_PATCH_MAX_CALLS', cap, raising=False)
+    _freeze(monkeypatch, '2026-11-13 17:30')
+    _write_indices(_isolate, ['2026-11-12', '2026-11-13'])
+    _install_yf(monkeypatch, ['2026-11-12', '2026-11-13'], last_nan=True)
+    fake = fake_pykrx(stocks={'20261113': _session(TICKERS)})
+
+    snap = store.build_market_snapshot('KR_KOSPI', TICKERS, throttle_sec=0)
+
+    assert len(fake.naver_calls) == cap
+    assert [TICKERS.index(t) for t, r in snap['data'].items()
+            if r['dates'][-1] == '2026-11-13'] == [0, 1, 2, 3, 4]
+    assert snap['data'][TICKERS[cap]]['dates'][-1] == '2026-11-12'
+    assert len(snap['data']) == 261                            # 수집 자체는 실패하지 않는다
     assert capsys.readouterr().out.count('상한') == 1
 
 
