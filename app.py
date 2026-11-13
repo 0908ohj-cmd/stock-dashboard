@@ -49,8 +49,9 @@ SAVED_PATHS = {
 
 
 def _with_sector_universe(key: str, tickers: list) -> list:
-    """US 스냅샷은 통째로 교체 저장되므로 주도섹터 유니버스(210종목 + QQQ·IWM)도 함께 받는다.
-    빠뜨리면 주도섹터 탭이 다음 배치까지 MISSING이 된다."""
+    """US 업로드 직후 재수집에 주도섹터 유니버스(210종목 + QQQ·IWM)도 함께 받아 같은 시점 시세로 맞춘다.
+    스냅샷 보존용은 아니다 — refetch_market은 부분 갱신이라 넘기지 않은 종목을 지우지 않는다.
+    사이드바 🔄 데이터 재수집은 이 함수 대신 store.snapshot_tickers(배치와 같은 합집합)를 쓴다."""
     path = SAVED_DIR / 'us_sector.tickers'
     if key != 'US' or not path.exists():
         return tickers
@@ -205,8 +206,10 @@ if _last_sync and not _last_sync.ok:
 
 # ── 수동 데이터 재수집 (비상용) ───────────────────────────
 if st.session_state.pop('force_refetch', False):
-    for key, tickers in [('KR_KOSPI', kr_kospi), ('KR_KOSDAQ', kr_kosdaq),
-                         ('US', _with_sector_universe('US', us_tickers))]:
+    # 배치와 같은 종목 합집합(업로드 목록 + 10EMA + 주도섹터)을 넘긴다 — 전 종목 수집으로 판정돼
+    # fetched_at이 갱신되고 '재수집을 눌러 주세요' 경고(stale·지수 지연)가 풀린다
+    for key in ('KR_KOSPI', 'KR_KOSDAQ', 'US'):
+        tickers = store.snapshot_tickers(key)
         if tickers:
             with st.spinner(f'{key} 재수집 중... ({len(tickers)}개 종목)'):
                 store.refetch_market(key, tickers)

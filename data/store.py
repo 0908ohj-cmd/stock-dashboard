@@ -417,6 +417,32 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     }
 
 
+# 시장 스냅샷의 전 종목 = 아래 티커 파일들의 합집합. 배치(scripts/fetch_snapshot.py)와
+# 앱 사이드바 🔄 데이터 재수집이 같은 목록을 쓰도록 정의는 여기 한 곳에 둔다.
+SAVED_DIR = pathlib.Path(__file__).parent / 'saved'
+SNAPSHOT_TICKER_FILES = {
+    'KR_KOSPI':  ['kospi.tickers',  'kospi_10ema.tickers'],
+    'KR_KOSDAQ': ['kosdaq.tickers', 'kosdaq_10ema.tickers'],
+    # us_sector.tickers = 주도섹터 유니버스 210종목 + 벤치마크 QQQ·IWM (data/universe/us_innovation_210.json)
+    'US':        ['us.tickers',     'us_10ema.tickers', 'us_sector.tickers'],
+}
+
+
+def snapshot_tickers(market: str) -> list:
+    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀)."""
+    seen, result = set(), []
+    for filename in SNAPSHOT_TICKER_FILES.get(market, []):
+        path = SAVED_DIR / filename
+        if not path.exists():
+            continue
+        for t in path.read_text(encoding='utf-8').splitlines():
+            t = t.strip()
+            if t and t not in seen:
+                seen.add(t)
+                result.append(t)
+    return result
+
+
 def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> dict:
     """앱 안 재수집(업로드 직후·🔄 데이터 재수집·탭별 🔄 재스캔) — 받은 종목만 갈아끼우는 부분 갱신.
 
@@ -425,7 +451,8 @@ def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> di
     210종목·QQQ·IWM)가 지워졌다 (#31). 대상 밖 종목은 저장 직전 최신본에서 그대로 둔다.
 
     시장 메타(fetched_at·last_trading_date·ticker_count·failed)는 '전 종목을 언제 받았나'의
-    기록이라 대상이 기존 종목을 전부 덮을 때만 새로 쓴다. 일부만 받았으면 메타는 그대로 두고
+    기록이라 대상이 기존 종목 또는 배치 유니버스(snapshot_tickers — 사이드바 🔄 데이터 재수집이
+    넘기는 목록)를 전부 덮을 때만 새로 쓴다. 일부만 받았으면 메타는 그대로 두고
     partial_refetched_at에 시각만 남긴다 — fetched_at을 올리면
       ① get_freshness가 다시 받지 않은 종목까지 신선하다고 판정하고
       ② repo_sync._local_wins가 이 파일을 그보다 이른 시각에 찍힌 원격 배치(전 종목 최신)보다
@@ -448,7 +475,11 @@ def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> di
             # 실패 종목의 fresh 레코드는 수집 시작 때 읽은 옛 값 — 그 사이 더 새 값이 들어왔으면 유지
             if t not in failed or t not in data:
                 data[t] = rec
-        if set(latest.get('data', {})) <= set(tickers):
+        requested, universe = set(tickers), set(snapshot_tickers(market))
+        # 전 종목 수집 = 기존 종목을 전부 덮었거나, 배치 유니버스(🔄 데이터 재수집이 넘기는 합집합)를
+        # 전부 덮었을 때. 유니버스 밖 잔여 종목(업로드로 목록에서 빠진 옛 종목·미스 병합분)은
+        # 원래 fetched_at과 무관하므로 판정을 막지 않고, 지우지도 않는다 (다음 배치가 정리)
+        if set(latest.get('data', {})) <= requested or (universe and universe <= requested):
             snap = {**fresh, 'data': data}                       # 전 종목 수집 — 배치와 같은 의미
         else:
             snap = {**latest, 'market': market, 'data': data,

@@ -31,6 +31,8 @@ def _rec() -> dict:
 def tmp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(store, 'OHLCV_DIR', tmp_path)
     monkeypatch.setattr(store, '_snap_cache', {})
+    # 배치 유니버스(snapshot_tickers)가 실제 data/saved 파일에 좌우되지 않게 — 기본은 비어 있음
+    monkeypatch.setattr(store, 'SAVED_DIR', tmp_path / 'saved')
     return tmp_path
 
 
@@ -201,3 +203,82 @@ def test_재수집은_파싱_못_하는_스냅샷을_덮어쓰지_않는다(tmp_
     store.refetch_market('US', ['E1'], throttle_sec=0)
 
     assert path.read_text(encoding='utf-8') == broken
+
+
+# ── 🔄 데이터 재수집 = 배치와 같은 종목 합집합 (전 종목 수집) ───────────
+
+@pytest.fixture
+def saved_dir(tmp_path, monkeypatch):
+    d = tmp_path / 'saved'
+    d.mkdir()
+    monkeypatch.setattr(store, 'SAVED_DIR', d)
+    return d
+
+
+def _tickers_file(saved, name: str, lines: list) -> None:
+    (saved / name).write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+
+def test_snapshot_tickers는_배치_티커_파일의_합집합이다(tmp_store, saved_dir):
+    """배치(scripts/fetch_snapshot.load_tickers)가 쓰던 규칙 그대로 — 파일 순서대로 이어 붙이고
+    공백 줄·앞뒤 공백·중복은 버리고, 없는 파일은 건너뛴다."""
+    _tickers_file(saved_dir, 'us.tickers', ['AAPL', 'NVDA', '', ' TSLA '])
+    _tickers_file(saved_dir, 'us_10ema.tickers', ['NVDA', 'PLTR'])
+    _tickers_file(saved_dir, 'us_sector.tickers', ['QQQ', 'IWM', 'AAPL'])
+    _tickers_file(saved_dir, 'kospi.tickers', ['005930'])          # kospi_10ema.tickers 없음
+
+    assert store.snapshot_tickers('US') == ['AAPL', 'NVDA', 'TSLA', 'PLTR', 'QQQ', 'IWM']
+    assert store.snapshot_tickers('KR_KOSPI') == ['005930']
+    assert store.snapshot_tickers('KR_KOSDAQ') == []
+
+
+class _FrozenDatetime(datetime):
+    FROZEN = datetime.fromisoformat('2026-11-14T09:00:00+09:00')   # 토요일 — 금 08:00 US 회차 이후
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.FROZEN.astimezone(tz) if tz else cls.FROZEN.replace(tzinfo=None)
+
+
+def test_데이터_재수집은_전_종목_수집이라_fetched_at을_갱신하고_경고가_풀린다(tmp_store, saved_dir, monkeypatch):
+    """사이드바 🔄 데이터 재수집은 배치와 같은 합집합을 넘긴다 → 전 종목 수집으로 판정돼
+    fetched_at·last_trading_date가 갱신되고, '재수집을 눌러 주세요' 경고(stale·지수 지연)가 풀린다.
+
+    업로드로 목록에서 빠진 옛 종목(GONE)이 스냅샷에 남아 있어도 전 종목 판정을 막지 않는다 —
+    배치 유니버스 밖 종목은 원래 fetched_at과 무관하다(미스 병합처럼). 지우지도 않는다."""
+    monkeypatch.setattr(store, 'datetime', _FrozenDatetime)
+    _tickers_file(saved_dir, 'us.tickers', ['AAA', 'E1'])
+    _tickers_file(saved_dir, 'us_sector.tickers', ['QQQ'])
+    _write_snapshot(tmp_store, 'US', ['AAA', 'E1', 'QQQ', 'GONE'],
+                    fetched_at='2026-11-12T08:14:00+09:00')            # 금요일 회차를 놓친 상태
+    (tmp_store / 'indices.json').write_text(json.dumps({
+        'market': 'indices', 'fetched_at': '2026-11-14T08:50:00+09:00',
+        'data': {'NASDAQ': {'dates': ['2026-11-12', '2026-11-13']}}}), encoding='utf-8')
+    _mock_us_fetch(monkeypatch)
+    now = _FrozenDatetime.FROZEN
+    before = store.get_freshness('US', now)
+    assert before['is_stale'] is True and before['behind_index'] == '2026-11-13'
+
+    store.refetch_market('US', store.snapshot_tickers('US'), throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert saved['fetched_at'] == '2026-11-14T09:00:00+09:00'
+    assert saved['last_trading_date'] == '2026-11-13'
+    assert 'partial_refetched_at' not in saved
+    assert sorted(saved['data']) == ['AAA', 'E1', 'GONE', 'QQQ']
+    after = store.get_freshness('US', now)
+    assert after['is_stale'] is False and 'behind_index' not in after
+
+
+def test_배치_유니버스_일부만_받으면_여전히_부분_갱신이다(tmp_store, saved_dir, monkeypatch):
+    """탭별 🔄 재스캔처럼 유니버스 일부만 넘기면 메타는 그대로다 (#31 결정 유지)."""
+    _tickers_file(saved_dir, 'us.tickers', ['AAA'])
+    _tickers_file(saved_dir, 'us_10ema.tickers', ['E1'])
+    _write_snapshot(tmp_store, 'US', ['AAA', 'E1'])
+    _mock_us_fetch(monkeypatch)
+
+    store.refetch_market('US', ['E1'], throttle_sec=0)
+
+    saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
+    assert saved['fetched_at'] == BASE_FETCHED_AT
+    assert 'partial_refetched_at' in saved
