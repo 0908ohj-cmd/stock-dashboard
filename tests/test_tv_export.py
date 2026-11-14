@@ -4,6 +4,7 @@ from strategy.tv_export import (
     SECTION_ORDER,
     build_export,
     build_section,
+    dated_title,
     export_filename,
     order_sections,
     summarize_sections,
@@ -80,6 +81,29 @@ def test_empty_ticker_list_produces_no_section():
 
 def test_section_of_only_invalid_tickers_produces_no_section():
     assert build_section('빈 섹션', ['', None], 'US') is None
+
+
+# ── dated_title ───────────────────────────────────────────
+# 주도섹터 탭 섹션(🎯 차기 주도주·🔥 급부상)은 기준일 결과다 — 파일명은 내려받은 시각이라
+# 제목에 기준일이 없으면 오늘 날짜 파일에 어제 기준 목록이 실려도 알 수 없다 (#42 M10)
+def test_dated_title_appends_month_and_day_of_asof():
+    assert dated_title('🎯 코스피 차기 주도주', '2026-11-12') == '🎯 코스피 차기 주도주 11/12'
+
+
+def test_dated_title_zero_pads_month_and_day():
+    assert dated_title('🔥 나스닥 급부상', '2026-01-05') == '🔥 나스닥 급부상 01/05'
+
+
+def test_dated_title_without_asof_keeps_title():
+    # 렌더 첫머리의 '먼저 비우기' 등록은 기준일을 모른다 — 제목만 그대로
+    assert dated_title('🎯 코스피 차기 주도주', None) == '🎯 코스피 차기 주도주'
+    assert dated_title('🎯 코스피 차기 주도주', '') == '🎯 코스피 차기 주도주'
+
+
+def test_dated_section_line_keeps_date_inside_header():
+    # 날짜에 콤마가 섞이면 TradingView가 심볼로 읽는다 — 헤더 한 칸 안에 들어가야 한다
+    line = build_section(dated_title('🎯 코스피 차기 주도주', '2026-11-12'), ['005930'], 'KR_KOSPI')
+    assert line == '###🎯 코스피 차기 주도주 11/12,KRX:005930'
 
 
 # ── build_export ──────────────────────────────────────────

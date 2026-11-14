@@ -20,6 +20,7 @@ from data import classification_sync as cls_sync
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
+from strategy import sector_view as sv
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -622,7 +623,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    if (not only_trend or r['ticker'] in in_trend)
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['ppScore'])[:30]
-    tv_export.register_hot(m.key, [r['ticker'] for r in rows])   # 화면 표 그대로
+    tv_export.register_hot(m.key, [r['ticker'] for r in rows], res['asof'])   # 화면 표 그대로, 제목에 기준일
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
     asof = pd.Timestamp(res['asof'])
@@ -1042,7 +1043,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
                 and r['primaryTheme'] not in hidden)
 
     rows = sorted((r for r in picks if keep(r, top_sectors)), key=lambda r: -r['nextScore'])[:20]
-    tv_export.register_lead(m.key, [r['ticker'] for r in rows])     # 화면 표 그대로(토글 반영, 상위 20)
+    tv_export.register_lead(m.key, [r['ticker'] for r in rows], res['asof'])  # 화면 표 그대로(토글 반영, 상위 20), 제목에 기준일
     prev_rank, rebound_now = _prev_ranks(m, res, peak, jjin, keep)
     # NEW — 찐반등 기간에만: 어제 상위 20에 없던 종목
     prev_top = ({t for t, k in prev_rank.items() if k <= 20} if prev_rank is not None and rebound_now else None)
@@ -1460,6 +1461,15 @@ def _rs_range(m: Market, asof: str) -> tuple[str, str]:
     return (str(peak) if peak else '', str(jjin) if jjin else '')
 
 
+def _pin_key(market_key: str) -> str:
+    return f'{market_key}_asof_pin'
+
+
+def _pin_asof(market_key: str, latest: str):
+    """기준일 상자를 사용자가 바꿨을 때만 불린다(on_change) — 고른 날을 기억하고, 최신일을 고르면 '최신 따라가기'."""
+    st.session_state[_pin_key(market_key)] = sv.pin_asof(st.session_state[f'{market_key}_asof'], latest)
+
+
 def render_sector_leadership_tab(market_key: str = 'US'):
     m = MARKETS[market_key]
     # TradingView 내보내기 섹션을 먼저 비운다 — 아래 어느 조기 return에서도 직전 실행 목록이 남지 않게
@@ -1478,11 +1488,11 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         st.warning(f"⚠️ 종목 데이터가 {opts[0]}까지만 있습니다 ({m.phase_index} 지수는 {idx_last}까지). "
                    "사이드바 '🔄 데이터 재수집'을 누르면 최신 날짜로 계산됩니다.")
     # 기준일 선택 상자는 '지수 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
-    # 위젯 값은 실행 시작 시 session_state에 이미 있으므로 거기서 읽는다.
+    # 사용자가 상자에서 직접 고른 과거 날짜(on_change로 기억)만 유지하고, 나머지는 매 실행 최신일을 쓴다 —
+    # 세션에 남은 값을 그대로 쓰면 새 배치가 들어와도 이 탭과 TV 내보내기만 전날 기준에 남는다(#42 M10).
     key_asof = f'{m.key}_asof'
-    if st.session_state.get(key_asof) not in opts:
-        st.session_state[key_asof] = opts[0]
-    asof = st.session_state[key_asof]
+    asof = sv.resolve_asof(opts, st.session_state.get(_pin_key(m.key)))
+    st.session_state[key_asof] = asof
     peak, jjin = _rs_range(m, asof)     # RS 구간 설정은 맨 위
     try:
         res = _compute(m.key, asof, _data_key(m), peak, jjin)
@@ -1496,7 +1506,8 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
         pick.selectbox('기준일', opts, key=key_asof, label_visibility='collapsed',
                        format_func=lambda d: f'기준일 {d}',
-                       help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
+                       on_change=_pin_asof, args=(m.key, opts[0]),
+                       help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다 (최신일을 고르면 새 배치를 따라갑니다)')
         with strip:
             _market_strip(m, res)
         if res['phase'] is not None:
