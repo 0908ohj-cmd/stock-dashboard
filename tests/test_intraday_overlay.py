@@ -61,3 +61,13 @@ def test_boundaries_use_same_clock_as_data():
     data_x = json.loads(fig.to_json())['data'][0]['x']
     first_bars = sorted({_wall(x) for x in data_x if _wall(x).endswith('09:30')})
     assert [_wall(x) for x in _boundaries(fig)] == first_bars
+
+
+def test_no_regular_hours_bars_is_not_reported_as_too_old():
+    """정규장 봉이 없어 비는 경우를 '60일 초과'로 적지 않는다 (#39 M14)."""
+    df = _bars(['2026-11-10'], '03:00', 'Asia/Seoul', 12)      # 장외 시간 봉만
+
+    fig = intraday_overlay_chart(df, df, '005930', 'KOSPI', '2026-11-10', market='KR_KOSPI')
+
+    title = fig.layout.title.text
+    assert '60일' not in title and '정규장' in title

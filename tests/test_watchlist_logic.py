@@ -135,3 +135,41 @@ def test_lead_gap_caption_counts_by_reason():
 
 def test_lead_gap_caption_none_without_gaps():
     assert wlg.lead_gap_caption({}, total=10) is None
+
+
+# ── 5분봉 빈 결과 사유 (#39 M14) ──────────────────────────
+# 5분봉이 비면 원인과 무관하게 '찐반등일이 60일 초과'라고 표시해, 레이트리밋·일시 실패로 빈 응답이 와도
+# 기간 문제로 오해하게 했다.
+from datetime import datetime  # noqa: E402
+
+import pandas as pd  # noqa: E402
+
+TODAY = datetime(2026, 11, 14, 10, 0)
+
+
+def test_intraday_reason_none_when_both_present():
+    assert wlg.intraday_empty_reason(pd.Timestamp('2026-11-05'), TODAY, False, False, 'NVDA', 'NASDAQ') is None
+
+
+def test_intraday_reason_too_old_only_beyond_yahoo_window():
+    """야후 5분봉은 최근 60일만 — fetcher와 같은 기준(59일 초과)일 때만 기간 사유."""
+    old = wlg.intraday_empty_reason(pd.Timestamp('2026-08-03'), TODAY, True, True, 'NVDA', 'NASDAQ')
+    assert '60일' in old and '2026-08-03' in old
+
+    edge = wlg.intraday_empty_reason(pd.Timestamp('2026-09-16'), TODAY, True, True, 'NVDA', 'NASDAQ')  # 59일 전
+    assert '60일' not in edge
+
+
+def test_intraday_reason_recent_empty_is_fetch_failure_not_age():
+    """최근 날짜인데 둘 다 비면 조회 실패(일시 제한 가능) — 기간 사유가 아니다."""
+    msg = wlg.intraday_empty_reason(pd.Timestamp('2026-11-05'), TODAY, True, True, 'NVDA', 'NASDAQ')
+
+    assert '60일' not in msg and '조회 실패' in msg
+
+
+def test_intraday_reason_names_the_empty_side():
+    stock = wlg.intraday_empty_reason(pd.Timestamp('2026-11-05'), TODAY, True, False, 'NVDA', 'NASDAQ')
+    index = wlg.intraday_empty_reason(pd.Timestamp('2026-11-05'), TODAY, False, True, 'NVDA', 'NASDAQ')
+
+    assert 'NVDA' in stock and '60일' not in stock
+    assert 'NASDAQ' in index and 'NVDA' not in index and '60일' not in index

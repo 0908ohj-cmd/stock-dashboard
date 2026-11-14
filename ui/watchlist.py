@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 import streamlit.components.v1 as components
@@ -23,6 +25,7 @@ from data import classification
 from ui.watchlist_logic import (
     chart_position, chart_step, nav_button_keys, space_nav_script,
     lead_gap_reasons, lead_gap_caption,
+    INTRADAY_CACHE_TTL, intraday_empty_reason,
 )
 
 # 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
@@ -67,6 +70,26 @@ def _get_market_status_cached(market: str, ts: str = '') -> dict:
         'jjin_date': None,  'jjin_pct': 0.0,
         'jjin_stars': 0,    'ftd_date': None,
     }
+
+
+@st.cache_data(ttl=INTRADAY_CACHE_TTL, show_spinner=False)
+def _stock_intraday_cached(ticker: str, jjin_date_str: str, market: str) -> pd.DataFrame:
+    """찐반등일 포함 5거래일 종목 5분봉 — (티커, 찐반등일) 키로 캐시 (#39 M14).
+    캐시가 없으면 rerun마다(어느 위젯을 만지든) 다시 받아 야후 세션 예산을 잠식했다.
+    예외는 빈 결과로 바꿔 같은 TTL 동안 다시 묻지 않는다 — 예외는 캐시되지 않아 rerun마다 재시도된다."""
+    try:
+        return fetch_intraday_for_date(ticker, pd.Timestamp(jjin_date_str), market=market, days=5)
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=INTRADAY_CACHE_TTL, show_spinner=False)
+def _index_intraday_cached(index_name: str, jjin_date_str: str) -> pd.DataFrame:
+    """찐반등일 포함 5거래일 지수 5분봉 — (지수, 찐반등일) 키로 캐시 (#39 M14)."""
+    try:
+        return fetch_index_intraday_for_date(index_name, pd.Timestamp(jjin_date_str), days=5)
+    except Exception:
+        return pd.DataFrame()
 
 
 def _ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, int]:
@@ -820,17 +843,20 @@ function(valueA, valueB) {
         selected_ticker = cur_ticker
         jjin_date = pd.Timestamp(jjin_date_str)
         with st.spinner('5분봉 로드 중...'):
-            stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
-            index_5m = fetch_index_intraday_for_date(index_name, jjin_date, days=5)
+            stock_5m = _stock_intraday_cached(selected_ticker, jjin_date_str, market)
+            index_5m = _index_intraday_cached(index_name, jjin_date_str)
 
-        if not stock_5m.empty and not index_5m.empty:
+        # 빈 결과는 원인별로 안내한다 — 예전엔 레이트리밋 빈 응답도 '찐반등일이 60일 초과'로 적었다
+        empty_reason = intraday_empty_reason(jjin_date, datetime.today(), stock_5m.empty, index_5m.empty,
+                                             selected_ticker, index_name)
+        if empty_reason is None:
             stock_name = get_stock_name(selected_ticker, market)
             st.plotly_chart(
                 intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date, market=market, stock_name=stock_name),
                 use_container_width=True,
             )
         else:
-            st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
+            st.info(empty_reason)
 
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):

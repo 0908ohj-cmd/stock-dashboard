@@ -86,7 +86,8 @@ def intraday_overlay_chart(
     index_5m = _filter_regular_hours(index_5m, market)
 
     if stock_5m.empty or index_5m.empty:
-        fig.update_layout(title='5분봉 데이터 없음 (60일 초과)', template='plotly_dark', height=350)
+        # 여기 오는 건 받은 봉에 정규장 시간대가 없을 때다 — '60일 초과'가 아니다 (#39 M14)
+        fig.update_layout(title='5분봉 데이터 없음 (정규장 시간대 봉 없음)', template='plotly_dark', height=350)
         return fig
 
     # UTC → 현지 시간으로 변환 (x축 시간 표시 정확하게)

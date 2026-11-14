@@ -7,6 +7,8 @@ from __future__ import annotations
 import json
 import re
 
+import pandas as pd
+
 
 # ── 차트 선택 (#44 M16) ───────────────────────────────────
 # 선택은 행 번호가 아니라 티커로 저장하고, 위치는 매번 지금 표에서 다시 찾는다.
@@ -130,3 +132,32 @@ def lead_gap_caption(reasons: dict[str, str], total: int) -> str | None:
     return (f'ℹ️ 주도주 점수·RS/ADR·200일선 빈칸 {len(reasons)}종목 ({total}종목 중) — {parts}. '
             '점수는 주도섹터 탭 계산 대상(분류 완료·데이터 정상 종목, 나스닥은 기술·혁신 210종목)에만 나오며, '
             '빈칸에는 사유를 표시합니다.')
+
+
+# ── 5분봉 (#39 M14) ───────────────────────────────────────
+# 5분봉 캐시 TTL — 지난 날짜 5분봉은 바뀌지 않지만 레이트리밋·일시 실패로 받은 빈 결과도 같은 TTL로
+# 캐시되므로 너무 길면 복구가 늦다. rerun마다 다시 받던 것(야후 세션 예산 잠식)을 막는 게 목적.
+INTRADAY_CACHE_TTL = 600
+# data/fetcher.fetch_intraday_for_date와 같은 기준 — 찐반등일이 이보다 오래면 다운로드 없이 빈 결과
+INTRADAY_MAX_AGE_DAYS = 59
+
+
+def intraday_empty_reason(jjin_date, today, stock_empty: bool, index_empty: bool,
+                          ticker: str, index_name: str) -> str | None:
+    """5분봉이 비었을 때 화면 안내 — 원인별로. 둘 다 있으면 None.
+
+    예전엔 원인과 무관하게 '찐반등일이 60일 초과'라고 적어, 일시 제한으로 빈 응답이 와도 기간 문제로 보였다.
+    """
+    if not stock_empty and not index_empty:
+        return None
+    jjin = pd.Timestamp(jjin_date)
+    age = (today - jjin.to_pydatetime()).days
+    if age > INTRADAY_MAX_AGE_DAYS:
+        return (f'5분봉 데이터 없음 — 찐반등일({jjin:%Y-%m-%d})이 {age}일 전이라 '
+                '야후 5분봉 제공 기간(최근 60일) 밖입니다.')
+    retry = f'{INTRADAY_CACHE_TTL // 60}분 뒤 다시 조회합니다'
+    if stock_empty and index_empty:
+        return f'5분봉 조회 실패 — 종목·지수 모두 빈 응답입니다 (야후 일시 제한일 수 있어요, {retry}).'
+    if stock_empty:
+        return f'{ticker} 5분봉 없음 — 야후가 빈 응답을 줬습니다 (거래정지·상장 전·일시 제한 등, {retry}).'
+    return f'{index_name} 지수 5분봉 없음 — 야후가 빈 응답을 줬습니다 (일시 제한일 수 있어요, {retry}).'
