@@ -1,3 +1,4 @@
+import re
 import threading
 import time
 from functools import lru_cache
@@ -180,10 +181,10 @@ def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFram
     end = datetime.today() + timedelta(days=1)   # yfinance end exclusive, KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
     if market.startswith('KR'):
-        suffix = '.KS' if 'KOSPI' in market else '.KQ'
+        suffix, other = ('.KS', '.KQ') if 'KOSPI' in market else ('.KQ', '.KS')
         df = _download(ticker + suffix, start, end)
-        if df.empty and 'KOSPI' in market:
-            df = _download(ticker + '.KQ', start, end)
+        if df.empty:   # 목록과 상장 시장이 다른 종목 — 반대 suffix로 1회 (#39 L7: 코스닥 목록의 229200)
+            df = _download(ticker + other, start, end)
         df = _patch_kr_today(df, ticker)
         return df.dropna(subset=['Close']) if 'Close' in df.columns else df
     return _download(ticker, start, end).dropna()
@@ -627,14 +628,33 @@ def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.D
     return df
 
 
+# 지수 심볼 — TradingView 와치리스트·스크리너에 지수가 섞여 들어온다(KRX:KOSDAQ, NASDAQ:IXIC).
+# 종목처럼 수집하면 매 배치 실패로 남고 앱이 재계산마다 다시 받는다 (#39 L7).
+# 실제 종목 티커와 겹치지 않는 것만 둔다 (예: COMP는 Compass Inc. 종목이라 넣지 않는다)
+_INDEX_SYMBOLS = frozenset({
+    'KOSPI', 'KOSDAQ', 'KOSPI200', 'KOSDAQ150', 'KRX100',
+    'IXIC', 'NDX', 'SPX', 'DJI', 'VIX', 'RUT',
+})
+# KRX 종목코드: 숫자로 시작하는 6자리 영숫자 (2024년부터 0091C0 같은 영문 혼합 코드가 있다)
+_KR_CODE = re.compile(r'\d[0-9A-Z]{5}')
+
+
+def is_index_symbol(ticker: str, market: str | None = None) -> bool:
+    """종목이 아닌 심볼인지 — 지수 이름·'^' 심볼, KR 시장이면 6자리 종목코드가 아닌 것."""
+    t = str(ticker).strip().upper()
+    if not t or t.startswith('^') or t in _INDEX_SYMBOLS:
+        return True
+    return bool(market and market.startswith('KR') and not _KR_CODE.fullmatch(t))
+
+
 def parse_tradingview_csv(uploaded_file) -> pd.DataFrame:
-    """TradingView 스크리너 CSV 파싱."""
+    """TradingView 스크리너 CSV 파싱. 지수 심볼 행은 뺀다."""
     df = pd.read_csv(uploaded_file)
     ticker_col = df.columns[0]
     df = df.rename(columns={ticker_col: 'Ticker'})
     # KRX:005930 → 005930
     df['Ticker'] = df['Ticker'].astype(str).str.split(':').str[-1]
-    return df
+    return df[~df['Ticker'].map(is_index_symbol)].reset_index(drop=True)
 
 
 def parse_ticker_txt(content: str) -> list:
@@ -643,7 +663,7 @@ def parse_ticker_txt(content: str) -> list:
     포맷: KRX:229200,KRX:KOSDAQ,###그룹명,KRX:200470,...
     - ###로 시작하는 그룹 라벨 제거
     - KRX: 접두사 제거
-    - 숫자로 시작하는 것만 유효 티커로 취급 (지수·이름 제외)
+    - 지수 심볼(KRX:KOSDAQ, NASDAQ:IXIC 등) 제외 (is_index_symbol)
     """
     tickers = []
     for part in content.replace('\n', ',').split(','):
@@ -651,6 +671,6 @@ def parse_ticker_txt(content: str) -> list:
         if not part or part.startswith('###'):
             continue
         ticker = part.split(':')[-1].strip()
-        if ticker:
+        if ticker and not is_index_symbol(ticker):
             tickers.append(ticker)
     return tickers

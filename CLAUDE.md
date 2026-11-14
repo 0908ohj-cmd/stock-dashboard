@@ -35,7 +35,7 @@ python3 -m pytest tests/ -k "jjin" -q                      # 테스트 이름 �
 
 ### 시세 수집 (`data/fetcher.py`) — KR 패치 체인이 핵심
 
-yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, O=H=L=C 불완전 행, Volume=0)가 잦아서 **pykrx → FinanceDataReader 순 fallback 패치**(`_patch_kr_*` 함수들)를 거친다. KR 티커는 6자리 코드에 `.KS`/`.KQ` suffix를 붙여 조회하고 KOSPI 실패 시 `.KQ` 재시도. 종목명은 번들 `data/kr_names.json` → FDR → pykrx 순. KR 시세 관련 수정 시 이 패치 체인을 우회하지 말 것.
+yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, O=H=L=C 불완전 행, Volume=0)가 잦아서 **pykrx → FinanceDataReader 순 fallback 패치**(`_patch_kr_*` 함수들)를 거친다. KR 티커는 6자리 코드에 `.KS`/`.KQ` suffix를 붙여 조회하고 실패하면 반대 suffix로 1회 재시도(코스닥 목록의 코스피 종목도). 지수 심볼(`KOSDAQ`·`IXIC` 등, `fetcher.is_index_symbol`)은 파싱·`snapshot_tickers`·`load_daily`에서 거른다. 종목명은 번들 `data/kr_names.json` → FDR → pykrx 순. KR 시세 관련 수정 시 이 패치 체인을 우회하지 말 것.
 
 ### 추세추종 전략 (코스피/코스닥/나스닥 탭 — `ui/watchlist.py`)
 

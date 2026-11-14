@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 from data._atomic import atomic_write_text
-from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily
+from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily, is_index_symbol
 
 OHLCV_DIR = pathlib.Path(__file__).parent / 'ohlcv'
 KST = timezone(timedelta(hours=9))
@@ -227,10 +227,13 @@ def _merge_ticker(market: str, key: str, df: pd.DataFrame) -> None:
 
 
 def load_daily(ticker: str, market: str) -> pd.DataFrame:
-    """스냅샷 히트 시 즉시 반환(네트워크 0), 미스 시 fetch_daily 폴백 + 로컬 병합."""
+    """스냅샷 히트 시 즉시 반환(네트워크 0), 미스 시 fetch_daily 폴백 + 로컬 병합.
+    지수 심볼(저장된 티커 파일에 섞인 IXIC·KOSDAQ 등)은 수집하지 않고 빈 프레임 (#39 L7)."""
     rec = load_snapshot(market).get('data', {}).get(ticker)
     if rec:
         return _records_to_df(rec)
+    if is_index_symbol(ticker, market):
+        return pd.DataFrame()
     df = fetch_daily(ticker, market=market, days=STOCK_DAYS)
     if not df.empty:
         _merge_ticker(market, ticker, df)
@@ -455,7 +458,8 @@ SNAPSHOT_TICKER_FILES = {
 
 
 def snapshot_tickers(market: str) -> list:
-    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀)."""
+    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀).
+    지수 심볼과 KR의 6자리 종목코드가 아닌 티커는 뺀다 — 파일에 섞여 있으면 매 배치 실패로 남는다 (#39 L7)."""
     seen, result = set(), []
     for filename in SNAPSHOT_TICKER_FILES.get(market, []):
         path = SAVED_DIR / filename
@@ -463,7 +467,7 @@ def snapshot_tickers(market: str) -> list:
             continue
         for t in path.read_text(encoding='utf-8').splitlines():
             t = t.strip()
-            if t and t not in seen:
+            if t and t not in seen and not is_index_symbol(t, market):
                 seen.add(t)
                 result.append(t)
     return result
