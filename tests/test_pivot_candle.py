@@ -159,11 +159,12 @@ def test_cluster_chains_through_consecutive_candidates():
     assert result['high'] < float(df['High'].iloc[92])     # 더 낮은 진입가
 
 
-def test_overextension_counted_after_cluster_ends_not_from_head():
-    """cluster_end 이후 첫 2일이 모두 고가 위 → 케이스1로 분류된다.
+def test_case_locked_from_pivot_date_not_cluster_end():
+    """케이스는 cluster_end가 아니라 선택된 기준봉의 D+1·D+2로 확정된다 (#43 M23).
 
-    클러스터 내부 봉은 고가 위 마감이 정상이라 케이스 판정에서 제외.
-    after_cluster Day1·Day2 가 모두 pivot_high 위 → is_case1=True → 셋업(케이스1).
+    D+1(b1×1.004)이 고가(b1×1.005) 아래 → 케이스2 확정. 이후 이틀 연속 고가 위
+    종가가 나왔으므로 돌파완료다. 예전엔 85 후보가 클러스터를 늘려 D+1/D+2를 85
+    뒤에서 다시 세는 바람에 '셋업(케이스1)'로 다시 무장됐다.
     """
     # 78 기준봉 → 6봉 위에서 횡보 → 85 기준봉 → 2봉 되돌림(78 고가 바로 위)
     b1 = BASE_TOP * 1.03
@@ -174,14 +175,10 @@ def test_overextension_counted_after_cluster_ends_not_from_head():
     pivot = find_pivot_candle(df, lookback=20)
     assert pivot is not None
     assert pivot['date'] == df.index[PIVOT_BASE_LEN]
-    assert pivot['cluster_end'] == df.index[PIVOT_BASE_LEN + 7]
+    assert pivot['cluster_end'] == df.index[PIVOT_BASE_LEN + 7]      # 연장 정보는 남는다
+    assert float(df['Close'].iloc[PIVOT_BASE_LEN + 1]) <= pivot['high']  # D+1 고가 아래
 
-    since_head    = df[df.index > pivot['date']]
-    after_cluster = df[df.index > pivot['cluster_end']]
-    assert int((since_head['Close'] > pivot['high']).sum()) > 5      # 첫 봉 기준이면 > 5
-    assert int((after_cluster['Close'] > pivot['high']).sum()) >= 1  # 클러스터 후에도 고가 위 이력 있음
-    # 현재가가 아직 고가 위 → 돌파완료 아닌 셋업(케이스1); 고가 아래 복귀했다면 돌파완료
-    assert classify_case(df, pivot) == '셋업(케이스1)'
+    assert classify_case(df, pivot) == '돌파완료'
 
 
 def test_broken_pivot_reports_downbreak_not_missing():
@@ -330,6 +327,56 @@ def test_10ema_break_without_new_pivot_stays_10ema_break():
 
     assert pivot['date'] == df.index[c1]
     assert classify_case(df, pivot) == '10EMA이탈'
+
+
+@pytest.mark.parametrize('end_offset, expected', [
+    (2, '셋업(케이스2)'),     # D+1 85.5 ≤ 고가 87 → 케이스2 즉시 확정
+    (4, '셋업(케이스2)'),
+    (5, '셋업(케이스2)'),     # c2 돌파 당일 — 고가 위 종가 하루뿐
+    (6, '돌파완료'),          # c2·다음 날 이틀 연속 고가 위
+    (7, '돌파완료'),
+    (9, '돌파완료'),
+])
+def test_confirmed_case2_breakout_reports_done_not_case1(end_offset, expected):
+    """확정된 케이스2가 거래량 동반 돌파 뒤 '셋업(케이스1)'로 다시 무장되지 않는다 (M23).
+
+    돌파봉 c2가 클러스터를 연장해 D+1/D+2를 c2 뒤에서 다시 세면, 이미 돌파한
+    종목이 10EMA 풀백 진입 후보(케이스1)로 올라온다. 케이스 확정과 돌파완료는
+    선택된 기준봉 날짜에서 센다.
+    """
+    df, c1, c2 = _two_pivot_df([85.5, 85.8, 86.2, 86.5], [92.5, 93.0, 93.5, 94.0])
+    d = df.iloc[:c1 + end_offset + 1]                 # 그날 장마감까지의 데이터로 판정
+
+    pivot = find_pivot_candle(d)
+
+    assert pivot['date'] == df.index[c1]
+    assert classify_case(d, pivot) == expected
+
+
+def test_confirmed_case1_not_flipped_to_case2_by_cluster_extension():
+    """D+1·D+2가 고가 위로 확정된 케이스1은 뒤 후보가 클러스터를 늘려도 케이스2로 바뀌지 않는다."""
+    df, c1, c2 = _two_pivot_df([88.0, 88.5, 88.8, 89.0], [86.8, 86.9])
+    ema10 = calc_ema(df, 10)
+    assert (df['Close'].iloc[c1 + 1:] > ema10.iloc[c1 + 1:]).all()      # 픽스처 전제: 이탈 없음
+    assert (df['Close'].iloc[c2 + 1:] <= C1_HIGH).all()                 # c2 뒤 첫 2일은 고가 아래
+
+    pivot = find_pivot_candle(df)
+
+    assert pivot['date'] == df.index[c1]
+    assert pivot['cluster_end'] == df.index[c2]       # 클러스터 연장 정보는 그대로 남긴다
+    assert classify_case(df, pivot) == '셋업(케이스1)'
+
+
+def test_case1_done_after_ten_closes_above_10ema():
+    """케이스1 돌파완료 = 기준봉 뒤 10EMA 위 종가 누적 10거래일 (9일까지는 셋업)."""
+    df, c1, c2 = _two_pivot_df([88.0 + 0.3 * i for i in range(9)], [92.5])
+    df.iloc[c2, df.columns.get_loc('Volume')] = 1e6               # c2 자리는 평범한 상승봉
+    assert c2 == c1 + 10
+
+    nine, ten = df.iloc[:c1 + 10], df.iloc[:c1 + 11]
+
+    assert classify_case(nine, find_pivot_candle(nine)) == '셋업(케이스1)'
+    assert classify_case(ten, find_pivot_candle(ten)) == '돌파완료'
 
 
 def test_no_pivot_when_no_resistance_breakout():

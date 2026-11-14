@@ -131,7 +131,8 @@ def _pivot_result(df: pd.DataFrame, cand: tuple, cluster_end_idx: int,
         'low':       low,
         'midline':   round((high + low) / 2, 4),
         'close':     close,
-        # 같은 흐름의 마지막 후보 — 과열(돌파완료) 판정을 여기서부터 센다
+        # 같은 흐름의 마지막 후보 — 클러스터가 어디까지 이어졌는지 보여주는 정보용.
+        # 케이스 확정·돌파완료는 기준봉 날짜(date)에서 센다 (#43 M23)
         'cluster_end': df.index[cluster_end_idx],
         # 저가가 이미 뚫린 기준봉. None으로 지우면 '없음'으로 표시돼 저가이탈이 가려진다
         'invalidated': invalidated,
@@ -223,14 +224,16 @@ def classify_case(
 ) -> str:
     """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈' | '돌파완료'
 
-    케이스1/2는 cluster_end 이후 첫 2거래일로 확정, 이후 전환 없음:
+    케이스1/2는 선택된 기준봉 이후 첫 2거래일(D+1·D+2)로 확정, 이후 전환 없음:
       Day1 > 고가 + Day2 > 고가 → 케이스1 (확정)
       Day1 > 고가 + Day2 ≤ 고가 → 케이스2 (확정)
       Day1 ≤ 고가            → 케이스2 (확정)
       Day1 > 고가, Day2 미도래  → 케이스1 (잠정)
+    같은 클러스터의 뒤 후보(cluster_end)는 케이스 확정·돌파완료에 쓰지 않는다 —
+    고가를 뚫은 돌파봉이 클러스터를 늘려 확정된 케이스를 뒤집기 때문이다 (#43 M23)
 
     돌파완료(케이스1): 기준봉 이후 10EMA 위 종가 누적 10일+
-    돌파완료(케이스2): after_cluster 내 이틀 연속 기준봉 고가 위 종가
+    돌파완료(케이스2): 기준봉 이후 이틀 연속 기준봉 고가 위 종가
     중간선이탈: 중간선 아래 연속 2거래일
     10EMA이탈: 10EMA 아래 연속 2거래일
     저가이탈: 기준봉 저가 하방 (무효화 포함)
@@ -259,18 +262,17 @@ def classify_case(
         if (below_ema & below_ema.shift(1)).any():
             return '10EMA이탈'
 
-    # 케이스1/2 확정: cluster_end 이후 첫 2거래일로 판정
-    after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
-
-    if after_cluster.empty:
+    # 케이스1/2 확정: 선택된 기준봉의 D+1·D+2로 판정한다. cluster_end에서 세면 고가를
+    # 뚫은 돌파봉이 클러스터를 늘려 확정된 케이스를 다시 뒤집는다 (#43 M23)
+    if since_pivot.empty:
         is_case1 = False
     else:
-        day1_above = float(after_cluster['Close'].iloc[0]) > pivot['high']
+        day1_above = float(since_pivot['Close'].iloc[0]) > pivot['high']
         if day1_above:
-            if len(after_cluster) == 1:
+            if len(since_pivot) == 1:
                 is_case1 = True  # Day2 미도래 — 케이스1 잠정
             else:
-                is_case1 = float(after_cluster['Close'].iloc[1]) > pivot['high']
+                is_case1 = float(since_pivot['Close'].iloc[1]) > pivot['high']
         else:
             is_case1 = False
 
@@ -282,10 +284,10 @@ def classify_case(
                 return '돌파완료'
         return '셋업(케이스1)'
 
-    # 케이스2 돌파완료: after_cluster 내 이틀 연속 기준봉 고가 위 종가
-    if not after_cluster.empty:
-        above_high = after_cluster['Close'] > pivot['high']
-        if (above_high & above_high.shift(1)).any():
+    # 케이스2 돌파완료: 기준봉 이후 이틀 연속 기준봉 고가 위 종가
+    if not since_pivot.empty:
+        above_high = since_pivot['Close'] > pivot['high']
+        if (above_high & above_high.shift(1, fill_value=False)).any():
             return '돌파완료'
     return '셋업(케이스2)'
 
