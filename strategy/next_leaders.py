@@ -24,13 +24,16 @@ from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_r
 #  - 거래량 우위(상승일/하락일 거래량 = 추세추종 탭 거래량비)도 역효과(≥120% 통과 −2.6%p vs 탈락 −0.3%p) → 제외
 #  - 52주 고점 근접(−20% 이내)이 가장 일관되게 효과 → 비중 확대
 #  - 진짜 반등에서는 반등 세기(찐반등 전날~기준일 RS/ADR)가 하락장 RS보다 예측력이 높았다 → 40점
-#  - 장기 추세(200일선 이격): 반등 세기 상위 종목 중 200일선 위에서 대박(+30%p)이 가장 많았고,
-#    200일선 아래 −15~−30% 이격 구간이 가장 약했다(2026-11-10 검증) → 위 10 · 아래 0~−15% 5 · 그 밑 0
+#  - 장기 추세(200일선 방향): 200일선이 20거래일 전보다 높으면(상승 중) 10, 아니면 0. 주가 위치(이격)는 안 본다.
+#    2026-11-14 5년 검증(찐반등 약 70회, 상위 20, 이후 60일 지수 대비): 200일선 위 종목끼리도 상승 중 +0.5%p vs
+#    하락 중 −6.1%p(이벤트 33/51, 3시장 같은 방향). 이격 단계 방식(위 10·0~−15% 5·그 밑 0) → 방향만 보기로 바꾸니
+#    상위 20 중 약 10% 교체, 이벤트 41/67 개선(빠진 종목 60일 평균 −3.0%p vs 들어온 종목 +6.9%p).
+#    책 추세 템플릿 8조건 중 나머지(150·200 정배열·52주 저점+30%·20일 범위·RS 90·RS 상승·과열)는 효과 없음/반대.
 WEIGHTS = {
     'correction': {'덜 빠짐': 35, '고점 근접': 35, '저점 선행': 20, '장기 추세': 10},
     'rebound': {'찐반등 후 회복': 35, '덜 빠짐': 20, '고점 근접': 25, '양봉 렐볼': 10, '장기 추세': 10},
 }
-TREND_NEAR_PCT = -15.0      # 200일선 아래라도 이 이격 안이면 장기 추세 점수 절반
+SMA200_SLOPE_DAYS = 20      # 200일선 방향 = 지금 200일선 vs 이 거래일 전 200일선
 
 
 def sma200_gap(df: pd.DataFrame) -> float | None:
@@ -42,11 +45,19 @@ def sma200_gap(df: pd.DataFrame) -> float | None:
     return 100 * (float(c.iloc[-1]) / s - 1) if s > 0 else None
 
 
-def trend_points(gap: float | None) -> float:
-    """장기 추세 점수 비율: 200일선 위 1.0 · 아래 0~−15% 이격 0.5 · 그 밑(또는 이력 부족) 0."""
-    if gap is None:
-        return 0.0
-    return 1.0 if gap >= 0 else 0.5 if gap >= TREND_NEAR_PCT else 0.0
+def sma200_rising(df: pd.DataFrame) -> bool | None:
+    """200일선이 SMA200_SLOPE_DAYS 거래일 전보다 높은가. 이력이 부족하면 None."""
+    c = df['Close']
+    if len(c) < 200 + SMA200_SLOPE_DAYS:
+        return None
+    now = float(c.iloc[-200:].mean())
+    before = float(c.iloc[-200 - SMA200_SLOPE_DAYS:-SMA200_SLOPE_DAYS].mean())
+    return now > before
+
+
+def trend_points(rising: bool | None) -> float:
+    """장기 추세 점수 비율: 200일선 상승 중 1.0 · 하락(또는 이력 부족) 0."""
+    return 1.0 if rising else 0.0
 MIN_SECTOR_N = 3
 STRONG_SCORE = 70
 LOOKBACK_HIGH = 63      # 지수 기산점 보완용 창 (약 3개월)
@@ -154,7 +165,8 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
         r['gap200'] = sma200_gap(df)
-        s = _since_ret(df, phase.get('jjinBase') or phase['jjinDate'])    # 찐반등 전날 종가부터
+        r['sma200Rising'] = sma200_rising(df)
+        s =_since_ret(df, phase.get('jjinBase') or phase['jjinDate'])    # 찐반등 전날 종가부터
         r['sinceJjinExcess'] = None if s is None or phase['indexSinceJjin'] is None else s - phase['indexSinceJjin']
         adr = _pre_adr(df, phase['correctionStart'])      # 기산점 쪽과 같은 ADR(조정 시작 전 20일)
         r['sinceJjinExcessAdr'] = (None if r['sinceJjinExcess'] is None or not adr
@@ -175,7 +187,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         held = g('sincePeakExcessAdr', t)
         val = {'덜 빠짐': held, '찐반등 후 회복': g('sinceJjinExcessAdr', t), '고점 근접': g('offHigh', t),
                '저점 선행': g('leadDays', t), '양봉 렐볼': float(r['hasBullishRvol15InLast5']),
-               '장기 추세': trend_points(r.get('gap200'))}
+               '장기 추세': trend_points(r.get('sma200Rising'))}
         parts = {k: v * val[k] for k, v in WEIGHTS[scoring].items()}
         r['nextParts'] = parts
         r['nextScore'] = float(sum(parts.values()))
@@ -220,7 +232,7 @@ def rank_sectors(pool: list, key: str = 'nextScore') -> tuple[list, list]:
 #   효과 없음 — 1주 RS/ADR, RS 가속(이번 주−지난주) → RS 가속 제외, 1주 RS/ADR은 순환매 정의라 20만 유지
 #   역효과   — 거래량 우위 → 제외 (차기 주도주·추세추종 탭과 동일)
 #   21EMA 위 — 거의 없음 + 10EMA와 중복 → 제외 (차기 주도주와 동일)
-#   장기 추세(200일선 이격) 10 — 차기 주도주와 같은 정의
+#   장기 추세(200일선 방향) 10 — 차기 주도주와 같은 정의
 ROT_WEIGHTS = {'고점 근접': 30, '10EMA 유지': 25, '1주 RS/ADR': 15, '양봉 렐볼': 20, '장기 추세': 10}
 ROT_WAS_WEAK = 50       # 2주 전 섹터 점수가 이보다 낮았고
 ROT_NOW = 60            # 지금 이 이상이면 🆕 새 순환매
@@ -275,7 +287,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
             'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
             'volRatio': vol_ratio, 'offHigh': 100 * (float(df['Close'].iloc[-1]) / hi - 1),
-            'gap200': sma200_gap(df),
+            'gap200': sma200_gap(df), 'sma200Rising': sma200_rising(df),
             'aboveEma10': r['aboveEma10'], 'aboveEma21': r['aboveEma21'],
             'ema10DaysOfLast5': r['ema10DaysOfLast5'],
             'hasBullishRvol15InLast5': r['hasBullishRvol15InLast5'],
@@ -288,7 +300,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         t = x['ticker']
         val = {'고점 근접': g('offHigh', t), '10EMA 유지': x['ema10DaysOfLast5'] / 5,
                '1주 RS/ADR': g('rotRs5', t), '양봉 렐볼': float(x['hasBullishRvol15InLast5']),
-               '장기 추세': trend_points(x['gap200'])}
+               '장기 추세': trend_points(x['sma200Rising'])}
         parts = {k: v * val[k] for k, v in ROT_WEIGHTS.items()}
         x['rotParts'], x['rotScore'] = parts, float(sum(parts.values()))
         pv = {'고점 근접': 1.0 if x['offHigh'] >= PP_NEAR_HIGH else 0.0,

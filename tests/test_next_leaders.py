@@ -188,13 +188,19 @@ def test_순환매_점수는_이번주_강한_종목이_높다():
     assert set(out['LAG']['rotParts']) == set(nl.ROT_WEIGHTS)
 
 
-def test_장기_추세는_200일선_이격으로_단계_점수():
-    assert nl.trend_points(5.0) == 1.0           # 200일선 위
-    assert nl.trend_points(0.0) == 1.0
-    assert nl.trend_points(-9.4) == 0.5          # FLY형: 바로 밑
-    assert nl.trend_points(-15.0) == 0.5
-    assert nl.trend_points(-24.8) == 0.0         # LASR형: 멀리 아래
-    assert nl.trend_points(None) == 0.0          # 이력 200일 미만
+def test_장기_추세는_200일선_방향으로_점수():
+    assert nl.trend_points(True) == 1.0          # 200일선 상승 중
+    assert nl.trend_points(False) == 0.0
+    assert nl.trend_points(None) == 0.0          # 이력 부족
+    up = _index(np.linspace(50, 150, 260))
+    assert nl.sma200_rising(up) is True
+    # 주가가 200일선 아래로 눌려도 200일선이 오르는 중이면 상승
+    dip = _index(list(np.linspace(50, 150, 250)) + [80.0] * 10)
+    assert nl.sma200_gap(dip) < 0 and nl.sma200_rising(dip) is True
+    # 주가가 200일선 위여도 200일선이 내려가는 중이면 하락
+    bounce = _index(list(np.linspace(150, 50, 250)) + [140.0] * 10)
+    assert nl.sma200_gap(bounce) > 0 and nl.sma200_rising(bounce) is False
+    assert nl.sma200_rising(_index(np.full(210, 100.0))) is None
     df = _index(list(np.full(199, 100.0)) + [110.0])
     assert nl.sma200_gap(df) == pytest.approx(100 * (110 / (199 * 100 + 110) * 200 - 1))
     assert nl.sma200_gap(_index(np.full(150, 100.0))) is None
