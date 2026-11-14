@@ -1,7 +1,7 @@
 """
-섹터(테마) 어댑터 — data.theme_classifier로 위임하고 WL 표시용 detail만 추출.
-(stockEdge watchlist/theme_classifier.py와 같은 역할. 구 자체 프롬프트·yfinance/pykrx
-폴백은 폐기 — 폴백 라벨이 캐시에 영구 고착되는 오염의 원인이었다.)
+섹터(테마) 어댑터 — 와치리스트 '테마'·'섹터' 컬럼 라벨. 새 분류(data/classification)를 먼저 쓰고,
+기록이 없는 종목만 구 캐시(theme_cache.json — data.theme_classifier)로 폴백한다.
+캐시만 읽는다 — 렌더 경로에서 LLM 분류를 돌리지 않는다(#45 M18). 신규 분류는 배치 몫.
 """
 import json
 import logging
@@ -14,8 +14,7 @@ _LOGGED: set = set()   # 같은 실패를 종목마다·렌더마다 반복해 �
 
 _NAMES_FILE = Path(__file__).parent / 'kr_names.json'
 
-# 이번 프로세스에서 분류를 시도한 티커 — 실패('기타')의 반복 재시도를 세션 내에서만 막고,
-# 재시작하면 다시 기회를 준다 (실패는 디스크에 저장되지 않으므로)
+# 렌더 경로 런타임 분류(#45 M18에서 제거)가 쓰던 세션 가드 — 지금은 쓰이지 않는다. 정리는 #46
 _SESSION_ATTEMPTED: set = set()
 
 
@@ -40,39 +39,14 @@ def _label(entry) -> str:
 
 
 def get_sectors(tickers: list, market: str) -> dict:
-    """{ticker: 표시 라벨(detail 우선, theme 폴백)}.
+    """{ticker: 표시 라벨} — 새 분류(detail 우선) → ticker_overrides → 구 캐시(detail, theme) → '기타'.
 
-    캐시 보유분은 TTL과 무관하게 사용(렌더 무블로킹 — 갱신은 scripts/refresh_sectors.sh 몫),
-    미보유분만 분류를 시도한다. claude CLI가 없는 환경(배포 서버)에서는 분류가 즉시
-    실패해 '기타'로 표시된다.
+    캐시만 읽는다. 예전엔 기록이 없는 종목마다 렌더 중에 claude CLI 분류(종목당 최대 90초 × 2)를
+    돌렸고, '기타' 묶음 resolve가 themes.json에 새 대분류를 자동 추가했다 — 신 체계의 "LLM은 새
+    테마를 만들지 못한다" 원칙과 어긋난다(#45 M18). 신규 종목 분류는 배치의
+    scripts/classify_themes.py만 맡는다.
     """
-    cache = theme_classifier._load_cache()
-    themes, overrides = _load_themes()
-    result = {}
-    to_classify = []
-
-    for ticker in tickers:
-        entry = cache.get(ticker)
-        verified = _verified_label(market, ticker)
-        if verified:
-            result[ticker] = verified
-        elif ticker in overrides:
-            result[ticker] = overrides[ticker]
-        elif isinstance(entry, dict) and (entry.get('detail') or entry.get('theme')):
-            result[ticker] = _label(entry)
-        elif ticker in _SESSION_ATTEMPTED:
-            result[ticker] = '기타'
-        else:
-            to_classify.append(ticker)
-
-    if to_classify:
-        _SESSION_ATTEMPTED.update(to_classify)
-        names = _kr_names(to_classify) if market.startswith('KR') else None
-        full = theme_classifier.classify(to_classify, themes, overrides=overrides, names=names)
-        for ticker in to_classify:
-            result[ticker] = _label(full.get(ticker))
-
-    return result
+    return get_sectors_cached_only(tickers, market)
 
 
 def _warn_once(market: str, ticker: str, e: Exception) -> None:

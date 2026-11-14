@@ -75,7 +75,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 근거 URL이 없거나 신뢰도 low면 `UNCLASSIFIED`로 두고 `suggestedTheme`만 남긴다. 미분류 종목은 섹터 집계에서 빠진다
 - `overrideByUser=True`(주도섹터 탭 > 분류 검토에서 확정)는 자동 분류가 덮어쓰지 않는다. 변경 이력은 `history`
 - US 배치(`run_batch_local.sh`)가 매 회차 `--scope missing`으로 신규 편입 종목만 분류한다. 테마 목록 version이 `-draft`로 끝나면 배치는 그 시장을 분류하지 않는다
-- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`)
+- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`). 렌더 경로에는 LLM 런타임 분류가 없다 — 캐시만 읽고 구 캐시에도 없으면 '기타'. 신규 종목 분류는 배치의 `classify_themes.py`만 맡는다(`data/theme_classifier.classify`는 렌더에서 호출 금지 — `themes.json`에 대분류를 자동 추가한다)
 
 ### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
 
