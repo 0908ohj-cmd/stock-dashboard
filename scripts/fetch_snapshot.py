@@ -31,6 +31,11 @@ MIN_SUCCESS_RATE = 0.7
 MARKET_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
 INDEX_GROUP = {'KR_KOSPI': 'kr', 'KR_KOSDAQ': 'kr', 'US': 'us'}   # store.refetch_indices 인자
 LAG_RETRY_WAITS_SEC = (300, 900)
+# 종목은 저장했지만 지수 수집이 실패했다 — run_batch_local.sh가 종목을 올린 뒤 실패로 끝내
+# job_wrapper 알림·/jobs 실패 기록·catchup 재시도로 이어지게 한다.
+# 기준은 '이번 배치에서 한 번도 못 받은 지수' — 첫 수집이 실패해도 run_market의 지수 재수집(#24)이
+# 성공하면 실패가 아니다.
+INDEX_FAILED_EXIT = 3
 
 
 def load_tickers(market: str) -> list:
@@ -53,10 +58,12 @@ def _index_last(market: str) -> str | None:
     return rec['dates'][-1] if rec and rec.get('dates') else None
 
 
-def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep) -> bool:
+def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
+               index_failed: set | None = None) -> bool:
     """수집 → 성공률 게이트 통과 시에만 전체 교체 저장. 통과 여부 반환.
     종목과 시장 지수의 마지막 날짜가 어긋나면 waits 간격으로 늦은 쪽을 다시 받는다
-    (종목이 늦으면 종목, 지수가 늦으면 지수). 그래도 어긋나면 경고 후 저장 — 폴백 게이트가 잡는다."""
+    (종목이 늦으면 종목, 지수가 늦으면 지수). 그래도 어긋나면 경고 후 저장 — 폴백 게이트가 잡는다.
+    index_failed: 아직 못 받은 지수 집합(main 소유). 지수 재수집에 성공한 지수는 여기서 뺀다."""
     tickers = load_tickers(market)
     if not tickers:
         print(f'[{market}] 티커 파일 없음 — 건너뜀')
@@ -75,7 +82,10 @@ def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep) -> bool
         else:
             print(f'[{market}] {idx_name} 마지막 날짜 {want} < 종목 {have} — {wait}초 뒤 지수 재수집')
             sleep(wait)
-            store.refetch_indices(INDEX_GROUP[market])
+            res = store.refetch_indices(INDEX_GROUP[market])
+            if index_failed is not None and res:
+                group = {MARKET_INDEX[m] for m in MARKET_GROUPS[INDEX_GROUP[market]]}
+                index_failed -= group - set(res.get('failed', []))
             want = _index_last(market)
     have = snap.get('last_trading_date')
     if want and have and have < want:
@@ -102,10 +112,23 @@ def main() -> int:
     args = ap.parse_args()
 
     # 지수를 먼저 받는다 — 종목과 지수 중 어느 쪽이 늦은지(소스 지연) 판정하는 기준이다
-    idx = store.refetch_indices(args.markets)
-    print(f'[indices] {args.markets} 지수 갱신' + (f" — 실패 {idx['failed']}" if idx['failed'] else ''))
-    results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
-    return 0 if all(results) else 1
+    idx = store.refetch_indices(args.markets) or {}
+    index_failed = set(idx.get('failed', []))
+    if index_failed:
+        # '지수 수집 실패: ' 문구는 최종 판정에만 쓴다 — run_batch_local.sh가 그 문구를 실패로 집는다
+        print(f"[indices] ⚠️ 첫 수집에서 못 받은 지수 {', '.join(sorted(index_failed))} — "
+              '기존 값 유지, 종목보다 늦으면 재수집')
+    else:
+        print(f'[indices] {args.markets} 지수 갱신')
+    results = [run_market(m, index_failed=index_failed)
+               for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
+    if not all(results):
+        return 1
+    if index_failed:
+        # run_batch_local.sh가 이 문구('지수 수집 실패: 이름')의 마지막 줄에서 실패 지수명을 가져간다
+        print(f"[indices] ⚠️ 지수 수집 실패: {', '.join(sorted(index_failed))} — 기존 값 유지")
+        return INDEX_FAILED_EXIT
+    return 0
 
 
 if __name__ == '__main__':

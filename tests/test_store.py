@@ -202,6 +202,33 @@ def test_refetch_indices_keeps_old_when_all_fail(tmp_store, monkeypatch):
     assert 'KOSPI' in saved['data']                               # 기존 데이터 보존
 
 
+
+def test_refetch_indices_records_failed_indices(tmp_store, monkeypatch):
+    """실패한 지수는 기존 값을 남기되 failed에 기록한다 — 2026-11-11·12 ^IXIC rate limit 때
+    NASDAQ이 하루 묵은 채 '갱신'으로 저장됐다."""
+    old_rec = store._df_to_records(_sample_df())
+    old = {'market': 'indices', 'fetched_at': '2026-07-01T16:00:00+09:00',
+           'data': {'NASDAQ': old_rec}}
+    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
+
+    def fake(name, **k):
+        if name == 'NASDAQ':
+            return pd.DataFrame()                 # rate limit → yfinance가 빈 프레임
+        raise RuntimeError('network')
+
+    monkeypatch.setattr(store, 'fetch_index_daily', fake)
+    snap = store.refetch_indices('all')
+
+    assert sorted(snap['failed']) == ['KOSDAQ', 'KOSPI', 'NASDAQ']
+    saved = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))
+    assert saved['data']['NASDAQ'] == old_rec                     # 기존 값 유지
+    assert sorted(saved['failed']) == ['KOSDAQ', 'KOSPI', 'NASDAQ']
+
+
+def test_refetch_indices_no_failure_when_all_succeed(tmp_store, monkeypatch):
+    monkeypatch.setattr(store, 'fetch_index_daily', lambda *a, **k: _sample_df())
+    assert store.refetch_indices('us')['failed'] == []
+
 # ── 일시 결손 병합 방어 (2026-08-12 KOSPI 3거래일 소실 사건) ─────
 # yfinance가 일시적으로 일부 거래일을 빠뜨린 응답을 주면, 통째 교체 저장이
 # 멀쩡하던 과거 데이터(찐반등봉 등)까지 소실시킨다 → 날짜 기준 병합으로 방어.
@@ -716,29 +743,8 @@ def test_freshness_indices_한_지수만_오래_멈춰도_stale(tmp_store):
     assert fr['is_stale'] is True
 
 
-@pytest.mark.parametrize('failure', ['exception', 'empty'])
-def test_refetch_indices_records_failed_index(tmp_store, monkeypatch, capsys, failure):
-    """수집 예외·빈 응답인 지수를 failed에 남기고 로그한다 — 조용히 넘기면 지연을 아무도 모른다."""
-    old_nasdaq = store._df_to_records(_df_from(['2026-11-09', '2026-11-10'], [100.0, 101.0]))
-    old = {'market': 'indices', 'data': {'NASDAQ': old_nasdaq}}
-    (tmp_store / 'indices.json').write_text(json.dumps(old), encoding='utf-8')
-
-    def fetch(name, days):
-        if failure == 'exception':
-            raise ConnectionError('timeout')
-        return pd.DataFrame()
-    monkeypatch.setattr(store, 'fetch_index_daily', fetch)
-
-    snap = store.refetch_indices('us')
-
-    saved = json.loads((tmp_store / 'indices.json').read_text(encoding='utf-8'))
-    assert snap['failed'] == ['NASDAQ'] and saved['failed'] == ['NASDAQ']
-    assert saved['data']['NASDAQ']['dates'] == ['2026-11-09', '2026-11-10']   # 기존 값 유지
-    assert 'NASDAQ' in capsys.readouterr().out
-
-
-def test_refetch_indices_failed_lists_only_failed_names(tmp_store, monkeypatch):
-    """세 지수 중 실패한 것만 failed에 — 성공한 지수나 이번에 안 받은 지수는 넣지 않는다."""
+def test_refetch_indices_failed_lists_only_failed_names(tmp_store, monkeypatch, capsys):
+    """세 지수 중 실패한 것만 failed에 남기고 로그한다 — 성공한 지수는 넣지 않는다."""
     def fetch(name, days):
         if name == 'KOSDAQ':
             raise ConnectionError('timeout')
@@ -746,4 +752,4 @@ def test_refetch_indices_failed_lists_only_failed_names(tmp_store, monkeypatch):
     monkeypatch.setattr(store, 'fetch_index_daily', fetch)
 
     assert store.refetch_indices('all')['failed'] == ['KOSDAQ']
-    assert store.refetch_indices('us')['failed'] == []
+    assert '[KOSDAQ] 지수 수집 실패' in capsys.readouterr().out

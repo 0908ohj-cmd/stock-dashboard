@@ -119,16 +119,20 @@ def behind_index(name: str, snap_text: str | None, idx_last: dict) -> str | None
 
 
 def index_behind(name: str, snap_text: str | None, idx_last: dict) -> str | None:
-    """같은 시장 지수의 마지막 날짜가 종목 스냅샷 마지막 거래일보다 늦으면 지수 날짜를, 아니면 None."""
-    idx = idx_last.get(SNAPSHOT_INDEX.get(name, ''))
-    have = _last_trading_date(snap_text)
-    return idx if idx and have and idx < have else None
+    """같은 시장 지수가 종목 스냅샷보다 늦으면 종목 날짜를, 아니면 None.
+
+    지수 수집이 실패하면 기존 값이 남아 종목보다 하루 늦어진다 — 2026-11-11·12 US 배치가
+    ^IXIC rate limit으로 NASDAQ을 하루 묵은 채 저장했다. 휴장일엔 둘 다 그날이 없다.
+    """
+    have = idx_last.get(SNAPSHOT_INDEX.get(name, ''))
+    stock = _last_trading_date(snap_text)
+    return stock if have and stock and have < stock else None
 
 
 def is_fresh(markets: str, now: datetime | None = None,
              ohlcv_dir: pathlib.Path | None = None, ref: str | None = None) -> bool:
-    """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐고, 종목 마지막 거래일이
-    같은 시장 지수와 같으면 True.
+    """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐고, 종목 마지막 거래일과
+    같은 시장 지수의 마지막 날짜가 서로 어긋나지 않으면 True.
 
     하나라도 읽을 수 없거나 회차 전 것이거나 시계 오류로 미래거나 종목·지수 중 한쪽이
     하루 이상 늦으면 False — 폴백이 도는 쪽으로 기운다. 판정 불능을 '신선'으로 보면 로컬이 죽었을 때

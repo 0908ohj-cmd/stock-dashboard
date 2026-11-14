@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-12T08:14:22+09:00",
+ "updatedAt": "2026-11-14T09:09:53+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -982,6 +982,29 @@
    "overrideReason": "",
    "history": []
   },
+  "AXSM": {
+   "companyName": "Axsome Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "CNS 신약·정신신경계 바이오",
+   "businessSummary": "중추신경계(CNS) 질환 치료제를 개발·판매하는 바이오제약사다. 상업 제품은 우울증 치료제 AUVELITY, 기면증·주간졸림증 치료제 SUNOSI, 편두통 치료제 SYMBRAVO이며, 주로 미국에서 판매한다.",
+   "confidence": "high",
+   "why": "매출 대부분이 CNS 의약품(AUVELITY, SUNOSI, SYMBRAVO)에서 나오며, 2025년 3개 제품 합산 매출이 6.385억 달러로 전년 대비 66% 증가했다. 파이프라인도 AD 초조, 기면증, 섬유근육통, 뇌전증 등 CNS 적응증 중심이다. 기술 플랫폼이나 AI 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://www.barchart.com/story/news/360188/axsome-therapeutics-reports-fourth-quarter-and-full-year-2025-financial-results-and-provides-business-update",
+    "https://stockanalysis.com/stocks/axsm/company",
+    "https://business.minstercommunitypost.com/minstercommunitypost/article/finterra-2026-2-23-axsome-therapeutics-axsm-a-cns-powerhouse-at-a-commercial-crossroad",
+    "https://www.globaldata.com/company-profile/axsome-therapeutics-inc/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:39+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "AXTI": {
    "companyName": "AXT, Inc. (NASDAQ: AXTI)",
    "primaryTheme": "SEMI_CHIPS_MEMORY",
@@ -1512,6 +1535,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:41:49+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "CDNL": {
+   "companyName": "Cardinal Infrastructure Group Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "인프라 시공·토목",
+   "businessSummary": "노스캐롤라이나 롤리 기반 토목·인프라 시공업체로, 상하수도·우수관, 부지조성, 포장, 토공 등 공공 및 일부 민간 인프라 공사를 미국 남동부(NC·SC)에서 수행한다. 2025년 매출 약 4.56억 달러 중 주력은 인프라 시공 서비스다.",
+   "confidence": "medium",
+   "why": "티커 CDNL은 현재 Cardinal Infrastructure Group(구 Civil Infrastructure Group)에 해당하며, 10-K 도입부와 요약 자료에서 중장비 인프라 시공이 사업 본체로 확인된다. 위 테마 중 맞는 사업이 없어 CONSUMER_OTHER로 두었다. 10-K 전문과 세그먼트별 매출 비중은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://cardinalinfrastructuregroup.gcs-web.com/static-files/051ddb79-e149-4227-b889-516be65ad2dc",
+    "https://kalkinemedia.com/us/companies/nasdaq-cdnl",
+    "https://pitchbook.com/profiles/company/363568-06"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-14T09:09:51+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2242,6 +2287,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:42:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "DKNG": {
+   "companyName": "DraftKings Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "온라인 스포츠베팅·카지노",
+   "businessSummary": "미국 온라인·모바일 스포츠베팅(Sportsbook)과 온라인 카지노(iGaming)를 운영하는 디지털 게이밍 회사. 2025년 매출 약 60.5억 달러 중 베팅·게이밍이 대부분이다.",
+   "confidence": "high",
+   "why": "10-K 사업 설명과 2025 실적 기준으로 매출 대부분이 스포츠베팅·iGaming(소비자 게이밍)에서 나온다. 고정 목록에 게이밍 전용 테마가 없어 소비·기타로 분류했고, 핀테크·기술 테마는 주력 사업이 아니라 제외했다.",
+   "evidenceUrls": [
+    "https://finviz.com/news/309805/draftkings-reports-fourth-quarter-revenue-growth-of-43",
+    "https://igamingfuture.com/draftkings-delivers-super-fy25-fiscals-predicts-new-year-boom/",
+    "https://stockanalysis.com/stocks/dkng/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:40+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5182,6 +5249,29 @@
    "overrideReason": "",
    "history": []
   },
+  "ORKA": {
+   "companyName": "Oruka Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "바이오 신약 개발",
+   "businessSummary": "미국 캘리포니아 Menlo Park 소재 임상 단계 바이오의약품 회사로, 건선 등 염증·면역 질환용 단클론항체를 개발한다. 주력은 IL-23p19 억제제 ORKA-001(건선 Phase 2b)이며, IL-17A/F 억제제 ORKA-002도 개발 중이다. 승인 제품과 매출은 없다.",
+   "confidence": "high",
+   "why": "매출이 없는 임상 단계 신약 개발사로 파이프라인(ORKA-001·ORKA-002)이 모두 건선 등 면역질환 치료제다. 공식 파이프라인 페이지와 IR 보도자료, 임상시험 등록 정보가 같은 내용을 확인해 준다.",
+   "evidenceUrls": [
+    "https://orukatx.com/our-pipeline/",
+    "https://ir.orukatx.com/news-releases/news-release-details/oruka-therapeutics-announces-positive-week-16-results-orka-001",
+    "https://clinicaltrials.gov/study/NCT07090330",
+    "https://stockanalysis.com/stocks/orka/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-13T08:13:45+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "OSCR": {
    "companyName": "Oscar Health, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -6598,6 +6688,28 @@
    "overrideReason": "",
    "history": []
   },
+  "SKHY": {
+   "companyName": "SK hynix Inc. (에스케이하이닉스)",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "HBM·메모리 반도체",
+   "businessSummary": "DRAM·NAND 등 메모리 반도체를 설계·생산하며, AI 가속기용 고대역폭 메모리(HBM)가 주력 제품이다. 2026년 7월 10일 나스닥에 ADR(SKHY)로 상장했다.",
+   "confidence": "medium",
+   "why": "메모리 반도체(HBM 포함)가 주력 사업이라는 점은 상장 관련 기사에서 'HBM 리더'로 소개되는 것으로 확인했다. 다만 매출 세그먼트 비중은 열어본 페이지에서 확인하지 못해 medium으로 둔다. AI 수요 연관성은 HBM 기반이라 AI_DC_HARDWARE 보조 태그도 가능하나, 서버·랙 공급사가 아니므로 보조 태그는 두지 않았다.",
+   "evidenceUrls": [
+    "https://www.moomoo.com/us/learn/sk-hynix-skhy-listing-memory-stocks-investment-strategy",
+    "https://curvedtrading.com/articles/en/investing/sk-hynix-skhy-adr-nasdaq/",
+    "https://www.koreajoongangdaily.com/business/sk-hynix-eyes-secondlargest-foreign-listing-in-us-history-with-245b-adr-offeringnbsp/12764927"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-14T09:09:50+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "SLS": {
    "companyName": "SELLAS Life Sciences Group, Inc.",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -6663,6 +6775,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:32:21+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "SMCIP": {
+   "companyName": "Super Micro Computer, Inc. (SMCIP: 7% Series A 의무전환우선주의 예탁주식, SMCI 보통주와 같은 회사)",
+   "primaryTheme": "AI_DC_HARDWARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "AI 서버·랙",
+   "businessSummary": "AI 서버, 랙, 데이터센터 하드웨어를 설계·제조해 공급하는 회사다. SMCIP는 이 회사가 발행한 7% Series A 의무전환우선주의 예탁주식(1/20 지분)이다.",
+   "confidence": "medium",
+   "why": "티커 SMCIP는 Super Micro Computer의 예탁주식이며 회사명 재사용은 없다. 주력이 AI 서버·랙 공급이라는 점은 검색 결과 요약과 기사 제목에서 확인했다. 다만 최근 사업보고서의 세그먼트 매출 비중은 열어보지 않아 확인하지 못했다. 보조 테마는 근거를 확인하지 못해 비워 두었다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/smcip/",
+    "https://www.tickertape.in/us-stocks/super-micro-computer-inc-depositary-shares-representing-a-120th-interest-in-a-share-of-7-series-a-mandatory-convertible-preferred-stock-SMCIP",
+    "https://moneycheck.com/super-micro-computer-smci-stock-company-unveils-7b-capital-raise-to-meet-surging-ai-demand/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-14T09:09:53+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -6774,6 +6908,27 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:42:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "SOFI": {
+   "companyName": "SoFi Technologies, Inc.",
+   "primaryTheme": "DIGITAL_ASSETS_FINTECH",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "온라인 대출·디지털 금융",
+   "businessSummary": "미국 온라인 금융 플랫폼으로, 개인대출·학자금대출·주택대출을 직접 취급하는 Lending이 주력이다. 이 밖에 Galileo·Technisys 기반 뱅킹 기술 플랫폼(Technology Platform)과 온라인 증권·결제·디지털자산 거래 등 Financial Services 사업을 한다.",
+   "confidence": "high",
+   "why": "10-K 기준 세 부문 중 Lending이 가장 크다(2024년 기여이익 약 8.9억 달러, 주주서한). 온라인 대출과 증권·결제 핀테크는 DIGITAL_ASSETS_FINTECH에 해당한다. Technology Platform(뱅킹 SaaS)은 핀테크 인프라라 별도 테마로 두지 않았다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1818874/000181887425000016/sofi-20241231.htm",
+    "https://s27.q4cdn.com/749715820/files/doc_downloads/2025/7977abb3-84e1-441f-9b5e-82440403cad9.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-14T09:09:51+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []

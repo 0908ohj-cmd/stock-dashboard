@@ -435,10 +435,11 @@ def refetch_indices(markets: str = 'all') -> dict:
     # 기존 데이터 보존 — 업데이트 대상 외 지수(예: KR 배치 시 NASDAQ)는 덮어쓰지 않음
     existing   = load_snapshot('indices')
     merged     = dict(existing.get('data', {}))
-    # 실패한 지수는 기존 값을 유지하되 반드시 남긴다 — 조용히 넘기면 지수 하나가 하루 늦은 채
-    # 저장돼도 아무도 모른다(#24: 2026-11-11·11-12 NASDAQ이 US 종목보다 하루 늦었다)
-    failed     = []
 
+    # 실패한 지수는 기존 값을 남기되 failed에 기록한다 — 조용히 넘기면 낡은 지수가 '갱신'으로
+    # 보인다(2026-11-11·12 US 배치: ^IXIC rate limit → NASDAQ이 하루 묵은 채 저장, #24).
+    # fetch_snapshot이 이 값으로 지수 재수집 성공 여부와 종료 코드 3(지수 실패)을 정한다.
+    failed = []
     for name in to_update:
         try:
             df = fetch_index_daily(name, days=INDEX_DAYS)
@@ -447,7 +448,7 @@ def refetch_indices(markets: str = 'all') -> dict:
             failed.append(name)
             continue
         if df.empty:
-            print(f'[{name}] 지수 수집 응답 없음 — 기존 값 유지')
+            print(f'[{name}] 지수 수집 실패(빈 응답) — 기존 값 유지')
             failed.append(name)
             continue
         try:
