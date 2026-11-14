@@ -1,6 +1,9 @@
 """📢 업데이트 안내 팝업 — 사이트에 처음 들어올 때(세션당 1번) 띄운다.
 
-내용을 바꾸면 NOTICE_VERSION도 바꿀 것 — 같은 세션이라도 새 안내는 다시 뜬다.
+새 안내를 올리면 NOTICE_VERSION과 NOTICE_UNTIL을 **함께** 바꿀 것.
+- NOTICE_VERSION(게시일) — 바뀌면 같은 세션·'다시 보지 않기'를 누른 브라우저에도 새 안내가 다시 뜬다.
+- NOTICE_UNTIL(자동 팝업 마지막 날) — VERSION만 올리고 이걸 빠뜨리면 UNTIL이 게시일보다 앞이 되어
+  자동 팝업이 아예 안 뜬다. tests/test_notice.py가 UNTIL ≥ VERSION을 검사한다(#42 L12).
 사이드바 '📢 업데이트 안내' 버튼으로 언제든 다시 열 수 있다.
 """
 from datetime import date, datetime
@@ -9,7 +12,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 NOTICE_VERSION = '2026-11-12'
-NOTICE_UNTIL = date(2026, 11, 19)     # 이 날까지(포함)만 자동으로 띄운다 — 이후엔 사이드바 버튼으로만
+NOTICE_UNTIL = date(2026, 11, 19)     # 이 날까지(포함)만 자동으로 띄운다 — 이후엔 사이드바 버튼으로만. VERSION과 함께 바꿀 것
 
 NOTICE_MD = """
 **주도섹터 탭을 중심으로 변경 사항이 많습니다.**
@@ -68,7 +71,8 @@ def _hidden_by_cookie() -> bool:
 
 
 def show_once():
-    """게시 기간 안이고, '7일간 보지 않기'를 안 눌렀고, 세션에서 이 버전 안내를 아직 안 봤으면 띄운다."""
+    """게시 기간(NOTICE_UNTIL까지) 안이고, 이 버전에 '다시 보지 않기'(쿠키, 게시 종료일까지)를 안 눌렀고,
+    세션에서 이 버전 안내를 아직 안 봤으면 띄운다."""
     if st.session_state.pop('notice_set_cookie', False):
         _write_cookie()
     if datetime.now(ZoneInfo('Asia/Seoul')).date() > NOTICE_UNTIL or _hidden_by_cookie():
