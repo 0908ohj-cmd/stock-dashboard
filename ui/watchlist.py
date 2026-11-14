@@ -18,7 +18,12 @@ from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
 from ui import tv_export
 from ui.sector_leadership import lead_scores
-from ui.watchlist_logic import chart_position, chart_step, nav_button_keys, space_nav_script
+from ui import sector_leadership
+from data import classification
+from ui.watchlist_logic import (
+    chart_position, chart_step, nav_button_keys, space_nav_script,
+    lead_gap_reasons, lead_gap_caption,
+)
 
 # 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
 SHOW_CANDIDATES = False
@@ -225,6 +230,36 @@ def _build_rows(
             (r['고점대비%'] or 0),
         ))
     return rows
+
+
+def _lead_universe(market: str) -> set | None:
+    """주도주 점수(lead_scores) 계산 유니버스 — 주도섹터 탭과 같은 목록. 못 읽으면 None('대상 밖' 판정 생략)."""
+    try:
+        return {t for t, _ in sector_leadership._universe(sector_leadership.MARKETS[market])}
+    except Exception:
+        return None
+
+
+# 주도주 점수·RS/ADR·200일선(모두 lead_scores 값) 칸이 비면 숨은 열의 사유를 회색으로 보여 준다 (#44 M20).
+# 정렬·필터는 원래 값 그대로(빈 값).
+_GAP_FMT = JsCode("""
+function(p) {
+    var v = p.value;
+    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) {
+        return (p.data && p.data['점수 제외 사유']) || '';
+    }
+    return String(v);
+}
+""")
+_GAP_STYLE = JsCode("""
+function(p) {
+    var v = p.value;
+    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) {
+        return {color: 'gray', fontStyle: 'italic'};
+    }
+    return null;
+}
+""")
 
 
 def _status_banner(status: dict, label: str, phase_label: str = 'Normal'):
@@ -581,6 +616,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
         r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
         r['200일선'] = None if s is None else s.get('sma200')
+    # 점수 대상 밖 종목은 빈칸 대신 사유를 보여 준다 (#44 M20). 값은 채우지 않는다 — _build_rows의 RS/ADR은
+    # 구간 정의(get_market_status 기준)가 달라 같은 열에 섞으면 '주도섹터 탭과 같은 값'이 깨진다.
+    _tickers_now = [r['Ticker'] for r in rows]
+    gap = lead_gap_reasons(_tickers_now, set(lead), _lead_universe(market),
+                           classification.primary_map(market, _tickers_now))
+    for r in rows:
+        r['점수제외'] = gap.get(r['Ticker'], '')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
     scored = sorted((r for r in rows if r['주도주점수'] is not None), key=lambda r: -r['주도주점수'])
     for i, r in enumerate(scored, 1):
@@ -594,6 +636,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
         st.caption(f"📅 하락국면 RS 기준기간: {start_str} ~ {end_str}")
+    _gap_caption = lead_gap_caption(gap, total=len(rows))
+    if _gap_caption:
+        st.caption(_gap_caption)
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
@@ -615,6 +660,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '저점선행(일)':  r['저점선행'],
         '양봉비%':       r['양봉비%'],
         '고점대비%':     r['고점대비%'],
+        '점수 제외 사유': r['점수제외'],      # 숨은 열 — 아래 빈칸 사유 포맷터가 읽는다
     } for r in rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
@@ -661,23 +707,30 @@ function(valueA, valueB) {
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('주도주 점수', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
-                        headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래')
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
+                        headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래. '
+                                      '계산 대상 밖이면 사유(대상 밖·미분류·데이터 부족)를 표시')
     gb.configure_column('주도주 순위', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='이 탭 종목끼리 매긴 주도주 점수 순위')
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
     gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
     gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('하락국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
     gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
     gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,     # 이 값도 lead_scores에서 온다 (#44 M20)
                         headerTooltip='200일선 방향(20거래일 전 대비) — 상승이면 주도주 점수 장기 추세 10점. 괄호는 이격')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
+    gb.configure_column('점수 제외 사유', hide=True)
     gb.configure_selection('single', use_checkbox=False)
     # 숨은 탭에서 처음 그려지면 폭이 0이라 fit이 안 먹고 오른쪽이 빈다 — 크기가 잡힐 때마다 다시 맞춘다
     _fit = JsCode("function(p){ p.api.sizeColumnsToFit(); }")

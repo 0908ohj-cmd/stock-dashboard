@@ -82,3 +82,51 @@ def space_nav_script(market: str) -> str:
 }})();
 </script>
 """
+
+
+# ── 주도주 점수 빈칸 사유 (#44 M20) ───────────────────────
+# 주도주 점수·하락/상승국면 RS/ADR은 lead_scores(주도섹터 탭 _compute) 결과만 쓴다 — 세 화면 일관성.
+# 계산 대상은 주도섹터 유니버스(US 210종목, KR 와치리스트+10EMA) 안의 분류 완료·데이터 정상(FULL) 종목뿐이라
+# 그 밖 종목은 빈칸이다. 다른 계산(_build_rows의 RS/ADR)으로 채우면 같은 열에 정의가 다른 값이 섞이므로
+# 값은 비워 두고 사유만 보여 준다.
+GAP_OUTSIDE = '대상 밖'          # 주도섹터 유니버스 밖 (US는 기술·혁신 210종목 밖)
+GAP_UNCLASSIFIED = '미분류'      # 테마 분류 기록 없음 또는 UNCLASSIFIED — 섹터 집계·점수에서 빠진다
+GAP_DATA = '데이터 부족'          # 대상·분류는 됐지만 점수 없음 (기준일 종가 없음·이력 부족·이상 데이터 등)
+GAP_NO_CALC = '산출 불가'         # 주도섹터 계산이 점수를 하나도 내지 못함
+_GAP_ORDER = (GAP_OUTSIDE, GAP_UNCLASSIFIED, GAP_DATA, GAP_NO_CALC)
+_UNCLASSIFIED = 'UNCLASSIFIED'   # data.classification.UNCLASSIFIED와 같은 값
+
+
+def lead_gap_reasons(tickers: list[str], scored: set, universe: set | None,
+                     theme_of: dict) -> dict[str, str]:
+    """{티커: 빈칸 사유} — 점수가 있는 종목은 빠진다.
+
+    scored: lead_scores 결과의 티커. universe: 주도섹터 계산 유니버스(못 읽었으면 None — '대상 밖'으로
+    단정하지 않는다). theme_of: {티커: 주력 테마 코드}(classification.primary_map).
+    """
+    out = {}
+    for t in tickers:
+        if t in scored:
+            continue
+        if universe is not None and t not in universe:
+            out[t] = GAP_OUTSIDE
+        elif theme_of.get(t) in (None, _UNCLASSIFIED):
+            out[t] = GAP_UNCLASSIFIED
+        elif not scored:
+            out[t] = GAP_NO_CALC
+        else:
+            out[t] = GAP_DATA
+    return out
+
+
+def lead_gap_caption(reasons: dict[str, str], total: int) -> str | None:
+    """표 위 캡션 — 빈칸 종목 수와 사유별 개수. 빈칸이 없으면 None."""
+    if not reasons:
+        return None
+    counts = {g: 0 for g in _GAP_ORDER}
+    for g in reasons.values():
+        counts[g] = counts.get(g, 0) + 1
+    parts = ' · '.join(f'{g} {n}' for g, n in counts.items() if n)
+    return (f'ℹ️ 주도주 점수·RS/ADR·200일선 빈칸 {len(reasons)}종목 ({total}종목 중) — {parts}. '
+            '점수는 주도섹터 탭 계산 대상(분류 완료·데이터 정상 종목, 나스닥은 기술·혁신 210종목)에만 나오며, '
+            '빈칸에는 사유를 표시합니다.')

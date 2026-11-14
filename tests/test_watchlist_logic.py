@@ -78,3 +78,60 @@ def test_space_nav_scripts_register_one_handler_per_market():
 
     assert '"KR_KOSPI"' in kospi and '"US"' not in kospi
     assert '"US"' in us
+
+
+# ── 주도주 점수 빈칸 사유 (#44 M20) ───────────────────────
+# 하락·상승국면 RS/ADR·주도주 점수는 lead_scores 대상(주도섹터 유니버스 안 · 분류 완료 · 데이터 정상)에만
+# 나온다. US 스크리너로 새로 올린 종목, 분류 전·미분류 종목은 아무 표시 없이 빈칸이 돼 표 아래로 밀렸다.
+
+def test_lead_gap_outside_universe():
+    """주도섹터 유니버스 밖(US 210종목 밖) 종목은 '대상 밖'."""
+    reasons = wlg.lead_gap_reasons(['NVDA', 'NEW1'], scored={'NVDA'}, universe={'NVDA'},
+                                   theme_of={'NVDA': 'AI_SEMI'})
+
+    assert reasons == {'NEW1': wlg.GAP_OUTSIDE}
+
+
+def test_lead_gap_unclassified():
+    """유니버스 안이지만 분류 기록이 없거나 UNCLASSIFIED면 '미분류'."""
+    reasons = wlg.lead_gap_reasons(['A', 'B', 'C'], scored={'A'}, universe={'A', 'B', 'C'},
+                                   theme_of={'A': 'X', 'B': 'UNCLASSIFIED'})
+
+    assert reasons == {'B': wlg.GAP_UNCLASSIFIED, 'C': wlg.GAP_UNCLASSIFIED}
+
+
+def test_lead_gap_classified_member_without_score_is_data_shortage():
+    """유니버스 안·분류 완료인데 점수가 없으면 데이터 문제(기준일 종가 없음·이력 부족 등)."""
+    reasons = wlg.lead_gap_reasons(['A', 'B'], scored={'A'}, universe={'A', 'B'},
+                                   theme_of={'A': 'X', 'B': 'Y'})
+
+    assert reasons == {'B': wlg.GAP_DATA}
+
+
+def test_lead_gap_when_nothing_scored_is_calc_failure():
+    """점수가 하나도 없으면(주도섹터 계산 불가) 분류 완료 종목도 '데이터 부족'이 아니라 '산출 불가'."""
+    reasons = wlg.lead_gap_reasons(['A', 'B'], scored=set(), universe={'A', 'B'},
+                                   theme_of={'A': 'X', 'B': 'UNCLASSIFIED'})
+
+    assert reasons == {'A': wlg.GAP_NO_CALC, 'B': wlg.GAP_UNCLASSIFIED}
+
+
+def test_lead_gap_without_universe_skips_membership_check():
+    """universe=None(유니버스를 못 읽음)이면 '대상 밖'으로 단정하지 않는다."""
+    reasons = wlg.lead_gap_reasons(['A'], scored={'Z'}, universe=None, theme_of={'A': 'X'})
+
+    assert reasons == {'A': wlg.GAP_DATA}
+
+
+def test_lead_gap_caption_counts_by_reason():
+    reasons = {'A': wlg.GAP_OUTSIDE, 'B': wlg.GAP_OUTSIDE, 'C': wlg.GAP_UNCLASSIFIED}
+
+    cap = wlg.lead_gap_caption(reasons, total=10)
+
+    assert '3종목' in cap and '10종목 중' in cap
+    assert f'{wlg.GAP_OUTSIDE} 2' in cap and f'{wlg.GAP_UNCLASSIFIED} 1' in cap
+    assert wlg.GAP_DATA not in cap                                  # 0건 사유는 늘어놓지 않는다
+
+
+def test_lead_gap_caption_none_without_gaps():
+    assert wlg.lead_gap_caption({}, total=10) is None
