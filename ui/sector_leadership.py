@@ -1377,7 +1377,12 @@ def _classification_editor(m: Market, labels: dict, names: dict):
                 res = cls_sync.commit_store_change(m.key, apply, token=_github_token(), repo=_GITHUB_REPO,
                                                    message=f'data: {t} 테마 수동 확정', http=requests)
                 cls.save_store(m.key, res.records if res.ok else local)
-                st.cache_data.clear()
+                # 분류를 쓰는 캐시만 비운다 — st.cache_data.clear()는 앱 전체·전 사용자 캐시(10EMA 3탭 수 분 스캔)를
+                # 날렸다(#42 M13). _compute(이 탭·lead_scores·hot_history)는 분류 mtime이 캐시 키(_data_key)에 있어
+                # 저절로 다시 계산되고, 키에 분류가 없는 추세추종 행(섹터·테마 열)만 비운다. 10EMA 스캔은 두므로
+                # 그 섹터·테마 열은 TTL(1시간)·다음 배치에 맞춰진다 (🔥 배지는 primary_map이라 바로 반영)
+                from ui import watchlist as wl      # watchlist가 이 모듈을 import하므로 함수 안에서 (순환 import 방지)
+                wl._build_rows.clear()
                 (st.success if res.ok else st.warning)(f'저장했습니다 — {res.message}')
 
 

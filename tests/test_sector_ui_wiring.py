@@ -108,3 +108,29 @@ def test_10ema_badge_looks_up_theme_by_classification():
     assert _calls(fn, 'primary_map'), '10EMA 탭이 cls.primary_map으로 종목 테마를 찾아야 한다'
     unpack = [a for a in ast.walk(fn) if isinstance(a, ast.Assign) and _calls(a.value, 'hot_history')]
     assert unpack and all(isinstance(a.targets[0], ast.Tuple) and len(a.targets[0].elts) == 2 for a in unpack)
+
+
+# ── M13: 분류 저장 뒤엔 분류를 쓰는 캐시만 비운다 ─────────────────────
+
+def _clear_targets(node) -> list[str]:
+    """`x.clear()`의 대상 — `st.cache_data.clear()`는 'cache_data'로 나온다."""
+    return [_name(c.func.value) for c in ast.walk(node)
+            if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute) and c.func.attr == 'clear']
+
+
+def test_classification_save_does_not_clear_every_cache():
+    """st.cache_data.clear()는 앱 전체·전 사용자 캐시(10EMA 3탭 수 분짜리 스캔 포함)를 날린다."""
+    fn = _function(SECTOR, '_classification_editor')
+    assert 'cache_data' not in _clear_targets(fn)
+
+
+def test_classification_save_refreshes_trend_rows():
+    """추세추종 행(_build_rows)의 섹터·테마 열은 분류를 읽지만 캐시 키에 분류가 없다 — 저장 뒤 비워야 바로 보인다."""
+    fn = _function(SECTOR, '_classification_editor')
+    assert '_build_rows' in _clear_targets(fn)
+
+
+def test_sector_compute_key_tracks_classification_file():
+    """_compute는 분류 파일 mtime이 캐시 키(_data_key)에 있어 저장만으로 다시 계산된다 — 전역 clear가 필요 없는 근거."""
+    fn = _function(SECTOR, '_data_key')
+    assert _calls(fn, '_store_path')
