@@ -545,13 +545,29 @@ def _load_kr_names_fdr() -> dict:
 
 
 _name_cache: dict = {}
+# 조회 실패 음성 캐시 {(ticker, market): 재시도 가능 시각(_clock)} — 렌더마다 실패 종목의 .info·pykrx를
+# 다시 두드리면 같은 프로세스의 야후 세션 예산(~245요청)을 깎는다 (#39 M14)
+_name_fail_until: dict = {}
+_NAME_FAIL_TTL_SEC = 3600
+
+
+def _classified_company_name(ticker: str, market: str) -> str | None:
+    """테마 분류 저장소(data/classification)의 companyName — 네트워크 없이 읽는다."""
+    try:
+        from data import classification
+        rec = classification.load_store(market).get(ticker) or {}
+        return (rec.get('companyName') or '').strip() or None
+    except Exception:
+        return None
 
 
 def get_stock_name(ticker: str, market: str = 'US') -> str:
-    """종목 이름 반환. 성공한 결과만 캐시 (실패 시 재시도)."""
+    """종목 이름 반환. 성공은 프로세스 동안, 실패는 _NAME_FAIL_TTL_SEC 동안 캐시한다."""
     key = (ticker, market)
     if key in _name_cache:
         return _name_cache[key]
+    if _clock() < _name_fail_until.get(key, float('-inf')):
+        return ticker
 
     name = None
 
@@ -570,15 +586,19 @@ def get_stock_name(ticker: str, market: str = 'US') -> str:
                 pass
 
     else:
-        # US: yfinance shortName / longName
-        try:
-            info = yf.Ticker(ticker).info
-            name = info.get('shortName') or info.get('longName') or info.get('name') or None
-        except Exception:
-            pass
+        # US: 1순위 분류 저장소 companyName, 2순위 yfinance shortName / longName
+        name = _classified_company_name(ticker, market)
+        if not name:
+            try:
+                info = yf.Ticker(ticker).info
+                name = info.get('shortName') or info.get('longName') or info.get('name') or None
+            except Exception:
+                pass
 
     if name:
         _name_cache[key] = name
+    else:
+        _name_fail_until[key] = _clock() + _NAME_FAIL_TTL_SEC
     return name or ticker
 
 

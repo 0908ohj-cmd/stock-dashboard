@@ -144,7 +144,7 @@ def _build_rows(
     # 승인된 분류가 없는 종목만 yfinance 산업분류로 섹터를 메운다.
     _tickers = list(stock_cache.keys())
     themes   = get_sectors(_tickers, market)
-    sectors  = get_display_sectors(_tickers, market, get_yf_sectors(_tickers, market))
+    sectors  = get_display_sectors(_tickers, market)   # 분류 기록 없는 종목만 yfinance 조회 (#39 M14)
     rows     = []
 
     for ticker, (df, adr_val) in stock_cache.items():

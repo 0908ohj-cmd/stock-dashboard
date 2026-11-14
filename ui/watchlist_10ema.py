@@ -141,7 +141,7 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
     # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
     tickers = [r['Ticker'] for r in rows]
     themes = get_sectors(tickers, market)
-    sectors = get_display_sectors(tickers, market, get_yf_sectors(tickers, market))
+    sectors = get_display_sectors(tickers, market)   # 분류 기록 없는 종목만 yfinance 조회 (#39 M14)
     for r in rows:
         t = r['Ticker']
         # 섹터 = 주력 테마(주도섹터 탭과 같은 기준). 승인된 분류가 없으면 yfinance로 메운다

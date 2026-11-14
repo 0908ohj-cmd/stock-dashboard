@@ -102,12 +102,19 @@ def _verified_major(market: str, ticker: str) -> str:
         return ''
 
 
-def get_display_sectors(tickers: list, market: str, yf_secs: dict) -> dict:
+def get_display_sectors(tickers: list, market: str, yf_secs: dict | None = None) -> dict:
     """와치리스트 '섹터' 컬럼 — 주도섹터 탭과 같은 기준(주력 테마)을 먼저 쓴다. 미분류 기록은 '미분류'.
-    분류 기록이 아예 없는 종목만 예전 방식(yfinance 산업분류 → 구 LLM 대분류)으로 채운다."""
-    from data.yf_sector import resolve_sector
-    old = get_major_themes(tickers, market)
-    return {t: _verified_major(market, t) or resolve_sector(yf_secs.get(t, ''), old.get(t, ''))
+    분류 기록이 아예 없는 종목만 예전 방식(yfinance 산업분류 → 구 LLM 대분류)으로 채운다.
+
+    yf_secs를 넘기지 않으면 분류 기록이 없는 종목만 get_yf_sectors로 조회한다 — 예전 호출부는
+    전 종목의 yfinance .info를 먼저 받고 승인 분류가 있는 종목 몫은 버렸다 (#39 M14)."""
+    from data import yf_sector
+    verified = {t: _verified_major(market, t) for t in tickers}
+    need = [t for t in tickers if not verified[t]]
+    if yf_secs is None:
+        yf_secs = yf_sector.get_yf_sectors(need, market) if need else {}
+    old = get_major_themes(need, market)
+    return {t: verified[t] or yf_sector.resolve_sector(yf_secs.get(t, ''), old.get(t, ''))
             for t in tickers}
 
 
