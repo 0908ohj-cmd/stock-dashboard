@@ -292,6 +292,22 @@ def classify_case(
     return '셋업(케이스2)'
 
 
+def setup_sort_key(state_rank: int, near_entry_pct: float | None,
+                   prior_move_pct: float | None) -> tuple:
+    """10EMA 표·배너 정렬 키 — 상태 순위 → 타점까지 거리 |현재→타점%| 오름차순 → 이전상승% 큰 순.
+
+    거리가 없으면(None) 같은 상태의 맨 뒤. `or`로 결측을 메우면 정확히 0.0%(타점 위)가
+    결측으로 취급돼 맨 아래로 간다 (#43 M25).
+    """
+    missing = near_entry_pct is None
+    return (
+        state_rank,
+        missing,
+        0.0 if missing else abs(near_entry_pct),
+        -(prior_move_pct if prior_move_pct is not None else 0.0),
+    )
+
+
 PP_MIN_ADR = 6.0
 PP_MIN_ROWS = 70
 

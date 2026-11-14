@@ -466,3 +466,35 @@ def test_10ema_slope_negative_on_downtrend():
     closes = [130 - i for i in range(30)]
     df = _make_df(closes)
     assert calc_10ema_slope(df) < 0
+
+
+# ── 10EMA 표·배너 정렬 키 (#43 M25) ──────────────────────────────────
+def test_sort_key_puts_closest_to_entry_first():
+    """같은 상태 안에서는 타점까지 거리 |현재→타점%|가 작을수록 위다 — 정확히 0.0%가 맨 위."""
+    from strategy.pivot_candle import setup_sort_key
+
+    pcts = [0.0, 0.8, 12.5, -0.5]
+
+    ordered = sorted(pcts, key=lambda p: setup_sort_key(0, p, 0.0))
+
+    assert ordered == [0.0, -0.5, 0.8, 12.5]
+
+
+def test_sort_key_state_rank_first_and_missing_distance_last():
+    from strategy.pivot_candle import setup_sort_key
+
+    rows = [(1, 0.1), (0, None), (0, 3.0), (0, 0.0)]
+
+    ordered = sorted(rows, key=lambda r: setup_sort_key(r[0], r[1], 0.0))
+
+    assert ordered == [(0, 0.0), (0, 3.0), (0, None), (1, 0.1)]
+
+
+def test_sort_key_tie_prefers_larger_prior_move():
+    from strategy.pivot_candle import setup_sort_key
+
+    rows = [(1.0, None), (1.0, 30.0), (1.0, 50.0)]
+
+    ordered = sorted(rows, key=lambda r: setup_sort_key(0, r[0], r[1]))
+
+    assert ordered == [(1.0, 50.0), (1.0, 30.0), (1.0, None)]
