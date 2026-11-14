@@ -90,6 +90,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 ### 배치 데이터 신선도
 
 - "배치가 돌았나"(회차 시각) + "종목 마지막 거래일과 같은 배치가 받은 시장 지수(KOSPI·KOSDAQ·NASDAQ)의 마지막 날짜가 같은가"를 함께 본다 — **양방향**, 어느 쪽이 늦어도 미달. 같은 거래소 달력이라 휴장일엔 둘 다 그날이 없어 오경보가 없다. 다른 시장 지수끼리는 비교하지 않는다(KR 배치 뒤엔 매일 KOSPI가 당일, NASDAQ이 전날)
+- 종목이 늦다(`behind_index`)는 **지수 마지막 날짜에 도달한 종목 비율 < 90%**(`store.MIN_REACHED_RATIO`, 게이트 `check_snapshot_fresh.MIN_REACHED_RATIO`와 같은 값)로 본다 — 종목 `last_trading_date`는 전 종목 최댓값이라 한 종목만 최신이어도 지연이 묻혔다(2026-10-24 US 252종목 중 53종목, #39 M1). 지수가 늦다(`index_behind`)는 그대로 최댓값 기준. 앱 판정은 배치 유니버스(`snapshot_tickers`) 종목만 센다. 지연·수집 실패 종목은 신선도 캡션 꼬리(`store.lag_note`)에 '지연 n종목'으로 보이고, 실패 종목의 옛 이력은 `FAILED_KEEP_TRADING_DAYS`(5)거래일까지만 보존한다
 - `scripts/fetch_snapshot.py`는 지수를 먼저 받고, 종목이 늦으면 종목을·지수가 늦으면 지수를 5분·15분 뒤 재수집. 그래도 어긋나면 `scripts/check_snapshot_fresh.py`가 fresh=false → GitHub 폴백이 다시 받는다. 앱은 `store.get_freshness`의 `behind_index`(종목 지연)·`index_behind`(지수 지연)로 재수집 안내, 지수 패널은 지수별 마지막 날짜(`index_last_dates`)와 지연 지수(`lagging_indices`)를 표시 — indices의 `last_trading_date`는 세 지수의 최댓값이라 판정에 쓰지 않는다. `refetch_indices`는 수집 실패·빈 응답 지수를 `failed`에 남기고 로그한다. 첫 수집에 실패한 지수를 지연 재수집으로도 끝내 못 받으면 `fetch_snapshot.py`가 종료 코드 3(종목은 저장) → `run_batch_local.sh`가 종목을 올리고 회차 판정(미달이면 폴백 즉시) 뒤 실패로 끝내 stockEdge job_wrapper 알림·catchup 재실행으로 이어진다. 재수집으로 받아내면 실패가 아니다
 - 2026-11-10 US 배치: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 받아 하루 낡은 채로 남았던 사례가 계기. 반대 방향은 2026-11-11·11-12 US(종목 11-10·11-11, NASDAQ 11-09·11-10 — 한 방향만 보던 판정 세 곳이 모두 놓쳤다, #24)
 - Cloud 앱의 배치 반영(`data/repo_sync.py`)은 `origin`이 아니라 공개 HTTPS 주소에서 fetch (Cloud의 origin은 인증 오류)
