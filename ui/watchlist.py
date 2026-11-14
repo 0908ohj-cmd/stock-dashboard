@@ -365,6 +365,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '|------|------|------|\n'
             '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
             '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
+            '| 200일선 | 200일선 방향(오늘 vs 20거래일 전) + (이격%) | **↗ 상승**이면 주도주 점수 장기 추세 10점 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
@@ -564,6 +565,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['주도주순위'] = None if s is None else s['rank']
         r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
         r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
+        r['200일선'] = None if s is None else s.get('sma200')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
     scored = sorted((r for r in rows if r['주도주점수'] is not None), key=lambda r: -r['주도주점수'])
     for i, r in enumerate(scored, 1):
@@ -593,6 +595,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '등락%':         r['등락%'],
         '하락국면 RS/ADR': r['하락RS'],
         '상승국면 RS/ADR': r['상승RS'],
+        '200일선':       r['200일선'],
         '이평선위치':    r['이평선위치'],
         '저점선행(일)':  r['저점선행'],
         '양봉비%':       r['양봉비%'],
@@ -654,6 +657,14 @@ function(valueA, valueB) {
                         headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
     gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
                         headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
+    _sma200_style = JsCode("""
+function(p) {
+    if (!p.value) return null;
+    return {color: p.value.charAt(0) === '↗' ? '#16a34a' : '#dc2626', fontWeight: 600};
+}
+""")
+    gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120, cellStyle=_sma200_style,
+                        headerTooltip='200일선 방향(20거래일 전 대비) — 상승이면 주도주 점수 장기 추세 10점. 괄호는 이격')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
@@ -845,6 +856,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
             '|------|------|------|\n'
             '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
             '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
+            '| 200일선 | 200일선 방향(오늘 vs 20거래일 전) + (이격%) | **↗ 상승**이면 주도주 점수 장기 추세 10점 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'

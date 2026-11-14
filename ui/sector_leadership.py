@@ -213,8 +213,16 @@ def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
     return {p['ticker']: {'score': p['nextScore'], 'rank': i, 'parts': p.get('nextParts', {}),
                           'asof': res['asof'], 'phaseLabel': label,
                           'downAdr': p.get('sincePeakExcessAdr'),
-                          'upAdr': p.get('sinceJjinExcessAdr') if has_jjin else None}
+                          'upAdr': p.get('sinceJjinExcessAdr') if has_jjin else None,
+                          'sma200': sma200_text(p.get('sma200Rising'), p.get('gap200'))}
             for i, p in enumerate(picks, 1)}
+
+
+def sma200_text(up, gap) -> str | None:
+    """표(AgGrid·dataframe)용 '200일선' 칸 — '↗ 상승 (+12.3%)' / '↘ 하락 (−5.0%)'. 방향이 장기 추세 점수, 괄호는 이격."""
+    if up is None:
+        return None
+    return ('↗ 상승' if up else '↘ 하락') + ('' if gap is None else f' ({gap:+.1f}%)')
 
 
 def _asof_options(m: Market) -> list:
@@ -1232,6 +1240,7 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
         r['점수'] = None if x.get('score') is None else round(x['score'], 1)
         r['하락RS'] = None if x.get('downAdr') is None else round(x['downAdr'], 2)
         r['상승RS'] = None if x.get('upAdr') is None else round(x['upAdr'], 2)
+        r['200일선'] = x.get('sma200')
     rows.sort(key=lambda r: (r['점수'] is None, -(r['점수'] or 0)))
     for i, r in enumerate([r for r in rows if r['점수'] is not None], 1):
         r['순위'] = i
@@ -1239,7 +1248,7 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '주도주 점수': r['점수'], '주도주 순위': r.get('순위'),
         '섹터': r['섹터'], '테마': r['테마'], '종가': r['Close'], '등락%': r['등락%'],
-        '하락국면 RS/ADR': r['하락RS'], '상승국면 RS/ADR': r['상승RS'],
+        '하락국면 RS/ADR': r['하락RS'], '상승국면 RS/ADR': r['상승RS'], '200일선': r['200일선'],
         '이평선위치': r['이평선위치'], '저점선행(일)': r['저점선행'], '양봉비%': r['양봉비%'], '고점대비%': r['고점대비%'],
     } for r in rows])
     st.caption(f"{labels[s['theme']]} {len(rows)}종목 — 추세추종 탭과 같은 열·같은 주도주 점수 (순위는 이 섹터 안). "
