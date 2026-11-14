@@ -984,9 +984,7 @@ def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str) 
     """테마별 켜고 끄는 토글 — 차기 주도주·순환매 종목 표 공통. 끈(숨길) 테마 코드 집합을 돌려준다.
     국장 바이오·제약·금융 + 메인 밖 테마(KR 지주·기타, US 바이오·헬스케어·금속·소재 등), 모두 기본 꺼짐.
     두 표가 같은 토글 목록을 보이도록 표에 그 테마 종목이 없어도 항상 보여준다 (present는 쓰지 않음)."""
-    side = list(_THEME_TOGGLES.get(m.key, ()))
-    side += [t['code'] for t in cls.load_taxonomy(m.key)['themes']
-             if not t['main'] and t['code'] != 'UNCLASSIFIED']
+    side = sv.theme_toggle_codes(_THEME_TOGGLES.get(m.key, ()), cls.load_taxonomy(m.key)['themes'])   # 중복 제거(#42 L10)
     return {code for code in side
             if not bar.toggle(labels.get(code, code), value=False, key=f'{key_prefix}_{code}', width='content',
                               help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}

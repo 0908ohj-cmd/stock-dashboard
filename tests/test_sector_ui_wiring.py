@@ -134,3 +134,10 @@ def test_sector_compute_key_tracks_classification_file():
     """_compute는 분류 파일 mtime이 캐시 키(_data_key)에 있어 저장만으로 다시 계산된다 — 전역 clear가 필요 없는 근거."""
     fn = _function(SECTOR, '_data_key')
     assert _calls(fn, '_store_path')
+
+
+# ── L10: 테마 토글 목록은 중복 없는 목록으로 ─────────────────────────
+
+def test_theme_toggles_use_deduplicated_codes():
+    fn = _function(SECTOR, '_theme_toggles')
+    assert _calls(fn, 'theme_toggle_codes'), '_theme_toggles가 중복을 걸러낸 theme_toggle_codes를 써야 한다'

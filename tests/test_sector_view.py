@@ -1,5 +1,5 @@
 """주도섹터 탭 화면 보조 로직 (strategy/sector_view.py) — Streamlit 없이 검증한다."""
-from strategy.sector_view import pin_asof, resolve_asof
+from strategy.sector_view import pin_asof, resolve_asof, theme_toggle_codes
 
 OPTS_YESTERDAY = ['2026-11-11', '2026-11-10', '2026-11-07']
 OPTS_TODAY = ['2026-11-12', '2026-11-11', '2026-11-10', '2026-11-07']
@@ -28,3 +28,20 @@ def test_picking_latest_means_follow_latest():
 def test_pinned_date_that_left_the_options_falls_back_to_latest():
     # 선택지(최근 60거래일) 밖으로 밀려난 날은 고를 수 없다 — 최신일로
     assert resolve_asof(OPTS_TODAY, '2026-08-01') == '2026-11-12'
+
+
+# ── 테마 토글 목록: 같은 코드가 두 번 나오면 DuplicateWidgetID로 탭 전체가 깨진다 (#42 L10) ──
+
+def _theme(code, main):
+    return {'code': code, 'label': code, 'main': main}
+
+
+def test_toggle_codes_list_each_theme_once_when_fixed_theme_turns_side():
+    # taxonomy에서 BIO_PHARMA가 메인 밖으로 바뀌면 고정 목록과 '메인 밖 테마' 양쪽에서 나온다
+    themes = [_theme('SEMI', True), _theme('BIO_PHARMA', False), _theme('HOLDING_ETC', False)]
+    assert theme_toggle_codes(('BIO_PHARMA', 'FINANCE'), themes) == ['BIO_PHARMA', 'FINANCE', 'HOLDING_ETC']
+
+
+def test_toggle_codes_skip_main_themes_and_unclassified():
+    themes = [_theme('SEMI', True), _theme('UNCLASSIFIED', False), _theme('METALS', False)]
+    assert theme_toggle_codes((), themes) == ['METALS']

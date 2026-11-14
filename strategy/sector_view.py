@@ -1,4 +1,4 @@
-"""주도섹터 탭 화면 보조 로직 — 기준일 선택.
+"""주도섹터 탭 화면 보조 로직 — 기준일 선택·테마 토글 목록.
 
 화면(ui/sector_leadership.py)이 쓰는 결정 규칙만 모았다. Streamlit 무의존이라 UI 없이 테스트한다.
 """
@@ -20,3 +20,13 @@ def resolve_asof(opts: list, pinned: str | None) -> str:
     선택지에 있으면 유지'하면 새 배치가 들어와도 옛 최신일이 선택지에 남아 있어 전날 기준에 고정된다(#42 M10).
     """
     return pinned if pinned in opts else opts[0]
+
+
+def theme_toggle_codes(fixed, themes: list) -> list:
+    """테마 토글로 보일 코드 — 고정 목록(fixed) + 메인 밖 테마(미분류 제외), 처음 나온 순서로 한 번씩.
+
+    같은 코드가 두 번 나오면 같은 key의 토글이 두 개 생겨 DuplicateWidgetID로 탭 전체가 깨진다.
+    taxonomy에서 고정 목록의 테마(예: 국장 바이오·제약)가 메인 밖으로 바뀌면 그렇게 된다(#42 L10).
+    """
+    side = list(fixed) + [t['code'] for t in themes if not t['main'] and t['code'] != 'UNCLASSIFIED']
+    return list(dict.fromkeys(side))
