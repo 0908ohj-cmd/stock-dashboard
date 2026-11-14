@@ -152,12 +152,23 @@ def _ts(d) -> pd.Timestamp | None:
     return None if d is None or d == '' else pd.Timestamp(d).normalize()
 
 
-def clean_manual_rs_range(peak, jjin) -> tuple[pd.Timestamp | None, pd.Timestamp | None, list]:
+def clean_manual_rs_range(peak, jjin, asof=None) -> tuple[pd.Timestamp | None, pd.Timestamp | None, list]:
     """'⚙️ RS 구간 설정' 입력 정리 → (기산점, 찐반등일, 경고 목록). 두 탭이 같은 값으로 점수를 부르게
     여기 한 곳에서 거른다. 날짜는 date·문자열·Timestamp 무엇이든 자정 Timestamp로 맞춘다.
+    - asof(기준일) 뒤의 찐반등일, asof와 같거나 뒤의 기산점(구간 없음) → 이 기준일 계산에서만 뺀다 (#42 L8).
+      위젯 값은 그대로라 기준일을 되돌리면 다시 적용된다
     - 둘 다 지정했는데 기산점 ≥ 찐반등일 → 기산점을 버린다 (next_leaders.detect_phase와 같은 '기산점부터' 규칙)"""
-    peak, jjin = _ts(peak), _ts(jjin)
+    peak, jjin, asof = _ts(peak), _ts(jjin), _ts(asof)
     warns = []
+    if asof is not None:
+        if jjin is not None and jjin > asof:
+            warns.append(f'찐반등일({jjin:%m/%d})이 기준일({asof:%m/%d})보다 뒤라 이 기준일 계산에서는 뺍니다 '
+                         '— 설정은 남아 있어 기준일을 그 뒤로 바꾸면 다시 적용됩니다.')
+            jjin = None
+        if peak is not None and peak >= asof:
+            warns.append(f'기산점({peak:%m/%d})이 기준일({asof:%m/%d})과 같거나 뒤라 RS 구간이 없어 이 기준일 계산에서는 '
+                         '뺍니다 — 설정은 남아 있어 기준일을 그 뒤로 바꾸면 다시 적용됩니다.')
+            peak = None
     if peak is not None and jjin is not None and not is_valid_rs_range(peak, jjin):
         warns.append(f'기산점({peak:%m/%d})이 찐반등일({jjin:%m/%d})보다 앞이어야 합니다 — 기산점 설정을 무시합니다.')
         peak = None

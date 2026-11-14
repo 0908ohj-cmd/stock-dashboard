@@ -327,3 +327,32 @@ def test_resolve_matches_detect_phase_range():
         custom, j, warn = resolve_rs_range(idf.index, peak, jjin, ap, aj)
         assert (custom if custom is not None else ap, j) == (ph['peakDate'], ph['jjinDate']), (peak, jjin)
         assert bool(warn) == bool(ph['warning']), (peak, jjin)
+
+
+# ── 기준일보다 뒤인 수동 날짜 (#42 L8) ─────────────────────────
+# 위젯 max_value는 최신일로 고정(기준일을 과거로 바꿔도 Streamlit이 값을 지우지 않게)하고,
+# 그 기준일에 쓸 수 없는 날짜는 계산 전에 무시하고 알린다. 값 자체는 남으므로 기준일을 되돌리면 다시 적용된다.
+
+def test_clean_manual_ignores_jjin_after_asof():
+    peak, jjin, warns = clean_manual_rs_range(date(2026, 10, 1), date(2026, 11, 10), asof='2026-11-05')
+    assert (peak, jjin) == (_T('2026-10-01'), None)
+    assert len(warns) == 1 and '11/10' in warns[0] and '기준일' in warns[0]
+
+
+@pytest.mark.parametrize('peak', [date(2026, 11, 5), date(2026, 11, 6)])     # 기준일 당일(빈 구간) · 뒤
+def test_clean_manual_ignores_peak_on_or_after_asof(peak):
+    p, jjin, warns = clean_manual_rs_range(peak, None, asof='2026-11-05')
+    assert (p, jjin) == (None, None)
+    assert len(warns) == 1 and '기준일' in warns[0]
+
+
+def test_clean_manual_keeps_dates_up_to_asof():
+    assert clean_manual_rs_range(date(2026, 10, 1), date(2026, 11, 5), asof='2026-11-05') == \
+        (_T('2026-10-01'), _T('2026-11-05'), [])
+
+
+def test_clean_manual_asof_check_runs_before_inversion_check():
+    """찐반등일이 기준일 뒤라 빠지면 기산점은 역전 검사 대상이 아니다 (기산점까지 잃지 않게)."""
+    peak, jjin, warns = clean_manual_rs_range(date(2026, 11, 3), date(2026, 11, 10), asof='2026-11-04')
+    assert (peak, jjin) == (_T('2026-11-03'), None)
+    assert len(warns) == 1

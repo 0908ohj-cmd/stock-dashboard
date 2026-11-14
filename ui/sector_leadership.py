@@ -203,6 +203,9 @@ def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
     opts = _asof_options(m)
     if not opts:
         return {}
+    # 주도섹터 탭과 같은 정리 — 최신 기준일(opts[0])보다 뒤인 수동 날짜는 뺀다(#42 L8). 같은 문자열 → 같은 캐시
+    p_, j_, _ = clean_manual_rs_range(peak or None, jjin or None, opts[0])
+    peak, jjin = rs_range.date_str(p_), rs_range.date_str(j_)
     try:
         res = _compute(m.key, opts[0], _data_key(m), peak, jjin)
     except ValueError:
@@ -1003,8 +1006,11 @@ def _prev_ranks(m: Market, res: dict, peak: str, jjin: str, keep) -> tuple[dict 
     prev_asof = opts[i + 1]
     rebound = (ph.get('jjinDate') is not None
                and pd.Timestamp(prev_asof) >= pd.Timestamp(ph.get('jjinBase') or ph['jjinDate']))
+    # 전일 화면과 같은 조건 — 수동 날짜도 전일 기준일로 다시 정리한다(#42 L8). 안 하면 오늘 찐반등일이
+    # 전일로 당겨져(detect_phase._snap) '어제가 찐반등'인 순위나, 기산점 = 전일인 빈 구간과 비교하게 된다
+    p_, j_, _ = clean_manual_rs_range(peak or None, jjin or None, prev_asof)
     try:
-        prev = _compute(m.key, prev_asof, _data_key(m), peak, jjin)
+        prev = _compute(m.key, prev_asof, _data_key(m), rs_range.date_str(p_), rs_range.date_str(j_))
     except ValueError:
         return None, rebound
     prev_top3 = {s['theme'] for s in prev['nextSectors'][:3]}
@@ -1443,10 +1449,15 @@ def _rs_range(m: Market, asof: str) -> tuple[str, str]:
     """추세추종 탭과 같은 '⚙️ RS 구간 설정' — 같은 공유 키(ui.rs_range)라 한쪽에서 지정하면 두 탭이 같은 값으로
     계산한다(#40 M5). 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
     auto = _auto_phase(m.phase_index, asof, _mtime(store._snapshot_path('indices'))) or {}
+    # 고를 수 있는 마지막 날 = 최신일(추세추종 탭과 같은 지수의 마지막 날)로 고정 — 기준일로 두면 과거 기준일을
+    # 고를 때 Streamlit이 범위 밖 값을 None으로 지워 설정이 사라졌다(#42 L8). 기준일보다 뒤인 날짜는
+    # clean_manual_rs_range가 이 기준일 계산에서만 빼고 알린다.
+    idx_dates = (store.load_snapshot('indices').get('data', {}).get(m.phase_index) or {}).get('dates') or [asof]
+    latest = pd.Timestamp(max(idx_dates[-1], asof)).date()
     raw_peak, raw_jjin = rs_range.rs_range_inputs(
         m.key, 'sector', auto.get('autoPeakDate'), auto.get('autoJjinDate'),
-        max_date=pd.Timestamp(asof).date(), note='기준일이 바뀌어도 설정은 유지됩니다.')
-    peak, jjin, warns = clean_manual_rs_range(raw_peak, raw_jjin)
+        max_date=latest, note='기준일이 바뀌어도 설정은 유지됩니다.')
+    peak, jjin, warns = clean_manual_rs_range(raw_peak, raw_jjin, asof)
     rs_range.show_warnings(warns)
     return rs_range.date_str(peak), rs_range.date_str(jjin)
 

@@ -489,9 +489,12 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     # RS 구간 설정 (기산점 + 찐반등일) — 주도섹터 탭과 같은 설정을 공유한다(ui.rs_range, #40 M5).
     # 수동 값은 두 탭 공용 규칙으로 정리해 주도주 점수(lead_scores)에 그대로 넘기고, 이 탭의 RS 구간
     # (저점선행·양봉비)은 주도섹터 탭 detect_phase와 같은 규칙(resolve_rs_range)으로 정한다.
+    # 고를 수 있는 마지막 날은 두 탭 모두 지수 최신일 — 같은 범위라야 다른 탭 값이 범위 밖으로 지워지지 않는다(#42 L8)
     auto_peak = status.get('peak_date')
-    raw_peak, raw_jjin = rs_range.rs_range_inputs(market, 'trend', auto_peak, jd)
-    manual_peak, manual_jjin, rs_warns = clean_manual_rs_range(raw_peak, raw_jjin)
+    latest = _idx.index[-1] if not _idx.empty else None
+    raw_peak, raw_jjin = rs_range.rs_range_inputs(market, 'trend', auto_peak, jd,
+                                                  max_date=latest.date() if latest is not None else None)
+    manual_peak, manual_jjin, rs_warns = clean_manual_rs_range(raw_peak, raw_jjin, latest)
     custom_peak, rs_jjin, rs_warn = (resolve_rs_range(_idx.index, manual_peak, manual_jjin, auto_peak, jd)
                                      if not _idx.empty else (None, jd, None))
     rs_range.show_warnings(rs_warns + [rs_warn])
