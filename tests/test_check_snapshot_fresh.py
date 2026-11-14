@@ -43,7 +43,6 @@ def test_us_stale_when_stocks_lag_index_same_batch(tmp_path):
     assert cs.is_fresh('us', now=now, ohlcv_dir=tmp_path) is True
 
 
-
 def test_us_stale_when_index_lags_stocks(tmp_path):
     """2026-11-12 사례: ^IXIC rate limit으로 NASDAQ이 11/10에 남고 종목은 11/11 → 지수를 다시 받아야 한다."""
     now = datetime(2026, 11, 12, 9, 0, tzinfo=KST)
@@ -60,6 +59,18 @@ def test_kr_stale_when_one_index_lags_its_stocks(tmp_path):
         _snap_dated(tmp_path, n, '2026-11-11T17:34:00+09:00', '2026-11-11')
     _indices(tmp_path, KOSPI='2026-11-11', KOSDAQ='2026-11-10')
     assert cs.is_fresh('kr', now=now, ohlcv_dir=tmp_path) is False
+
+
+def test_kr_evening_nasdaq_one_day_behind_kospi_is_fresh(tmp_path):
+    """KR 배치 뒤엔 KOSPI가 당일, NASDAQ·US 종목은 전날이다 — 시장마다 자기 지수와만 비교한다."""
+    now = datetime(2026, 11, 12, 18, 0, tzinfo=KST)
+    for n in ('KR_KOSPI.json', 'KR_KOSDAQ.json'):
+        _snap_dated(tmp_path, n, '2026-11-12T17:34:00+09:00', '2026-11-12')
+    _snap_dated(tmp_path, 'US.json', '2026-11-12T08:14:00+09:00', '2026-11-11')
+    _indices(tmp_path, KOSPI='2026-11-12', KOSDAQ='2026-11-12', NASDAQ='2026-11-11')
+    assert cs.is_fresh('all', now=now, ohlcv_dir=tmp_path) is True
+
+
 
 def test_holiday_is_not_flagged_when_index_also_lacks_the_day(tmp_path):
     now = datetime(2026, 11, 10, 18, 0, tzinfo=KST)
