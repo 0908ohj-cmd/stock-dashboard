@@ -69,3 +69,103 @@ def test_저장후_다시읽기와_신규종목_탐지():
 def test_KR_시장은_kr_테마목록을_쓴다():
     r = cls.normalize('KR_KOSDAQ', raw(primaryTheme='SHIPBUILDING', secondaryThemes=[]), 't')
     assert r['primaryTheme'] == 'SHIPBUILDING'
+
+
+# ── 저장소 병합 (#33 배치 push 충돌 재구성) ─────────────────────
+
+def _auto(primary, reviewed, **kw):
+    rec = cls.normalize('KR_KOSPI', {'primaryTheme': primary, 'confidence': 'high',
+                                     'evidenceUrls': ['https://dart.fss.or.kr/x']}, 'llm')
+    rec['reviewedAt'] = reviewed
+    rec.update(kw)
+    return rec
+
+
+def _user(primary, reviewed):
+    recs = {}
+    rec = cls.set_override('KR_KOSPI', 'X', primary, [], '직접 확인', recs)
+    rec['reviewedAt'] = reviewed
+    return rec
+
+
+def test_병합_원격_사용자확정이_로컬_자동분류보다_우선한다():
+    """배치가 도는 사이 앱이 확정한 OCI홀딩스가 배치 push로 사라지면 안 된다.
+
+    로컬(배치)의 자동 분류가 더 최근이어도 원격의 사용자 확정이 이긴다.
+    """
+    ours = {'010060': _auto('ENERGY_TRANSITION', '2026-11-12T17:40:00+09:00')}
+    theirs = {'010060': _user('HOLDING_OTHER', '2026-11-11T22:59:00+09:00')}
+
+    merged = cls.merge_stores(ours, theirs)
+
+    assert merged['010060']['primaryTheme'] == 'HOLDING_OTHER'
+    assert merged['010060']['overrideByUser'] is True
+
+
+def test_병합_한쪽에만_있는_종목은_보존한다():
+    ours = {'NEW': _auto('SHIPBUILDING', '2026-11-12T17:40:00+09:00')}
+    theirs = {'010060': _user('HOLDING_OTHER', '2026-11-11T22:59:00+09:00')}
+
+    merged = cls.merge_stores(ours, theirs)
+
+    assert set(merged) == {'NEW', '010060'}
+    assert merged['NEW']['primaryTheme'] == 'SHIPBUILDING'
+
+
+def test_병합_사용자확정이_없으면_reviewedAt이_최신인_쪽을_쓴다():
+    ours = {'A': _auto('SHIPBUILDING', '2026-11-12T17:40:00+09:00'),
+            'B': _auto('DEFENSE', '2026-11-01T10:00:00+09:00')}
+    theirs = {'A': _auto('DEFENSE', '2026-11-10T10:00:00+09:00'),
+              'B': _auto('NUCLEAR', '2026-11-05T10:00:00+09:00')}
+
+    merged = cls.merge_stores(ours, theirs)
+
+    assert merged['A']['primaryTheme'] == 'SHIPBUILDING'   # 로컬이 최신
+    assert merged['B']['primaryTheme'] == 'NUCLEAR'        # 원격이 최신
+
+
+def test_병합_로컬_사용자확정도_자동분류에_지지_않는다():
+    """자동 분류는 사용자 확정을 덮지 않는다(apply_auto 규칙) — 병합도 같은 규칙."""
+    ours = {'A': _user('DEFENSE', '2026-11-01T10:00:00+09:00')}
+    theirs = {'A': _auto('NUCLEAR', '2026-11-12T10:00:00+09:00')}
+
+    assert cls.merge_stores(ours, theirs)['A']['primaryTheme'] == 'DEFENSE'
+
+
+def test_병합은_입력을_바꾸지_않는다():
+    ours = {'A': _auto('SHIPBUILDING', '2026-11-12T17:40:00+09:00')}
+    theirs = {'B': _auto('DEFENSE', '2026-11-10T10:00:00+09:00')}
+    before = (dict(ours), dict(theirs))
+
+    cls.merge_stores(ours, theirs)
+
+    assert (ours, theirs) == before
+
+
+# ── 분류 검토 폼 기본값 (#37) ─────────────────────────────────
+
+def test_검토폼_기본값은_현재_주력테마():
+    rec = cls.normalize('US', raw(), 't')
+    assert cls.review_default(rec) == 'DEFENSE_DIRECTED_ENERGY'
+
+
+def test_검토폼_기본값은_미분류면_제안값():
+    rec = cls.normalize('US', raw(confidence='low'), 't')
+    assert cls.review_default(rec) == 'DEFENSE_DIRECTED_ENERGY'
+
+
+@pytest.mark.parametrize('rec', [
+    None,
+    {},
+    cls.normalize('US', raw(primaryTheme='MADE_UP'), 't'),   # 미분류 + 제안값 없음
+])
+def test_검토폼_기본값이_없으면_미분류로_채우지_않는다(rec):
+    """이유만 적고 저장하면 overrideByUser=True인 미분류 기록이 생겨 영구히 재분류되지 않던 문제.
+    고를 값이 없으면 빈 선택(None)으로 두어 사용자가 직접 고르게 한다."""
+    assert cls.review_default(rec) is None
+
+
+def test_검토폼_기본값은_사용자가_확정한_미분류면_그대로():
+    records = {}
+    rec = cls.set_override('US', 'AAOI', cls.UNCLASSIFIED, [], '재확인 필요', records)
+    assert cls.review_default(rec) == cls.UNCLASSIFIED

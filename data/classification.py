@@ -164,6 +164,38 @@ def set_override(market: str, ticker: str, primary: str, secondary: list,
     return records[ticker]
 
 
+def _reviewed(rec: dict) -> datetime:
+    """reviewedAt 시각. 없거나 깨졌으면 가장 오래된 값으로 본다."""
+    try:
+        dt = datetime.fromisoformat(rec.get('reviewedAt') or '')
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=KST)
+    return dt if dt.tzinfo else dt.replace(tzinfo=KST)
+
+
+def _pick(ours: dict, theirs: dict) -> dict:
+    if theirs.get('overrideByUser'):     # 원격의 사용자 확정이 최우선
+        return theirs
+    if ours.get('overrideByUser'):       # 자동 분류는 사용자 확정을 덮지 않는다 (apply_auto와 같은 규칙)
+        return ours
+    return ours if _reviewed(ours) > _reviewed(theirs) else theirs   # 같으면 원격 — 불필요한 변경을 만들지 않는다
+
+
+def merge_stores(ours: dict, theirs: dict) -> dict:
+    """두 분류 기록({ticker: record})을 종목 단위로 합친 새 dict.
+
+    배치 push가 원격과 엇갈렸을 때 파일을 통째로 고르면 그 사이 앱에서 확정한 분류가 사라진다(#33).
+    - 원격(theirs)의 사용자 확정이 우선, 그다음 로컬(ours)의 사용자 확정
+    - 그 밖에는 reviewedAt이 최신인 쪽 (같으면 원격)
+    - 한쪽에만 있는 종목은 그대로 남긴다
+    """
+    merged = {}
+    for ticker in sorted(set(ours) | set(theirs)):
+        o, r = ours.get(ticker), theirs.get(ticker)
+        merged[ticker] = r if o is None else o if r is None else _pick(o, r)
+    return merged
+
+
 def missing_tickers(market: str, tickers: list) -> list:
     """분류 기록이 아예 없는 종목 (신규 편입 자동 분류 대상)."""
     records = load_store(market)
@@ -176,11 +208,48 @@ def primary_map(market: str, tickers: list) -> dict:
     return {t: (records.get(t) or {}).get('primaryTheme', UNCLASSIFIED) for t in tickers}
 
 
+def review_default(rec: dict | None) -> str | None:
+    """분류 검토 폼의 주력 테마 기본값 — 현재 주력 테마, 미분류면 제안값.
+
+    사용자가 미분류로 확정한 기록은 그 상태(UNCLASSIFIED) 그대로. 고를 값이 없으면 None —
+    폼이 빈 선택으로 시작해 사용자가 직접 고르게 한다. 예전엔 UNCLASSIFIED로 채워져서, 이유만
+    적고 저장하면 overrideByUser=True인 미분류 기록이 생겨 영구히 재분류되지 않았다(#37).
+    """
+    rec = rec or {}
+    primary = rec.get('primaryTheme')
+    if primary and (primary != UNCLASSIFIED or rec.get('overrideByUser')):
+        return primary
+    return rec.get('suggestedTheme') or None
+
+
+def _unclassified_label(market: str) -> str:
+    return theme_index(market).get(UNCLASSIFIED, {}).get('label') or '미분류'
+
+
 def display_label(market: str, ticker: str) -> str | None:
-    """와치리스트 테마 컬럼용 라벨. 승인된 분류가 없으면 None (호출부가 구 캐시로 폴백)."""
+    """와치리스트 '테마' 컬럼용 라벨. 기록이 아예 없을 때만 None (호출부가 구 캐시로 폴백).
+
+    기록이 있는데 미분류(사용자가 미분류로 확정했거나 승인 게이트에서 탈락)면 '미분류'를 돌려준다.
+    구 라벨로 폴백하면 주도섹터 탭이 집계에서 빼는 종목을 와치리스트는 확정 섹터처럼 보여준다(#37).
+    테마 목록에 없는 코드면 KeyError — 호출부가 로그를 남긴다.
+    """
     rec = load_store(market).get(ticker)
-    if not rec or rec.get('primaryTheme', UNCLASSIFIED) == UNCLASSIFIED:
+    if not rec:
         return None
+    code = rec.get('primaryTheme') or UNCLASSIFIED
+    if code == UNCLASSIFIED:
+        return _unclassified_label(market)
     if rec.get('detail'):
         return rec['detail']
-    return theme_index(market).get(rec['primaryTheme'], {}).get('label')
+    return theme_index(market)[code]['label']
+
+
+def display_major(market: str, ticker: str) -> str | None:
+    """와치리스트 '섹터' 컬럼용 주력 테마 라벨. 규칙은 display_label과 같다(기록 없음만 None)."""
+    rec = load_store(market).get(ticker)
+    if not rec:
+        return None
+    code = rec.get('primaryTheme') or UNCLASSIFIED
+    if code == UNCLASSIFIED:
+        return _unclassified_label(market)
+    return theme_index(market)[code]['label']

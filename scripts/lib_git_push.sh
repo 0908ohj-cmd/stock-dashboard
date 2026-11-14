@@ -13,6 +13,9 @@
 #   그래서 원격이 앞서 있으면 원격을 그대로 받은 뒤(reset), 우리가 바꾼 파일을
 #   파일 종류별로 다시 얹는다.
 #     - data/ohlcv/*.json → merge_snapshots.py로 종목 단위 병합
+#     - data/classification/*.json → merge_classification.py로 종목 단위 병합.
+#       앱에서 사용자가 확정한 분류(overrideByUser)는 배치가 만든 값과 다르므로
+#       "사실상 같다"는 전제가 성립하지 않는다 — 통째로 덮으면 확정이 사라진다(#33)
 #     - 그 밖(티커 목록 등) → 우리 것을 쓴다. 같은 날 같은 알고리즘으로 만든 값이라
 #       사실상 같고, 병합할 수 없는 형식이다
 #   결과가 원격과 같으면 새 커밋 없이 끝난다. 몇 번을 다시 돌려도 결과가 같다.
@@ -51,6 +54,14 @@ _rebuild_on_remote() {
             data/ohlcv/*.json)
                 if [ -f "$f" ]; then
                     "$py" "$_LIB_GIT_PUSH_DIR/merge_snapshots.py" "$tmp/$f" "$f" "$f" \
+                        || { rm -rf "$tmp"; return 1; }
+                else
+                    cp "$tmp/$f" "$f"
+                fi
+                ;;
+            data/classification/*.json)
+                if [ -f "$f" ]; then
+                    "$py" "$_LIB_GIT_PUSH_DIR/merge_classification.py" "$tmp/$f" "$f" "$f" \
                         || { rm -rf "$tmp"; return 1; }
                 else
                     cp "$tmp/$f" "$f"
