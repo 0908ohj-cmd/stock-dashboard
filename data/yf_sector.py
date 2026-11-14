@@ -47,10 +47,14 @@ def _save_cache(cache: dict) -> None:
 
 
 def _normalize(label: str) -> str:
-    """yfinance는 버전에 따라 'Software—Application'/'Software - Application'을 섞어 쓴다."""
+    """yfinance는 버전에 따라 'Software—Application'/'Software - Application'을 섞어 쓴다.
+
+    구분자만 ' - '로 맞춘다 — 양쪽에 공백이 있는 하이픈, 그리고 대시(—, –). 단어 안의 하이픈
+    ('Non-Alcoholic')까지 바꾸면 'Beverages - Non-Alcoholic'이 영영 맞지 않는다(#45 L5).
+    """
     if not label:
         return ''
-    return re.sub(r'\s*[-—–]\s*', ' - ', label).strip()
+    return re.sub(r'\s+-\s+|\s*[—–]\s*', ' - ', label).strip()
 
 
 _INDUSTRY_MAP = {
@@ -229,14 +233,19 @@ _SECTOR_MAP = {
 }
 
 
+# 맵 키도 입력과 같은 함수로 정규화해 비교한다 — 키 표기와 정규화 결과가 어긋나 영영 안 맞는 항목이 없게
+_INDUSTRY_KEYS = {_normalize(k): v for k, v in _INDUSTRY_MAP.items()}
+_SECTOR_KEYS = {_normalize(k): v for k, v in _SECTOR_MAP.items()}
+
+
 def map_label(sector: str, industry: str) -> str:
     """(sector, industry) → 한국어 대분류. 미매핑이면 industry 원문, 그것도 없으면 ''."""
     ind = _normalize(industry)
-    if ind in _INDUSTRY_MAP:
-        return _INDUSTRY_MAP[ind]
+    if ind in _INDUSTRY_KEYS:
+        return _INDUSTRY_KEYS[ind]
     sec = _normalize(sector)
-    if sec in _SECTOR_MAP:
-        return _SECTOR_MAP[sec]
+    if sec in _SECTOR_KEYS:
+        return _SECTOR_KEYS[sec]
     return ind or sec or ''
 
 

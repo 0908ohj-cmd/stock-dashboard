@@ -23,6 +23,20 @@ def test_map_label_대시_표기_흔들림_흡수():
     assert yf_sector.map_label('Technology', 'Software - Application') == '응용 소프트웨어'
 
 
+def test_map_label_단어_안의_하이픈은_그대로_둔다():
+    """'Non-Alcoholic'의 하이픈까지 ' - '로 바꿔 'Beverages - Non-Alcoholic'이 절대 맞지 않던 문제(#45 L5)."""
+    assert yf_sector.map_label('Consumer Defensive', 'Beverages - Non-Alcoholic') == '음료'
+    assert yf_sector.map_label('Consumer Defensive', 'Beverages—Non-Alcoholic') == '음료'
+    assert yf_sector.map_label('Consumer Defensive', 'Beverages – Non-Alcoholic') == '음료'
+
+
+def test_map_label_매핑표의_모든_industry가_자기_라벨로_매핑된다():
+    """맵 키도 같은 정규화로 비교한다 — 키 표기 때문에 영영 안 맞는 항목이 없어야 한다."""
+    missed = {k: yf_sector.map_label('', k) for k, v in yf_sector._INDUSTRY_MAP.items()
+              if yf_sector.map_label('', k) != v}
+    assert missed == {}
+
+
 def test_map_label_industry_미매핑이면_sector_폴백():
     assert yf_sector.map_label('Technology', 'Totally Unknown Industry 2099') == 'IT·기술'
 
