@@ -195,16 +195,17 @@ def hot_badge(info: dict, label: str) -> str:
     return f"🔥 {label} ({when})"
 
 
-def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
+def lead_scores(market_key: str, peak: str = '', jjin: str = '', asof: str = '') -> dict:
     """차기 주도주 점수를 다른 탭(추세추종)에서 그대로 쓰기 위한 단일 출처.
     {ticker: {'score', 'rank', 'parts', 'asof', 'phaseLabel'}} — 순위는 메인 밖 테마 포함 전체 기준.
-    계산은 주도섹터 탭과 같은 _compute(같은 캐시)를 쓰므로 두 탭 점수가 어긋날 수 없다."""
+    계산은 주도섹터 탭과 같은 _compute(같은 캐시)를 쓰므로 두 탭 점수가 어긋날 수 없다.
+    asof를 비우면 최신일 — 주도섹터 탭 '자세히 보기'는 그 탭이 고른 기준일을 넘긴다(#42 M11)."""
     m = MARKETS[market_key]
     opts = _asof_options(m)
     if not opts:
         return {}
     try:
-        res = _compute(m.key, opts[0], _data_key(m), peak, jjin)
+        res = _compute(m.key, asof or opts[0], _data_key(m), peak, jjin)
     except ValueError:
         return {}
     picks = sorted(res['picks'], key=lambda p: -p['nextScore'])
@@ -1242,13 +1243,15 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
     s = opts[pick]
     status = wl._get_market_status_cached(m.key, wl._snapshot_ts('indices'))
     cs, jd = status['correction_start'], status['jjin_date']
+    # 종가·등락·고점대비·이평선위치와 주도주 점수는 위쪽 표와 같은 기준일(res['asof'])로 — 최신일로 두면
+    # 과거 기준일을 골랐을 때 같은 종목에 두 값이 보였다(#42 M11)
     rows = wl._build_rows(tuple(sorted(s['members'])), m.key,
                           str(cs.date()) if cs else None, jjin or (str(jd.date()) if jd else None),
-                          peak or None, None, None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
+                          peak or None, res['asof'], None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
     if not rows:
         st.caption('표시할 종목이 없습니다 (데이터 부족 또는 ADR 필터).')
         return
-    lead = lead_scores(m.key, peak, jjin)
+    lead = lead_scores(m.key, peak, jjin, res['asof'])
     for r in rows:
         x = lead.get(r['Ticker']) or {}
         r['점수'] = None if x.get('score') is None else round(x['score'], 1)

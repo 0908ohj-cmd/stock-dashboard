@@ -62,3 +62,32 @@ def test_lead_and_hot_sections_are_registered_with_asof():
             if not empty and len(c.args) + len(c.keywords) < 3:
                 bad.append(f'{name} (line {c.lineno})')
     assert bad == []
+
+
+# ── M11: 자세히 보기 → 섹터별 종목도 선택한 기준일로 ──────────────────
+
+def _is_res_asof(node) -> bool:
+    """`res['asof']`인가."""
+    return (isinstance(node, ast.Subscript) and _name(node.value) == 'res'
+            and isinstance(node.slice, ast.Constant) and node.slice.value == 'asof')
+
+
+def _arg(call: ast.Call, pos: int, key: str):
+    return call.args[pos] if len(call.args) > pos else _kw(call, key)
+
+
+def test_lead_scores_computes_at_given_asof():
+    """lead_scores가 늘 최신일(opts[0])로만 계산하면 과거 기준일 화면의 '자세히 보기' 점수가 최신일 값이 된다."""
+    fn = _function(SECTOR, 'lead_scores')
+    assert 'asof' in [a.arg for a in fn.args.args]
+    calls = _calls(fn, '_compute')
+    assert calls and all(any(_name(n) == 'asof' for n in ast.walk(c.args[1])) for c in calls)
+
+
+def test_drilldown_rows_and_scores_use_selected_asof():
+    """섹터별 종목 표의 종가·등락(_build_rows)과 주도주 점수(lead_scores)가 위쪽 표와 같은 기준일이어야 한다."""
+    fn = _function(SECTOR, '_drilldown')
+    rows = _calls(fn, '_build_rows')
+    assert rows and all(_is_res_asof(_arg(c, 5, 'as_of_date_str')) for c in rows)
+    lead = _calls(fn, 'lead_scores')
+    assert lead and all(_is_res_asof(_arg(c, 3, 'asof')) for c in lead)
