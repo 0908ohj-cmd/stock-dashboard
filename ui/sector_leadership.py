@@ -1211,7 +1211,7 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
     cs, jd = status['correction_start'], status['jjin_date']
     rows = wl._build_rows(tuple(sorted(s['members'])), m.key,
                           str(cs.date()) if cs else None, jjin or (str(jd.date()) if jd else None),
-                          peak or None, None, None, wl._snapshot_ts(m.key))
+                          peak or None, None, None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
     if not rows:
         st.caption('표시할 종목이 없습니다 (데이터 부족 또는 ADR 필터).')
         return

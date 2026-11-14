@@ -42,7 +42,8 @@ KO_LOCALE = {
 
 @st.cache_data(ttl=120)
 def _snapshot_ts(market: str) -> str:
-    """스냅샷 fetched_at 타임스탬프 — 변경 시 _build_rows·_fetch_index 캐시 자동 무효화."""
+    """스냅샷 fetched_at 타임스탬프 — 변경 시 _build_rows·_fetch_index·10EMA 표 캐시 자동 무효화.
+    TTL(120초) 동안은 옛 값을 주므로, 스냅샷을 다시 쓴 쪽은 이 캐시를 직접 비운다."""
     return store.load_snapshot(market).get('fetched_at', '')
 
 
@@ -104,11 +105,14 @@ def _build_rows(
     custom_rs_start_str: str | None = None,
     as_of_date_str: str | None = None,
     swing_dates_str: str | None = None,   # 쉼표 구분 날짜: "2026-05-20,2026-06-08,..."
-    _snapshot_ts: str = '',               # 캐시 무효화 전용 — 스냅샷 갱신 시 자동 bust
+    # 캐시 무효화 전용 — 종목·지수 스냅샷 fetched_at. 밑줄로 시작하면 st.cache_data가 해시하지 않아
+    # 스냅샷이 바뀌어도 30분간 옛 표가 나온다(#32, 20d3cf0과 같은 실수)
+    snap_ts: str = '',
+    idx_ts: str = '',
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    index_df   = _fetch_index_cached(index_name)
+    index_df   = _fetch_index_cached(index_name, idx_ts)
 
     correction_start  = pd.Timestamp(correction_start_str)  if correction_start_str  else None
     jjin_date         = pd.Timestamp(jjin_date_str)         if jjin_date_str         else None
@@ -426,6 +430,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             with st.spinner(f'{label} 재수집 중... ({len(tickers)}개 종목)'):
                 store.refetch_market(market, tickers)
                 store.refetch_indices()
+            _snapshot_ts.clear()    # 새 fetched_at을 바로 읽게 — 10EMA 탭 표도 캐시 키로 함께 갱신된다
             _build_rows.clear()
             _fetch_index_cached.clear()
             _get_market_status_cached.clear()
@@ -548,7 +553,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             correction_start_str, jjin_date_str,
             custom_rs_start_str, None,
             swing_dates_str,
-            snap_ts,
+            snap_ts, idx_ts,
         )
 
     if not rows:
