@@ -1,13 +1,27 @@
+import numpy as np
 import pandas as pd
 from strategy.indicators import calc_ema
+
+CONFIRM_WINDOW = 5      # 찐반등 확인창 = DAY3~7 (찐반등 후 5거래일)
 
 
 def _ema21(index_df: pd.DataFrame) -> pd.Series:
     return calc_ema(index_df, 21)
 
 
+def _pos(index: pd.Index, d) -> int:
+    """날짜 d의 위치. 중복 날짜면 첫 위치 (get_loc은 slice·mask를 돌려준다). 없으면 KeyError."""
+    loc = index.get_loc(d)
+    if isinstance(loc, slice):
+        return int(loc.start)
+    if isinstance(loc, np.ndarray):
+        return int(np.flatnonzero(loc)[0])
+    return int(loc)
+
+
 def detect_jjin_bounce(index_df: pd.DataFrame,
-                       start: pd.Timestamp | None = None) -> dict | None:
+                       start: pd.Timestamp | None = None,
+                       corr_start: pd.Timestamp | None = None) -> dict | None:
     """
     찐반등 감지 — 가장 최근 조정 시작일 ~ 첫 EMA21 회복일 사이 첫 번째 조건 충족일 반환.
     조건:
@@ -15,6 +29,8 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
       2. 당일 양봉, 상승폭 >= ADR(20일) × 0.9
     거래량 별: 조정 구간(EMA21 이탈일 ~ 전날) 평균 대비 비율
     start: 이 날짜(포함)부터만 탐색 — 실패한 찐반등 이후 새 후보 탐색용.
+    corr_start: 조정 시작일(실효 이탈일). None이면 마지막 EMA21 이탈일 — 확인창 안의
+      재이탈(#28)은 이탈일이 아니므로 get_market_status가 실효 이탈일을 넘긴다.
     """
     if len(index_df) < 22:
         return None
@@ -27,9 +43,9 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
     if len(bd_starts) == 0:
         return None
 
-    last_start = bd_starts[-1]
+    last_start = corr_start if corr_start is not None else bd_starts[-1]
     try:
-        last_start_loc = index_df.index.get_loc(last_start)
+        last_start_loc = _pos(index_df.index, last_start)
     except KeyError:
         return None
 
@@ -163,7 +179,7 @@ def _resolve_jjin(index_df: pd.DataFrame, ema21: pd.Series,
     search_start = None
     last_failed  = None
     for _ in range(len(index_df)):        # 후보 날짜가 매 회 엄격히 증가하므로 실제로는 조기 종료
-        jjin = detect_jjin_bounce(index_df, start=search_start)
+        jjin = detect_jjin_bounce(index_df, start=search_start, corr_start=last_start)
         if jjin is None or jjin['date'] < last_start:
             return None, last_failed
         if _jjin_failure_date(index_df, jjin['date'], ema21, window=5) is None:
@@ -176,37 +192,100 @@ def _resolve_jjin(index_df: pd.DataFrame, ema21: pd.Series,
     return None, last_failed
 
 
+def _effective_start(index_df: pd.DataFrame, ema21: pd.Series, below: pd.Series
+                     ) -> tuple[pd.Timestamp | None, pd.Timestamp | None, pd.Timestamp | None]:
+    """현재 조정의 실효 이탈일 → (이탈일 | None, 이월 실패 찐반등일 | None, 재이탈일 | None).
+
+    확인창 우선(#28): 찐반등이 실패 규칙을 통과하는 동안 확인창(DAY3~7) 안에서 종가가 EMA21
+    아래로 다시 내려가도 새 조정으로 보지 않는다 — 찐반등·DAY·RS 기산점(원래 조정)을 유지한다.
+    - 확인창 안에서 찐반등 저점 아래 종가 → 즉시 실패, 그 재이탈이 새 조정의 이탈일
+    - DAY7 다음 거래일에도 EMA21 아래 → 그날이 새 조정의 이탈일
+    - DAY7 다음 거래일에 EMA21 위라도 확인창 내내 미회복(규칙 ① 실패) → 그 재이탈이 새 조정의 이탈일
+    실패한 찐반등일은 이월 실패일로 넘긴다 — 새 조정의 탐색 범위 밖이라 _resolve_jjin이 못 본다.
+    재이탈일은 지금 보호 중인 재이탈 구간(현재 EMA21 아래)일 때만 돌려준다.
+    """
+    b = below.to_numpy()
+    n = len(b)
+    raw = np.flatnonzero(b[1:] & ~b[:-1]) + 1          # EMA21 이탈일 위치
+    if len(raw) == 0:
+        return None, None, None
+    above = np.flatnonzero(~b)                          # EMA21 위(이상) 종가 위치
+
+    eff = cursor = int(raw[0])
+    carried = rebreak = None
+    while True:
+        later = raw[raw > cursor]
+        if len(later) == 0:
+            break
+        nxt = int(later[0])
+        # 빠른 거르기: 찐반등은 첫 회복일 이전이므로 재이탈이 첫 회복일 + 5거래일보다 뒤면 확인창 밖
+        k = int(np.searchsorted(above, eff))
+        first_rec = int(above[k]) if k < len(above) else n
+        jjin = None
+        if nxt - first_rec <= CONFIRM_WINDOW:
+            # 재이탈 전날까지의 데이터로 판정 — 이후 데이터가 이미 지난 판정을 바꾸지 않게
+            jjin, _ = _resolve_jjin(index_df.iloc[:nxt], ema21.iloc[:nxt], index_df.index[eff])
+        pj = _pos(index_df.index, jjin['date']) if jjin else None
+        if jjin is None or nxt > pj + CONFIRM_WINDOW:
+            eff = cursor = nxt
+            carried = None
+            continue
+        win_end = pj + CONFIRM_WINDOW
+        after = win_end + 1
+        # DAY7 다음 거래일(규칙 ① 확정일)까지의 실패 판정
+        failed = _jjin_failure_date(index_df.iloc[:after + 1], jjin['date'], ema21)
+        if failed is not None and _pos(index_df.index, failed) <= win_end:
+            eff = cursor = nxt                          # 확인창 안 저점 아래 종가 → 즉시 실패
+            carried = jjin['date']
+            continue
+        if after >= n:                                  # 아직 확인창 안 — 재이탈은 새 조정이 아니다
+            if b[-1]:
+                rebreak = index_df.index[int(raw[-1])]
+            break
+        if b[after]:                                    # DAY7 다음 거래일에도 EMA21 아래 → 새 조정
+            eff = cursor = after
+            carried = jjin['date'] if failed is not None else None
+            continue
+        if failed is not None:                          # 확인창 내내 미회복(규칙 ①) — 재이탈을 덮지 못한다
+            eff = cursor = nxt
+            carried = jjin['date']
+            continue
+        cursor = after                                  # 확인창을 넘겨 회복 — 이후 이탈은 정상 처리
+    return index_df.index[eff], carried, rebreak
+
+
 def get_market_status(index_df: pd.DataFrame) -> dict:
     """
     지수 시장 상태 반환.
     state: 'normal' | 'correction' | 'early_signal'
     찐반등 감지 후 5거래일 내 EMA21 미회복(또는 저점 이탈) 시 실패 판정 → 조정 복귀.
     실패 확정일 이후의 새 찐반등 후보는 다시 탐색한다.
+    확인창(DAY3~7) 안의 EMA21 재이탈은 새 조정이 아니다 — rebreak_date로만 알린다(#28).
     """
     base = {
         'state': 'normal', 'correction_start': None,
         'jjin_date': None, 'jjin_pct': 0.0,
         'jjin_stars': 0, 'failed_jjin_date': None,
+        'rebreak_date': None,
     }
     if len(index_df) < 22:
         return base
 
     ema21        = _ema21(index_df)
     below        = index_df['Close'] < ema21
-    transitions  = below.astype(int).diff()
-    bd_starts    = transitions[transitions == 1].index
     is_below_now = bool(below.iloc[-1])
 
-    if len(bd_starts) == 0:
+    last_start, carried_failed, rebreak = _effective_start(index_df, ema21, below)
+    if last_start is None:
         return base
-
-    last_start = bd_starts[-1]
 
     base['correction_start'] = last_start
 
     # 실패한 찐반등은 건너뛰고 유효 후보를 찾는다 — EMA21 회복 여부와 무관하게 적용해야
     # '실패한 반등이 이후의 진짜 반등을 가리는' 문제가 두 분기 모두에서 사라진다
     jjin, last_failed = _resolve_jjin(index_df, ema21, last_start)
+    if last_failed is None:
+        last_failed = carried_failed
 
     if not is_below_now:
         # correction_start·jjin_date 유지 → 다음 DAY1(새 이탈) 전까지 핵심 후보 계속 노출
@@ -225,11 +304,12 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
         base['failed_jjin_date'] = last_failed
         return base
 
-    # 찐반등 감지, 아직 확인 대기 중
+    # 찐반등 감지, 아직 확인 대기 중 (확인창 안 재이탈이면 rebreak_date로 알림)
     base.update({
-        'state':       'early_signal',
-        'jjin_date':   jjin['date'],
-        'jjin_pct':    jjin['pct'],
-        'jjin_stars':  jjin['stars'],
+        'state':        'early_signal',
+        'jjin_date':    jjin['date'],
+        'jjin_pct':     jjin['pct'],
+        'jjin_stars':   jjin['stars'],
+        'rebreak_date': rebreak,
     })
     return base

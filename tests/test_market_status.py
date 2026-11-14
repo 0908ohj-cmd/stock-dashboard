@@ -249,6 +249,103 @@ def test_breakout_jjin_on_recovery_day_is_detected():
     assert get_phase_label(df, 2.0) == 'DAY2'
 
 
+# ── 확인창 우선 (#28, A안) ─────────────────────────────────
+# 찐반등이 실패 규칙을 통과하는 동안 DAY3~7 확인창 안의 EMA21 재이탈은 새 조정이 아니다.
+# 찐반등 02-19(저가 96.515) → 02-20 종가 113으로 EMA21(≈110.5) 회복 → 02-23 종가 108로 재이탈(EMA21≈110.3)
+_REC1    = [(105, 113)]
+_REBREAK = [(113, 108)]
+_T = pd.Timestamp
+
+
+def test_rebreak_inside_confirm_window_keeps_jjin():
+    """#28: 확인창 안 재이탈 → 찐반등·DAY·RS 기산점 유지, 재이탈일 플래그."""
+    from strategy.next_leaders import detect_phase
+    from strategy.rs_correction import _index_peak_date
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK)
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['jjin_date'] == _T('2026-02-19')
+    assert status['correction_start'] == _T('2026-02-10')      # 원래 조정의 이탈일
+    assert status['rebreak_date'] == _T('2026-02-23')
+    assert status['failed_jjin_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY4'
+    assert _index_peak_date(df, status['correction_start']) == _T('2026-02-04')
+    phase = detect_phase(df, df.index[-1])
+    assert (phase['mode'], phase['label']) == ('rebound', 'DAY4')
+    assert phase['peakDate'] == _T('2026-02-04')
+    assert phase['jjinDate'] == _T('2026-02-19')
+
+
+def test_rebreak_then_close_below_jjin_low_fails_immediately():
+    """확인창 안 재이탈 뒤 종가가 찐반등 저점(96.515) 아래(95) → 즉시 실패, 그 재이탈이 새 조정의 이탈일."""
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK + [(108, 95)])
+    status = get_market_status(df)
+    assert status['state'] == 'correction'
+    assert status['jjin_date'] is None
+    assert status['failed_jjin_date'] == _T('2026-02-19')
+    assert status['correction_start'] == _T('2026-02-23')
+    assert status['rebreak_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY1'
+
+
+# 재이탈 후 EMA21(≈109~110) 아래, 찐반등 저점 위에서 횡보 — ADR 미달이라 새 찐반등 후보 없음
+_BELOW4 = [(108, 107), (107, 106), (106, 107), (107, 106)]     # 02-24 ~ 02-27 (02-26 = DAY7)
+
+
+def test_still_below_ema21_on_day_after_day7_starts_new_correction():
+    """DAY7(02-26)까지는 찐반등 유지, DAY7 다음 거래일(02-27)에도 EMA21 아래면 그날이 새 조정 DAY1."""
+    from strategy.rs_correction import _index_peak_date
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK + _BELOW4)
+
+    day7 = get_market_status(df.iloc[:-1])
+    assert day7['state'] == 'early_signal'
+    assert day7['jjin_date'] == _T('2026-02-19')
+    assert day7['rebreak_date'] == _T('2026-02-23')
+    assert get_phase_label(df.iloc[:-1], 2.0) == 'DAY7'
+
+    status = get_market_status(df)
+    assert status['state'] == 'correction'
+    assert status['correction_start'] == _T('2026-02-27')
+    assert status['jjin_date'] is None
+    assert status['rebreak_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY1'
+    # 새 조정의 RS 기산점은 기존 규칙 — 직전 EMA21 회복(02-20) 이후 최고 종가
+    assert _index_peak_date(df, status['correction_start']) == _T('2026-02-20')
+
+
+def test_rebreak_then_recovery_returns_to_normal_flow():
+    """재이탈 뒤 다시 EMA21 위(02-24 종가 113) → 정상 상태, 원래 찐반등의 DAY 카운트 유지, 재이탈 플래그 해제."""
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK + [(108, 113)])
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['jjin_date'] == _T('2026-02-19')
+    assert status['correction_start'] == _T('2026-02-10')
+    assert status['rebreak_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY5'
+
+
+def test_rebreak_protection_ends_when_jjin_fails_unrecovered_at_day7_next():
+    """돌파형 찐반등(02-19) 다음 날 재이탈 → DAY3~7 내내 EMA21 아래(규칙 ① 실패가 02-27 확정) →
+    02-27 EMA21 위로 돌파. 실패한 찐반등은 재이탈을 덮지 못하므로 02-20이 이탈일이고,
+    02-27은 그 조정의 돌파형 찐반등이다."""
+    df = _oc_df(_UP + _DOWN + [(97, 115), (115, 108)] + _BELOW4 + [(106, 116)])
+    status = get_market_status(df)
+    assert status['state'] == 'normal'
+    assert status['correction_start'] == _T('2026-02-20')
+    assert status['jjin_date'] == _T('2026-02-27')
+    assert status['failed_jjin_date'] == _T('2026-02-19')
+    assert get_phase_label(df, 2.0) == 'DAY2'
+
+
+@pytest.mark.parametrize('dup', ['2026-02-10', '2026-02-19', '2026-02-23', '2026-02-26', '2026-02-27'])
+def test_confirm_window_survives_duplicate_dates(dup):
+    """확인창 판정도 중복 날짜(이탈일·찐반등일·재이탈일·DAY7·그다음 날)에서 크래시하지 않는다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK + _BELOW4)
+    df = pd.concat([df, df.loc[[_T(dup)]]]).sort_index()
+    status = get_market_status(df)
+    assert status['state'] in ('normal', 'correction', 'early_signal')
+
+
 def test_jjin_bounce_skips_incomplete_ohlc_row():
     """Close만 있고 OHL이 NaN인 불완전 행(지수 패치 잔재 등)을 찐반등으로 오검출하면 안 된다."""
     dates = pd.date_range('2026-01-01', periods=35, freq='B')
