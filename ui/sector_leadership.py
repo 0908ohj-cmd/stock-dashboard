@@ -176,17 +176,19 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
 SCORE_VERSION = 2026_11_15_2    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
-def hot_history(market_key: str) -> tuple[dict, dict, dict]:
-    """(🔥 섹터 {테마: 정보}, {티커: 테마}, {테마: 라벨}) — 최신 기준일. 10EMA 탭 배지용 단일 출처."""
+def hot_history(market_key: str) -> tuple[dict, dict]:
+    """(🔥 섹터 {테마: 정보}, {테마: 라벨}) — 최신 기준일. 10EMA 탭 배지용 🔥 판정 단일 출처.
+    종목→테마는 넘기지 않는다 — _compute의 지도는 이 탭 유니버스(US 210종목)만 담아, 10EMA 종목의
+    62%(유니버스 밖)에 배지가 안 붙었다. 받는 쪽이 cls.primary_map으로 직접 찾는다(#42 M12)."""
     m = MARKETS[market_key]
     opts = _asof_options(m)
     if not opts:
-        return {}, {}, {}
+        return {}, {}
     try:
         res = _compute(m.key, opts[0], _data_key(m))
     except ValueError:
-        return {}, {}, {}
-    return res.get('hot') or {}, res.get('themeOf') or {}, _labels(m)
+        return {}, {}
+    return res.get('hot') or {}, _labels(m)
 
 
 def hot_badge(info: dict, label: str) -> str:

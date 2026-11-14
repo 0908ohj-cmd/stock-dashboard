@@ -91,3 +91,20 @@ def test_drilldown_rows_and_scores_use_selected_asof():
     assert rows and all(_is_res_asof(_arg(c, 5, 'as_of_date_str')) for c in rows)
     lead = _calls(fn, 'lead_scores')
     assert lead and all(_is_res_asof(_arg(c, 3, 'asof')) for c in lead)
+
+
+# ── M12: 10EMA '🔥 섹터' 배지는 종목 테마를 분류 기록에서 직접 찾는다 ──────
+
+def test_hot_history_returns_only_hot_and_labels():
+    """hot_history의 종목→테마 지도는 주도섹터 유니버스(US 210)만 담는다 — 10EMA 탭에 넘기면
+    유니버스 밖 종목은 소속 테마가 🔥여도 배지가 영영 안 붙는다. 계약을 (🔥 섹터, 라벨)로 좁힌다."""
+    fn = _function(SECTOR, 'hot_history')
+    rets = [n for n in ast.walk(fn) if isinstance(n, ast.Return)]
+    assert rets and all(isinstance(r.value, ast.Tuple) and len(r.value.elts) == 2 for r in rets)
+
+
+def test_10ema_badge_looks_up_theme_by_classification():
+    fn = _function('ui/watchlist_10ema.py', 'render_10ema_tab')
+    assert _calls(fn, 'primary_map'), '10EMA 탭이 cls.primary_map으로 종목 테마를 찾아야 한다'
+    unpack = [a for a in ast.walk(fn) if isinstance(a, ast.Assign) and _calls(a.value, 'hot_history')]
+    assert unpack and all(isinstance(a.targets[0], ast.Tuple) and len(a.targets[0].elts) == 2 for a in unpack)
