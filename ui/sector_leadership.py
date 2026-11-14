@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_13_2     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_13_3     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -440,10 +440,14 @@ def _colgroup(widths: list) -> str:
     return '<colgroup>' + ''.join(f'<col style="width:{w}%">' for w in widths) + '</colgroup>'
 
 
-def _stock_title(t: str, nm: str) -> str:
-    """종목 칸 — 이름 굵게, 아래 줄에 티커."""
-    return (f'<div class="sl-name">{_esc(nm)}</div><div class="two">{_esc(t)}</div>' if nm != t
-            else f'<div class="sl-name">{_esc(t)}</div>')
+_NEW_TAG = ' <span class="sl-badge sl-A" style="font-size:.66rem;padding:1px 6px;vertical-align:1px">NEW</span>'
+
+
+def _stock_title(t: str, nm: str, new: bool = False) -> str:
+    """종목 칸 — 이름 굵게(+ 바로 옆 NEW), 아래 줄에 티커."""
+    tag = _NEW_TAG if new else ''
+    return (f'<div class="sl-name">{_esc(nm)}{tag}</div><div class="two">{_esc(t)}</div>' if nm != t
+            else f'<div class="sl-name">{_esc(t)}{tag}</div>')
 
 
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
@@ -628,11 +632,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = _stock_title(t, nm)
         d, unknown = entry(r)
-        is_new = d is not None and not unknown and d == asof
-        if is_new:
-            title = '<span class="sl-badge sl-A" style="margin-bottom:3px">NEW</span>' + title
+        title = _stock_title(t, nm, d is not None and not unknown and d == asof)
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         if t in solo:
@@ -979,7 +980,41 @@ def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str) 
                               help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}
 
 
-def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
+def _prev_ranks(m: Market, res: dict, peak: str, jjin: str, keep) -> tuple[dict | None, bool]:
+    """(직전 거래일 같은 조건(토글 포함)의 차기 주도주 순위 {티커: 순위}, 찐반등 기간인가).
+    순위 등락은 늘, NEW(어제 상위 20 밖 → 오늘 진입)는 찐반등 기간에만 쓴다.
+    찐반등 당일도 비교한다(전날은 조정 공식 순위) — 찐반등과 함께 새로 들어온 종목이 NEW로 보인다."""
+    ph = res['phase']
+    opts = _asof_options(m)
+    if res['asof'] not in opts:
+        return None, False
+    i = opts.index(res['asof'])
+    if i + 1 >= len(opts):
+        return None, False
+    prev_asof = opts[i + 1]
+    rebound = (ph.get('jjinDate') is not None
+               and pd.Timestamp(prev_asof) >= pd.Timestamp(ph.get('jjinBase') or ph['jjinDate']))
+    try:
+        prev = _compute(m.key, prev_asof, _data_key(m), peak, jjin)
+    except ValueError:
+        return None, rebound
+    prev_top3 = {s['theme'] for s in prev['nextSectors'][:3]}
+    rows = sorted((r for r in prev['picks'] if keep(r, prev_top3)), key=lambda r: -r['nextScore'])
+    return {r['ticker']: k for k, r in enumerate(rows, 1)}, rebound
+
+
+def _rank_cell(rank: int, prev: int | None, known: bool) -> str:
+    """순위 + 전일 대비 등락 (▲ 올라옴 초록, ▼ 내려감 빨강, – 같음, 전일 순위 없음은 표시 안 함)."""
+    num = f'<span style="opacity:.55">{rank}</span>'
+    if not known or prev is None:
+        return num
+    d = prev - rank
+    mark = (f'<span class="sl-pos">▲{d}</span>' if d > 0 else f'<span class="sl-neg">▼{-d}</span>' if d < 0
+            else '<span style="opacity:.6">–</span>')
+    return f'{num}<div class="two" style="opacity:1;white-space:nowrap">{mark}</div>'
+
+
+def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = '', jjin: str = ''):
     ph, picks = res['phase'], res['picks']
     records = cls.load_store(m.key)
     if not picks:
@@ -993,12 +1028,16 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     only_top = bar.toggle('상위 3개 섹터 종목만', key=f'{m.key}_only_top', width='content')
     only_trend = bar.toggle('추세추종 탭 종목만', key=f'{m.key}_only_trend', width='content')
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in picks}, key_prefix=f'{m.key}_show')
-    rows = sorted((r for r in picks
-                   if (not only_top or r['primaryTheme'] in top_sectors)
-                   and (not only_trend or r['ticker'] in in_trend)
-                   and r['primaryTheme'] not in hidden),
-                  key=lambda r: -r['nextScore'])[:20]
+    def keep(r, top3):
+        return ((not only_top or r['primaryTheme'] in top3)
+                and (not only_trend or r['ticker'] in in_trend)
+                and r['primaryTheme'] not in hidden)
+
+    rows = sorted((r for r in picks if keep(r, top_sectors)), key=lambda r: -r['nextScore'])[:20]
     tv_export.register_lead(m.key, [r['ticker'] for r in rows])     # 화면 표 그대로(토글 반영, 상위 20)
+    prev_rank, rebound_now = _prev_ranks(m, res, peak, jjin, keep)
+    # NEW — 찐반등 기간에만: 어제 상위 20에 없던 종목
+    prev_top = ({t for t, k in prev_rank.items() if k <= 20} if prev_rank is not None and rebound_now else None)
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
         _score_table(rebound)
@@ -1007,7 +1046,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        title = _stock_title(t, nm)
+        title = _stock_title(t, nm, prev_top is not None and t not in prev_top)
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
         star = f' <span style="color:#16a34a">{_STAR}</span>' if r['primaryTheme'] in top_sectors else ''
@@ -1015,7 +1054,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         lead = r.get('leadDays')
         lead_txt = '—' if lead is None else (f'{lead}일 먼저' if lead > 0 else '같이' if lead == 0 else f'{-lead}일 늦게')
         body.append(
-            f'<tr><td class="rk">{rank}</td><td>{title}</td>'
+            f'<tr><td class="rk" style="opacity:1">'
+            f'{_rank_cell(rank, (prev_rank or {}).get(t), prev_rank is not None)}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="two">{_esc(detail)}</div></td>'
             + ''.join(f'<td class="hb-num">{_rs_val(c, r, False)}</td>' for c in cols)
             + f'<td class="hb-num">{_signed(r.get("offHigh"), "%")}</td><td class="hb-num">{_signed(r.get("gap200"), "%")}</td>'
@@ -1029,7 +1069,9 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict):
         + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
-    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.')
+    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.'
+               + ('  \n순위 아래 ▲▼ = 직전 거래일 같은 조건 순위 대비 등락 (– 같음).' if prev_rank is not None else '')
+               + ('  \nNEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''))
     _score_table(rebound)
 
 
@@ -1458,7 +1500,7 @@ def render_sector_leadership_tab(market_key: str = 'US'):
             with st.expander('**🧭 차기 주도섹터**', expanded=False):
                 _lead_sectors(m, res, labels, names)
             with st.expander('**🎯 차기 주도주**', expanded=False):
-                _lead_stocks(m, res, labels, names)
+                _lead_stocks(m, res, labels, names, peak, jjin)
     records = cls.load_store(m.key)
     with st.container(border=True):
         st.markdown('#### 🔥 급부상 <span style="font-size:.8rem;opacity:.6;font-weight:500">— 10EMA PP용</span>',

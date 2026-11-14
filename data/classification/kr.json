@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-11T22:56:01+09:00",
+ "updatedAt": "2026-11-13T17:35:08+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -115,6 +115,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:53:03+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "001210": {
+   "companyName": "금호전기",
+   "primaryTheme": "UNCLASSIFIED",
+   "suggestedTheme": "UNCLASSIFIED",
+   "secondaryThemes": [],
+   "detail": "일반조명·LED 조명",
+   "businessSummary": "1954년 설립된 조명 제조사로, 일반조명(형광등·백열전구 등)과 LED 조명을 주력으로 하며, CCFL·LED·BLU 등 디스플레이용 조명 부품도 만든다. 2025년 매출은 약 422~443억 원으로 집계됐다.",
+   "confidence": "low",
+   "why": "사업 영역은 조명(일반조명·LED·디스플레이 BLU)으로 확인되지만, 고정 테마 목록에 조명 테마가 없고 DART 사업보고서의 제품별 매출 비중은 확인하지 못했다. 일반조명 비중 70~75%는 증권 리서치 한 곳의 수치이고 LED 82%는 집계 사이트 수치라 기준이 달라 신뢰하기 어렵다. 가장 가까운 후보는 ELECTRONIC_COMPONENTS(LED·BLU 부품)와 HOLDING_OTHER(위 테마에 없는 사업)이지만 근거가 부족해 확정하지 않았다. DART 사업보고서 '주요 제품 등 현황'으로 매출 비중을 확인하면 재분류할 수 있다.",
+   "evidenceUrls": [
+    "https://www.incruit.com/company/2382082",
+    "https://www.morningstar.com.au/investments/security/XKRX/001210"
+   ],
+   "gateReasons": [
+    "신뢰도 low"
+   ],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-13T17:34:46+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1978,6 +2001,30 @@
      "overrideReason": ""
     }
    ]
+  },
+  "035900": {
+   "companyName": "JYP Entertainment Corporation",
+   "primaryTheme": "ENTERTAINMENT_CONTENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "COSMETICS_CONSUMER"
+   ],
+   "detail": "K팝 엔터테인먼트 기획사",
+   "businessSummary": "아티스트 매니지먼트·음반·음원 기획·제작, 콘서트 등 공연 사업이 핵심이며, MD 제조·유통(블루개러지)과 일본 법인 등이 보조 축이다.",
+   "confidence": "high",
+   "why": "집계 사이트 기준 2025년 매출 약 5,665억원 중 엔터테인먼트 부문이 약 4,914억원으로 대부분이며, 회사 프로필도 음악 기획·제작·매니지먼트와 공연·광고 중심이다. MD는 블루개러지 연결 매출 약 1,224억원 규모로 COSMETICS_CONSUMER 보조 태그로 둔다. 사업보고서(DART) 원문 세그먼트 표는 직접 열어 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://www.zawya.com/company/4295882623/jyp-ent",
+    "https://in.tradingview.com/symbols/KRX-035900/financials-revenue",
+    "https://stockanalysis.com/quote/kosdaq/035900/income-statement/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-13T17:34:56+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
   },
   "036170": {
    "companyName": "에이치엠넥스",
@@ -5052,6 +5099,29 @@
    "overrideReason": "",
    "history": []
   },
+  "181710": {
+   "companyName": "NHN Corporation",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ENTERTAINMENT_CONTENT"
+   ],
+   "detail": "결제·게임·클라우드 플랫폼",
+   "businessSummary": "결제대행(PG)·간편결제 사업(NHN KCP, PAYCO)이 매출의 절반 이상을 차지하고, 게임과 클라우드·GPU 인프라 사업을 함께 운영하는 IT 플랫폼 기업이다.",
+   "confidence": "medium",
+   "why": "2026년 1분기 매출 6,714억원 중 결제·광고 부문이 3,546억원(약 53%)으로 가장 크고, 게임은 약 1,278억원(약 19%)이다. 결제 사업은 전자결제·IT 서비스 성격이라 taxonomy상 SOFTWARE_AI_PLATFORM에 두었다. 다만 사업보고서 세그먼트 표는 확인하지 못했고, 근거인 Quartr 요약은 AI 생성 요약이며 비중 퍼센트가 금액과 맞지 않아 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://quartr.com/events/nhn-corporation-181710-q1-2026_F1jBD956",
+    "https://www.newstomato.com/ReadNews.aspx?no=1291285"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-13T17:35:08+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "196170": {
    "companyName": "알테오젠",
    "primaryTheme": "BIO_PHARMA",
@@ -6991,6 +7061,28 @@
    "overrideReason": "",
    "history": []
   },
+  "420610": {
+   "companyName": "미확인 (종목코드 420610의 정식 회사명을 확인하지 못함)",
+   "primaryTheme": "UNCLASSIFIED",
+   "suggestedTheme": "UNCLASSIFIED",
+   "secondaryThemes": [],
+   "detail": "사업 미확인",
+   "businessSummary": "회사명과 사업 내용을 확인하지 못했다. 2026-10-30 상장된 신규 종목으로 보이나, 확인된 사업 정보가 없다.",
+   "confidence": "low",
+   "why": "검색과 stockhub.kr 페이지에서 회사명·사업·세그먼트 매출을 찾지 못했다. 페이지에는 상장일(2026.10.30)과 시세만 있다. 근거 없이 테마를 고르면 안 되므로 UNCLASSIFIED로 둔다. DART 사업보고서 또는 KRX KIND에서 회사명을 확인해야 한다.",
+   "evidenceUrls": [
+    "https://stockhub.kr/en/stock/420610"
+   ],
+   "gateReasons": [
+    "신뢰도 low"
+   ],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-13T17:34:47+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "425040": {
    "companyName": "티이엠씨",
    "primaryTheme": "SEMI_MATERIALS_PARTS",
@@ -7147,6 +7239,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:52:48+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "451760": {
+   "companyName": "컨텍",
+   "primaryTheme": "SPACE_AEROSPACE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SOFTWARE_AI_PLATFORM"
+   ],
+   "detail": "위성·지상국 시스템",
+   "businessSummary": "위성 지상국 시스템 엔지니어링 솔루션과 인공위성 및 부분품 개발을 주력으로 하며, 위성영상 데이터처리 솔루션을 함께 제공한다. 2026년 2분기 기준 매출은 지상국 시스템엔지니어링 49%, 인공위성 개발 38%, 위성영상 데이터처리 12%, 위성통신단말기 1%로 집계된다(제3자 집계, DART 사업보고서 원문 미확인).",
+   "confidence": "medium",
+   "why": "매출의 약 87%가 지상국 시스템과 위성 개발에서 나와 우주·항공 테마가 주력이다. 위성영상 데이터처리(약 12%)는 보조 테마로만 뒀다. 매출 비중은 제3자 사이트 집계이고 DART 사업보고서의 사업의 내용은 열어 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/451760/",
+    "https://file.alphasquare.co.kr/media/pdfs/company-report/메리츠20240820컨텍.pdf",
+    "https://thevc.kr/contec"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-12T17:35:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []

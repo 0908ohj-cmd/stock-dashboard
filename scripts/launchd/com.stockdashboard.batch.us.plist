@@ -6,7 +6,11 @@
   <string>com.stockdashboard.batch.us</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
+    <!-- stockEdge job_wrapper 경유 — jobs.db(/jobs 탭) 기록, 실패 시 텔레그램, catchup 재시도.
+         작업 정의: stockEdge scripts/jobs_defs.py 의 stock-dashboard-us (cron이 아래 시각과 같아야 한다) -->
+    <string>/Users/ygun/Workspace/stockEdge/tools/job_wrapper.sh</string>
+    <string>stock-dashboard-us</string>
+    <string>scheduled</string>
     <string>/Users/ygun/Workspace/stock-dashboard-batch/scripts/run_batch_local.sh</string>
     <string>us</string>
   </array>
