@@ -13,13 +13,14 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-from ui import tv_export
+from ui import rs_range, tv_export
 
 from data import classification as cls
 from data import classification_sync as cls_sync
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
+from strategy.rs_correction import clean_manual_rs_range
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -172,7 +173,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_15_2    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_15_12    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -1439,25 +1440,15 @@ def _auto_phase(index_name: str, asof: str, idx_key: int) -> dict | None:
 
 
 def _rs_range(m: Market, asof: str) -> tuple[str, str]:
-    """추세추종 탭과 같은 '⚙️ RS 구간 설정'. 비워두면 자동. 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
+    """추세추종 탭과 같은 '⚙️ RS 구간 설정' — 같은 공유 키(ui.rs_range)라 한쪽에서 지정하면 두 탭이 같은 값으로
+    계산한다(#40 M5). 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
     auto = _auto_phase(m.phase_index, asof, _mtime(store._snapshot_path('indices'))) or {}
-    ap, aj = auto.get('autoPeakDate'), auto.get('autoJjinDate')
-    max_d = pd.Timestamp(asof).date()
-    with st.expander('⚙️ RS 구간 설정', expanded=False):
-        c1, c2 = st.columns(2)
-        c1.caption(f'자동 기산점: {ap:%Y-%m-%d}' if ap is not None else '자동 기산점: 없음 (조정 미감지)')
-        peak = c1.date_input('기산점 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_peak',
-                             help='비워두면 지수가 21EMA를 이탈하기 전 고점을 씁니다. '
-                                  '"지수 대비 (기산점 이후)"·덜 빠짐·저점 선행이 이 날짜부터 다시 계산됩니다.')
-        c2.caption(f'자동 찐반등일: {aj:%Y-%m-%d}' if aj is not None else '자동 찐반등일: 없음 (미감지)')
-        jjin = c2.date_input('찐반등일 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_jjin',
-                             help='비워두면 자동 감지한 찐반등일을 씁니다. 지정하면 찐반등 이후 화면으로 바뀌고 '
-                                  '"찐반등 후 지수 대비"가 이 날짜부터 계산됩니다.')
-        if peak and jjin and peak >= jjin:
-            st.warning('기산점이 찐반등일보다 앞이어야 합니다 — 기산점 설정을 무시합니다.')
-            peak = None
-        st.caption('휴장일을 고르면 직전 거래일로 맞춥니다. 기준일이 바뀌어도 설정은 유지됩니다.')
-    return (str(peak) if peak else '', str(jjin) if jjin else '')
+    raw_peak, raw_jjin = rs_range.rs_range_inputs(
+        m.key, 'sector', auto.get('autoPeakDate'), auto.get('autoJjinDate'),
+        max_date=pd.Timestamp(asof).date(), note='기준일이 바뀌어도 설정은 유지됩니다.')
+    peak, jjin, warns = clean_manual_rs_range(raw_peak, raw_jjin)
+    rs_range.show_warnings(warns)
+    return rs_range.date_str(peak), rs_range.date_str(jjin)
 
 
 def render_sector_leadership_tab(market_key: str = 'US'):

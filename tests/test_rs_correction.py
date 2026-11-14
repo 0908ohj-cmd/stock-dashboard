@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 from strategy.rs_correction import calc_correction_rs, _vol_ratio
@@ -84,15 +85,17 @@ def test_lead_days_captures_bottom_before_correction_start():
 
 
 def test_returns_zeros_on_insufficient_data():
-    dates  = pd.date_range('2026-01-01', periods=1, freq='B')
-    idx_df = _make_df([100])
-    stk_df = _make_df([50])
+    """구간은 성립하는데 종목 데이터가 모자라면 예전처럼 0 (구간 설정 오류와 구별 — #40 M5)."""
+    dates  = pd.date_range('2026-01-01', periods=10, freq='B')
+    idx_df = _make_df([100 - i for i in range(10)])
+    stk_df = _make_df([50], start='2026-01-14')          # 구간 안에 1거래일뿐
     result = calc_correction_rs(
         stk_df, idx_df,
         correction_start=dates[0], jjin_date=dates[-1],
     )
     assert result['excess_pct'] == 0.0
     assert result['lead_days']  == 0
+    assert result['range_error'] is False
 
 
 def test_excess_adr_normalizes_by_volatility():
@@ -207,3 +210,120 @@ def test_lead_days_when_stock_bottom_date_missing_from_index_calendar():
     result = calc_correction_rs(df_from(stk_closes, stk_dates), df_from(idx_closes, idx_dates),
                                 correction_start=idx_dates[0], jjin_date=idx_dates[-1])
     assert result['lead_days'] == 3
+
+
+# ── RS 구간 설정 오류 (#40 M5) ─────────────────────────────
+# 기산점이 찐반등일과 같거나 뒤면 구간이 비어 전 종목이 0(동점)이 되고 RS/ADR > 0 필터가 전 종목을
+# 조용히 거른다 → 0 대신 None + range_error로 돌려 화면이 '구간 설정 오류'를 띄우게 한다.
+
+from datetime import date
+
+from strategy.rs_correction import clean_manual_rs_range, resolve_rs_range
+
+_T = pd.Timestamp
+
+
+def _pair():
+    idx_df = _make_df([100 - i for i in range(20)])
+    stk_df = _make_df([100 - i * 0.25 for i in range(20)])
+    return idx_df, stk_df, idx_df.index
+
+
+@pytest.mark.parametrize('peak_pos, jjin_pos', [(10, 5), (5, 5)])      # 역전 · 같은 날
+def test_inverted_or_same_day_range_flags_error_instead_of_zeros(peak_pos, jjin_pos):
+    idx_df, stk_df, d = _pair()
+    r = calc_correction_rs(stk_df, idx_df, correction_start=d[0], jjin_date=d[jjin_pos],
+                           custom_peak_date=d[peak_pos])
+    assert r['range_error'] is True
+    for k in ('stock_pct', 'index_pct', 'excess_pct', 'excess_adr', 'lead_days', 'vol_ratio', 'candle_ratio'):
+        assert r[k] is None, k
+
+
+def test_valid_range_has_no_error_flag():
+    idx_df, stk_df, d = _pair()
+    r = calc_correction_rs(stk_df, idx_df, correction_start=d[0], jjin_date=d[-1], custom_peak_date=d[2])
+    assert r['range_error'] is False
+    assert r['excess_pct'] is not None
+
+
+# 두 탭 공용 수동 값 정리 — 둘 다 지정했는데 기산점 ≥ 찐반등일이면 기산점을 버린다 (#29 화면 규칙과 같게)
+def test_clean_manual_drops_peak_when_both_set_and_inverted():
+    peak, jjin, warns = clean_manual_rs_range(date(2026, 11, 5), date(2026, 10, 28))
+    assert peak is None and jjin == _T('2026-10-28')
+    assert len(warns) == 1 and '기산점' in warns[0]
+
+
+def test_clean_manual_keeps_valid_and_empty_values():
+    assert clean_manual_rs_range(date(2026, 10, 1), date(2026, 10, 28)) == (_T('2026-10-01'), _T('2026-10-28'), [])
+    assert clean_manual_rs_range(None, None) == (None, None, [])
+    assert clean_manual_rs_range(date(2026, 11, 5), None) == (_T('2026-11-05'), None, [])
+
+
+def test_clean_manual_returns_same_values_for_date_str_and_timestamp():
+    """두 탭이 같은 문자열로 점수 캐시를 부르도록 날짜 타입과 무관하게 같은 값."""
+    a = clean_manual_rs_range(date(2026, 10, 1), '2026-10-28')
+    b = clean_manual_rs_range(_T('2026-10-01'), _T('2026-10-28 00:00'))
+    assert a == b
+
+
+# 추세추종 탭의 자체 RS 구간(저점선행·양봉비) — 주도섹터 탭 detect_phase와 같은 규칙으로 정한다
+_AP, _AJ = _T('2026-10-20'), _T('2026-10-27')       # 자동 기산점·찐반등일
+_DATES = pd.bdate_range('2026-09-01', '2026-11-06')
+
+
+def test_resolve_without_manual_values_uses_auto():
+    assert resolve_rs_range(_DATES, None, None, _AP, _AJ) == (None, _AJ, None)
+
+
+def test_resolve_manual_peak_before_auto_jjin():
+    assert resolve_rs_range(_DATES, _T('2026-10-14'), None, _AP, _AJ) == (_T('2026-10-14'), _AJ, None)
+
+
+@pytest.mark.parametrize('peak', [_AJ, _T('2026-10-30')])
+def test_resolve_manual_peak_on_or_after_auto_jjin_drops_auto_jjin(peak):
+    custom, jjin, warn = resolve_rs_range(_DATES, peak, None, _AP, _AJ)
+    assert (custom, jjin) == (peak, None)
+    assert warn and '10/27' in warn
+
+
+@pytest.mark.parametrize('jjin', [_AP, _T('2026-10-15')])
+def test_resolve_manual_jjin_on_or_before_auto_peak_is_ignored(jjin):
+    custom, j, warn = resolve_rs_range(_DATES, None, jjin, _AP, _AJ)
+    assert (custom, j) == (None, _AJ)
+    assert warn and '수동 찐반등일' in warn
+
+
+def test_resolve_snaps_weekend_to_previous_trading_day():
+    """휴장일은 직전 거래일로 — 토·일을 고르면 둘 다 금요일이 되어 같은 날 → 기산점을 버린다."""
+    custom, jjin, warn = resolve_rs_range(_DATES, _T('2026-10-31'), _T('2026-11-01'), _AP, _AJ)
+    assert (custom, jjin) == (None, _T('2026-10-30'))
+    assert warn and '수동 기산점' in warn
+
+
+def _day3_index():
+    """자동 DAY3 — 조정 → 찐반등(뒤에서 2번째 날) → 다음 날이 기준일 (test_next_leaders와 같은 시나리오)."""
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 105, 12)) + [112, 113]
+    closes = np.asarray(closes, dtype=float)
+    idx = pd.bdate_range(end='2026-11-06', periods=len(closes))
+    idf = pd.DataFrame({'Open': closes, 'High': closes * 1.01, 'Low': closes * 0.99,
+                        'Close': closes, 'Volume': np.full(len(closes), 1e6)}, index=idx)
+    idf.loc[idx[112], ['Open', 'Low']] = [104.0, 103.0]
+    return idf
+
+
+def test_resolve_matches_detect_phase_range():
+    """같은 수동 값이면 추세추종 탭 구간 = 주도섹터 탭(detect_phase) 구간 → 두 탭 점수·RS 기간이 같다."""
+    from strategy.next_leaders import detect_phase
+    idf = _day3_index()
+    asof = idf.index[-1]
+    auto = detect_phase(idf, asof)
+    ap, aj = auto['autoPeakDate'], auto['autoJjinDate']
+    assert ap is not None and aj is not None
+    d = idf.index
+    cases = [(None, None), (d[105], None), (aj, None), (d[-1], None), (None, d[-1]), (None, ap),
+             (None, d[95]), (d[104], d[-1]), (_T('2026-10-31'), _T('2026-11-01'))]
+    for peak, jjin in cases:
+        ph = detect_phase(idf, asof, peak, jjin)
+        custom, j, warn = resolve_rs_range(idf.index, peak, jjin, ap, aj)
+        assert (custom if custom is not None else ap, j) == (ph['peakDate'], ph['jjinDate']), (peak, jjin)
+        assert bool(warn) == bool(ph['warning']), (peak, jjin)

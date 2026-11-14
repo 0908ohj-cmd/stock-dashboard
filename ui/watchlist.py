@@ -13,10 +13,10 @@ from data.sector import get_sectors, get_display_sectors
 from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from strategy.market_status import get_market_status
-from strategy.rs_correction import calc_correction_rs, _index_peak_date
+from strategy.rs_correction import calc_correction_rs, _index_peak_date, clean_manual_rs_range, resolve_rs_range
 from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
-from ui import tv_export
+from ui import rs_range, tv_export
 from ui.sector_leadership import lead_scores
 
 # 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
@@ -200,7 +200,8 @@ def _build_rows(
                 'RS/ADR':      rs['excess_adr'],
                 '이평선위치':  ma_text,
                 'ma_above_count': ma_above,
-                '양봉비%':     round(rs['candle_ratio'] * 100, 0),
+                '양봉비%':     None if rs['candle_ratio'] is None else round(rs['candle_ratio'] * 100, 0),
+                'RS구간오류':  bool(rs.get('range_error')),     # 기산점 ≥ 찐반등일 (#40 M5)
                 '등급':        sg['grade'],
                 '패턴':        sg['pattern'],
                 '등급점수':    sg['score'],
@@ -485,32 +486,19 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     else:
         _phase_label = 'Normal'
 
-    # RS 구간 커스텀 설정 (기산점 + 찐반등일)
+    # RS 구간 설정 (기산점 + 찐반등일) — 주도섹터 탭과 같은 설정을 공유한다(ui.rs_range, #40 M5).
+    # 수동 값은 두 탭 공용 규칙으로 정리해 주도주 점수(lead_scores)에 그대로 넘기고, 이 탭의 RS 구간
+    # (저점선행·양봉비)은 주도섹터 탭 detect_phase와 같은 규칙(resolve_rs_range)으로 정한다.
     auto_peak = status.get('peak_date')
-    with st.expander('⚙️ RS 구간 설정', expanded=False):
-        col_rs_start, col_rs_end = st.columns(2)
-        with col_rs_start:
-            st.caption(f'자동 기산점: {auto_peak.date() if auto_peak else "없음 (조정 미감지)"}')
-            custom_date = st.date_input(
-                '기산점 수동 설정',
-                value=None,
-                key=f'rs_custom_{market}',
-                help='비워두면 자동으로 이탈일 이전 전고점을 기산점으로 사용합니다.',
-            )
-            custom_rs_start_str = str(custom_date) if custom_date else None
-            if custom_rs_start_str:
-                st.info(f'📌 기산점: {custom_rs_start_str}')
-        with col_rs_end:
-            st.caption(f'자동 찐반등일: {jd.date() if jd else "없음 (미감지)"}')
-            custom_jjin = st.date_input(
-                '찐반등일 수동 설정',
-                value=None,
-                key=f'jjin_custom_{market}',
-                help='비워두면 자동 감지된 찐반등일을 사용합니다.',
-            )
-            if custom_jjin:
-                jjin_date_str = str(custom_jjin)
-                st.info(f'📌 찐반등일: {jjin_date_str}')
+    raw_peak, raw_jjin = rs_range.rs_range_inputs(market, 'trend', auto_peak, jd)
+    manual_peak, manual_jjin, rs_warns = clean_manual_rs_range(raw_peak, raw_jjin)
+    custom_peak, rs_jjin, rs_warn = (resolve_rs_range(_idx.index, manual_peak, manual_jjin, auto_peak, jd)
+                                     if not _idx.empty else (None, jd, None))
+    rs_range.show_warnings(rs_warns + [rs_warn])
+    custom_rs_start_str = rs_range.date_str(custom_peak) or None
+    rs_jjin_str         = rs_range.date_str(rs_jjin) or None
+    if rs_jjin_str:
+        jjin_date_str = rs_jjin_str      # 5분봉 차트도 수동 찐반등일을 따른다
 
     with st.expander('📊 Swing Low Grouping', expanded=False):
         st.caption('지수 저점 날짜를 선택하면 개별 종목의 상승 다이버전스 등급을 계산합니다.')
@@ -560,7 +548,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     with st.spinner(f'{label} 분석 중... ({len(tickers)}개 종목)'):
         rows = _build_rows(
             tuple(tickers), market,
-            correction_start_str, jjin_date_str,
+            correction_start_str, rs_jjin_str,
             custom_rs_start_str, None,
             swing_dates_str,
             snap_ts, idx_ts,
@@ -572,7 +560,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     # 차기 주도주 점수 — 주도섹터 탭과 같은 계산(같은 함수·같은 캐시)을 그대로 읽는다. 세 화면 일관성.
     # RS 구간 설정(수동 기산점·찐반등일)도 그대로 넘겨 두 탭이 같은 구간으로 계산되게 한다.
-    lead = lead_scores(market, custom_rs_start_str or '', str(custom_jjin) if custom_jjin else '')
+    lead = lead_scores(market, rs_range.date_str(manual_peak), rs_range.date_str(manual_jjin))
     for r in rows:
         s = lead.get(r['Ticker'])
         r['주도주점수'] = None if s is None else round(s['score'], 1)
@@ -589,10 +577,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
 
     state = status['state']
     if correction_start_str:
-        end_str = jjin_date_str or '진행 중'
+        end_str = rs_jjin_str or '진행 중'
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
         st.caption(f"📅 하락국면 RS 기준기간: {start_str} ~ {end_str}")
+    if any(r.get('RS구간오류') for r in rows):
+        st.error('**구간 설정 오류** — 기산점이 찐반등일과 같거나 뒤라 하락국면 RS 구간이 비었습니다. '
+                 '저점선행·양봉비를 계산하지 않았습니다. ⚙️ RS 구간 설정을 확인해 주세요.')
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
