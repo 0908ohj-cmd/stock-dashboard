@@ -67,6 +67,8 @@ notify_failure() { [ -n "${JOB_WRAPPER_JOB_NAME:-}" ] || notify "실패 — $1";
 
 die() { log "FAIL: $1"; notify_failure "$1"; fallback_now "$1"; exit 1; }
 
+. "$REPO/scripts/lib_batch_guard.sh" || die "lib_batch_guard.sh 로드 실패"
+
 # 성공 종료 직전: 올린 결과가 이번 회차를 채웠는지 폴백 게이트와 같은 기준으로 본다.
 # fetch_snapshot.py가 재시도 후에도 종목이 지수보다 늦은 채 저장한 경우가 여기서 걸린다.
 verify_round() {
@@ -146,6 +148,14 @@ else
         log "이번 회차는 이미 수집됨 — 건너뜀"
         exit 0
     fi
+fi
+
+# 설치된 launchd plist가 방금 받은 repo plist와 어긋나면 알린다 — 수집은 그대로 진행한다 (#39 M21).
+# dry-run(개발 체크아웃)은 브랜치 plist가 다를 수 있어 로그만 남긴다.
+LABEL="com.stockdashboard.batch.$MARKET"
+if ! drift="$(plist_drift "${LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$LABEL.plist" "$REPO/scripts/launchd/$LABEL.plist")"; then
+    log "WARN: launchd 설정 불일치 — $drift"
+    [ "$DRY_RUN" = "--dry-run" ] || notify "launchd 설정 불일치 — $drift"
 fi
 
 # 유니버스 빌드는 실패해도 스냅샷 수집을 막지 않는다.
