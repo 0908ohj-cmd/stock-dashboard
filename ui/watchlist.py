@@ -657,13 +657,7 @@ function(valueA, valueB) {
                         headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
     gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
                         headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
-    _sma200_style = JsCode("""
-function(p) {
-    if (!p.value) return null;
-    return {color: p.value.charAt(0) === '↗' ? '#16a34a' : '#dc2626', fontWeight: 600};
-}
-""")
-    gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120, cellStyle=_sma200_style,
+    gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120,
                         headerTooltip='200일선 방향(20거래일 전 대비) — 상승이면 주도주 점수 장기 추세 10점. 괄호는 이격')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
