@@ -1,9 +1,11 @@
 """
-섹터(테마) 캐시 일괄 갱신 CLI — claude CLI가 있는 로컬에서 실행.
+구 섹터(테마) 캐시(theme_cache.json) 일괄 갱신 CLI — claude CLI가 있는 로컬에서 실행.
 
+구 체계 폴백용이다. 신규 종목 분류는 배치의 scripts/classify_themes.py가 맡는다.
 기본: 미캐시 종목만 분류. --stale-days N은 updated가 N일 지난 종목 포함,
---all은 전량 재분류. 대상 = KR 시총 상위 200×2 + US 유니버스 + 업로드 저장분
-+ 리더보드. 캐시 저장은 마지막 1회 (병렬 중 경합 없음).
+--all은 전량 재분류 — 둘 다 LLM WebSearch를 종목 수만큼 부르므로 명시할 때만.
+대상 = data/saved의 현행 티커 파일 합집합(store.snapshot_tickers). KRX 유니버스(pykrx)·S&P500·
+리더보드는 조회하지 않는다(#45 M19). 캐시 저장은 마지막 1회 (병렬 중 경합 없음).
 """
 import argparse
 import sys
@@ -15,36 +17,22 @@ from pathlib import Path
 _REPO = Path(__file__).parent.parent
 sys.path.insert(0, str(_REPO))
 
-from data import theme_classifier               # noqa: E402
+from data import store, theme_classifier        # noqa: E402
 from data.sector import _kr_names, _load_themes  # noqa: E402
 
 
-def _collect_universe() -> list:
-    """분류 대상 티커 전체 수집 (중복 제거). 유니버스 소스 하나가 죽어도 나머지는 진행."""
-    tickers: set = set()
+def _collect_targets() -> list:
+    """(ticker, market) 쌍 — data/saved의 현행 티커 파일(store.snapshot_tickers) 합집합, 티커순.
 
-    from data import universe
-    get_kr = getattr(universe.get_kr_universe, '__wrapped__', universe.get_kr_universe)
-    get_us = getattr(universe.get_us_universe, '__wrapped__', universe.get_us_universe)
-    for market in ('KR_KOSPI', 'KR_KOSDAQ'):
-        try:
-            tickers.update(get_kr(market))
-        except Exception as e:
-            print(f'⚠️ {market} 유니버스 수집 실패: {e}')
-    try:
-        tickers.update(get_us())
-    except Exception as e:
-        print(f'⚠️ US 유니버스 수집 실패: {e}')
-
-    for f in sorted((_REPO / 'data' / 'saved').glob('*.tickers')):
-        tickers.update(line.strip() for line in f.read_text(encoding='utf-8').splitlines()
-                       if line.strip())
-
-    from data import leaderboard_store
-    for m in ('kr', 'us'):
-        tickers.update(leaderboard_store.get_tickers(m))
-
-    return sorted(tickers)
+    예전엔 KRX 시총 상위 200×2(get_kr_universe.__wrapped__로 st 캐시를 우회해 pykrx 직접 조회)·
+    S&P500·리더보드까지 모아 화면에 없는 종목까지 1400여 종목을 분류했다(#45 M19).
+    여러 시장 파일에 있으면 먼저 나온 시장.
+    """
+    pairs: dict = {}
+    for market in ('KR_KOSPI', 'KR_KOSDAQ', 'US'):
+        for t in store.snapshot_tickers(market):
+            pairs.setdefault(t, market)
+    return sorted(pairs.items())
 
 
 def _select_targets(tickers: list, cache: dict, all_mode: bool, stale_days) -> list:
@@ -119,14 +107,15 @@ def main() -> int:
     themes, overrides = _load_themes()
     cache = theme_classifier._load_cache()
 
-    tickers = [t for t in _collect_universe() if t not in overrides]
+    markets = dict(_collect_targets())
+    tickers = [t for t in markets if t not in overrides]
     targets = _select_targets(tickers, cache, args.all, args.stale_days)
     print(f'대상 {len(targets)}/{len(tickers)}종목 (워커 {args.workers})')
     if not targets:
         print('갱신할 종목 없음')
         return 0
 
-    names = _kr_names([t for t in targets if t.isdigit()])
+    names = _kr_names([t for t in targets if markets[t].startswith('KR')])   # 영숫자 KR 코드 포함 (#45 L6)
     failed = _classify_targets(targets, themes, names, args.workers)
 
     final = theme_classifier._load_cache()
