@@ -9,6 +9,7 @@
 
 배치(run_batch_local.sh)가 매 회차 --scope missing으로 돌려 새로 들어온 종목을 같은 기준으로 분류한다.
 claude CLI가 없는 환경에서는 아무것도 바꾸지 않고 0으로 끝난다.
+분류에 실패한 종목이 하나라도 있으면 1로 끝난다(성공분은 저장한다).
 """
 import argparse
 import json
@@ -216,7 +217,9 @@ def main() -> int:
     cls.save_store(market, records)
     print(f'[{market}] 완료 {done}개 — 승인 {accepted}, 미분류 {done - accepted - len(errors)}, '
           f'실패 {len(errors)} ({time.time() - t0:.0f}초)')
-    return 0
+    # 실패가 있으면 1 — 배치(run_batch_local.sh)의 WARN 분기가 이걸로 갈린다. 예전엔 전 종목이
+    # 실패해도 0이라 WARN이 한 번도 찍히지 않았다 (#39 L4). 성공분은 위에서 이미 저장했다
+    return 1 if errors else 0
 
 
 if __name__ == '__main__':
