@@ -105,6 +105,20 @@ def _low_broken_after(df: pd.DataFrame, idx: int) -> bool:
     return bool((df['Close'].iloc[idx + 1:] < pivot_low).any())
 
 
+def _setup_broken_at(df: pd.DataFrame, idx: int, ema10: pd.Series) -> int | None:
+    """기준봉(idx) 뒤 종가가 중간선 또는 10EMA 아래로 연속 2거래일 마감한 첫 위치(둘째 날).
+    classify_case의 중간선이탈·10EMA이탈과 같은 규칙이다. 없으면 None."""
+    high, low = float(df['High'].iloc[idx]), float(df['Low'].iloc[idx])
+    close = df['Close'].iloc[idx + 1:]
+    below_mid = close < (high + low) / 2
+    below_ema = close < ema10.iloc[idx + 1:]
+    broken = ((below_mid & below_mid.shift(1, fill_value=False))
+              | (below_ema & below_ema.shift(1, fill_value=False)))
+    if not broken.any():
+        return None
+    return idx + 1 + int(broken.to_numpy().argmax())
+
+
 def _pivot_result(df: pd.DataFrame, cand: tuple, cluster_end_idx: int,
                   invalidated: bool = False) -> dict:
     i, vr = cand
@@ -135,7 +149,9 @@ def find_pivot_candle(
     안에서는 첫 봉이 낮은 진입가를 준다):
       1) 전체 후보를 클러스터로 묶는다. 무효화를 먼저 걸러내면 버려진 후보 유무가
          살아남은 후보 간 선택을 뒤집으므로 순서가 중요하다
-      2) 최신 클러스터부터 거슬러 올라가며, 저가가 살아있는 첫 봉을 쓴다
+      2) 최신 클러스터부터 거슬러 올라가며, 저가가 살아있는 첫 봉을 쓴다.
+         그 봉이 중간선·10EMA 이탈(연속 2거래일)로 무효가 됐고 무효 확정 뒤에 살아있는
+         후보가 있으면 그 후보로 다시 고른다 — 이탈 판정은 이렇게 고른 봉에 적용된다
       3) 살아있는 후보가 하나도 없으면 가장 최근 후보를 invalidated로 돌려준다
          (None을 주면 저가를 깬 종목이 '기준봉 미탐지'로 보인다)
     후보 자체가 없을 때만 None.
@@ -186,7 +202,15 @@ def find_pivot_candle(
     for cluster in reversed(clusters):          # 최신 클러스터부터
         alive = [c for c in cluster if not _low_broken_after(stock_df, c[0])]
         if alive:
-            return _pivot_result(stock_df, alive[0], cluster[-1][0])
+            # 고른 봉이 중간선·10EMA 이탈로 무효가 되면, 무효가 확정된 뒤에 나온 후보로
+            # 다시 고른다. 첫 봉에 묶어 두면 그 뒤 새 기준봉이 '이탈'에 가려진다 (#43 M22)
+            chosen = alive[0]
+            while (broke := _setup_broken_at(stock_df, chosen[0], ema10)) is not None:
+                later = [c for c in alive if c[0] > broke]
+                if not later:
+                    break
+                chosen = later[0]
+            return _pivot_result(stock_df, chosen, cluster[-1][0])
 
     # 살아남은 후보 없음 → 가장 최근 후보를 무효 표시로 반환 (저가이탈 표시용)
     last = candidates[-1]

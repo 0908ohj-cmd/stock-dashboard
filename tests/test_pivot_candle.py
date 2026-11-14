@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pytest
+from strategy.indicators import calc_ema
 from strategy.pivot_candle import (find_pivot_candle, classify_case,
                                    calc_10ema_slope, _broke_vcp_box)
 
@@ -258,6 +259,77 @@ def test_falls_back_to_earlier_cluster_when_latest_is_invalidated():
 
     assert result is not None
     assert result['date'] == df.index[PIVOT_BASE_LEN]          # 최신 b2는 무효 → b1로 폴백
+
+
+# ── 같은 흐름 안 두 기준봉 (#43 M22·M23) ────────────────────────────
+# c1(280번봉: 고가 87·저가 80·중간선 83.5) → post_c1 → c2(거래량 3배·60일 신고가:
+# 고가 92.5·저가 86·중간선 89.25) → post_c2. c2는 c1에서 10거래일 안이라 같은 클러스터다.
+C1_HIGH, C2_HIGH = 87.0, 92.5
+
+
+def _two_pivot_df(post_c1, post_c2, c1_low=80.0):
+    closes = (list(np.linspace(40, 60, 200)) + list(np.linspace(60, 80, 80))
+              + [86.0] + list(post_c1) + [92.0] + list(post_c2))
+    c = np.array(closes, dtype=float)
+    high, low = c * 1.005, c * 0.995
+    c1, c2 = 280, 281 + len(post_c1)
+    high[c1], low[c1] = C1_HIGH, c1_low
+    high[c2], low[c2] = C2_HIGH, 86.0
+    vol = np.full(len(c), 1e6)
+    vol[c1] = vol[c2] = 3e6
+    df = pd.DataFrame({'Open': c, 'High': high, 'Low': low, 'Close': c, 'Volume': vol},
+                      index=pd.bdate_range('2025-06-02', periods=len(c)))
+    return df, c1, c2
+
+
+def test_new_pivot_after_midline_break_is_picked():
+    """첫 봉이 중간선 아래 2일 마감으로 무효가 된 뒤 나온 새 기준봉을 쓴다 (M22).
+
+    첫 봉에 묶여 있으면 '중간선이탈'로 숨겨져, 그 뒤 거래량 3배로 신고가를 뚫은
+    새 셋업(케이스2, 타점 92.5)을 놓친다.
+    """
+    df, c1, c2 = _two_pivot_df([83.0, 83.2, 84.5, 85.5], [91.5, 91.0, 91.2, 91.4])
+    assert df['Close'].iloc[c1 + 1] < 83.5 and df['Close'].iloc[c1 + 2] < 83.5   # 픽스처 전제
+
+    pivot = find_pivot_candle(df)
+
+    assert pivot['date'] == df.index[c2]
+    assert pivot['high'] == pytest.approx(C2_HIGH)
+    assert classify_case(df, pivot) == '셋업(케이스2)'
+
+
+def test_new_pivot_after_10ema_break_is_picked():
+    """10EMA 아래 2일 마감(중간선 위)으로 첫 봉이 무효가 된 뒤의 새 기준봉도 같다 (M22)."""
+    df, c1, c2 = _two_pivot_df([79.5, 79.3, 81.0, 82.5], [91.5, 91.0, 91.2, 91.4], c1_low=70.0)
+    ema10 = calc_ema(df, 10)
+    for i in (c1 + 1, c1 + 2):                                   # 픽스처 전제: 10EMA 아래·중간선 위
+        assert 78.5 < df['Close'].iloc[i] < ema10.iloc[i]
+
+    pivot = find_pivot_candle(df)
+
+    assert pivot['date'] == df.index[c2]
+    assert classify_case(df, pivot) == '셋업(케이스2)'
+
+
+def test_midline_break_without_new_pivot_stays_midline_break():
+    """무효화 뒤 새 기준봉이 없으면 첫 봉을 그대로 두고 '중간선이탈'로 판정한다."""
+    df, c1, c2 = _two_pivot_df([83.0, 83.2, 84.5, 85.5], [91.5, 91.0, 91.2, 91.4])
+    df.iloc[c2, df.columns.get_loc('Volume')] = 1e6               # c2를 후보에서 뺀다
+
+    pivot = find_pivot_candle(df)
+
+    assert pivot['date'] == df.index[c1]
+    assert classify_case(df, pivot) == '중간선이탈'
+
+
+def test_10ema_break_without_new_pivot_stays_10ema_break():
+    df, c1, c2 = _two_pivot_df([79.5, 79.3, 81.0, 82.5], [91.5, 91.0, 91.2, 91.4], c1_low=70.0)
+    df.iloc[c2, df.columns.get_loc('Volume')] = 1e6
+
+    pivot = find_pivot_candle(df)
+
+    assert pivot['date'] == df.index[c1]
+    assert classify_case(df, pivot) == '10EMA이탈'
 
 
 def test_no_pivot_when_no_resistance_breakout():
