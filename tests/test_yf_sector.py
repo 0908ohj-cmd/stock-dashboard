@@ -116,3 +116,31 @@ def test_cached_only_는_조회를_트리거하지_않는다(tmp_path, monkeypat
                         lambda *a: (_ for _ in ()).throw(AssertionError('fetch 호출됨')))
     assert yf_sector.get_yf_sectors_cached_only(['012450', '없는티커']) == {
         '012450': '방위산업', '없는티커': '-'}
+
+
+def test_캐시_파싱_실패면_덮어쓰지_않는다(tmp_path, monkeypatch):
+    """#26 같은 패턴: 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 1327개가 2개로 줄었다."""
+    cache_file = tmp_path / 'yf_sector_cache.json'
+    broken = '{"012450": "방위산업", "0002'
+    cache_file.write_text(broken, encoding='utf-8')
+    monkeypatch.setattr(yf_sector, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(yf_sector, '_SESSION_ATTEMPTED', set())
+    monkeypatch.setattr(yf_sector, 'fetch_label', lambda ticker, market: '완성차')
+
+    assert yf_sector.get_yf_sectors(['000270'], 'KR_KOSPI') == {'000270': '완성차'}   # 표시는 그대로
+    assert cache_file.read_text(encoding='utf-8') == broken
+
+
+def test_캐시_저장은_쓰는_도중에도_이전_파일을_온전히_둔다(tmp_path, monkeypatch):
+    from tests._write_probe import read_json_or_partial, split_writes
+
+    cache_file = _setup(tmp_path, monkeypatch, {'012450': '방위산업'})
+    seen = []
+    hits = split_writes(monkeypatch, tmp_path, on_half=lambda p: seen.append(read_json_or_partial(cache_file)))
+
+    yf_sector._save_cache({'012450': '방위산업', '000270': '완성차'})
+
+    assert hits
+    assert seen == [{'012450': '방위산업'}]
+    assert json.loads(cache_file.read_text(encoding='utf-8')) == {'012450': '방위산업', '000270': '완성차'}
+    assert [p.name for p in tmp_path.iterdir()] == ['yf_sector_cache.json']

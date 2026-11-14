@@ -6,10 +6,12 @@ Streamlit 무의존 — 캐시 래핑은 ui/ 계층에서 한다.
 """
 import json
 import pathlib
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+from data._atomic import atomic_write_text
 from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily
 
 OHLCV_DIR = pathlib.Path(__file__).parent / 'ohlcv'
@@ -156,41 +158,72 @@ def _safe_merge(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
 
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
 # 파일 mtime이 바뀌면(배치 재배포·재수집) 자동 무효화. Streamlit rerun 간에도 유지.
+# 캐시된 dict는 여러 스레드·세션이 같이 읽는다 — 절대 제자리에서 고치지 말고 복사본을 저장할 것.
 _snap_cache: dict = {}
 
+# 스냅샷 읽기→수정→쓰기 직렬화 (#26). 10EMA 탭은 ThreadPoolExecutor(10)로 load_daily를 돌려
+# 미스 병합이 동시에 일어난다. RLock — _merge_ticker가 잡은 채로 save_snapshot을 부른다.
+_snap_lock = threading.RLock()
 
-def load_snapshot(market: str) -> dict:
+
+class _UnreadableSnapshot(Exception):
+    """스냅샷 파일이 있는데 파싱할 수 없다. 쓰기 경로는 이 파일을 덮어쓰면 안 된다."""
+
+
+def _read_snapshot(market: str) -> dict:
+    """스냅샷 읽기. 파일이 없으면 {}, 있는데 파싱이 안 되면 _UnreadableSnapshot."""
     path = _snapshot_path(market)
-    if not path.exists():
+    try:
+        mtime = path.stat().st_mtime_ns
+    except FileNotFoundError:
         _snap_cache.pop(market, None)
         return {}
-    mtime = path.stat().st_mtime_ns
     hit = _snap_cache.get(market)
     if hit and hit[0] == mtime:
         return hit[1]
     try:
         snap = json.loads(path.read_text(encoding='utf-8'))
-    except Exception:
-        return {}
+    except Exception as e:
+        raise _UnreadableSnapshot(f'{path.name}: {type(e).__name__}: {e}') from e
+    if not isinstance(snap, dict):
+        raise _UnreadableSnapshot(f'{path.name}: 최상위가 dict가 아님({type(snap).__name__})')
     _snap_cache[market] = (mtime, snap)
     return snap
 
 
+def load_snapshot(market: str) -> dict:
+    """읽기 전용 경로 — 파싱 실패는 빈 스냅샷으로 본다 (화면은 온디맨드 폴백으로 버틴다).
+    쓰기 경로는 이 함수 대신 _read_snapshot을 써서 파싱 실패 시 저장을 건너뛴다."""
+    try:
+        return _read_snapshot(market)
+    except _UnreadableSnapshot:
+        return {}
+
+
 def save_snapshot(market: str, snap: dict) -> None:
-    OHLCV_DIR.mkdir(exist_ok=True)
-    path = _snapshot_path(market)
-    path.write_text(json.dumps(snap, ensure_ascii=False), encoding='utf-8')
-    _snap_cache[market] = (path.stat().st_mtime_ns, snap)
+    """원자적 저장 — 쓰는 도중에 읽어도 이전 파일이 온전히 보인다 (#26)."""
+    with _snap_lock:
+        OHLCV_DIR.mkdir(exist_ok=True)
+        path = _snapshot_path(market)
+        atomic_write_text(path, json.dumps(snap, ensure_ascii=False))
+        _snap_cache[market] = (path.stat().st_mtime_ns, snap)
 
 
 def _merge_ticker(market: str, key: str, df: pd.DataFrame) -> None:
     """미스 폴백 수집분을 로컬 스냅샷에 병합. 메타(fetched_at)는 갱신하지 않는다 —
-    티커 1개 폴백으로 시장 전체가 신선 판정되는 것을 방지."""
-    snap = load_snapshot(market)
-    snap.setdefault('market', market)
-    snap.setdefault('data', {})
-    snap['data'][key] = _df_to_records(df)
-    save_snapshot(market, snap)
+    티커 1개 폴백으로 시장 전체가 신선 판정되는 것을 방지.
+
+    파일을 파싱할 수 없으면 병합을 건너뛴다. 예전엔 파싱 실패를 빈 스냅샷으로 보고 종목
+    1개만 넣어 저장해 시장 전체가 사라졌다 (#26)."""
+    rec = _df_to_records(df)
+    with _snap_lock:
+        try:
+            snap = _read_snapshot(market)
+        except _UnreadableSnapshot as e:
+            print(f'[{market}] 스냅샷을 읽을 수 없어 {key} 병합 생략 — 파일은 그대로 둔다 ({e})')
+            return
+        save_snapshot(market, {**snap, 'market': snap.get('market', market),
+                               'data': {**snap.get('data', {}), key: rec}})
 
 
 def load_daily(ticker: str, market: str) -> pd.DataFrame:
@@ -384,16 +417,75 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     }
 
 
-def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> dict:
-    """전체 수집 후 스냅샷 전체 교체 저장 (업로드 직후·수동 새로고침용).
+# 시장 스냅샷의 전 종목 = 아래 티커 파일들의 합집합. 배치(scripts/fetch_snapshot.py)와
+# 앱 사이드바 🔄 데이터 재수집이 같은 목록을 쓰도록 정의는 여기 한 곳에 둔다.
+SAVED_DIR = pathlib.Path(__file__).parent / 'saved'
+SNAPSHOT_TICKER_FILES = {
+    'KR_KOSPI':  ['kospi.tickers',  'kospi_10ema.tickers'],
+    'KR_KOSDAQ': ['kosdaq.tickers', 'kosdaq_10ema.tickers'],
+    # us_sector.tickers = 주도섹터 유니버스 210종목 + 벤치마크 QQQ·IWM (data/universe/us_innovation_210.json)
+    'US':        ['us.tickers',     'us_10ema.tickers', 'us_sector.tickers'],
+}
 
-    전량 실패(네트워크 장애 등) 시에는 저장하지 않는다 — 기존 스냅샷 보존.
+
+def snapshot_tickers(market: str) -> list:
+    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀)."""
+    seen, result = set(), []
+    for filename in SNAPSHOT_TICKER_FILES.get(market, []):
+        path = SAVED_DIR / filename
+        if not path.exists():
+            continue
+        for t in path.read_text(encoding='utf-8').splitlines():
+            t = t.strip()
+            if t and t not in seen:
+                seen.add(t)
+                result.append(t)
+    return result
+
+
+def refetch_market(market: str, tickers: list, throttle_sec: float = 0.25) -> dict:
+    """앱 안 재수집(업로드 직후·🔄 데이터 재수집·탭별 🔄 재스캔) — 받은 종목만 갈아끼우는 부분 갱신.
+
+    배치 스냅샷은 여러 티커 파일의 합집합(fetch_snapshot.TICKER_FILES)인데, 호출부는 자기
+    목록만 넘긴다. 예전처럼 그 목록으로 통째 교체하면 다른 탭의 유니버스(10EMA·주도섹터
+    210종목·QQQ·IWM)가 지워졌다 (#31). 대상 밖 종목은 저장 직전 최신본에서 그대로 둔다.
+
+    시장 메타(fetched_at·last_trading_date·ticker_count·failed)는 '전 종목을 언제 받았나'의
+    기록이라 대상이 기존 종목 또는 배치 유니버스(snapshot_tickers — 사이드바 🔄 데이터 재수집이
+    넘기는 목록)를 전부 덮을 때만 새로 쓴다. 일부만 받았으면 메타는 그대로 두고
+    partial_refetched_at에 시각만 남긴다 — fetched_at을 올리면
+      ① get_freshness가 다시 받지 않은 종목까지 신선하다고 판정하고
+      ② repo_sync._local_wins가 이 파일을 그보다 이른 시각에 찍힌 원격 배치(전 종목 최신)보다
+         우선해, 남은 종목이 다음 배치까지 옛 값에 묶인다.
+    전량 실패(네트워크 장애 등)나 기존 파일 파싱 실패 시에는 저장하지 않는다 — 기존 스냅샷 보존.
+    반환값은 이번 수집 결과(build_market_snapshot — 대상 종목만, ticker_count·failed 포함).
     """
-    snap = build_market_snapshot(market, tickers, throttle_sec=throttle_sec)
-    if snap['ticker_count'] == 0 and tickers:
-        return snap
-    save_snapshot(market, snap)
-    return snap
+    fresh = build_market_snapshot(market, tickers, throttle_sec=throttle_sec)
+    if fresh['ticker_count'] == 0 and tickers:
+        return fresh
+    failed = set(fresh['failed'])
+    with _snap_lock:   # 수집(수 분)은 락 밖, 병합·저장만 안에서 — 그 사이 미스 병합분도 살린다
+        try:
+            latest = _read_snapshot(market)
+        except _UnreadableSnapshot as e:
+            print(f'[{market}] 스냅샷을 읽을 수 없어 재수집분 저장 생략 — 파일은 그대로 둔다 ({e})')
+            return fresh
+        data = dict(latest.get('data', {}))
+        for t, rec in fresh['data'].items():
+            # 실패 종목의 fresh 레코드는 수집 시작 때 읽은 옛 값 — 그 사이 더 새 값이 들어왔으면 유지
+            if t not in failed or t not in data:
+                data[t] = rec
+        requested, universe = set(tickers), set(snapshot_tickers(market))
+        # 전 종목 수집 = 기존 종목을 전부 덮었거나, 배치 유니버스(🔄 데이터 재수집이 넘기는 합집합)를
+        # 전부 덮었을 때. 유니버스 밖 잔여 종목(업로드로 목록에서 빠진 옛 종목·미스 병합분)은
+        # 원래 fetched_at과 무관하므로 판정을 막지 않고, 지우지도 않는다 (다음 배치가 정리)
+        if set(latest.get('data', {})) <= requested or (universe and universe <= requested):
+            snap = {**fresh, 'data': data}                       # 전 종목 수집 — 배치와 같은 의미
+        else:
+            snap = {**latest, 'market': market, 'data': data,
+                    'partial_refetched_at': datetime.now(KST).isoformat(timespec='seconds')}
+        save_snapshot(market, snap)
+    return fresh
 
 
 _MARKET_INDEX_MAP = {

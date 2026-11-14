@@ -290,3 +290,37 @@ def test_themes_json_atomic_write(tmp_path, monkeypatch):
     names = [t["name"] for t in data["known_themes"]]
     assert "신규" in names
     assert not themes_file.with_suffix(".json.tmp").exists()
+
+
+def test_cache_parse_failure_is_not_overwritten(tmp_path, monkeypatch, fake_themes):
+    """#26 같은 패턴: 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 캐시 전체가 사라진다."""
+    cache_file = tmp_path / "theme_cache.json"
+    broken = '{"WDC": {"theme": "NAND 메모리", "detail": "AI 데이터센터 스토리지", "upd'
+    cache_file.write_text(broken, encoding="utf-8")
+    monkeypatch.setattr(sector_classifier, "_CACHE_FILE", cache_file)
+
+    with patch.object(sector_classifier, "_classify_one",
+                      return_value={"theme": "반도체설계", "detail": "AI 가속기"}):
+        result = sector_classifier.classify(["NVDA"], fake_themes)
+
+    assert result["NVDA"] == {"theme": "반도체설계", "detail": "AI 가속기"}   # 표시는 그대로
+    assert cache_file.read_text(encoding="utf-8") == broken
+
+
+def test_cache_save_keeps_previous_file_intact_while_writing(tmp_path, monkeypatch):
+    from tests._write_probe import read_json_or_partial, split_writes
+
+    cache_file = tmp_path / "theme_cache.json"
+    old = {"WDC": {"theme": "NAND 메모리", "detail": "x", "updated": "2026-11-01T00:00:00"}}
+    cache_file.write_text(json.dumps(old, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(sector_classifier, "_CACHE_FILE", cache_file)
+    seen = []
+    hits = split_writes(monkeypatch, tmp_path, on_half=lambda p: seen.append(read_json_or_partial(cache_file)))
+    new = {**old, "NVDA": {"theme": "반도체설계", "detail": "y", "updated": "2026-11-13T00:00:00"}}
+
+    sector_classifier._save_cache(new)
+
+    assert hits
+    assert seen == [old]
+    assert json.loads(cache_file.read_text(encoding="utf-8")) == new
+    assert [p.name for p in tmp_path.iterdir()] == ["theme_cache.json"]

@@ -63,6 +63,13 @@ def test_run_market_no_retry_when_up_to_date(monkeypatch):
     assert slept == []
 
 
+def test_배치_종목_목록은_store가_단일_출처다():
+    """앱 🔄 데이터 재수집과 배치가 같은 목록을 쓴다 — 정의는 data/store.py 한 곳."""
+    from data import store
+    assert fs.TICKER_FILES is store.SNAPSHOT_TICKER_FILES
+    for market in fs.MARKET_GROUPS['all']:
+        assert fs.load_tickers(market) == store.snapshot_tickers(market)
+
 
 # ── 지수 수집 실패 → 종료 코드 3 (종목은 저장, 배치는 실패로 끝남) ──────────
 

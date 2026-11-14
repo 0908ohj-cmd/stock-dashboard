@@ -13,12 +13,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from data import store
 
-TICKER_FILES = {
-    'KR_KOSPI':  ['kospi.tickers',  'kospi_10ema.tickers'],
-    'KR_KOSDAQ': ['kosdaq.tickers', 'kosdaq_10ema.tickers'],
-    # us_sector.tickers = 주도섹터 유니버스 210종목 + 벤치마크 QQQ·IWM (data/universe/us_innovation_210.json)
-    'US':        ['us.tickers',     'us_10ema.tickers', 'us_sector.tickers'],
-}
+# 시장별 종목 = 티커 파일 합집합. 정의는 data/store.py 한 곳 — 앱 사이드바 🔄 데이터 재수집도
+# 같은 목록으로 전 종목을 다시 받는다 (scripts를 앱이 import하지 않도록 data/ 계층에 둔다)
+TICKER_FILES = store.SNAPSHOT_TICKER_FILES
 MARKET_GROUPS = {
     'kr':  ['KR_KOSPI', 'KR_KOSDAQ'],
     'us':  ['US'],
@@ -34,19 +31,7 @@ LAG_RETRY_WAITS_SEC = (300, 900)
 INDEX_FAILED_EXIT = 3
 
 
-def load_tickers(market: str) -> list:
-    saved = pathlib.Path(__file__).resolve().parent.parent / 'data' / 'saved'
-    seen, result = set(), []
-    for filename in TICKER_FILES[market]:
-        path = saved / filename
-        if not path.exists():
-            continue
-        for t in path.read_text(encoding='utf-8').splitlines():
-            t = t.strip()
-            if t and t not in seen:
-                seen.add(t)
-                result.append(t)
-    return result
+load_tickers = store.snapshot_tickers
 
 
 def _index_last(market: str) -> str | None:
