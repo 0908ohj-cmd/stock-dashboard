@@ -18,6 +18,7 @@ from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
 from ui import tv_export
 from ui.sector_leadership import lead_scores
+from ui.watchlist_logic import chart_position, chart_step, nav_button_keys, space_nav_script
 
 # 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
 SHOW_CANDIDATES = False
@@ -714,63 +715,40 @@ function(valueA, valueB) {
                     "'추세추종 탭 종목만'을 켜면 이 와치리스트 종목만 볼 수 있어요. "
                     "위 표의 **주도주 점수·순위**도 같은 계산입니다.")
 
-    idx_key = f'chart_idx_{market}'
+    # 차트 선택은 행 번호가 아니라 티커로 저장하고 위치는 매번 지금 rows에서 다시 찾는다 (#44 M16).
+    # 행 번호를 저장하면 종목 수가 줄 때 rows[i]에서 IndexError가 나 뒤의 탭·내보내기까지 멈추고,
+    # 정렬이 바뀌면 같은 번호가 다른 종목을 가리킨다.
+    sel_key = f'chart_ticker_{market}'
     nav_key = f'chart_nav_{market}'
-    if idx_key not in st.session_state:
-        st.session_state[idx_key] = None
+    row_tickers = [r['Ticker'] for r in rows]
 
-    # 그리드 클릭 → 인덱스 설정 (prev/next 직후 rerun은 무시)
+    # 그리드 클릭 → 선택 종목 (prev/next 직후 rerun은 무시)
     if not st.session_state.get(nav_key, False):
         selected_rows = grid_response.get('selected_rows')
         if selected_rows is not None and len(selected_rows) > 0:
             first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
-            sel_ticker = first_row['티커 | 종목명'].split(' | ')[0]
-            for i, r in enumerate(rows):
-                if r['Ticker'] == sel_ticker:
-                    st.session_state[idx_key] = i
-                    break
+            st.session_state[sel_key] = first_row['티커 | 종목명'].split(' | ')[0]
     st.session_state[nav_key] = False
 
-    cur_idx = st.session_state[idx_key]
+    cur_ticker = st.session_state.get(sel_key)
+    cur_idx = chart_position(row_tickers, cur_ticker)
+    if cur_idx is None:
+        st.session_state[sel_key] = None     # 표에서 빠진 종목 — 선택을 지운다
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
 
     if cur_idx is not None and jjin_date_str:
         total = len(rows)
+        prev_key, next_key = nav_button_keys(market)
 
-        # 스페이스바 → ▶ 버튼 클릭 (parent document에 한 번만 등록)
-        components.html(f"""
-<script>
-(function() {{
-    var p = window.parent;
-    if (p.__spaceNavRegistered) {{
-        p.document.removeEventListener('keydown', p.__spaceNavHandler);
-    }}
-    p.__spaceNavHandler = function(e) {{
-        if (e.code !== 'Space' && e.key !== ' ') return;
-        var tag = (p.document.activeElement || {{}}).tagName || '';
-        if (/^(INPUT|TEXTAREA|SELECT)$/i.test(tag)) return;
-        e.preventDefault();
-        var target = e.shiftKey ? '◀' : '▶';
-        var btns = p.document.querySelectorAll('button');
-        for (var i = 0; i < btns.length; i++) {{
-            if (btns[i].innerText.trim() === target) {{
-                btns[i].click();
-                return;
-            }}
-        }}
-    }};
-    p.document.addEventListener('keydown', p.__spaceNavHandler);
-    p.__spaceNavRegistered = true;
-}})();
-</script>
-""", height=0)
+        # 스페이스바 → 이 탭의 ▶ (Shift → ◀). 탭마다 자기 버튼만 누른다
+        components.html(space_nav_script(market), height=0)
 
         # 이전/다음 내비게이션
         c_prev, c_info, c_next = st.columns([1, 5, 1])
         with c_prev:
-            if st.button('◀', key=f'prev_{market}', use_container_width=True):
+            if st.button('◀', key=prev_key, use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = (cur_idx - 1) % total
+                st.session_state[sel_key] = chart_step(row_tickers, cur_ticker, -1)
                 st.rerun()
         with c_info:
             r_cur = rows[cur_idx]
@@ -781,12 +759,12 @@ function(valueA, valueB) {
                 unsafe_allow_html=True,
             )
         with c_next:
-            if st.button('▶', key=f'next_{market}', use_container_width=True):
+            if st.button('▶', key=next_key, use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = (cur_idx + 1) % total
+                st.session_state[sel_key] = chart_step(row_tickers, cur_ticker, +1)
                 st.rerun()
 
-        selected_ticker = rows[cur_idx]['Ticker']
+        selected_ticker = cur_ticker
         jjin_date = pd.Timestamp(jjin_date_str)
         with st.spinner('5분봉 로드 중...'):
             stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
