@@ -1,5 +1,4 @@
 import base64
-import hashlib
 import json
 import pathlib
 import requests
@@ -132,8 +131,12 @@ for uploaded, key, name in [
     (us_file,     'US',        'US'),
 ]:
     saved_path = SAVED_PATHS[key]
+    upload_slot = f'uploaded_sig_{key}'
 
-    if uploaded:
+    if not uploaded:
+        # 업로더를 비우면 가드를 푼다 — 같은 파일을 다시 올리면 다시 처리(시세 수집)한다 (백업 복원과 같은 규칙)
+        backup.release(st.session_state, upload_slot)
+    else:
         try:
             import io
             raw = uploaded.read()
@@ -143,14 +146,12 @@ for uploaded, key, name in [
             else:
                 df = parse_tradingview_csv(io.BytesIO(raw))
                 tickers_parsed = df['Ticker'].dropna().astype(str).tolist()
-            content = '\n'.join(tickers_parsed)
-            saved_path.write_text(content, encoding='utf-8')
-            _github_save(saved_path.name, content)
-            # 업로드 직후 1회 수집 — file_uploader는 rerun마다 같은 파일을 반환하므로
-            # 세션 시그니처 가드가 없으면 매 rerun 전량 재수집된다
-            sig = hashlib.md5(raw).hexdigest()   # 내용 기반 — 같은 이름·길이의 다른 파일도 감지
-            if st.session_state.get(f'uploaded_sig_{key}') != sig:
-                st.session_state[f'uploaded_sig_{key}'] = sig
+            # file_uploader는 rerun마다 같은 파일을 반환한다. 파일 저장·GitHub 커밋·시세 수집을 모두
+            # 내용 서명 가드 안에서 한다 — 밖에 두면 위젯을 만질 때마다 파일을 다시 쓰고 PUT해
+            # 빈 커밋이 쌓이고, mtime이 바뀌어 주도섹터 캐시도 매번 무효화된다(#44 M15).
+            # 저장된 목록과 같으면 쓰기·커밋은 건너뛰고, 새 업로드이므로 시세는 한 번 받는다.
+            if backup.apply_upload(st.session_state, upload_slot, raw, tickers_parsed,
+                                   saved_path, _github_save) != backup.UPLOAD_REPEAT:
                 with st.sidebar:
                     with st.spinner(f'{name} 시세 수집 중... ({len(tickers_parsed)}개 종목)'):
                         store.refetch_market(key, _with_sector_universe(key, tickers_parsed))
