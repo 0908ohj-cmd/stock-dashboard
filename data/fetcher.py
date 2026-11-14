@@ -1,3 +1,5 @@
+import threading
+import time
 from functools import lru_cache
 
 import numpy as np
@@ -34,8 +36,118 @@ def _download(ticker: str, start, end, interval: str = '1d') -> pd.DataFrame:
     return df[needed]   # dropna는 호출부에서 처리
 
 
+# ── KR 종목 패치 (#34) ──────────────────────────────────
+# 종목별 get_market_ohlcv_by_date는 기본값 adjusted=True라 KRX가 아니라 네이버
+# (fchart.stock.naver.com)로 나간다 (pykrx 1.2.8 stock_api.get_market_ohlcv_by_date).
+# KRX 데이터 요청 0회를 지키려고 이 경로를 유지한다 — KRX 전종목 시세는 로그인이 필요한데
+# Streamlit Cloud에는 KRX 자격증명이 없다. 대신 휴장 다음 날 배치가 종목마다 두드리던
+# 패턴(261회, 지연 재수집까지 ~780회)을 다음으로 묶는다:
+#   - 지수 스냅샷으로 휴장이 확정된 날짜는 조회하지 않는다 (_is_known_kr_holiday)
+#   - (날짜, 티커) 응답을 프로세스 안에 캐시한다. 빈 응답도 캐시하고, 디스크에는 저장하지 않는다
+#   - 거래일로 확인되지 않은 날짜에서 응답이 비면 그 날짜는 다른 종목에도 잠시 묻지 않는다
+#   - 프로세스·대상 날짜당 호출 상한 — 폭주 방지 안전장치 (_KR_PATCH_MAX_CALLS)
+_KR_PATCH_STATE: dict = {}     # 'rows'·'calls'·'dates'·'cap_logged' → 컨테이너 (_kr_naver_row 참고)
+_KR_PATCH_LOCK = threading.Lock()
+_KR_PATCH_RETRY_SEC = 1800     # 확정 안 된 응답(오늘·미래 날짜, 조회 실패)을 재사용하는 시간
+# 프로세스·대상 날짜당 네이버 호출 상한 — 비정상 확장 방지용 안전장치. (날짜, 티커) 캐시가
+# 본 수집·재시도·지연 재수집 패스 간 중복을 막으므로 호출 최악값은 이미 종목 수(KR 배치
+# 유니버스 2026-11 기준 261종목, 코스피·코스닥이 한 프로세스)다. 상한을 그보다 낮추면
+# 최악값은 못 줄이고 전 종목 NaN인 날(자정 이후 폴백에서 실제 발생) 그날 봉만 빠뜨린다.
+# 400은 유니버스보다 넉넉하게 두어, 유니버스 폭증·티커 파일 오염 같은 비정상 확장만 끊는다.
+# 넘으면 나머지 종목은 패치하지 않은 채 둔다(NaN 행은 fetch_daily의 dropna로 빠짐).
+_KR_PATCH_MAX_CALLS = 400
+_clock = time.monotonic
+
+
+def _kr_naver_row(fetch_date, ticker: str, confirmed: bool):
+    """fetch_date의 ticker 일봉 (시가, 고가, 저가, 종가, 거래량) 또는 None — 네이버 경유.
+
+    confirmed: 지수 스냅샷에 fetch_date가 거래일로 있는지. 확인되지 않았고 아직 데이터를
+    받은 종목도 없는 날짜에서 응답이 비면 휴장일일 가능성이 커서, 그 날짜는 다른 종목에도
+    _KR_PATCH_RETRY_SEC 동안 묻지 않는다. 확인된 거래일에서는 한 종목(거래정지·신규상장)의
+    빈 응답이 다른 종목을 막지 않는다.
+
+    지난 날짜의 응답은 바뀌지 않으므로 프로세스가 끝날 때까지 쓰고, 오늘·미래 날짜의 응답과
+    조회 실패는 _KR_PATCH_RETRY_SEC 동안만 쓴다 — 오래 사는 Streamlit 프로세스에서 장전·장중
+    응답이 종일 굳지 않게.
+    """
+    date_str = fetch_date.strftime('%Y%m%d')
+    with _KR_PATCH_LOCK:       # 10EMA 탭 스레드 10개가 동시에 들어와도 캐시·상한이 정확하도록
+        st = _KR_PATCH_STATE
+        rows = st.setdefault('rows', {})       # (날짜, 티커) → (만료 시각 | None, 행 | None)
+        calls = st.setdefault('calls', {})     # 날짜 → 네이버 호출 수
+        dates = st.setdefault('dates', {})     # 날짜 → True(행을 받은 날) | 만료 시각(첫 응답이 빈 미확인 날짜)
+        now = _clock()
+
+        hit = rows.get((date_str, ticker))
+        if hit is not None and (hit[0] is None or now < hit[0]):
+            return hit[1]
+        mark = dates.get(date_str)
+        if not confirmed and mark is not None and mark is not True and now < mark:
+            return None
+        if calls.get(date_str, 0) >= _KR_PATCH_MAX_CALLS:
+            logged = st.setdefault('cap_logged', set())
+            if date_str not in logged:
+                logged.add(date_str)
+                print(f'[KR 패치] {fetch_date} 네이버 조회 상한 {_KR_PATCH_MAX_CALLS}회 도달 — '
+                      '나머지 종목은 이 프로세스에서 패치하지 않는다')
+            return None
+        calls[date_str] = calls.get(date_str, 0) + 1
+
+        settled = fetch_date < datetime.now(_KST).date()
+        row = None
+        try:
+            from pykrx import stock as pykrx_stock   # import만 해도 KRX 로그인 — 필요할 때만
+            pk = pykrx_stock.get_market_ohlcv_by_date(date_str, date_str, ticker)
+            if pk is None or pk.empty:
+                if not confirmed and mark is not True:
+                    dates[date_str] = now + _KR_PATCH_RETRY_SEC
+            else:
+                vals = tuple(float(pk[c].iloc[0]) for c in ('시가', '고가', '저가', '종가', '거래량'))
+                dates[date_str] = True
+                if min(vals[:4]) > 0:   # 0 이하 가격(거래정지 형식)은 저가 0원 봉이 되므로 쓰지 않는다
+                    row = vals
+        except Exception:      # 차단·네트워크 — 같은 종목을 재시도 패스마다 다시 두드리지 않는다
+            settled = False
+        rows[(date_str, ticker)] = (None if settled else now + _KR_PATCH_RETRY_SEC, row)
+        return row
+
+
+def _kr_trading_dates() -> set:
+    """indices 스냅샷의 KOSPI·KOSDAQ 거래일(YYYY-MM-DD) 집합. 못 읽으면 빈 집합.
+    배치는 지수를 종목보다 먼저 받으므로 같은 회차의 지수 날짜가 들어 있다."""
+    try:
+        from data import store   # store가 이 모듈을 import한다 — 순환 import 회피용 지연 import
+        data = store.load_snapshot('indices').get('data', {})
+    except Exception:
+        return set()
+    dates = set()
+    for name in ('KOSPI', 'KOSDAQ'):
+        dates.update((data.get(name) or {}).get('dates') or [])
+    return dates
+
+
+def _is_known_kr_holiday(d, dates: set | None = None) -> bool:
+    """d가 KR 휴장일로 확정됐는지 — 지수 스냅샷에 d 앞뒤 거래일이 모두 있는데 d만 없을 때.
+
+    오늘·미래 날짜, 지수가 아직 d 이후를 모르는 경우는 판정하지 않는다(False) —
+    '아직 데이터 없음'을 휴장으로 굳히면 그날 시세를 영영 못 채운다. 판정 불가일 때는
+    조회하되, _kr_naver_row의 캐시·상한이 호출 수를 묶는다.
+    """
+    if d >= datetime.now(_KST).date():
+        return False
+    if dates is None:
+        dates = _kr_trading_dates()
+    s = d.strftime('%Y-%m-%d')
+    return bool(dates) and s not in dates and min(dates) < s < max(dates)
+
+
 def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx로 채움."""
+    """yfinance 마지막 행 Close가 NaN이거나 전거래일 행이 아예 없으면 pykrx(네이버)로 채움.
+
+    지수 스냅샷으로 휴장이 확정된 날짜는 조회하지 않고, 조회는 _kr_naver_row의
+    (날짜, 티커) 캐시와 날짜당 상한을 거친다 (#34).
+    """
     if df.empty or 'Close' not in df.columns:
         return df
 
@@ -47,18 +159,17 @@ def _patch_kr_today(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if not last_close_nan and last_date >= yesterday:
         return df
 
+    fetch_date = last_date if last_close_nan else yesterday
+    trading_dates = _kr_trading_dates()
+    if _is_known_kr_holiday(fetch_date, trading_dates):
+        return df
+    confirmed = fetch_date.strftime('%Y-%m-%d') in trading_dates
     try:
-        from pykrx import stock as pykrx_stock
-        fetch_date = last_date if last_close_nan else yesterday
-        date_str = fetch_date.strftime('%Y%m%d')
-        pk = pykrx_stock.get_market_ohlcv_by_date(date_str, date_str, ticker)
-        if not pk.empty:
+        row = _kr_naver_row(fetch_date, ticker, confirmed)
+        if row is not None:
             ts = pd.Timestamp(fetch_date)
-            df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
-            df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
-            df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
-            df.loc[ts, 'Close']  = float(pk['종가'].iloc[0])
-            df.loc[ts, 'Volume'] = float(pk['거래량'].iloc[0])
+            for col, val in zip(('Open', 'High', 'Low', 'Close', 'Volume'), row):
+                df.loc[ts, col] = val
             df = df.sort_index()
     except Exception:
         pass
@@ -229,14 +340,15 @@ def _patch_kr_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     if bad.empty:
         return df
 
-    # 1순위: pykrx
+    # 1순위: pykrx — 첫 빈 응답이나 예외에서 루프를 멈춘다 (#34). 날짜마다 KRX를
+    # 두드리지 않게 하고, 남은 불량 행은 아래 FDR이 맡는다
     try:
         from pykrx import stock as pykrx_stock
         for ts in bad:
             date_str = ts.strftime('%Y%m%d')
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty:
-                continue
+                break
             df.loc[ts, 'Open']   = float(pk['시가'].iloc[0])
             df.loc[ts, 'High']   = float(pk['고가'].iloc[0])
             df.loc[ts, 'Low']    = float(pk['저가'].iloc[0])
@@ -335,7 +447,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
         except Exception:
             pass
 
-    # 2순위: pykrx (FDR 실패 시)
+    # 2순위: pykrx (FDR 실패 시) — 첫 빈 응답이나 예외에서 루프를 멈춘다 (#34)
     still_zero = df.index[df['Volume'] == 0]
     if still_zero.empty or not pykrx_code:
         return df
@@ -345,7 +457,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
             date_str = ts.strftime('%Y%m%d')
             pk = pykrx_stock.get_index_ohlcv_by_date(date_str, date_str, pykrx_code)
             if pk.empty or '거래량' not in pk.columns:
-                continue
+                break
             vol = float(pk['거래량'].iloc[0])
             if vol > 0:
                 df.loc[ts, 'Volume'] = vol
