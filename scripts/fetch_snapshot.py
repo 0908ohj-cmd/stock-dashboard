@@ -26,6 +26,9 @@ MIN_SUCCESS_RATE = 0.7
 # 2026-11-10 US: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 → 하루 낡은 채 저장됐다.
 MARKET_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
 LAG_RETRY_WAITS_SEC = (300, 900)
+# 종목은 저장했지만 지수 수집이 실패했다 — run_batch_local.sh가 종목을 올린 뒤 실패로 끝내
+# job_wrapper 알림·/jobs 실패 기록·catchup 재시도로 이어지게 한다.
+INDEX_FAILED_EXIT = 3
 
 
 load_tickers = store.snapshot_tickers
@@ -73,10 +76,15 @@ def main() -> int:
     args = ap.parse_args()
 
     # 지수를 먼저 받는다 — 종목이 지수보다 늦은지(소스 지연) 판정하는 기준이다
-    store.refetch_indices(args.markets)
-    print(f'[indices] {args.markets} 지수 갱신')
+    idx = store.refetch_indices(args.markets) or {}
+    if idx.get('failed'):
+        print(f"[indices] ⚠️ 지수 수집 실패: {', '.join(idx['failed'])} — 기존 값 유지")
+    else:
+        print(f'[indices] {args.markets} 지수 갱신')
     results = [run_market(m) for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
-    return 0 if all(results) else 1
+    if not all(results):
+        return 1
+    return INDEX_FAILED_EXIT if idx.get('failed') else 0
 
 
 if __name__ == '__main__':

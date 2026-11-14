@@ -61,7 +61,11 @@ fallback_now() {
     fi
 }
 
-die() { log "FAIL: $1"; notify "실패 — $1"; fallback_now "$1"; exit 1; }
+# stockEdge job_wrapper 아래에서 돌면(launchd·catchup) 실패 알림은 wrapper가 원래 채널로 보낸다 —
+# 여기서도 보내면 같은 실패가 두 번 온다. 직접 실행할 때만 스스로 알린다.
+notify_failure() { [ -n "${JOB_WRAPPER_JOB_NAME:-}" ] || notify "실패 — $1"; }
+
+die() { log "FAIL: $1"; notify_failure "$1"; fallback_now "$1"; exit 1; }
 
 # 성공 종료 직전: 올린 결과가 이번 회차를 채웠는지 폴백 게이트와 같은 기준으로 본다.
 # fetch_snapshot.py가 재시도 후에도 종목이 지수보다 늦은 채 저장한 경우가 여기서 걸린다.
@@ -78,6 +82,22 @@ verify_round() {
         1) fallback_now "올린 데이터가 이번 회차 기준 미달 — $out" ;;
         *) log "WARN: 회차 판정 불가 — 폴백 요청 생략 / $out" ;;
     esac
+}
+
+# 지수 수집 실패(fetch_snapshot.py 종료 코드 3) — 종목은 올리고 마지막에 실패로 끝낸다.
+INDEX_FAILED=""
+
+# 성공 경로 공통 종료: 회차 판정(미달이면 즉시 폴백) 뒤, 지수 수집이 실패했으면 실패로 끝낸다.
+# 실패 종료 → job_wrapper 텔레그램·/jobs 실패 기록 → catchup이 grace 뒤 재실행한다.
+# 그 사이 폴백이 회차를 채웠으면 재실행은 시작하자마자 '이미 수집됨'으로 성공 종료한다.
+finish() {
+    verify_round
+    if [ -n "$INDEX_FAILED" ]; then
+        log "FAIL: $INDEX_FAILED — 종목은 올렸다, 지수는 재시도 대상"
+        notify_failure "$INDEX_FAILED"
+        exit 1
+    fi
+    exit 0
 }
 
 # launchd의 파일 열기 기본 한도는 256이다(`launchctl limit maxfiles`). 유니버스
@@ -120,6 +140,12 @@ else
     [ "$REPO" = "$BATCH_REPO" ] || die "배치 전용 체크아웃이 아니다($REPO) — 실제 실행은 $BATCH_REPO 에서만 허용한다"
     git fetch origin --quiet || die "git fetch 실패"
     git reset --hard origin/main --quiet || die "git reset 실패"
+    # 이번 회차가 이미 채워졌으면(GitHub 폴백·수동 실행 등) 다시 받지 않는다 — catchup이 실패한
+    # 회차를 재실행할 때 폴백이 먼저 채웠다면 같은 수집(KR은 KRX 조회)을 반복하지 않고 성공으로 끝난다.
+    if type round_is_fresh >/dev/null 2>&1 && round_is_fresh "$PYTHON" "$MARKET" "$REPO" >>"$LOG" 2>&1; then
+        log "이번 회차는 이미 수집됨 — 건너뜀"
+        exit 0
+    fi
 fi
 
 # 유니버스 빌드는 실패해도 스냅샷 수집을 막지 않는다.
@@ -134,8 +160,15 @@ if ! "$PYTHON" "$BUILDER" >>"$LOG" 2>&1; then
     notify "유니버스 빌드 실패 (스냅샷은 계속 진행)"
 fi
 
-"$PYTHON" scripts/fetch_snapshot.py --markets "$MARKET" >>"$LOG" 2>&1 \
-    || die "스냅샷 수집 실패"
+"$PYTHON" scripts/fetch_snapshot.py --markets "$MARKET" >>"$LOG" 2>&1
+case $? in
+    0) ;;
+    3)  # 지수만 실패 — 종목은 저장됐다. 실패한 지수명을 배치 로그에서 가져온다
+        INDEX_FAILED="$(grep -o '지수 수집 실패: [^—]*' "$LOG" | tail -1 | sed 's/ *$//')"
+        INDEX_FAILED="${INDEX_FAILED:-지수 수집 실패}"
+        log "WARN: $INDEX_FAILED — 종목은 올린 뒤 실패로 끝낸다" ;;
+    *) die "스냅샷 수집 실패" ;;
+esac
 
 # 새로 들어온 종목만 같은 기준(고정 테마 목록 + 근거 URL)으로 분류한다.
 # 실패해도 수집 결과는 올린다 — 분류는 다음 회차에 다시 시도된다.
@@ -156,8 +189,7 @@ git add data/ohlcv data/classification \
     || die "git add 실패"
 if git diff --cached --quiet; then
     log "변경 없음 — 종료"
-    verify_round
-    exit 0
+    finish
 fi
 
 git -c user.name="stock-dashboard-batch" \
@@ -181,4 +213,4 @@ case $? in
 esac
 
 log "완료"
-verify_round
+finish

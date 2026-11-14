@@ -69,3 +69,27 @@ def test_배치_종목_목록은_store가_단일_출처다():
     assert fs.TICKER_FILES is store.SNAPSHOT_TICKER_FILES
     for market in fs.MARKET_GROUPS['all']:
         assert fs.load_tickers(market) == store.snapshot_tickers(market)
+
+
+# ── 지수 수집 실패 → 종료 코드 3 (종목은 저장, 배치는 실패로 끝남) ──────────
+
+def _main_with(monkeypatch, index_failed, market_ok=True):
+    monkeypatch.setattr('sys.argv', ['fetch_snapshot.py', '--markets', 'us'])
+    monkeypatch.setattr(fs.store, 'refetch_indices',
+                        lambda m: {'failed': index_failed, 'data': {}})
+    monkeypatch.setattr(fs, 'run_market', lambda m: market_ok)
+    return fs.main()
+
+
+def test_main_returns_index_failed_code_when_index_failed(monkeypatch, capsys):
+    assert _main_with(monkeypatch, ['NASDAQ']) == fs.INDEX_FAILED_EXIT == 3
+    # run_batch_local.sh가 이 문구에서 실패한 지수명을 가져간다
+    assert '지수 수집 실패: NASDAQ' in capsys.readouterr().out
+
+
+def test_main_market_failure_wins_over_index_failure(monkeypatch):
+    assert _main_with(monkeypatch, ['NASDAQ'], market_ok=False) == 1
+
+
+def test_main_success(monkeypatch):
+    assert _main_with(monkeypatch, []) == 0
