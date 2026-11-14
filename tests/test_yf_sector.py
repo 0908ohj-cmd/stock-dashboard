@@ -158,3 +158,10 @@ def test_캐시_저장은_쓰는_도중에도_이전_파일을_온전히_둔다(
     assert seen == [{'012450': '방위산업'}]
     assert json.loads(cache_file.read_text(encoding='utf-8')) == {'012450': '방위산업', '000270': '완성차'}
     assert [p.name for p in tmp_path.iterdir()] == ['yf_sector_cache.json']
+
+
+def test_symbols_영숫자_KR_코드도_시장으로_판정한다():
+    """0015S0·0015G0 같은 영숫자 KR 코드를 isdigit()로 판정해 미국 심볼로 조회하던 문제(#45 L6)."""
+    assert yf_sector._symbols('0015S0', 'KR_KOSDAQ') == ['0015S0.KQ', '0015S0.KS']
+    assert yf_sector._symbols('0015G0', 'KR_KOSPI') == ['0015G0.KS', '0015G0.KQ']
+    assert yf_sector._symbols('BRK-B', 'US') == ['BRK-B']

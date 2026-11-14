@@ -69,12 +69,16 @@ _FIRST_SYSTEM_PROMPT = (
 )
 
 
-def _build_first_prompt(ticker: str, name_hint: str | None, themes: list[dict]) -> str:
+def _build_first_prompt(ticker: str, name_hint: str | None, themes: list[dict], market: str) -> str:
     themes_block = "\n".join(f"- {t['name']}: {t['description']}" for t in themes)
     name_part = f" ({name_hint})" if name_hint else ""
+    # 시장은 호출부가 안다 — '6자리 숫자 코드는 KRX, 그 외는 미국'이라 적으면 영숫자 KR 코드(0015S0)를
+    # 미국 종목으로 검색한다(#45 L6)
+    listing = "KRX(한국) 상장 종목입니다 (종목코드에 영문이 섞일 수 있음)" if market.startswith("KR") \
+        else "미국 상장 종목입니다"
     return (
         f"종목: {ticker}{name_part}\n"
-        f"※ 6자리 숫자 코드는 KRX(한국) 종목, 그 외는 미국 종목입니다.\n\n"
+        f"※ {listing}.\n\n"
         f"먼저 웹 검색으로 이 종목의 **최근 1-2년(2025-2026) 시장에서 주목받는 핵심 테마/사업**을 파악한 뒤,\n"
         f"아래 대분류 중 가장 가까운 것 하나를 선택하고,\n"
         f"detail은 최근 시장이 이 종목을 부르는 2~4단어의 한국어 테마 표현으로 작성하라.\n\n"
@@ -93,10 +97,10 @@ def _build_first_prompt(ticker: str, name_hint: str | None, themes: list[dict]) 
     )
 
 
-def _classify_one(ticker: str, name_hint: str | None, themes: list[dict]) -> dict | None:
-    """1차 분류. 성공 시 {theme, detail}, '기타' 마킹 시 None."""
+def _classify_one(ticker: str, name_hint: str | None, themes: list[dict], market: str) -> dict | None:
+    """1차 분류. 성공 시 {theme, detail}, '기타' 마킹 시 None. market은 'KR_KOSPI'/'KR_KOSDAQ'/'US'."""
     theme_names = {t["name"] for t in themes}
-    prompt = _build_first_prompt(ticker, name_hint, themes)
+    prompt = _build_first_prompt(ticker, name_hint, themes, market)
     try:
         proc = subprocess.run(
             [_CLAUDE_BIN, "-p", prompt,
@@ -129,6 +133,8 @@ def classify(
     themes: list[dict],
     overrides: dict[str, str] | None = None,
     names: dict[str, str] | None = None,
+    *,
+    market: str,
 ) -> dict[str, dict]:
     loaded = _read_cache()
     # 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 캐시 전체가 사라진다 (#26 같은 패턴).
@@ -151,9 +157,9 @@ def classify(
             continue
 
         # 캐시 미스/만료 → 1차 분류 (일시적 실패 대비 1회 재시도)
-        first = _classify_one(ticker, names.get(ticker), themes)
+        first = _classify_one(ticker, names.get(ticker), themes, market)
         if first is None:
-            first = _classify_one(ticker, names.get(ticker), themes)
+            first = _classify_one(ticker, names.get(ticker), themes, market)
         if first is not None:
             cache[ticker] = {
                 **first,

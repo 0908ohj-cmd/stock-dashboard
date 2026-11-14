@@ -68,7 +68,10 @@ def test_run_saves_cache_once_and_resolves_misc(tmp_path, monkeypatch):
     monkeypatch.setattr(theme_classifier, '_save_cache',
                         lambda c: (saves.append(1), real_save(c)))
 
-    def fake_classify_one(ticker, name_hint, themes):
+    seen_markets = {}
+
+    def fake_classify_one(ticker, name_hint, themes, market):
+        seen_markets[ticker] = market
         return {'AAA': {'theme': '메모리 반도체', 'detail': 'HBM'},
                 'MSC': {'theme': '기타', 'detail': '신규 테마 후보'},
                 'BAD': None}[ticker]
@@ -78,7 +81,8 @@ def test_run_saves_cache_once_and_resolves_misc(tmp_path, monkeypatch):
                         lambda tickers, cur, themes: {'MSC': {'theme': '신테마', 'detail': '신규 테마 후보'}})
 
     themes = [{'name': '메모리 반도체', 'description': '...'}]
-    failed = refresh_sectors._classify_targets(['AAA', 'MSC', 'BAD'], themes, {}, workers=2)
+    markets = {'AAA': 'US', 'MSC': 'KR_KOSDAQ', 'BAD': 'KR_KOSPI'}
+    failed = refresh_sectors._classify_targets(['AAA', 'MSC', 'BAD'], themes, {}, workers=2, markets=markets)
 
     saved = json.loads(cache_file.read_text(encoding='utf-8'))
     assert saved['AAA']['detail'] == 'HBM'
@@ -86,6 +90,7 @@ def test_run_saves_cache_once_and_resolves_misc(tmp_path, monkeypatch):
     assert 'BAD' not in saved          # 완전 실패는 미저장 (자가치유)
     assert failed == ['BAD']
     assert len(saves) == 1             # 저장은 마지막 1회
+    assert seen_markets == markets     # 프롬프트가 시장을 알도록 종목별 시장을 넘긴다 (#45 L6)
 
 
 # ── 구 갱신 스크립트 안전화 (#45 M19) ─────────────────────────────

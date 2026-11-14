@@ -56,15 +56,17 @@ def _select_targets(tickers: list, cache: dict, all_mode: bool, stale_days) -> l
     return out
 
 
-def _classify_targets(targets: list, themes: list, names: dict, workers: int) -> list:
-    """병렬 1차 분류 → '기타' 배치 resolve → 캐시 1회 저장. 완전 실패 티커 목록 반환."""
+def _classify_targets(targets: list, themes: list, names: dict, workers: int, markets: dict) -> list:
+    """병렬 1차 분류 → '기타' 배치 resolve → 캐시 1회 저장. 완전 실패 티커 목록 반환.
+
+    markets = {ticker: 시장} — 프롬프트가 KR/US를 코드 모양이 아니라 시장으로 알린다(#45 L6)."""
     cache = theme_classifier._load_cache()
     results: dict = {}
 
     def _one(ticker):
-        first = theme_classifier._classify_one(ticker, names.get(ticker), themes)
+        first = theme_classifier._classify_one(ticker, names.get(ticker), themes, markets[ticker])
         if first is None:  # classify()와 동일하게 1회 재시도
-            first = theme_classifier._classify_one(ticker, names.get(ticker), themes)
+            first = theme_classifier._classify_one(ticker, names.get(ticker), themes, markets[ticker])
         return first
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
@@ -116,7 +118,7 @@ def main() -> int:
         return 0
 
     names = _kr_names([t for t in targets if markets[t].startswith('KR')])   # 영숫자 KR 코드 포함 (#45 L6)
-    failed = _classify_targets(targets, themes, names, args.workers)
+    failed = _classify_targets(targets, themes, names, args.workers, markets)
 
     final = theme_classifier._load_cache()
     dist = Counter(v.get('theme', '기타') for v in final.values() if isinstance(v, dict))

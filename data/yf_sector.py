@@ -250,8 +250,11 @@ def map_label(sector: str, industry: str) -> str:
 
 
 def _symbols(ticker: str, market: str) -> list:
-    """조회할 yfinance 심볼 후보. KR은 KOSPI/KOSDAQ 접미사를 순서대로 시도한다."""
-    if not ticker.isdigit():
+    """조회할 yfinance 심볼 후보. KR은 KOSPI/KOSDAQ 접미사를 순서대로 시도한다.
+
+    KR 여부는 시장으로 판정한다 — isdigit()은 영숫자 KR 코드(0015S0)를 미국 심볼로 조회했다(#45 L6).
+    """
+    if not market.startswith('KR'):
         return [ticker]
     if market == 'KR_KOSDAQ':
         return [ticker + '.KQ', ticker + '.KS']
