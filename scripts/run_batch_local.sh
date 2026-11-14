@@ -21,6 +21,9 @@ BATCH_REPO="/Users/ygun/Workspace/stock-dashboard-batch"
 ENV_FILE="/Users/ygun/Workspace/stockEdge/.env"
 LOG="$HOME/Library/Logs/stock-dashboard-batch.log"
 LOCKDIR="/tmp/stock-dashboard-batch.lock"
+# 락 나이 상한 — 배치는 실측 수 분~1시간 남짓. 이보다 오래된 락은 pid가 살아 있어도(재사용·멈춤)
+# 회수한다. KR(17:30)·US(08:10) 회차 간격(9~15시간)보다 짧아 멈춘 배치가 다음 회차를 막지 않는다
+LOCK_MAX_AGE_SEC=$((6 * 3600))
 PYTHON="/opt/homebrew/bin/python3"
 
 # 로그에 KRX 로그인 ID 등이 남으므로 소유자만 읽게 만든다
@@ -114,21 +117,21 @@ ulimit -n 4096 2>/dev/null \
 [ -f "$ENV_FILE" ] || die "env 파일 없음: $ENV_FILE"
 set -a; . "$ENV_FILE"; set +a
 
-# 중복 실행 방지 (macOS에는 flock이 없어 mkdir 원자성을 쓴다)
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    # 락이 남아 있으면 주인이 살아 있는지 본다 — 죽은 락은 배치를 영구히 멈춘다
-    stale_pid="$(cat "$LOCKDIR/pid" 2>/dev/null || echo '')"
-    if [ -n "$stale_pid" ] && kill -0 "$stale_pid" 2>/dev/null; then
-        log "다른 배치가 실행 중(pid $stale_pid) — 건너뜀"
-        exit 0
-    fi
-    log "WARN: 죽은 락 회수 (pid=${stale_pid:-unknown})"
-    notify "죽은 락을 회수하고 재시작했다 (pid=${stale_pid:-unknown})"
-    rm -rf "$LOCKDIR"
-    mkdir "$LOCKDIR" 2>/dev/null || die "락 획득 실패"
-fi
-echo $$ > "$LOCKDIR/pid"
-trap 'rm -rf "$LOCKDIR" 2>/dev/null' EXIT
+# 중복 실행 방지 — 규칙은 lib_batch_guard.sh acquire_lock (#39 L3). 죽은 락·pid 기록 전의 젊은 락·
+# 상한(LOCK_MAX_AGE_SEC)을 넘긴 락을 구분하고, 건너뛸 때도 알린다(이번 회차를 이 실행은 수집하지 않는다).
+acquire_lock "$LOCKDIR" "$LOCK_MAX_AGE_SEC"
+case $? in
+    0)  if [ -n "$LOCK_MSG" ]; then
+            log "WARN: $LOCK_MSG"
+            notify "$LOCK_MSG — 이번 배치를 진행한다"
+        fi ;;
+    1)  log "$LOCK_MSG"
+        notify "이번 회차 건너뜀 — $LOCK_MSG"
+        exit 0 ;;
+    *)  die "락 획득 실패" ;;
+esac
+# 내 pid가 적힌 락만 지운다 — 상한 초과로 회수된 뒤 늦게 끝나도 다음 배치의 락을 지우지 않는다
+trap 'release_lock "$LOCKDIR"' EXIT
 
 cd "$REPO" || die "체크아웃 없음: $REPO"
 log "시작 (repo=$REPO)"

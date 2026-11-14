@@ -86,3 +86,116 @@ def test_CI_워크플로가_PR과_main_push에서_pytest를_돈다():
     assert 'push:' in text and 'main' in text
     assert 'pip install -r requirements.txt pytest' in text
     assert 'python -m pytest tests/' in text
+
+
+# ── L3 배치 락 경합 ──────────────────────────────────────────
+# 예전: ① 건너뛸 때 알림 없이 exit 0 ② mkdir과 pid 기록 사이에 다른 배치가 빈 pid를 '죽은 락'으로
+# 보고 회수해 둘이 같이 돌 수 있었고 ③ 늦게 끝난 쪽의 trap이 남의 락을 지웠다 ④ pid가 재사용되면
+# 락이 영원히 '살아 있음'이었다.
+import time   # noqa: E402
+
+MAX_AGE = 3600
+
+
+def _acquire(lockdir, env=None):
+    rc, out = _call(f'acquire_lock "{lockdir}" {MAX_AGE}; rc=$?; echo "rc=$rc"; '
+                    f'echo "msg=$LOCK_MSG"; echo "me=$$"', env)
+    fields = dict(l.split('=', 1) for l in out.splitlines() if '=' in l)
+    return int(fields['rc']), fields.get('msg', ''), fields.get('me')
+
+
+def _hold(lockdir, pid, age_sec=0):
+    lockdir.mkdir()
+    if pid is not None:
+        (lockdir / 'pid').write_text(f'{pid}\n')
+    if age_sec:
+        t = time.time() - age_sec
+        os.utime(lockdir, (t, t))
+
+
+def _dead_pid():
+    p = subprocess.Popen(['true'])
+    p.wait()
+    return p.pid
+
+
+def test_빈_락은_획득하고_pid를_원자적으로_남긴다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    rc, msg, me = _acquire(lock)
+    assert rc == 0 and msg == ''
+    assert (lock / 'pid').read_text().strip() == me
+    assert [p.name for p in lock.iterdir()] == ['pid']          # 임시 파일이 남지 않는다
+
+
+def test_살아_있는_배치의_락은_건너뛴다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, os.getpid())
+    rc, msg, _ = _acquire(lock)
+    assert rc == 1 and '실행 중' in msg and str(os.getpid()) in msg
+    assert (lock / 'pid').read_text().strip() == str(os.getpid())   # 남의 락은 그대로
+
+
+def test_pid_기록_전의_젊은_락은_죽은_락으로_보지_않는다(tmp_path):
+    """mkdir 직후 pid를 쓰기 전 — 예전엔 빈 pid를 죽은 락으로 보고 회수해 둘이 같이 돌았다."""
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, None)
+    rc, msg, _ = _acquire(lock)
+    assert rc == 1 and '건너뜀' in msg
+    assert lock.exists() and not (lock / 'pid').exists()
+
+
+def test_pid_없이_오래된_락은_회수한다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, None, age_sec=600)
+    rc, msg, me = _acquire(lock)
+    assert rc == 0 and '회수' in msg
+    assert (lock / 'pid').read_text().strip() == me
+
+
+def test_죽은_pid의_락은_회수한다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    dead = _dead_pid()
+    _hold(lock, dead)
+    rc, msg, me = _acquire(lock)
+    assert rc == 0 and '회수' in msg and str(dead) in msg
+    assert (lock / 'pid').read_text().strip() == me
+
+
+def test_상한을_넘긴_락은_pid가_살아_있어도_회수한다(tmp_path):
+    """pid 재사용·멈춘 배치가 이후 회차를 영구히 막지 않게."""
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, os.getpid(), age_sec=MAX_AGE + 60)
+    rc, msg, me = _acquire(lock)
+    assert rc == 0 and '상한' in msg
+    assert (lock / 'pid').read_text().strip() == me
+
+
+def test_release_lock은_내_락만_지운다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, os.getpid())                                      # 남의 락 (회수 뒤 새 배치의 락)
+    rc, _ = _call(f'release_lock "{lock}"')
+    assert rc == 0 and lock.exists()
+
+    rc, out = _call(f'acquire_lock "{tmp_path / "mine"}" {MAX_AGE} && release_lock "{tmp_path / "mine"}" '
+                    f'&& [ ! -e "{tmp_path / "mine"}" ] && echo released')
+    assert 'released' in out
+
+
+def test_래퍼는_건너뛸_때도_알리고_trap은_release_lock을_쓴다():
+    text = RUNNER.read_text(encoding='utf-8')
+    block = text[text.index('acquire_lock "$LOCKDIR"'):]
+    block = block[:block.index('esac')]
+    skip = block[block.index('1)'):]
+    assert 'notify' in skip.split(';;')[0]
+    assert "trap 'release_lock \"$LOCKDIR\"' EXIT" in text
+    assert 'rm -rf "$LOCKDIR"' not in text                        # 무조건 지우는 옛 trap·회수 제거
+
+
+def test_동시에_기동해도_하나만_락을_잡는다(tmp_path):
+    """예전엔 mkdir 직후 pid 기록 전의 빈 pid를 다른 배치가 '죽은 락'으로 회수해 둘이 같이 돌 수 있었다."""
+    lock = tmp_path / 'batch.lock'
+    script = (f'. "{LIB}"; acquire_lock "{lock}" {MAX_AGE}; rc=$?; echo "rc=$rc"; '
+              f'[ $rc -eq 0 ] && sleep 1; exit 0')
+    procs = [subprocess.Popen(['bash', '-c', script], stdout=subprocess.PIPE, text=True) for _ in range(8)]
+    rcs = [p.communicate()[0].strip() for p in procs]
+    assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7
