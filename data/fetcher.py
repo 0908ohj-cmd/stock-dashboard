@@ -284,6 +284,10 @@ _KR_INDEX_PYKRX = {'^KS11': '1001', '^KQ11': '2001'}
 
 _KR_INDEX_FDR = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
 
+# KR 지수 거래량 단위: pykrx·FDR은 주, yfinance(^KS11·^KQ11)는 천 주. 스냅샷은 주 단위로 통일한다
+# (#39 M2 — 2026-10-05 indices.json 실측: yfinance 중앙값 456,900 vs pykrx 448,614,064).
+_YF_KR_INDEX_VOLUME_UNIT = 1000
+
 
 def _fetch_kr_index_pykrx(pykrx_code: str, start, end) -> pd.DataFrame:
     """한국 지수 OHLCV를 KRX 공식 데이터(pykrx)에서 직접 수집.
@@ -417,7 +421,8 @@ def _patch_us_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
 
 def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     """Volume=0인 한국 지수 행을 FDR → pykrx 순서로 채움.
-    FDR은 1주 단위, yfinance는 1000주 단위 → FDR값 /1000 후 저장."""
+    df는 주 단위다(fetch_index_daily가 yfinance 폴백의 천 주를 먼저 주 단위로 바꾼다).
+    FDR·pykrx도 주 단위라 그대로 넣는다 (#39 M2 — 예전엔 FDR값을 /1000 해 pykrx 경로에 섞였다)."""
     if df.empty or 'Volume' not in df.columns:
         return df
     zero_vol = df.index[df['Volume'] == 0]
@@ -427,7 +432,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     fdr_name   = _KR_INDEX_FDR.get(yf_ticker)
     pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
 
-    # 1순위: FDR (Volume 단위 1주 → yfinance 스케일 맞추려면 /1000)
+    # 1순위: FDR (주 단위)
     if fdr_name:
         try:
             import FinanceDataReader as fdr_lib
@@ -443,7 +448,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
                     continue
                 vol = float(row['Volume'].iloc[0])
                 if vol > 0:
-                    df.loc[ts, 'Volume'] = round(vol / 1000)
+                    df.loc[ts, 'Volume'] = vol
         except Exception:
             pass
 
@@ -474,6 +479,10 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
         df = _fetch_kr_index_pykrx(_KR_INDEX_PYKRX[ticker], start, end)
         if df.empty:   # KRX_ID/PW 없음 또는 요청 실패 — yfinance로 폴백
             df = _download(ticker, start, end)
+            # yfinance KR 지수 거래량은 천 주 단위 — pykrx(1순위)와 같은 주 단위로 맞춘다 (#39 M2).
+            # 아래 보정 패치(pykrx·FDR)도 주 단위로 채우므로 반드시 그 전에 바꾼다
+            if 'Volume' in df.columns:
+                df['Volume'] = df['Volume'] * _YF_KR_INDEX_VOLUME_UNIT
             df = _patch_kr_index_today(df, ticker)
         df = _patch_kr_index_ohlc(df, ticker)
         df = _patch_kr_index_volume(df, ticker)
