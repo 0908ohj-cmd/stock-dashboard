@@ -251,6 +251,11 @@ def _status_banner(status: dict, label: str, phase_label: str = 'Normal'):
         meta_parts.append(f"찐반등일: {jdate}")
         meta = f"({' | '.join(meta_parts)})"
         st.success(f"⚡ **{label} {phase_label} 찐반등 감지!** &nbsp; **+{status.get('jjin_pct', 0)}%** &nbsp; {vol_stars}\n\n{meta}")
+        rebreak = status.get('rebreak_date')
+        if rebreak is not None:
+            # 확인창 안 재이탈은 새 조정이 아니다(#28) — 찐반등은 유지하되 주의만 알린다
+            st.warning(f"⚠️ **EMA21 재이탈 주의** — {rebreak.date()} 종가가 EMA21 아래로 다시 내려갔습니다 "
+                       "(확인창 안이라 찐반등 유지 · DAY7 다음 날에도 EMA21 아래면 새 조정 DAY1)")
     else:  # Normal — DAY 윈도우(7일) 완전히 지난 후
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate  = status['correction_start'].date()
