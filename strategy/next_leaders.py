@@ -17,6 +17,7 @@ from strategy import sector_strength as ss
 from strategy.indicators import calc_adr
 from strategy.phases import get_phase_label
 from strategy.market_status import get_market_status
+from strategy.pivot_candle import PP_MIN_ADR     # 미만은 10EMA 탭 판정 대상이 아니라 급부상 종목에서도 제외 — 정의는 한 곳
 from strategy.rs_correction import _index_peak_date, _pre_adr, calc_correction_rs, is_valid_rs_range
 
 # 차기 주도주 배점 (100점). 2026-11-09 5년 검증 반영:
@@ -192,7 +193,6 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         r['sincePeakExcess'] = corr['excess_pct']           # 조정 구간 지수 대비 %p
         r['sincePeakExcessAdr'] = corr['excess_adr']
         r['leadDays'] = corr['lead_days']                   # +면 지수보다 먼저 저점
-        r['volRatio'] = corr['vol_ratio']                   # 상승일/하락일 평균 거래량
         hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
         r['offHigh'] = 100 * (float(df['Close'].iloc[-1]) / hi - 1)
         r['gap200'] = sma200_gap(df)
@@ -207,7 +207,7 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
         return ss.percentile_rank({r['ticker']: r.get(key) for r in pool})
 
     # 지수 대비는 ADR 보정값만 점수에 쓴다 — 변동성 큰 종목이 %p만으로 상위를 차지하는 노이즈 제거
-    p = {k: pct(k) for k in ('sincePeakExcessAdr', 'offHigh', 'leadDays', 'volRatio', 'sinceJjinExcessAdr')}
+    p = {k: pct(k) for k in ('sincePeakExcessAdr', 'offHigh', 'leadDays', 'sinceJjinExcessAdr')}
 
     for r in pool:
         t = r['ticker']
@@ -238,12 +238,8 @@ def rank_sectors(pool: list, key: str = 'nextScore') -> tuple[list, list]:
             'medianScore': float(np.median(scores)),
             'strongShare': sum(x >= STRONG_SCORE for x in scores) / len(scores),
             'medianSincePeak': med('sincePeakExcess'), 'medianOffHigh': med('offHigh'),
-            'medianSinceJjin': med('sinceJjinExcess'), 'medianRs5': med('rs5Blend'),
+            'medianSinceJjin': med('sinceJjinExcess'),
             'medianSincePeakAdr': med('sincePeakExcessAdr'), 'medianSinceJjinAdr': med('sinceJjinExcessAdr'),
-            'pctAbove21': sum(m['aboveEma21'] for m in members) / len(members),
-            'pctAbove10': sum(m['aboveEma10'] for m in members) / len(members),
-            'medianRotRs5': med('rotRs5'), 'medianRotAccel': med('rotAccel'), 'medianVolRatio': med('volRatio'),
-            'pctBullRvol': sum(bool(m.get('hasBullishRvol15InLast5')) for m in members) / len(members),
             'top': sorted(members, key=lambda m: -m[key])[:3],
         }
         s['score'] = 0.6 * s['medianScore'] + 0.4 * 100 * s['strongShare']
@@ -263,9 +259,6 @@ def rank_sectors(pool: list, key: str = 'nextScore') -> tuple[list, list]:
 #   21EMA 위 — 거의 없음 + 10EMA와 중복 → 제외 (차기 주도주와 동일)
 #   장기 추세(200일선 방향) 10 — 차기 주도주와 같은 정의
 ROT_WEIGHTS = {'고점 근접': 30, '10EMA 유지': 25, '1주 RS/ADR': 15, '양봉 렐볼': 20, '장기 추세': 10}
-ROT_WAS_WEAK = 50       # 2주 전 섹터 점수가 이보다 낮았고
-ROT_NOW = 60            # 지금 이 이상이면 🆕 새 순환매
-ROT_RISE = 15           # 그리고 2주 동안 이만큼 이상 올랐으면
 
 
 def _close_ret(df: pd.DataFrame, a, b) -> float:
@@ -281,7 +274,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
     if len(idf) < 32:
         return []
     d0, d5, d10 = idf.index[-1], idf.index[-6], idf.index[-11]
-    i_now, i_prev = _close_ret(idf, d5, d0), _close_ret(idf, d10, d5)
+    i_now = _close_ret(idf, d5, d0)
     pool = []
     for r in rows:
         t = r['ticker']
@@ -296,12 +289,6 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         if not adr > 0:
             continue
         rs_now = 100 * (_close_ret(df, d5, d0) - i_now) / adr
-        rs_prev = 100 * (_close_ret(df, d10, d5) - i_prev) / adr
-        win = df[df.index > d10]
-        chg = df['Close'].diff().loc[win.index]
-        up, down = win['Volume'][chg > 0], win['Volume'][chg < 0]
-        vol_ratio = (float(up.mean()) / float(down.mean())) if len(up) and len(down) and down.mean() > 0 \
-            else (2.0 if len(up) and not len(down) else 0.0)
         hi = float(df['High'].iloc[-LOOKBACK_52W:].max())
         c = df['Close']
         e10 = float(c.ewm(span=10, adjust=False).mean().iloc[-1])
@@ -315,8 +302,7 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
             'belowSma50': below_sma(df, 50), 'belowSma150': below_sma(df, 150), 'belowSma200': below_sma(df, 200),
             'adrNow': adr_now,
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
-            'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
-            'volRatio': vol_ratio, 'offHigh': 100 * (float(df['Close'].iloc[-1]) / hi - 1),
+            'rotRs5': rs_now, 'offHigh': 100 * (float(df['Close'].iloc[-1]) / hi - 1),
             'gap200': sma200_gap(df), 'sma200Rising': sma200_rising(df),
             'aboveEma10': r['aboveEma10'], 'aboveEma21': r['aboveEma21'],
             'ema10DaysOfLast5': r['ema10DaysOfLast5'],
@@ -352,25 +338,8 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
 # 기준봉 비율에 일관된 차이가 없었고, 빼고 재배분해도 상위 25% 기준봉 24.7% → 24.4%로 같았다.
 PP_WEIGHTS = {'고점 근접': 30, '10EMA 유지': 25, '정배열': 25, '양봉 렐볼': 10, '1주 RS/ADR': 10}
 PP_NEAR_HIGH = -20.0
-PP_MIN_ADR = 6.0        # 미만은 10EMA 탭 판정 대상이 아니라 급부상 종목에서 제외
 PP_MIN_SCORE = 50       # 이상만 표시 — 검증: 50↑ 30일 안 기준봉 24~30%, 30~40 14%, 30↓ 9% (ADR 6%↑ 평균 17%)
 PP_DROP_ADR = 3.0       # 편입 후 종가 고점에서 이 ADR 배수 이상 밀리면 탈락 — 검증: 이후 기준봉 3.6~3.9%
-
-
-
-def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:
-    """(순위 섹터, 표본 부족). 섹터 점수 = 중앙값 60% + 70점 이상 비율 40% (차기 주도섹터와 동일).
-    🆕 isNew: 2주 전 점수 < 50 → 지금 ≥ 60, +15 이상. 정렬: 🆕 먼저, 그다음 점수."""
-    ranked, thin = rank_sectors(now_pool, 'rotScore')
-    pr, pt = rank_sectors(prev_pool, 'rotScore') if prev_pool else ([], [])
-    prev = {s['theme']: s['score'] for s in pr + pt}
-    for s in ranked + thin:
-        s['prevScore'] = prev.get(s['theme'])
-        s['scoreRise'] = None if s['prevScore'] is None else s['score'] - s['prevScore']
-        s['isNew'] = bool(s['prevScore'] is not None and s['prevScore'] < ROT_WAS_WEAK
-                          and s['score'] >= ROT_NOW and s['scoreRise'] >= ROT_RISE)
-    ranked.sort(key=lambda s: (not s['isNew'], -s['score']))
-    return ranked, thin
 
 
 # ── 🔥 돈 몰린 섹터 — 갑자기 핫해지는 섹터 감지 ───────────────────

@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 import pytest
 from strategy.indicators import calc_ema
-from strategy.pivot_candle import (find_pivot_candle, classify_case,
-                                   calc_10ema_slope, _broke_vcp_box)
+from strategy.pivot_candle import find_pivot_candle, classify_case, _broke_vcp_box
 
 
 def _make_df(closes, highs=None, lows=None, volumes=None, start='2026-01-01'):
@@ -454,18 +453,6 @@ def test_classify_setup_with_three_consecutive_trading_days():
     post_dates = pd.bdate_range(pivot_date + pd.Timedelta(days=1), periods=3)
     df, pivot = _consolidation_df(post_dates)
     assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
-
-
-def test_10ema_slope_positive_on_uptrend():
-    closes = [100 + i for i in range(30)]
-    df = _make_df(closes)
-    assert calc_10ema_slope(df) > 0
-
-
-def test_10ema_slope_negative_on_downtrend():
-    closes = [130 - i for i in range(30)]
-    df = _make_df(closes)
-    assert calc_10ema_slope(df) < 0
 
 
 # ── 10EMA 표·배너 정렬 키 (#43 M25) ──────────────────────────────────

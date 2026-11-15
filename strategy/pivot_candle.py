@@ -2,16 +2,6 @@ import pandas as pd
 from strategy.indicators import calc_ema
 
 
-def calc_10ema_slope(stock_df: pd.DataFrame, period: int = 5) -> float:
-    if len(stock_df) < period + 10:
-        return 0.0
-    ema10 = calc_ema(stock_df, 10)
-    base = float(ema10.iloc[-(period + 1)])
-    if base == 0:
-        return 0.0
-    return float((ema10.iloc[-1] - base) / base * 100)
-
-
 def _has_prior_move(df: pd.DataFrame, pivot_idx: int, pivot_high: float,
                     lookback: int = 65, min_pct: float = 30.0) -> bool:
     """기준봉 이전 lookback 거래일 내 저점 → 기준봉 고가까지 min_pct% 이상 상승 여부."""
@@ -331,11 +321,3 @@ def pp_prefilter(df: pd.DataFrame) -> dict | None:
     if (not pd.isna(sma150) and close < float(sma150)) or (not pd.isna(sma200) and close < float(sma200)):
         return None
     return {'adr': adr, 'close': close, 'ema10': ema10_v}
-
-
-def pp_setup_state(df: pd.DataFrame) -> str | None:
-    """10EMA 탭 기준 셋업이면 '셋업(케이스1)'/'셋업(케이스2)', 아니면 None."""
-    if pp_prefilter(df) is None:
-        return None
-    state = classify_case(df, find_pivot_candle(df))
-    return state if state in ('셋업(케이스1)', '셋업(케이스2)') else None
