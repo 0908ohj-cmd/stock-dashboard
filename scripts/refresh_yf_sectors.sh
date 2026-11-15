@@ -39,7 +39,14 @@ except Exception:
     echo "[probe] round $i: 리밋 해제 — 미수집분 조회 시작"
 
     out=$("$PY" scripts/refresh_yf_sectors.py --workers 2 "$@" 2>&1)
+    rc=$?
     echo "$out"
+    # 수집 스크립트 자체가 실패(예: 캐시 파일 파싱 실패로 중단)하면 다음 라운드로 넘기지 않고 실패로 끝낸다 —
+    # 출력만 보면 '조회 실패 N종목'이 없어 '실패 종목 없음'(종료 0)으로 읽혔다
+    if [ "$rc" -ne 0 ]; then
+        echo "[stop] refresh_yf_sectors.py 실패 (종료 코드 $rc) — 위 메시지 확인" >&2
+        exit "$rc"
+    fi
 
     if echo "$out" | grep -q "수집할 종목 없음"; then
         echo "[done] 전량 수집 완료 (round $i)"

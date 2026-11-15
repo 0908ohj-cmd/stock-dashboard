@@ -42,7 +42,12 @@ def main() -> int:
     parser.add_argument('--workers', type=int, default=8, help='병렬 워커 수 (기본 8)')
     args = parser.parse_args()
 
-    cache = yf_sector._load_cache()
+    # 엄격 읽기(#26) — _load_cache는 파싱 실패를 {}로 돌려줘, 그 위에 저장하면 캐시 전체가 이번 회차 결과로 덮인다
+    cache = yf_sector._read_cache()
+    if cache is None:
+        print(f'⛔ {yf_sector._CACHE_FILE} 파싱 실패 — 덮어쓰지 않고 중단합니다. '
+              '파일을 git에서 되살리거나 고친 뒤 다시 실행하세요.', file=sys.stderr)
+        return 2
     pairs = _collect_targets()
     targets = pairs if args.all else [(t, m) for t, m in pairs if not cache.get(t)]
     print(f'대상 {len(targets)}/{len(pairs)}종목 (워커 {args.workers})')

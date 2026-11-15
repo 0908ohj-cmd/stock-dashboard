@@ -559,7 +559,7 @@ def test_hot_stock_pool_입력_행을_바꾸지_않는다():
     bars = {'A': _bars(80, (2,))}
     rows = [_prow('A', 'OPT')]
     _pool(rows, {'OPT': _hot(bars['A'].index[-3])}, bars)
-    assert 'ddAdr' not in rows[0]                             # 캐시된 rotStocks를 오염시키지 않게
+    assert 'ddAdr' not in rows[0]                             # 입력 행(rotation_scores 결과)은 그대로 — 결과 행은 사본
 
 
 def _long_ma_df(last):

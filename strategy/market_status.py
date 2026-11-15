@@ -112,33 +112,9 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
             'date':      bounce_date,
             'pct':       round(pct_chg, 2),
             'adr':       round(adr_val, 2),
-            'cover_pct': 0.0,
             'vol_ratio': round(vol_ratio, 2),
             'stars':     stars,
         }
-
-    return None
-
-
-def _detect_ftd(index_df: pd.DataFrame, jjin_date: pd.Timestamp) -> pd.Timestamp | None:
-    """FTD 확인 (보조): jjin_date 이후 Day4+, +1.7%, 전일 거래량 초과"""
-    after = index_df[index_df.index > jjin_date]
-    if len(after) < 4:
-        return None
-
-    jjin_low   = float(index_df.loc[jjin_date, 'Low'])
-    after_list = list(after.iterrows())
-
-    for i, (idx, row) in enumerate(after_list):
-        if float(row['Low']) < jjin_low:
-            return None
-        if i < 3:
-            continue
-        prev_close = float(after_list[i - 1][1]['Close'])
-        prev_vol   = float(after_list[i - 1][1]['Volume'])
-        pct = (float(row['Close']) - prev_close) / prev_close * 100
-        if pct >= 1.7 and float(row['Volume']) > prev_vol:
-            return idx
 
     return None
 
@@ -258,7 +234,7 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
     지수 시장 상태 반환.
     state: 'normal' | 'correction' | 'early_signal'
     찐반등 감지 후 5거래일 내 EMA21 미회복(또는 저점 이탈) 시 실패 판정 → 조정 복귀.
-    실패 확정일 이후의 새 찐반등 후보는 다시 탐색한다.
+    실패 확정일이 아니라 실패한 후보의 다음 거래일부터 새 찐반등을 다시 탐색한다(_resolve_jjin).
     확인창(DAY3~7) 안의 EMA21 재이탈은 새 조정이 아니다 — rebreak_date로만 알린다(#28).
     """
     base = {
