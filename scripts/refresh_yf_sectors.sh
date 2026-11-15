@@ -9,13 +9,13 @@ set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
+# mkdir은 확인과 생성이 한 번에 일어나 원자적이다 — [ -e ] 뒤 touch는 그 사이에 둘이 들어올 수 있다
 LOCK="$REPO/.refresh_yf_sectors.lock"
-if [ -e "$LOCK" ]; then
+if ! mkdir "$LOCK" 2>/dev/null; then
     echo "이미 실행 중 ($LOCK 존재) — 중단" >&2
     exit 1
 fi
-trap 'rm -f "$LOCK"' EXIT
-touch "$LOCK"
+trap 'rmdir "$LOCK"' EXIT
 
 PY="$REPO/venv/bin/python"
 [ -x "$PY" ] || PY="/Users/ygun/Workspace/stock-dashboard/venv/bin/python"

@@ -8,7 +8,7 @@
 
 Streamlit 무의존 — 파일 생성은 순수 문자열 조립이라 UI 없이 테스트한다.
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Iterable
 
 # 한국 거래소 심볼 접두사. TradingView는 코스피·코스닥을 모두 KRX로 묶는다.
@@ -66,6 +66,17 @@ def _symbols(tickers: Iterable, market: str) -> list:
         if symbol and symbol not in symbols:
             symbols.append(symbol)
     return symbols
+
+
+def dated_title(title: str, asof: str | None) -> str:
+    """섹션 제목 끝에 기준일 `MM/DD`. 기준일이 없으면 제목 그대로.
+
+    주도섹터 탭 섹션(🎯 차기 주도주·🔥 급부상)은 그 탭 기준일의 결과다. 파일명은 내려받은
+    시각이라, 제목에 기준일이 없으면 오늘 파일에 전날 기준 목록이 실려도 알 수 없다(#42 M10).
+    """
+    if not asof:
+        return title
+    return f'{title} {date.fromisoformat(str(asof)[:10]):%m/%d}'
 
 
 def build_section(title: str, tickers: Iterable, market: str) -> str | None:

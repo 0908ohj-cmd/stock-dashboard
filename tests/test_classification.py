@@ -169,3 +169,41 @@ def test_검토폼_기본값은_사용자가_확정한_미분류면_그대로():
     records = {}
     rec = cls.set_override('US', 'AAOI', cls.UNCLASSIFIED, [], '재확인 필요', records)
     assert cls.review_default(rec) == cls.UNCLASSIFIED
+
+
+# ── 사용자 정정 후 '테마' 컬럼 (#45 M17) ─────────────────────────
+
+def test_주력테마를_정정하면_이전_자동분류_detail을_버리고_테마목록_라벨을_쓴다():
+    """섹터는 '광통신'으로 정정했는데 테마는 '방산 고출력 레이저'로 남던 문제.
+    detail은 이전 주력 테마를 설명하던 문구라 정정 내용과 모순된다 — 비워서 taxonomy 라벨로 대체."""
+    records = {}
+    cls.apply_auto('US', 'LASR', cls.normalize('US', raw(detail='방산 고출력 레이저'), 't'), records)
+    rec = cls.set_override('US', 'LASR', 'OPTICAL_INTERCONNECT', [], '광통신 매출이 주력', records)
+    cls.save_store('US', records)
+
+    assert rec['detail'] == ''
+    assert cls.display_label('US', 'LASR') == '광통신'
+    assert cls.display_major('US', 'LASR') == '광통신'
+    assert records['LASR']['history'][0]['detail'] == '방산 고출력 레이저'   # 이전 문구는 이력에 남는다
+
+
+def test_주력테마를_그대로_확정하면_detail을_유지한다():
+    records = {}
+    cls.apply_auto('US', 'LASR', cls.normalize('US', raw(detail='방산 고출력 레이저'), 't'), records)
+    cls.set_override('US', 'LASR', 'DEFENSE_DIRECTED_ENERGY', [], '직접 확인', records)
+    cls.save_store('US', records)
+
+    assert cls.display_label('US', 'LASR') == '방산 고출력 레이저'
+
+
+def test_미분류_기록의_제안값을_그대로_확정하면_detail을_유지한다():
+    """게이트에서 탈락한 기록의 detail은 제안값(suggestedTheme)을 설명한다. 폼 기본값이 제안값이라
+    그대로 확정하는 흐름이 흔하다 — 이때는 정정이 아니라 승인이므로 detail을 버리지 않는다."""
+    records = {}
+    cls.apply_auto('US', 'LASR', cls.normalize('US', raw(confidence='low', detail='방산 고출력 레이저'), 't'),
+                   records)
+    assert records['LASR']['primaryTheme'] == cls.UNCLASSIFIED
+    cls.set_override('US', 'LASR', 'DEFENSE_DIRECTED_ENERGY', [], '직접 확인', records)
+    cls.save_store('US', records)
+
+    assert cls.display_label('US', 'LASR') == '방산 고출력 레이저'

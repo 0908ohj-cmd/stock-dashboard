@@ -1,0 +1,39 @@
+name: 테스트
+
+# PR과 main push마다 pytest를 돈다 (#39 M21). CI가 없어 test_slots_match_launchd_plists가
+# main에서 약 20일 동안 실패한 채 방치된 적이 있다(c38086b).
+# 테스트는 네트워크를 쓰지 않는다(yfinance·pykrx·FDR·GitHub는 모두 대역). KRX_ID/KRX_PW가
+# 없으므로 pykrx를 import해도 KRX 로그인이 나가지 않는다.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    # 배치·리더보드 데이터만 바뀐 커밋(하루 여러 번)은 건너뛴다 — 코드가 같이 바뀌면 돈다
+    paths-ignore:
+      - 'data/ohlcv/**'
+      - 'data/leaderboard/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # runtime.txt(Streamlit Cloud)와 같게
+          cache: pip
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt pytest
+
+      - name: pytest
+        run: python -m pytest tests/ -q -p no:cacheprovider

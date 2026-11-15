@@ -2,7 +2,7 @@
 
 탭이 자기 후보를 `register_*`로 세션에 등록하고, 와치리스트 제목 옆 버튼이 그것을
 모은다. 버튼이 탭보다 위에 있는 구조라(app.py 위→아래 실행) `st.empty()` 슬롯에
-자리만 잡아두고, 탭이 다 돌아간 뒤 그 자리에 채워 넣는다.
+자리만 잡아두고, 후보를 등록하는 탭이 다 돌아간 뒤(10EMA 탭 앞) 그 자리에 채워 넣는다.
 
 문자열 조립 자체는 `strategy/tv_export.py`(Streamlit 무의존)에 있다.
 """
@@ -13,7 +13,7 @@ import streamlit as st
 
 from data import leaderboard_store
 from strategy.tv_export import (
-    build_export, export_filename, order_sections, summarize_sections,
+    build_export, dated_title, export_filename, order_sections, summarize_sections,
 )
 
 # 배포 컨테이너(Streamlit Cloud)는 UTC다 — 그대로 쓰면 파일명 스탬프가 9시간 어긋난다
@@ -59,9 +59,9 @@ _LEAD_TITLE = {
 }
 
 
-def register_lead(market: str, tickers) -> None:
-    """주도섹터 탭 '🎯 차기 주도주' (점수 순, 토글 반영 화면 그대로)."""
-    _register(f'lead_{market}', _LEAD_TITLE.get(market, market), tickers, market)
+def register_lead(market: str, tickers, asof: str | None = None) -> None:
+    """주도섹터 탭 '🎯 차기 주도주' (점수 순, 토글 반영 화면 그대로). 제목 끝에 기준일(MM/DD)을 붙인다."""
+    _register(f'lead_{market}', dated_title(_LEAD_TITLE.get(market, market), asof), tickers, market)
 
 
 _HOT_TITLE = {
@@ -71,9 +71,9 @@ _HOT_TITLE = {
 }
 
 
-def register_hot(market: str, tickers) -> None:
-    """주도섹터 탭 '🔥 급부상 종목' (PP 가능성 점수 순, 토글 반영 화면 그대로)."""
-    _register(f'hot_{market}', _HOT_TITLE.get(market, market), tickers, market)
+def register_hot(market: str, tickers, asof: str | None = None) -> None:
+    """주도섹터 탭 '🔥 급부상 종목' (PP 가능성 점수 순, 토글 반영 화면 그대로). 제목 끝에 기준일(MM/DD)을 붙인다."""
+    _register(f'hot_{market}', dated_title(_HOT_TITLE.get(market, market), asof), tickers, market)
 
 
 def register_ema10(market: str, tickers) -> None:
@@ -98,11 +98,11 @@ def register_leaderboard() -> None:
 def render_export_button(slot=None, key: str = 'final', pending: bool = False) -> None:
     """모아둔 섹션을 다운로드 버튼으로. `slot`은 와치리스트 제목 옆에 잡아둔 st.empty().
 
-    **두 번 불린다.** Streamlit은 스크립트를 위에서 아래로 실행하는데, 10EMA 탭들의
-    유니버스 스캔은 수 분이 걸린다 — 탭 뒤에서만 그리면 그동안 이 자리가 통째로
-    비어 버린다(버튼이 아예 없는 것처럼 보인다). 그래서 탭보다 먼저 `pending=True`로
-    비활성 로딩 버튼을 그려 자리를 채우고, 탭이 다 돌아간 뒤 같은 슬롯을 활성
-    버튼으로 덮어쓴다.
+    **두 번 불린다.** Streamlit은 스크립트를 위에서 아래로 실행하는데, 탭 분석은 캐시가
+    비면 시간이 걸린다 — 탭 뒤에서만 그리면 그동안 이 자리가 통째로 비어 버린다(버튼이
+    아예 없는 것처럼 보인다). 그래서 탭보다 먼저 `pending=True`로 비활성 로딩 버튼을
+    그려 자리를 채우고, 후보를 등록하는 탭이 다 돌아간 뒤 같은 슬롯을 활성 버튼으로
+    덮어쓴다. 내보내기에서 빠진 10EMA 탭은 기다리지 않는다(app.py, #43 L17).
 
     두 호출이 한 실행 안에 공존하므로 위젯 `key`가 서로 달라야 한다 — 같으면
     Streamlit이 DuplicateWidgetID로 앱을 통째로 죽인다.

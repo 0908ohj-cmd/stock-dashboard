@@ -21,6 +21,15 @@ BATCH_REPO="/Users/ygun/Workspace/stock-dashboard-batch"
 ENV_FILE="/Users/ygun/Workspace/stockEdge/.env"
 LOG="$HOME/Library/Logs/stock-dashboard-batch.log"
 LOCKDIR="/tmp/stock-dashboard-batch.lock"
+# 락 나이 상한 — 배치는 실측 수 분~1시간 남짓. 이보다 오래된 락은 pid가 살아 있어도(재사용·멈춤)
+# 회수한다. KR(17:30)·US(08:10) 회차 간격(9~15시간)보다 짧아 멈춘 배치가 다음 회차를 막지 않는다
+LOCK_MAX_AGE_SEC=$((6 * 3600))
+# 락 때문에 이번 회차를 건너뛸 때의 종료 코드. 0이면 stockEdge job_wrapper가 성공으로 기록해
+# catchup(scripts/catchup.py classify — 회차 이후 성공 기록이 있으면 skip-on-time)이 놓친 회차를
+# 다시 돌리지 않는다. 75 = sysexits.h EX_TEMPFAIL("일시 실패, 나중에 재시도"). 래퍼 die·finish 1,
+# 사용법 2, fetch_snapshot 지수 실패 3(INDEX_FAILED_EXIT), job_wrapper 사용법 2·신호 130/143,
+# 셸 예약 126/127/128+n과 겹치지 않는다. job_wrapper는 0이 아니면 모두 실패(jobs.db·텔레그램)로 본다
+LOCK_BUSY_EXIT=75
 PYTHON="/opt/homebrew/bin/python3"
 
 # 로그에 KRX 로그인 ID 등이 남으므로 소유자만 읽게 만든다
@@ -67,6 +76,8 @@ notify_failure() { [ -n "${JOB_WRAPPER_JOB_NAME:-}" ] || notify "실패 — $1";
 
 die() { log "FAIL: $1"; notify_failure "$1"; fallback_now "$1"; exit 1; }
 
+. "$REPO/scripts/lib_batch_guard.sh" || die "lib_batch_guard.sh 로드 실패"
+
 # 성공 종료 직전: 올린 결과가 이번 회차를 채웠는지 폴백 게이트와 같은 기준으로 본다.
 # fetch_snapshot.py가 재시도 후에도 종목이 지수보다 늦은 채 저장한 경우가 여기서 걸린다.
 verify_round() {
@@ -112,21 +123,23 @@ ulimit -n 4096 2>/dev/null \
 [ -f "$ENV_FILE" ] || die "env 파일 없음: $ENV_FILE"
 set -a; . "$ENV_FILE"; set +a
 
-# 중복 실행 방지 (macOS에는 flock이 없어 mkdir 원자성을 쓴다)
-if ! mkdir "$LOCKDIR" 2>/dev/null; then
-    # 락이 남아 있으면 주인이 살아 있는지 본다 — 죽은 락은 배치를 영구히 멈춘다
-    stale_pid="$(cat "$LOCKDIR/pid" 2>/dev/null || echo '')"
-    if [ -n "$stale_pid" ] && kill -0 "$stale_pid" 2>/dev/null; then
-        log "다른 배치가 실행 중(pid $stale_pid) — 건너뜀"
-        exit 0
-    fi
-    log "WARN: 죽은 락 회수 (pid=${stale_pid:-unknown})"
-    notify "죽은 락을 회수하고 재시작했다 (pid=${stale_pid:-unknown})"
-    rm -rf "$LOCKDIR"
-    mkdir "$LOCKDIR" 2>/dev/null || die "락 획득 실패"
-fi
-echo $$ > "$LOCKDIR/pid"
-trap 'rm -rf "$LOCKDIR" 2>/dev/null' EXIT
+# 중복 실행 방지 — 규칙은 lib_batch_guard.sh acquire_lock (#39 L3). 죽은 락·pid 기록 전의 젊은 락·
+# 상한(LOCK_MAX_AGE_SEC)을 넘긴 락을 구분하고, 건너뛸 때도 알린다(이번 회차를 이 실행은 수집하지 않는다).
+acquire_lock "$LOCKDIR" "$LOCK_MAX_AGE_SEC"
+case $? in
+    0)  if [ -n "$LOCK_MSG" ]; then
+            log "WARN: $LOCK_MSG"
+            notify "$LOCK_MSG — 이번 배치를 진행한다"
+        fi ;;
+    1)  # 이번 회차를 수집하지 않았다 — 실패로 끝내 job_wrapper 알림·catchup 재실행으로 잇는다.
+        # catchup이 다시 돌 때 그 사이 폴백이 회차를 채웠으면 '이미 수집됨'으로 성공 종료한다
+        log "FAIL: 이번 회차 건너뜀 — $LOCK_MSG (종료 코드 $LOCK_BUSY_EXIT)"
+        notify_failure "이번 회차 건너뜀 — $LOCK_MSG"
+        exit "$LOCK_BUSY_EXIT" ;;
+    *)  die "락 획득 실패" ;;
+esac
+# 내 pid가 적힌 락만 지운다 — 상한 초과로 회수된 뒤 늦게 끝나도 다음 배치의 락을 지우지 않는다
+trap 'release_lock "$LOCKDIR"' EXIT
 
 cd "$REPO" || die "체크아웃 없음: $REPO"
 log "시작 (repo=$REPO)"
@@ -140,6 +153,14 @@ else
     [ "$REPO" = "$BATCH_REPO" ] || die "배치 전용 체크아웃이 아니다($REPO) — 실제 실행은 $BATCH_REPO 에서만 허용한다"
     git fetch origin --quiet || die "git fetch 실패"
     git reset --hard origin/main --quiet || die "git reset 실패"
+    # 설치된 launchd plist가 방금 받은 repo plist와 어긋나면 알린다 — 수집은 그대로 진행한다 (#39 M21).
+    # 아래 '이미 수집됨' 조기 종료보다 앞에 둬야 그런 회차에도 비교한다. dry-run(개발 체크아웃)은
+    # 브랜치 plist가 설치본과 다를 수 있어 비교하지 않는다.
+    LABEL="com.stockdashboard.batch.$MARKET"
+    if ! drift="$(plist_drift "${LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$LABEL.plist" "$REPO/scripts/launchd/$LABEL.plist")"; then
+        log "WARN: launchd 설정 불일치 — $drift"
+        notify "launchd 설정 불일치 — $drift"
+    fi
     # 이번 회차가 이미 채워졌으면(GitHub 폴백·수동 실행 등) 다시 받지 않는다 — catchup이 실패한
     # 회차를 재실행할 때 폴백이 먼저 채웠다면 같은 수집(KR은 KRX 조회)을 반복하지 않고 성공으로 끝난다.
     if type round_is_fresh >/dev/null 2>&1 && round_is_fresh "$PYTHON" "$MARKET" "$REPO" >>"$LOG" 2>&1; then

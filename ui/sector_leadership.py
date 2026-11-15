@@ -20,6 +20,7 @@ from data import classification_sync as cls_sync
 from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
+from strategy import sector_view as sv
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -181,17 +182,19 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
 SCORE_VERSION = 2026_11_15_11   # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
-def hot_history(market_key: str) -> tuple[dict, dict, dict]:
-    """(🔥 섹터 {테마: 정보}, {티커: 테마}, {테마: 라벨}) — 최신 기준일. 10EMA 탭 배지용 단일 출처."""
+def hot_history(market_key: str) -> tuple[dict, dict]:
+    """(🔥 섹터 {테마: 정보}, {테마: 라벨}) — 최신 기준일. 10EMA 탭 배지용 🔥 판정 단일 출처.
+    종목→테마는 넘기지 않는다 — _compute의 지도는 이 탭 유니버스(US 210종목)만 담아, 10EMA 종목의
+    62%(유니버스 밖)에 배지가 안 붙었다. 받는 쪽이 cls.primary_map으로 직접 찾는다(#42 M12)."""
     m = MARKETS[market_key]
     opts = _asof_options(m)
     if not opts:
-        return {}, {}, {}
+        return {}, {}
     try:
         res = _compute(m.key, opts[0], _data_key(m))
     except ValueError:
-        return {}, {}, {}
-    return res.get('hot') or {}, res.get('themeOf') or {}, _labels(m)
+        return {}, {}
+    return res.get('hot') or {}, _labels(m)
 
 
 def hot_badge(info: dict, label: str) -> str:
@@ -200,16 +203,17 @@ def hot_badge(info: dict, label: str) -> str:
     return f"🔥 {label} ({when})"
 
 
-def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
+def lead_scores(market_key: str, peak: str = '', jjin: str = '', asof: str = '') -> dict:
     """차기 주도주 점수를 다른 탭(추세추종)에서 그대로 쓰기 위한 단일 출처.
     {ticker: {'score', 'rank', 'parts', 'asof', 'phaseLabel'}} — 순위는 메인 밖 테마 포함 전체 기준.
-    계산은 주도섹터 탭과 같은 _compute(같은 캐시)를 쓰므로 두 탭 점수가 어긋날 수 없다."""
+    계산은 주도섹터 탭과 같은 _compute(같은 캐시)를 쓰므로 두 탭 점수가 어긋날 수 없다.
+    asof를 비우면 최신일 — 주도섹터 탭 '자세히 보기'는 그 탭이 고른 기준일을 넘긴다(#42 M11)."""
     m = MARKETS[market_key]
     opts = _asof_options(m)
     if not opts:
         return {}
     try:
-        res = _compute(m.key, opts[0], _data_key(m), peak, jjin)
+        res = _compute(m.key, asof or opts[0], _data_key(m), peak, jjin)
     except ValueError:
         return {}
     picks = sorted(res['picks'], key=lambda p: -p['nextScore'])
@@ -591,7 +595,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    if (not only_trend or r['ticker'] in in_trend)
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['ppScore'])[:30]
-    tv_export.register_hot(m.key, [r['ticker'] for r in rows])   # 화면 표 그대로
+    tv_export.register_hot(m.key, [r['ticker'] for r in rows], res['asof'])   # 화면 표 그대로, 제목에 기준일
     if not rows:        # 50점 미만만 남았으면 그 안내, 아니면 토글로 숨긴 것
         st.caption(nl.hot_pool_message(hp, show_weak) or '조건에 맞는 종목이 없습니다 — 위 토글로 숨긴 종목만 남았습니다.')
 
@@ -939,9 +943,8 @@ def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str, 
     국장 바이오·제약·금융 + 메인 밖 테마(KR 지주·기타, US 바이오·헬스케어·금속·소재 등), 모두 기본 꺼짐.
     두 표가 같은 토글 목록을 보이도록 표에 그 테마 종목이 없어도 항상 보여준다 (present는 쓰지 않음).
     non_main=False: 메인 밖 테마 토글은 뺀다 — 급부상 종목 표는 비메인 테마 종목이 아예 없다(#41 L11)."""
-    side = list(_THEME_TOGGLES.get(m.key, ()))
-    side += [t['code'] for t in cls.load_taxonomy(m.key)['themes']
-             if non_main and not t['main'] and t['code'] != 'UNCLASSIFIED']
+    side = sv.theme_toggle_codes(_THEME_TOGGLES.get(m.key, ()), cls.load_taxonomy(m.key)['themes'],   # 중복 제거(#42 L10)
+                                 non_main=non_main)
     return {code for code in side
             if not bar.toggle(labels.get(code, code), value=False, key=f'{key_prefix}_{code}', width='content',
                               help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}
@@ -1001,7 +1004,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
                 and r['primaryTheme'] not in hidden)
 
     rows = sorted((r for r in picks if keep(r, top_sectors)), key=lambda r: -r['nextScore'])[:20]
-    tv_export.register_lead(m.key, [r['ticker'] for r in rows])     # 화면 표 그대로(토글 반영, 상위 20)
+    tv_export.register_lead(m.key, [r['ticker'] for r in rows], res['asof'])  # 화면 표 그대로(토글 반영, 상위 20), 제목에 기준일
     prev_rank, rebound_now = _prev_ranks(m, res, peak, jjin, keep)
     # NEW — 찐반등 기간에만: 어제 상위 20에 없던 종목
     prev_top = ({t for t, k in prev_rank.items() if k <= 20} if prev_rank is not None and rebound_now else None)
@@ -1200,13 +1203,15 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
     s = opts[pick]
     status = wl._get_market_status_cached(m.key, wl._snapshot_ts('indices'))
     cs, jd = status['correction_start'], status['jjin_date']
+    # 종가·등락·고점대비·이평선위치와 주도주 점수는 위쪽 표와 같은 기준일(res['asof'])로 — 최신일로 두면
+    # 과거 기준일을 골랐을 때 같은 종목에 두 값이 보였다(#42 M11)
     rows = wl._build_rows(tuple(sorted(s['members'])), m.key,
                           str(cs.date()) if cs else None, jjin or (str(jd.date()) if jd else None),
-                          peak or None, None, None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
+                          peak or None, res['asof'], None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
     if not rows:
         st.caption('표시할 종목이 없습니다 (데이터 부족 또는 ADR 필터).')
         return
-    lead = lead_scores(m.key, peak, jjin)
+    lead = lead_scores(m.key, peak, jjin, res['asof'])
     for r in rows:
         x = lead.get(r['Ticker']) or {}
         r['점수'] = None if x.get('score') is None else round(x['score'], 1)
@@ -1330,7 +1335,12 @@ def _classification_editor(m: Market, labels: dict, names: dict):
                 res = cls_sync.commit_store_change(m.key, apply, token=_github_token(), repo=_GITHUB_REPO,
                                                    message=f'data: {t} 테마 수동 확정', http=requests)
                 cls.save_store(m.key, res.records if res.ok else local)
-                st.cache_data.clear()
+                # 분류를 쓰는 캐시만 비운다 — st.cache_data.clear()는 앱 전체·전 사용자 캐시(10EMA 3탭 수 분 스캔)를
+                # 날렸다(#42 M13). _compute(이 탭·lead_scores·hot_history)는 분류 mtime이 캐시 키(_data_key)에 있어
+                # 저절로 다시 계산되고, 키에 분류가 없는 추세추종 행(섹터·테마 열)만 비운다. 10EMA 스캔은 두므로
+                # 그 섹터·테마 열은 TTL(1시간)·다음 배치에 맞춰진다 (🔥 배지는 primary_map이라 바로 반영)
+                from ui import watchlist as wl      # watchlist가 이 모듈을 import하므로 함수 안에서 (순환 import 방지)
+                wl._build_rows.clear()
                 (st.success if res.ok else st.warning)(f'저장했습니다 — {res.message}')
 
 
@@ -1419,6 +1429,15 @@ def _rs_range(m: Market, asof: str) -> tuple[str, str]:
     return (str(peak) if peak else '', str(jjin) if jjin else '')
 
 
+def _pin_key(market_key: str) -> str:
+    return f'{market_key}_asof_pin'
+
+
+def _pin_asof(market_key: str, latest: str):
+    """기준일 상자를 사용자가 바꿨을 때만 불린다(on_change) — 고른 날을 기억하고, 최신일을 고르면 '최신 따라가기'."""
+    st.session_state[_pin_key(market_key)] = sv.pin_asof(st.session_state[f'{market_key}_asof'], latest)
+
+
 def render_sector_leadership_tab(market_key: str = 'US'):
     m = MARKETS[market_key]
     # TradingView 내보내기 섹션을 먼저 비운다 — 아래 어느 조기 return에서도 직전 실행 목록이 남지 않게
@@ -1437,11 +1456,11 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         st.warning(f"⚠️ 종목 데이터가 {opts[0]}까지만 있습니다 ({m.phase_index} 지수는 {idx_last}까지). "
                    "사이드바 '🔄 데이터 재수집'을 누르면 최신 날짜로 계산됩니다.")
     # 기준일 선택 상자는 '지수 현황' 접기 안에 있지만, 그 제목(국면)을 그리려면 기준일이 먼저 필요하다.
-    # 위젯 값은 실행 시작 시 session_state에 이미 있으므로 거기서 읽는다.
+    # 사용자가 상자에서 직접 고른 과거 날짜(on_change로 기억)만 유지하고, 나머지는 매 실행 최신일을 쓴다 —
+    # 세션에 남은 값을 그대로 쓰면 새 배치가 들어와도 이 탭과 TV 내보내기만 전날 기준에 남는다(#42 M10).
     key_asof = f'{m.key}_asof'
-    if st.session_state.get(key_asof) not in opts:
-        st.session_state[key_asof] = opts[0]
-    asof = st.session_state[key_asof]
+    asof = sv.resolve_asof(opts, st.session_state.get(_pin_key(m.key)))
+    st.session_state[key_asof] = asof
     peak, jjin = _rs_range(m, asof)     # RS 구간 설정은 맨 위
     try:
         res = _compute(m.key, asof, _data_key(m), peak, jjin)
@@ -1455,7 +1474,8 @@ def render_sector_leadership_tab(market_key: str = 'US'):
         strip, pick = st.container(border=True).columns([5, 1], vertical_alignment='center')
         pick.selectbox('기준일', opts, key=key_asof, label_visibility='collapsed',
                        format_func=lambda d: f'기준일 {d}',
-                       help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다')
+                       on_change=_pin_asof, args=(m.key, opts[0]),
+                       help='과거 날짜를 고르면 그날 종가까지만 써서 다시 계산합니다 (최신일을 고르면 새 배치를 따라갑니다)')
         with strip:
             _market_strip(m, res)
         if res['phase'] is not None:
