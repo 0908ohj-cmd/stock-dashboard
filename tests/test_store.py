@@ -658,3 +658,98 @@ def test_freshness_종목이_지수보다_늦으면_stale(tmp_store):
                                                  'last_trading_date': '2026-11-09', 'data': {}}), encoding='utf-8')
     fr = store.get_freshness('US', now)
     assert fr['is_stale'] is False and 'behind_index' not in fr
+
+
+# ── 지수가 종목보다 늦은 경우 (#24: 11-11·11-12 US — 종목 11-10·11-11, NASDAQ 11-09·11-10) ──
+
+def _write_snap(tmp_store, market, fetched_at, last_trading_date):
+    (tmp_store / f'{market}.json').write_text(json.dumps(
+        {'market': market, 'fetched_at': fetched_at,
+         'last_trading_date': last_trading_date, 'data': {}}), encoding='utf-8')
+
+
+def _write_indices(tmp_store, fetched_at, **last):
+    (tmp_store / 'indices.json').write_text(json.dumps(
+        {'market': 'indices', 'fetched_at': fetched_at,
+         'last_trading_date': max(last.values()),
+         'data': {k: {'dates': ['2026-11-05', v]} for k, v in last.items()}}), encoding='utf-8')
+
+
+_NOW_1112 = datetime(2026, 11, 12, 9, 0, tzinfo=KST)     # 목 09:00 — US 08:10 배치 직후
+
+
+def test_freshness_지수가_종목보다_늦으면_stale(tmp_store):
+    """0203dae: US 종목 11-11, NASDAQ 11-10 — 지수가 하루 늦은 것도 낡은 데이터다."""
+    _write_snap(tmp_store, 'US', '2026-11-12T08:14:00+09:00', '2026-11-11')
+    _write_indices(tmp_store, '2026-11-12T08:12:55+09:00',
+                   KOSPI='2026-11-11', KOSDAQ='2026-11-11', NASDAQ='2026-11-10')
+
+    fr = store.get_freshness('US', now=_NOW_1112)
+
+    assert fr['is_stale'] is True
+    assert fr['index_behind'] == '2026-11-10'
+    assert 'behind_index' not in fr
+
+
+def test_freshness_지수와_종목이_같은_날이면_신선(tmp_store):
+    _write_snap(tmp_store, 'US', '2026-11-12T08:14:00+09:00', '2026-11-11')
+    _write_indices(tmp_store, '2026-11-12T08:12:55+09:00',
+                   KOSPI='2026-11-11', KOSDAQ='2026-11-11', NASDAQ='2026-11-11')
+
+    fr = store.get_freshness('US', now=_NOW_1112)
+
+    assert fr['is_stale'] is False
+    assert 'index_behind' not in fr and 'behind_index' not in fr
+
+
+def test_freshness_indices_지수별_날짜로_지연_지수를_찾는다(tmp_store):
+    """indices의 last_trading_date(최댓값 11-11)가 NASDAQ의 지연을 가리면 안 된다."""
+    _write_snap(tmp_store, 'US', '2026-11-12T08:14:00+09:00', '2026-11-11')
+    _write_snap(tmp_store, 'KR_KOSPI', '2026-11-11T17:34:00+09:00', '2026-11-11')
+    _write_snap(tmp_store, 'KR_KOSDAQ', '2026-11-11T17:34:00+09:00', '2026-11-11')
+    _write_indices(tmp_store, '2026-11-12T08:12:55+09:00',
+                   KOSPI='2026-11-11', KOSDAQ='2026-11-11', NASDAQ='2026-11-10')
+
+    fr = store.get_freshness('indices', now=_NOW_1112)
+
+    assert fr['index_last_dates'] == {'KOSPI': '2026-11-11', 'KOSDAQ': '2026-11-11',
+                                      'NASDAQ': '2026-11-10'}
+    assert fr['lagging_indices'] == {'NASDAQ': '2026-11-11'}   # 같은 시장 종목은 11-11까지
+    assert fr['is_stale'] is True
+
+
+def test_freshness_indices_KR_배치_뒤_NASDAQ이_하루_이른_것은_정상(tmp_store):
+    """KR 17:30 배치 뒤엔 KOSPI가 당일, NASDAQ은 전날이다 — 달력·배치 시각이 달라 매일 그렇다.
+    다른 시장 지수끼리 비교하면 매일 저녁 오경보가 난다."""
+    _write_snap(tmp_store, 'US', '2026-11-12T08:14:00+09:00', '2026-11-11')
+    _write_snap(tmp_store, 'KR_KOSPI', '2026-11-12T17:34:00+09:00', '2026-11-12')
+    _write_snap(tmp_store, 'KR_KOSDAQ', '2026-11-12T17:34:00+09:00', '2026-11-12')
+    _write_indices(tmp_store, '2026-11-12T17:33:00+09:00',
+                   KOSPI='2026-11-12', KOSDAQ='2026-11-12', NASDAQ='2026-11-11')
+
+    fr = store.get_freshness('indices', now=datetime(2026, 11, 12, 18, 0, tzinfo=KST))
+
+    assert fr['lagging_indices'] == {}
+    assert fr['is_stale'] is False
+
+
+def test_freshness_indices_한_지수만_오래_멈춰도_stale(tmp_store):
+    """소스 동결 판정도 지수별로 — KOSPI가 최신이라고 9일째 멈춘 NASDAQ이 가려지면 안 된다."""
+    _write_indices(tmp_store, '2026-11-12T08:12:55+09:00',
+                   KOSPI='2026-11-11', KOSDAQ='2026-11-11', NASDAQ='2026-11-02')
+
+    fr = store.get_freshness('indices', now=_NOW_1112)
+
+    assert fr['is_stale'] is True
+
+
+def test_refetch_indices_failed_lists_only_failed_names(tmp_store, monkeypatch, capsys):
+    """세 지수 중 실패한 것만 failed에 남기고 로그한다 — 성공한 지수는 넣지 않는다."""
+    def fetch(name, days):
+        if name == 'KOSDAQ':
+            raise ConnectionError('timeout')
+        return _df_from(['2026-11-10', '2026-11-11'], [100.0, 101.0])
+    monkeypatch.setattr(store, 'fetch_index_daily', fetch)
+
+    assert store.refetch_indices('all')['failed'] == ['KOSDAQ']
+    assert '[KOSDAQ] 지수 수집 실패' in capsys.readouterr().out
