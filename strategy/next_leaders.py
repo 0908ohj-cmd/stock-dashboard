@@ -45,6 +45,13 @@ def sma200_gap(df: pd.DataFrame) -> float | None:
     return 100 * (float(c.iloc[-1]) / s - 1) if s > 0 else None
 
 
+def below_sma(df: pd.DataFrame, n: int) -> bool:
+    """종가 < n일 단순이평 — pivot_candle.pp_prefilter의 150·200일선 조건과 같은 정의(같은 rolling 계산).
+    이력이 n일 미만(이평 없음)이면 False = 관문 통과 (pp_prefilter도 이평이 없으면 거르지 않는다)."""
+    s = df['Close'].rolling(n).mean().iloc[-1]
+    return bool(not pd.isna(s) and float(df['Close'].iloc[-1]) < float(s))
+
+
 def sma200_rising(df: pd.DataFrame) -> bool | None:
     """200일선이 SMA200_SLOPE_DAYS 거래일 전보다 높은가. 이력이 부족하면 None."""
     c = df['Close']
@@ -148,9 +155,14 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
 
 
 def _since_ret(df: pd.DataFrame, d) -> float | None:
-    if d is None or d not in df.index:
+    """d 종가 → 마지막 종가 수익률(%). d 봉이 없으면 직전 거래일 종가로 맞춘다 — 봉 하나 빠졌다고
+    항목이 통째로 0점이 되지 않게(#41 M6). d 이전 봉이 아예 없으면(그 뒤 상장) None."""
+    if d is None:
         return None
-    return 100 * (float(df['Close'].iloc[-1]) / float(df.loc[d, 'Close']) - 1)
+    before = df[df.index <= pd.Timestamp(d)]
+    if before.empty:
+        return None
+    return 100 * (float(df['Close'].iloc[-1]) / float(before['Close'].iloc[-1]) - 1)
 
 
 def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict, main_codes: set,
@@ -197,19 +209,17 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     # 지수 대비는 ADR 보정값만 점수에 쓴다 — 변동성 큰 종목이 %p만으로 상위를 차지하는 노이즈 제거
     p = {k: pct(k) for k in ('sincePeakExcessAdr', 'offHigh', 'leadDays', 'volRatio', 'sinceJjinExcessAdr')}
 
-    def g(k, t):
-        v = p[k][t]
-        return 0.0 if v is None else v
-
     for r in pool:
         t = r['ticker']
-        held = g('sincePeakExcessAdr', t)
-        val = {'덜 빠짐': held, '찐반등 후 회복': g('sinceJjinExcessAdr', t), '고점 근접': g('offHigh', t),
-               '저점 선행': g('leadDays', t), '양봉 렐볼': float(r['hasBullishRvol15InLast5']),
-               '장기 추세': trend_points(r.get('sma200Rising'))}
-        parts = {k: v * val[k] for k, v in WEIGHTS[scoring].items()}
+        # 백분위 None = 그 종목 값을 계산할 수 없음(기산점·찐반등 전 상장, 조정 전 ADR 없음 등) — 0점으로 두면
+        # 조용히 순위가 밀리거나(GAP), 0.0이 실제 값처럼 섞인다(IPO). 그 항목만 빼고 남은 배점으로 재정규화(#41 M6).
+        val = {'덜 빠짐': p['sincePeakExcessAdr'][t], '찐반등 후 회복': p['sinceJjinExcessAdr'][t],
+               '고점 근접': p['offHigh'][t], '저점 선행': p['leadDays'][t],
+               '양봉 렐볼': float(r['hasBullishRvol15InLast5']), '장기 추세': trend_points(r.get('sma200Rising'))}
+        parts = {k: None if val[k] is None else w * val[k] for k, w in WEIGHTS[scoring].items()}
+        used = sum(w for k, w in WEIGHTS[scoring].items() if parts[k] is not None)
         r['nextParts'] = parts
-        r['nextScore'] = float(sum(parts.values()))
+        r['nextScore'] = 100 * float(sum(v for v in parts.values() if v is not None)) / used if used else 0.0
     return pool
 
 
@@ -301,7 +311,8 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
         adr_now = float(((last20['High'] - last20['Low']) / last20['Close'] * 100).mean())
         pool.append({
             'aligned': bool(not pd.isna(s50) and e10 > e21 > float(s50)),     # 10EMA > 21EMA > 50SMA (PP 기준봉 조건)
-            'belowSma50': bool(not pd.isna(s50) and float(c.iloc[-1]) < float(s50)),   # 급부상 종목 탈락 규칙
+            # 급부상 종목 탈락 규칙(hot_stock_pool) — 50일선 + PP 기준봉 조건인 150·200일선(pp_prefilter와 같은 정의)
+            'belowSma50': below_sma(df, 50), 'belowSma150': below_sma(df, 150), 'belowSma200': below_sma(df, 200),
             'adrNow': adr_now,
             'ticker': t, 'primaryTheme': theme_of[t], 'status': 'FULL',
             'rotRs5': rs_now, 'rotRsPrev5': rs_prev, 'rotAccel': rs_now - rs_prev,
@@ -328,7 +339,6 @@ def rotation_scores(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: di
               '1주 RS/ADR': g('rotRs5', t)}
         pparts = {k: v * pv[k] for k, v in PP_WEIGHTS.items()}
         x['ppParts'], x['ppScore'] = pparts, float(sum(pparts.values()))
-        x['ppEligible'] = x['adrNow'] >= PP_MIN_ADR
     return pool
 
 
@@ -369,7 +379,7 @@ def rotation_sectors(now_pool: list, prev_pool: list) -> tuple[list, list]:
 #   순환매 점수 ≥60·🆕는 20~29%를 5~6일 늦게 잡음. 단, 어떤 신호든 '신호 뒤 계속 오를지'는 예측 못 함 → 알림 용도.
 HOT_SHARE = 0.5         # 섹터 종목 중 이 비율 이상이 최근 5일 렐볼 양봉이면 🔥
 HOT_LOOKBACK = 30       # 🔥 이력을 남기는 기간(거래일, 약 6주) — 돈이 몰리고 PP 셋업이 나오기까지 몇 주 걸린다
-HOT_RVOL = 1.5
+HOT_RVOL = ss.RVOL_BULL     # 렐볼 양봉 정의는 sector_strength.bullish_rvol 하나 (#41 M9)
 HOT_GAP = 10            # 이 기간 안에 다시 켜진 건 같은 🔥로 본다 (50% 근처 깜빡임)
 # 섹터 정배열 종목 비율이 이 미만이면 🔥여도 제외 — 2026-11-11 검증(🔥 섹터 1,005개): 20% 미만(35%)은 30일 안
 # 기준봉 나온 섹터 26%·종목당 5.3%, 20~50% 43~46%·10%, 50%↑ 53~54%·13~14%. 200일선 위 비율·렐볼 강도는 효과 없음.
@@ -383,62 +393,95 @@ def fire_starts(on, gap: int = HOT_GAP) -> list:
     return [i for i in range(gap, len(on)) if on[i] and not on[i - gap:i].any()]
 
 
-def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
-                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
-    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [창 안 🔥 시작일…],
-    'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
-    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
-    렐볼 양봉 = 종가 > 시가 & 거래량 ≥ 직전 20일 평균 × 1.5 (sector_strength와 같은 정의)."""
+def hot_groups(bars: dict, theme_of: dict, asof) -> dict:
+    """{테마: [티커…]} — 🔥 판정(hot_sectors)과 단독 렐볼 판정(hot_stock_pool의 sizes)이 함께 쓰는 섹터 구성.
+    섹터 크기의 단일 출처(#41 M7): 분류된(미분류 아님) 종목 중 기준일 이전 봉이 하나라도 있는 종목.
+    이력이 짧은 종목도 넣는다 — 빼면 두 판정이 서로 다른 크기를 써서 어느 쪽에도 안 잡히는 종목이 생겼다."""
     asof = pd.Timestamp(asof)
-    flags, groups, aligned = {}, {}, {}
+    out: dict = {}
     for t, df in bars.items():
         th = theme_of.get(t)
-        if th in (None, 'UNCLASSIFIED'):
+        if th in (None, 'UNCLASSIFIED') or not (df.index <= asof).any():
             continue
-        full = df[df.index <= asof]
-        if len(full) < 30:
-            continue
-        # 편입일을 창 길이에 잘리지 않게 정하려면 창 밖 이력도 필요하다 — 스냅샷 전체(약 240봉)로 계산(#30).
-        # 직전 20일 평균이 없는 첫 20봉은 '안 켜짐'이 아니라 판정 불가(NaN) — 0으로 두면 가짜 공백이 생긴다.
-        avgv = full['Volume'].shift(1).rolling(20).mean()
-        bull = ((full['Close'] > full['Open']) & (full['Volume'] >= HOT_RVOL * avgv)).astype(float)
-        bull.iloc[:20] = np.nan
-        flags[t] = bull.rolling(5, min_periods=1).max()
-        groups.setdefault(th, []).append(t)
-        c = full['Close'].tail(250)
-        s50 = c.rolling(50).mean().iloc[-1]
-        aligned[t] = bool(not pd.isna(s50) and c.ewm(span=10, adjust=False).mean().iloc[-1]
-                          > c.ewm(span=21, adjust=False).mean().iloc[-1] > s50)
+        out.setdefault(th, []).append(t)
+    return out
+
+
+def _drop_unaligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple:
+    """🔥 구간(시작 ~ 다음 시작 전날) 중 시작일 정배열 비율이 min_aligned 미만인 구간의 켜짐을 지운다.
+    이력 처음부터 이어진 구간(시작일 모름)은 알 수 있는 첫 켜짐 날로 판정한다. (on, 남은 시작 위치) 반환."""
+    on = np.asarray(on, dtype=bool).copy()
+    if not on.any():
+        return on, []
+    first_on = int(np.argmax(on))
+    seg = ([first_on] if not starts or first_on < starts[0] else []) + list(starts)
+    for a, b in zip(seg, seg[1:] + [len(on)]):
+        if aligned_share[a] < min_aligned:
+            on[a:b] = False
+    return on, [i for i in starts if on[i]]
+
+
+def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
+                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None,
+                main_codes: set | None = None) -> dict:
+    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n': 섹터 크기, 'fires': [창 안 🔥 시작일…],
+    'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
+    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목, 'alignedShare': 오늘 정배열 종목 비율(표시·정렬),
+    'alignedAtStart': 편입일(since)의 정배열 종목 비율}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    🔥 구간마다 시작일의 정배열 종목 비율이 min_aligned(기본 HOT_MIN_ALIGNED) 미만이면 그 구간은 🔥가 아니다(#41 M8).
+    main_codes를 주면 그 테마만 판정한다 — 비메인('지주·기타' 같은 잡다한 묶음)은 섹터로 의미가 없어 차기 주도섹터
+    (rank_sectors)와 같이 뺀다(#41 L11). 렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
+    이력이 짧아 판정할 수 없는 종목은 '렐볼 아님'으로 센다(#41 M7 — 한 종목 결측으로 🔥가 꺼지지 않게)."""
+    asof = pd.Timestamp(asof)
+    flags, aligned = {}, {}
+    groups = {th: ts for th, ts in hot_groups(bars, theme_of, asof).items()
+              if len(ts) >= min_n and (main_codes is None or th in main_codes)}
+    for ts in groups.values():
+        for t in ts:
+            full = bars[t][bars[t].index <= asof]
+            # 편입일을 창 길이에 잘리지 않게 정하려면 창 밖 이력도 필요하다 — 스냅샷 전체(약 240봉)로 계산(#30).
+            # 직전 20일 평균이 없는 첫 20봉은 '안 켜짐'이 아니라 판정 불가(NaN) — 섹터 판정 시작일을 정할 때 쓴다.
+            bull = ss.bullish_rvol(full).astype(float)
+            bull.iloc[:20] = np.nan
+            flags[t] = bull.rolling(5, min_periods=1).max()
+            # 날짜별 정배열(10EMA > 21EMA > 50SMA) — 🔥 시작일 판정용. 50일 이력 전은 정배열 아님
+            c = full['Close']
+            e21 = c.ewm(span=21, adjust=False).mean()
+            aligned[t] = (c.ewm(span=10, adjust=False).mean() > e21) & (e21 > c.rolling(50).mean())
+    min_al = HOT_MIN_ALIGNED if min_aligned is None else min_aligned
     out = {}
     for th, ts in groups.items():
-        if len(ts) < min_n:
-            continue
-        # 섹터 품질 — 정배열(10EMA>21EMA>50SMA) 종목 비율이 낮으면 🔥여도 뺀다 (바닥권 종목들이 거래량만 터진 경우)
-        al_share = sum(aligned[t] for t in ts) / len(ts)
-        if al_share < (HOT_MIN_ALIGNED if min_aligned is None else min_aligned):
-            continue
         f = pd.DataFrame({t: flags[t] for t in ts})
         n = f.notna().sum(axis=1)
-        known = (n >= min_n).to_numpy()
+        # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름'). 이력 짧은 종목이 끝내 판정 불가로 남아도 섹터 판정은
+        # 시작돼야 하므로 기준은 min_n과 '판정 가능 종목 수의 최대' 중 작은 쪽
+        known = (n >= min(min_n, int(n.max()))).to_numpy() if len(n) and n.max() > 0 else np.zeros(0, dtype=bool)
         if not known.any():
             continue
-        first = int(np.argmax(known))           # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름')
-        f, n = f.iloc[first:], n.iloc[first:]
-        sh = (f.fillna(0).sum(axis=1) / n.where(n >= min_n)).fillna(0)
+        first = int(np.argmax(known))
+        f = f.iloc[first:]
+        sh = f.fillna(0).sum(axis=1) / len(ts)      # 결측 = 렐볼 아님, 분모 = 섹터 크기 고정
+        # 섹터 정배열 종목 비율(날짜별, 결측 = 정배열 아님)
+        al = pd.DataFrame({t: aligned[t].astype(float) for t in ts}).reindex(f.index).fillna(0).sum(axis=1) / len(ts)
         on = (sh >= share).to_numpy()
+        # 섹터 품질 — 🔥 구간 시작일의 정배열 종목 비율이 낮으면 그 🔥는 뺀다 (바닥권 종목들이 거래량만 터진 경우).
+        # 판정은 🔥가 켜진 날 기준이라, 조건을 통과해 켜진 🔥는 뒤의 눌림(PP 셋업 대기 구간)에서 정배열이 풀려도
+        # 이력에 남는다(#41 M8 — 예전엔 기준일 하루 비율로 6주 이력·10EMA 배지를 통째로 지웠다).
+        # 검증(8534062, 🔥 1,005회 × 이후 30일 기준봉)의 단위도 🔥가 켜진 사건이다.
+        on, starts = _drop_unaligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
         w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
         if not on[w0:].any():
             continue
-        starts = fire_starts(on)
         fires = [f.index[i] for i in starts if i >= w0]
         # 편입일 = 지금 이어지는 🔥 구간의 시작(= 마지막 🔥 시작). 창 밖이어도 HOT_GAP보다 긴 공백이 나올 때까지
         # 이력을 거슬러 찾는다 — 창 안 첫 켜짐을 쓰면 창이 밀릴 때마다 편입일이 늦어져 탈락 기준 고점이
         # 낮아지고, 3 ADR 하락으로 빠진 종목이 가격 회복 없이 돌아왔다(#30)
         last = f.index[starts[-1]] if starts else None      # None = 이력 처음부터 이어진 🔥 (시작일 모름)
         since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
-        out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
+        out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': len(ts),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
-                   'since': since, 'startedBefore': last is None, 'alignedShare': al_share,
+                   'since': since, 'startedBefore': last is None, 'alignedShare': float(al.iloc[-1]),
+                   'alignedAtStart': float(al.loc[since]),
                    'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,
                    'tickers': [t for t in ts if f[t].iloc[-1] == 1]}
     return out
@@ -452,8 +495,102 @@ def bull_since(bars: dict, asof) -> dict:
         d = df[df.index <= asof].tail(26)
         if len(d) < 21:
             continue
-        avgv = d['Volume'].shift(1).rolling(20).mean()
-        bull = ((d['Close'] > d['Open']) & (d['Volume'] >= HOT_RVOL * avgv)).tail(5)
+        bull = ss.bullish_rvol(d).tail(5)
         if bull.any():
             out[t] = bull[bull].index[0]
     return out
+
+
+def hot_stock_pool(rot_stocks: list, hot: dict, sizes: dict, bull_since: dict, bars: dict, asof,
+                   main_codes: set | None = None) -> dict:
+    """🔥 급부상 종목 — 후보와 탈락·관문 규칙 (UI는 토글 필터·표시만, #41 M9).
+
+    후보: 🔥 섹터(hot) 소속 종목 + 단독 렐볼(섹터 종목 수 sizes가 MIN_SECTOR_N 미만이고 최근 5일 렐볼 양봉).
+    main_codes를 주면 비메인 테마 종목은 단독 렐볼로도 넣지 않는다 — 🔥 판정에서 빠진 테마라서(#41 L11).
+    관문(순서대로): ADR 6% 이상(PP_MIN_ADR, 10EMA 탭 대상) → 편입 후 자기 렐볼 양봉 있음(종목 자신도 핫해야)
+      → 편입 5거래일 전부터의 종가 고점 대비 하락이 PP_DROP_ADR(3 ADR) 미만 → 종가가 50·150·200일선 위
+      (150·200은 PP 기준봉 조건 = pp_prefilter, '50점 미만 보기'에서도 뺀다).
+    편입일 = 🔥 섹터면 지금 이어지는 🔥 구간의 시작(hot 'since'), 단독 렐볼이면 bull_since.
+    🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 움직임은 편입일보다 최대 5거래일 앞설 수 있다 — 그날부터 잰다.
+    반환 {'rows': 관문 통과 행(PP 가능성 점수 내림차순, 입력 행의 사본)}. 행에 붙는 값:
+      'solo', 'entry'·'entryUnknown'(편입일·시작일 모름), 'isNew'(오늘 편입), 'ddAdr', 'ownBull',
+      'weak'(PP_MIN_SCORE 미만 — 기본 숨김)."""
+    asof = pd.Timestamp(asof)
+    rows = []
+    for r in rot_stocks:
+        th = r['primaryTheme']
+        if main_codes is not None and th not in main_codes:
+            continue
+        solo = th not in hot and sizes.get(th, 0) < MIN_SECTOR_N and bool(r['hasBullishRvol15InLast5'])
+        if th not in hot and not solo:
+            continue
+        h = hot.get(th)
+        entry, unknown = (h['since'], h['startedBefore']) if h else (bull_since.get(r['ticker']), False)
+        rows.append({**r, 'solo': solo, 'entry': entry, 'entryUnknown': unknown,
+                     'isNew': entry is not None and not unknown and pd.Timestamp(entry) == asof})
+    cand = len(rows)
+    n_hot = sum(not r['solo'] for r in rows)
+    dropped = dict.fromkeys(('adr', 'ownBull', 'drawdown', 'sma50', 'sma150_200'), 0)
+
+    def keep(rows, reason, ok):
+        out = [r for r in rows if ok(r)]
+        dropped[reason] += len(rows) - len(out)
+        return out
+
+    rows = keep(rows, 'adr', lambda r: r['adrNow'] >= PP_MIN_ADR)      # 미만은 10EMA 탭 판정 대상이 아님
+    for r in rows:
+        r['ddAdr'], r['ownBull'] = _since_entry(r, bars.get(r['ticker']), asof)
+    # 종목 자신도 핫해야 한다 — 편입 후 자기 렐볼 양봉이 한 번도 없으면 섹터만 뜨겁고 종목은 안 움직인 것.
+    # 검증(🔥 뒤 0·10·20일): 없음 4~36%, 이후 30일 기준봉 17~21% vs 있음 21~25%
+    rows = keep(rows, 'ownBull', lambda r: r['ownBull'])
+    # 탈락 — 편입 후 종가 고점에서 3 ADR 이상 하락(이후 30일 기준봉 3.6~3.9% vs 평균 16~17%), 종가가 50일선 아래
+    # (8.6~9.8%), 150·200일선 아래(PP 기준봉 조건). 매일 다시 계산 — 가격이 회복하면 다음 날 목록에 돌아온다
+    rows = keep(rows, 'drawdown', lambda r: r['ddAdr'] > -PP_DROP_ADR)
+    rows = keep(rows, 'sma50', lambda r: not r['belowSma50'])
+    rows = keep(rows, 'sma150_200', lambda r: not r['belowSma150'] and not r['belowSma200'])
+    for r in rows:
+        r['weak'] = r['ppScore'] < PP_MIN_SCORE
+    rows.sort(key=lambda r: -r['ppScore'])
+    # candidates·hotSectors·dropped: 목록이 비었을 때 원인 안내용(hot_pool_message, #42 L9)
+    return {'rows': rows, 'candidates': cand, 'hotCandidates': n_hot, 'soloCandidates': cand - n_hot,
+            'hotSectors': len(hot), 'dropped': dropped}
+
+
+_DROP_LABEL = {'adr': f'ADR {PP_MIN_ADR:g}% 미만', 'ownBull': '편입 후 자기 렐볼 양봉 없음',
+               'drawdown': f'고점 대비 {PP_DROP_ADR:g} ADR 이상 하락', 'sma50': '50일선 아래', 'sma150_200': '150·200일선 아래'}
+
+
+def hot_pool_message(hp: dict, show_weak: bool = True) -> str | None:
+    """급부상 종목 표가 비었을 때 원인 안내 (#42 L9). 보여줄 종목이 있으면 None.
+    후보 자체가 없음 / 🔥 섹터는 있는데 점수 낼 종목 없음 / 후보가 탈락 규칙으로 모두 빠짐 / 50점 미만만 남음을 나눈다."""
+    rows = hp.get('rows') or []
+    if rows:
+        if show_weak or any(not r['weak'] for r in rows):
+            return None
+        return (f'관문을 통과한 {len(rows)}종목이 모두 PP 가능성 점수 {PP_MIN_SCORE}점 미만이라 숨겼습니다 — '
+                f"'{PP_MIN_SCORE}점 미만도 보기'를 켜면 보입니다.")
+    cand = hp.get('candidates', 0)
+    if not cand:
+        if hp.get('hotSectors'):
+            return (f"최근 6주 안에 🔥 급부상 섹터는 {hp['hotSectors']}개 있지만, 점수를 낼 수 있는 소속 종목이 없습니다 "
+                    '(기준일 시세 없음·이력 부족 등).')
+        return '최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.'
+    why = ', '.join(f'{_DROP_LABEL[k]} {v}' for k, v in (hp.get('dropped') or {}).items() if v)
+    return (f"후보 {cand}종목(🔥 섹터 {hp.get('hotCandidates', 0)} · 단독 렐볼 {hp.get('soloCandidates', 0)})이 "
+            f'탈락 규칙으로 모두 빠졌습니다 — {why}.')
+
+
+def _since_entry(r: dict, df: pd.DataFrame | None, asof: pd.Timestamp) -> tuple[float, bool]:
+    """(편입 5거래일 전부터의 종가 고점 대비 하락 ADR 배수, 그 사이 자기 렐볼 양봉이 있었나).
+    편입일을 모르거나 시세가 없으면 (0, 최근 5일 렐볼 양봉) — 예전 UI 규칙 그대로."""
+    since = r['entry']
+    fallback = 0.0, bool(r['hasBullishRvol15InLast5'])
+    if since is None or df is None or not r['adrNow']:
+        return fallback
+    df = df[df.index <= asof]
+    pos = df.index.searchsorted(pd.Timestamp(since))
+    w = df.iloc[max(0, pos - 5):]
+    if w.empty:
+        return fallback
+    dd = 100 * (float(w['Close'].iloc[-1]) / float(w['Close'].max()) - 1) / r['adrNow']
+    return dd, bool(ss.bullish_rvol(df).iloc[max(0, pos - 5):].any())

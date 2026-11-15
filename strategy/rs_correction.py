@@ -102,11 +102,17 @@ def calc_correction_rs(
     idx_slice = index_df[(index_df.index >= peak_date) & (index_df.index <= end)]
     stk_slice = stock_df[(stock_df.index >= peak_date) & (stock_df.index <= end)]
 
-    if len(idx_slice) < 2 or len(stk_slice) < 2:
+    if len(idx_slice) < 2:
         return empty
+    # 기산점 당일 봉이 없으면 직전 거래일 종가에서 잰다 — 다음 봉부터 재면 지수와 다른 구간이 된다(#41 M6).
+    # 기산점 이전 봉이 아예 없으면(기산점 뒤 상장) 지수와 같은 구간을 잴 수 없다 → 0이 아니라 None.
+    # 0.0을 넣으면 '지수와 똑같이 움직임'이라는 실제 값처럼 순위에 들어갔다.
+    before = stock_df[stock_df.index <= peak_date]
+    if before.empty or stk_slice.empty:
+        return {**empty, 'stock_pct': None, 'excess_pct': None, 'excess_adr': None, 'lead_days': None}
 
     idx_pct = (float(idx_slice['Close'].iloc[-1]) / float(idx_slice['Close'].iloc[0]) - 1) * 100
-    stk_pct = (float(stk_slice['Close'].iloc[-1]) / float(stk_slice['Close'].iloc[0]) - 1) * 100
+    stk_pct = (float(stk_slice['Close'].iloc[-1]) / float(before['Close'].iloc[-1]) - 1) * 100
 
     idx_bottom = idx_slice['Low'].idxmin()
     stk_bottom = stk_slice['Low'].idxmin()
@@ -124,7 +130,8 @@ def calc_correction_rs(
 
     excess_pct = round(stk_pct - idx_pct, 2)
     adr        = _pre_adr(stock_df, correction_start)
-    excess_adr = round(excess_pct / adr, 2) if adr > 0 else 0.0
+    # 조정 전 ADR이 없으면(조정 직전 상장 등) 보정값을 낼 수 없다 — 0.0이 아니라 None (#41 M6)
+    excess_adr = round(excess_pct / adr, 2) if adr > 0 else None
 
     return {
         'stock_pct':    round(stk_pct, 2),

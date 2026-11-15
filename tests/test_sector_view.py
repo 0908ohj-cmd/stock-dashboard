@@ -45,3 +45,10 @@ def test_toggle_codes_list_each_theme_once_when_fixed_theme_turns_side():
 def test_toggle_codes_skip_main_themes_and_unclassified():
     themes = [_theme('SEMI', True), _theme('UNCLASSIFIED', False), _theme('METALS', False)]
     assert theme_toggle_codes((), themes) == ['METALS']
+
+
+def test_toggle_codes_without_side_themes_for_hot_table():
+    # 급부상 종목 표는 비메인 테마 종목이 아예 없다(#41 L11) — 비메인 토글은 빼고, 고정 목록이라도 비메인이 되면 뺀다
+    themes = [_theme('SEMI', True), _theme('BIO_PHARMA', False), _theme('FINANCE', True), _theme('HOLDING_ETC', False)]
+    assert theme_toggle_codes(('BIO_PHARMA', 'FINANCE'), themes, non_main=False) == ['FINANCE']
+    assert theme_toggle_codes(('BIO_PHARMA', 'FINANCE', 'FINANCE'), themes) == ['BIO_PHARMA', 'FINANCE', 'HOLDING_ETC']

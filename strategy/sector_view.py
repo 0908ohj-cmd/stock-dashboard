@@ -22,11 +22,15 @@ def resolve_asof(opts: list, pinned: str | None) -> str:
     return pinned if pinned in opts else opts[0]
 
 
-def theme_toggle_codes(fixed, themes: list) -> list:
+def theme_toggle_codes(fixed, themes: list, non_main: bool = True) -> list:
     """테마 토글로 보일 코드 — 고정 목록(fixed) + 메인 밖 테마(미분류 제외), 처음 나온 순서로 한 번씩.
 
     같은 코드가 두 번 나오면 같은 key의 토글이 두 개 생겨 DuplicateWidgetID로 탭 전체가 깨진다.
     taxonomy에서 고정 목록의 테마(예: 국장 바이오·제약)가 메인 밖으로 바뀌면 그렇게 된다(#42 L10).
+    non_main=False: 메인 밖 테마는 고정 목록에 있어도 뺀다 — 급부상 종목 표는 비메인 테마 종목이 없다(#41 L11).
     """
     side = list(fixed) + [t['code'] for t in themes if not t['main'] and t['code'] != 'UNCLASSIFIED']
+    if not non_main:
+        off = {t['code'] for t in themes if not t['main']}
+        side = [c for c in side if c not in off]
     return list(dict.fromkeys(side))
