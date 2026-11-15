@@ -147,8 +147,15 @@ def set_override(market: str, ticker: str, primary: str, secondary: list,
         raise ValueError(f'테마 목록에 없는 코드: {primary}')
     records = load_store(market) if records is None else records
     old = records.get(ticker) or {}
+    # detail은 이전 분류가 고른 테마(승인이면 주력, 게이트 탈락이면 제안값)를 설명하는 문구다.
+    # 다른 테마로 정정하면 그대로 두는 순간 '테마' 컬럼이 정정 내용과 모순되므로 비워서
+    # 테마 목록 라벨로 대체한다 (#45 M17). 이전 문구는 history에 남는다.
+    described = old.get('primaryTheme')
+    if described in (None, UNCLASSIFIED):
+        described = old.get('suggestedTheme')
     new = {
         **{k: v for k, v in old.items() if k != 'history'},
+        **({} if primary == described else {'detail': ''}),
         'primaryTheme': primary,
         'suggestedTheme': None,
         'secondaryThemes': [s for s in secondary if s in themes and s not in (primary, UNCLASSIFIED)],

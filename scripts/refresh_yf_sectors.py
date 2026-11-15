@@ -6,6 +6,9 @@ theme_cache.json(LLM 테마)과 짝이 되는 yf_sector_cache.json을 채운다.
 
     python3 scripts/refresh_yf_sectors.py            # 미캐시분만
     python3 scripts/refresh_yf_sectors.py --all      # 전량 재수집
+
+대상 = data/saved의 현행 티커 파일 합집합(store.snapshot_tickers). KRX 유니버스(pykrx)·S&P500·
+리더보드는 조회하지 않는다(#45 M19).
 """
 import argparse
 import sys
@@ -16,42 +19,20 @@ from pathlib import Path
 _REPO = Path(__file__).parent.parent
 sys.path.insert(0, str(_REPO))
 
-from data import yf_sector  # noqa: E402
+from data import store, yf_sector  # noqa: E402
 
 
 def _collect_targets() -> list:
-    """(ticker, market) 쌍 수집. KR은 시장별 접미사가 달라 market을 함께 들고 다닌다."""
-    pairs = {}
+    """(ticker, market) 쌍 — data/saved의 현행 티커 파일(store.snapshot_tickers) 합집합, 티커순.
 
-    from data import universe
-    get_kr = getattr(universe.get_kr_universe, '__wrapped__', universe.get_kr_universe)
-    get_us = getattr(universe.get_us_universe, '__wrapped__', universe.get_us_universe)
-    for market in ('KR_KOSPI', 'KR_KOSDAQ'):
-        try:
-            for t in get_kr(market):
-                pairs.setdefault(t, market)
-        except Exception as e:
-            print(f'⚠️ {market} 유니버스 수집 실패: {e}')
-    try:
-        for t in get_us():
-            pairs.setdefault(t, 'US')
-    except Exception as e:
-        print(f'⚠️ US 유니버스 수집 실패: {e}')
-
-    for f in sorted((_REPO / 'data' / 'saved').glob('*.tickers')):
-        name = f.name.lower()
-        market = ('KR_KOSDAQ' if 'kosdaq' in name else
-                  'KR_KOSPI' if 'kospi' in name or '_kr' in name else 'US')
-        for line in f.read_text(encoding='utf-8').splitlines():
-            t = line.strip()
-            if t:
-                pairs.setdefault(t, market if t.isdigit() else 'US')
-
-    from data import leaderboard_store
-    for m, market in (('kr', 'KR_KOSPI'), ('us', 'US')):
-        for t in leaderboard_store.get_tickers(m):
-            pairs.setdefault(t, market if t.isdigit() else 'US')
-
+    KR은 시장별 접미사가 달라 market을 함께 들고 다닌다. 시장은 티커 파일이 정한다 — 예전엔
+    isdigit()로 판정해 영숫자 KR 코드(0015S0)를 미국 종목으로 조회했다(#45 L6). 예전엔 라운드
+    (refresh_yf_sectors.sh, 최대 30회)마다 KRX 유니버스(pykrx)·S&P500·리더보드까지 다시 모았다(#45 M19).
+    """
+    pairs: dict = {}
+    for market in ('KR_KOSPI', 'KR_KOSDAQ', 'US'):
+        for t in store.snapshot_tickers(market):
+            pairs.setdefault(t, market)
     return sorted(pairs.items())
 
 

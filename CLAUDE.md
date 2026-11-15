@@ -75,7 +75,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 근거 URL이 없거나 신뢰도 low면 `UNCLASSIFIED`로 두고 `suggestedTheme`만 남긴다. 미분류 종목은 섹터 집계에서 빠진다
 - `overrideByUser=True`(주도섹터 탭 > 분류 검토에서 확정)는 자동 분류가 덮어쓰지 않는다. 변경 이력은 `history`
 - US 배치(`run_batch_local.sh`)가 매 회차 `--scope missing`으로 신규 편입 종목만 분류한다. 테마 목록 version이 `-draft`로 끝나면 배치는 그 시장을 분류하지 않는다
-- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`)
+- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`). 렌더 경로에는 LLM 런타임 분류가 없다 — 캐시만 읽고 구 캐시에도 없으면 '기타'. 신규 종목 분류는 배치의 `classify_themes.py`만 맡는다(`data/theme_classifier.classify`는 렌더에서 호출 금지 — `themes.json`에 대분류를 자동 추가한다)
 
 ### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
 
@@ -102,7 +102,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 추세추종 탭의 '주도주 점수·순위'는 `sector_leadership.lead_scores`(주도섹터 탭과 같은 `_compute`)를 읽는다 — 점수 계산을 두 곳에 만들지 말 것
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
 - **지수 현황 패널의 현재가·등락률만 실시간**(`data/live_index.py`, `st.cache_data(ttl=60)` — 접속·새로고침 때 갱신). 국면·ADR·PP와 그 밖의 모든 지수 계산은 배치 확정 일봉을 쓴다. 현재가는 yfinance `fast_info.last_price`, 등락률은 배치 확정 종가 대비이고 배치에 이미 있는 날짜는 확정값을 쓴다. yfinance KR 지수의 일봉 마지막 날·`previous_close`는 믿지 말 것(측정상 누락·불일치), Cloud에서 pykrx 호출 금지(KRX 차단)
-- 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
+- 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`: 대상은 `data/saved` 현행 티커 파일(`store.snapshot_tickers`)뿐이고 KRX 조회 없음, 무인자는 미캐시 종목만·재분류는 `--all`/`--stale-days` 명시. `yf_sector_cache.json`의 `scripts/refresh_yf_sectors.sh`도 같은 대상), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
 
 ### 알아둘 것
