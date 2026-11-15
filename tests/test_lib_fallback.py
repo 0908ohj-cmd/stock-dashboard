@@ -106,3 +106,13 @@ def test_round_is_fresh_with_real_gate_stock_behind_index(tmp_path):
     rc, out = _call(f'round_is_fresh python3 kr "{root}"')
 
     assert rc == 1, out
+
+
+def test_round_is_fresh_with_real_gate_index_behind_stock(tmp_path):
+    """#24 사례: 배치는 돌았지만 지수가 종목보다 하루 늦음 → 미달(폴백 대상)."""
+    now = datetime.now(KST)
+    root = _gate_root(tmp_path, now.isoformat(timespec='seconds'), '2026-11-11', '2026-11-10')
+
+    rc, out = _call(f'round_is_fresh python3 kr "{root}"')
+
+    assert rc == 1, out

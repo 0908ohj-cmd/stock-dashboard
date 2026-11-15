@@ -67,3 +67,39 @@ def test_recent_krx_dates_skips_weekend():
     assert len(dates) == 5
     assert all(pd.Timestamp(d).weekday() < 5 for d in dates)
     assert dates == sorted(dates, reverse=True)   # 최신순
+
+
+# ── 저장 가드 (#38) ──────────────────────────────────────
+
+def _write_tickers(path, n):
+    path.write_text('\n'.join(f'{i:06d}' for i in range(n)), encoding='utf-8')
+
+
+def _count(path):
+    return len([t for t in path.read_text(encoding='utf-8').splitlines() if t.strip()])
+
+
+def test_main_keeps_shrunk_market_file_and_saves_the_other(tmp_path, monkeypatch):
+    """KOSDAQ만 부분 수집으로 줄면 KOSDAQ 파일은 유지, KOSPI는 갱신하고 1로 알린다."""
+    monkeypatch.setattr(bu, 'SAVED_DIR', tmp_path)
+    _write_tickers(tmp_path / 'kosdaq_10ema.tickers', 77)
+    _write_tickers(tmp_path / 'kospi_10ema.tickers', 46)
+    kosdaq_before = (tmp_path / 'kosdaq_10ema.tickers').read_text(encoding='utf-8')
+    new = {'KOSDAQ': [f'9{i:05d}' for i in range(21)], 'KOSPI': [f'8{i:05d}' for i in range(44)]}
+    monkeypatch.setattr(bu, 'build_market', lambda m, s: new[m])
+
+    assert bu.main() == 1
+    assert (tmp_path / 'kosdaq_10ema.tickers').read_text(encoding='utf-8') == kosdaq_before
+    assert (tmp_path / 'kospi_10ema.tickers').read_text(encoding='utf-8').splitlines() == new['KOSPI']
+
+
+def test_main_saves_both_markets_when_sizes_are_normal(tmp_path, monkeypatch):
+    monkeypatch.setattr(bu, 'SAVED_DIR', tmp_path)
+    _write_tickers(tmp_path / 'kosdaq_10ema.tickers', 77)
+    _write_tickers(tmp_path / 'kospi_10ema.tickers', 46)
+    monkeypatch.setattr(bu, 'build_market',
+                        lambda m, s: [f'{i:06d}' for i in range(70 if m == 'KOSDAQ' else 40)])
+
+    assert bu.main() == 0
+    assert _count(tmp_path / 'kosdaq_10ema.tickers') == 70
+    assert _count(tmp_path / 'kospi_10ema.tickers') == 40

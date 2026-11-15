@@ -172,7 +172,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_11_5     # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_15_1    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict, dict]:
@@ -213,8 +213,16 @@ def lead_scores(market_key: str, peak: str = '', jjin: str = '') -> dict:
     return {p['ticker']: {'score': p['nextScore'], 'rank': i, 'parts': p.get('nextParts', {}),
                           'asof': res['asof'], 'phaseLabel': label,
                           'downAdr': p.get('sincePeakExcessAdr'),
-                          'upAdr': p.get('sinceJjinExcessAdr') if has_jjin else None}
+                          'upAdr': p.get('sinceJjinExcessAdr') if has_jjin else None,
+                          'sma200': sma200_text(p.get('sma200Rising'), p.get('gap200'))}
             for i, p in enumerate(picks, 1)}
+
+
+def sma200_text(up, gap) -> str | None:
+    """표(AgGrid·dataframe)용 '200일선' 칸 — '↗ 상승 (+12.3%)' / '↘ 하락 (−5.0%)'. 방향이 장기 추세 점수, 괄호는 이격."""
+    if up is None:
+        return None
+    return ('↗ 상승' if up else '↘ 하락') + ('' if gap is None else f' ({gap:+.1f}%)')
 
 
 def _asof_options(m: Market) -> list:
@@ -1045,7 +1053,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
             f'{_rank_cell(rank, (prev_rank or {}).get(t), prev_rank is not None)}</td><td>{title}</td>'
             f'<td>{_esc(labels.get(r["primaryTheme"], ""))}{star}<div class="two">{_esc(detail)}</div></td>'
             + ''.join(f'<td class="hb-num">{_rs_val(c, r, False)}</td>' for c in cols)
-            + f'<td class="hb-num">{_signed(r.get("offHigh"), "%")}</td><td class="hb-num">{_signed(r.get("gap200"), "%")}</td>'
+            + f'<td class="hb-num">{_signed(r.get("offHigh"), "%")}</td><td class="hb-num">{_sma200_cell(r)}</td>'
             f'<td>{lead_txt}</td>'
             + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
             f'<td>{_bar_cell(r["nextScore"])}</td></tr>')
@@ -1053,7 +1061,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
         + _colgroup([5, 15, 18] + [9] * len(cols) + [8, 8, 8, 8, 12])
         + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
-        + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선 이격</th><th>저점</th>'
+        + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
         unsafe_allow_html=True)
     st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.'
@@ -1069,8 +1077,19 @@ _SCORE_ITEMS = [
     ('고점 근접', '52주 고점 근접', '기준일 종가가 52주(252거래일) 최고가에 얼마나 가까운지 — 추세추종 탭과 같은 기준'),
     ('저점 선행', '저점 선행', '조정 구간에서 지수보다 며칠 먼저 바닥을 찍었는지'),
     ('양봉 렐볼', '양봉 렐볼', '최근 5일 안에 거래량 1.5배↑ 양봉이 있으면 만점, 없으면 0'),
-    ('장기 추세', '장기 추세 (200일선 이격)', '200일선 위면 만점, 아래라도 이격 0~−15%면 절반, 그보다 멀면 0'),
+    ('장기 추세', '장기 추세 (200일선 방향)',
+     '오늘 200일선이 20거래일 전 200일선보다 높으면(상승 중) 만점, 아니면 0. 주가가 200일선 아래여도 200일선이 오르는 중이면 만점'),
 ]
+
+
+def _sma200_cell(r: dict) -> str:
+    """차기 주도주 표 '200일선' 칸 — 첫 줄 방향(장기 추세 점수), 둘째 줄 (이격)."""
+    up, gap = r.get('sma200Rising'), r.get('gap200')
+    if up is None:
+        return '—'
+    mark = '<span class="sl-pos">↗ 상승</span>' if up else '<span class="sl-neg">↘ 하락</span>'
+    sub = '' if gap is None else f'<div class="two">(이격 {gap:+.1f}%)</div>'   # 색 없이 — 색은 방향(점수)만
+    return f'<span style="white-space:nowrap">{mark}</span>{sub}'
 
 
 def _score_table(rebound: bool):
@@ -1221,6 +1240,7 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
         r['점수'] = None if x.get('score') is None else round(x['score'], 1)
         r['하락RS'] = None if x.get('downAdr') is None else round(x['downAdr'], 2)
         r['상승RS'] = None if x.get('upAdr') is None else round(x['upAdr'], 2)
+        r['200일선'] = x.get('sma200')
     rows.sort(key=lambda r: (r['점수'] is None, -(r['점수'] or 0)))
     for i, r in enumerate([r for r in rows if r['점수'] is not None], 1):
         r['순위'] = i
@@ -1228,7 +1248,7 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
         '티커 | 종목명': f"{r['Ticker']} | {r['종목명']}",
         '주도주 점수': r['점수'], '주도주 순위': r.get('순위'),
         '섹터': r['섹터'], '테마': r['테마'], '종가': r['Close'], '등락%': r['등락%'],
-        '하락국면 RS/ADR': r['하락RS'], '상승국면 RS/ADR': r['상승RS'],
+        '하락국면 RS/ADR': r['하락RS'], '상승국면 RS/ADR': r['상승RS'], '200일선': r['200일선'],
         '이평선위치': r['이평선위치'], '저점선행(일)': r['저점선행'], '양봉비%': r['양봉비%'], '고점대비%': r['고점대비%'],
     } for r in rows])
     st.caption(f"{labels[s['theme']]} {len(rows)}종목 — 추세추종 탭과 같은 열·같은 주도주 점수 (순위는 이 섹터 안). "
