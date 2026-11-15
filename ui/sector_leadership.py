@@ -160,9 +160,9 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         rot_ranked, rot_thin = nl.rotation_sectors(in_main(rot_stocks), in_main(prev))
     hot = nl.hot_sectors(bars, theme_of, asof)
     bull = nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof)
-    sizes: dict = {}        # 단독 렐볼 판정용 섹터 크기 (분류 기준)
-    for th in theme_of.values():
-        sizes[th] = sizes.get(th, 0) + 1
+    # 단독 렐볼 판정의 섹터 크기 = 🔥 판정과 같은 그룹(hot_groups) — 두 판정이 다른 크기를 써서 어느 쪽에도
+    # 안 잡히는 종목이 생기지 않게(#41 M7)
+    sizes = {th: len(ts) for th, ts in nl.hot_groups(bars, theme_of, asof).items()}
     return {
         'asof': rep.asof,
         'bench': {'names': list(rep.bench.names), 'ret5': rep.bench.ret5, 'ret21': rep.bench.ret21,

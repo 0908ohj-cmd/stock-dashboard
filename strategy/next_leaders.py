@@ -393,47 +393,58 @@ def fire_starts(on, gap: int = HOT_GAP) -> list:
     return [i for i in range(gap, len(on)) if on[i] and not on[i - gap:i].any()]
 
 
-def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
-                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
-    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n', 'fires': [창 안 🔥 시작일…],
-    'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
-    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
-    렐볼 양봉 = 종가 > 시가 & 거래량 ≥ 직전 20일 평균 × 1.5 (sector_strength와 같은 정의)."""
+def hot_groups(bars: dict, theme_of: dict, asof) -> dict:
+    """{테마: [티커…]} — 🔥 판정(hot_sectors)과 단독 렐볼 판정(hot_stock_pool의 sizes)이 함께 쓰는 섹터 구성.
+    섹터 크기의 단일 출처(#41 M7): 분류된(미분류 아님) 종목 중 기준일 이전 봉이 하나라도 있는 종목.
+    이력이 짧은 종목도 넣는다 — 빼면 두 판정이 서로 다른 크기를 써서 어느 쪽에도 안 잡히는 종목이 생겼다."""
     asof = pd.Timestamp(asof)
-    flags, groups, aligned = {}, {}, {}
+    out: dict = {}
     for t, df in bars.items():
         th = theme_of.get(t)
-        if th in (None, 'UNCLASSIFIED'):
+        if th in (None, 'UNCLASSIFIED') or not (df.index <= asof).any():
             continue
-        full = df[df.index <= asof]
-        if len(full) < 30:
-            continue
-        # 편입일을 창 길이에 잘리지 않게 정하려면 창 밖 이력도 필요하다 — 스냅샷 전체(약 240봉)로 계산(#30).
-        # 직전 20일 평균이 없는 첫 20봉은 '안 켜짐'이 아니라 판정 불가(NaN) — 0으로 두면 가짜 공백이 생긴다.
-        bull = ss.bullish_rvol(full).astype(float)
-        bull.iloc[:20] = np.nan
-        flags[t] = bull.rolling(5, min_periods=1).max()
-        groups.setdefault(th, []).append(t)
-        c = full['Close'].tail(250)
-        s50 = c.rolling(50).mean().iloc[-1]
-        aligned[t] = bool(not pd.isna(s50) and c.ewm(span=10, adjust=False).mean().iloc[-1]
-                          > c.ewm(span=21, adjust=False).mean().iloc[-1] > s50)
+        out.setdefault(th, []).append(t)
+    return out
+
+
+def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
+                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
+    """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n': 섹터 크기, 'fires': [창 안 🔥 시작일…],
+    'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
+    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
+    이력이 짧아 판정할 수 없는 종목은 '렐볼 아님'으로 센다(#41 M7 — 한 종목 결측으로 🔥가 꺼지지 않게)."""
+    asof = pd.Timestamp(asof)
+    flags, aligned = {}, {}
+    groups = {th: ts for th, ts in hot_groups(bars, theme_of, asof).items() if len(ts) >= min_n}
+    for ts in groups.values():
+        for t in ts:
+            full = bars[t][bars[t].index <= asof]
+            # 편입일을 창 길이에 잘리지 않게 정하려면 창 밖 이력도 필요하다 — 스냅샷 전체(약 240봉)로 계산(#30).
+            # 직전 20일 평균이 없는 첫 20봉은 '안 켜짐'이 아니라 판정 불가(NaN) — 섹터 판정 시작일을 정할 때 쓴다.
+            bull = ss.bullish_rvol(full).astype(float)
+            bull.iloc[:20] = np.nan
+            flags[t] = bull.rolling(5, min_periods=1).max()
+            c = full['Close'].tail(250)
+            s50 = c.rolling(50).mean().iloc[-1]
+            aligned[t] = bool(not pd.isna(s50) and c.ewm(span=10, adjust=False).mean().iloc[-1]
+                              > c.ewm(span=21, adjust=False).mean().iloc[-1] > s50)
     out = {}
     for th, ts in groups.items():
-        if len(ts) < min_n:
-            continue
         # 섹터 품질 — 정배열(10EMA>21EMA>50SMA) 종목 비율이 낮으면 🔥여도 뺀다 (바닥권 종목들이 거래량만 터진 경우)
         al_share = sum(aligned[t] for t in ts) / len(ts)
         if al_share < (HOT_MIN_ALIGNED if min_aligned is None else min_aligned):
             continue
         f = pd.DataFrame({t: flags[t] for t in ts})
         n = f.notna().sum(axis=1)
-        known = (n >= min_n).to_numpy()
+        # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름'). 이력 짧은 종목이 끝내 판정 불가로 남아도 섹터 판정은
+        # 시작돼야 하므로 기준은 min_n과 '판정 가능 종목 수의 최대' 중 작은 쪽
+        known = (n >= min(min_n, int(n.max()))).to_numpy() if len(n) and n.max() > 0 else np.zeros(0, dtype=bool)
         if not known.any():
             continue
-        first = int(np.argmax(known))           # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름')
-        f, n = f.iloc[first:], n.iloc[first:]
-        sh = (f.fillna(0).sum(axis=1) / n.where(n >= min_n)).fillna(0)
+        first = int(np.argmax(known))
+        f = f.iloc[first:]
+        sh = f.fillna(0).sum(axis=1) / len(ts)      # 결측 = 렐볼 아님, 분모 = 섹터 크기 고정
         on = (sh >= share).to_numpy()
         w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
         if not on[w0:].any():
@@ -445,7 +456,7 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         # 낮아지고, 3 ADR 하락으로 빠진 종목이 가격 회복 없이 돌아왔다(#30)
         last = f.index[starts[-1]] if starts else None      # None = 이력 처음부터 이어진 🔥 (시작일 모름)
         since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
-        out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': int(n.iloc[-1]),
+        out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': len(ts),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
                    'since': since, 'startedBefore': last is None, 'alignedShare': al_share,
                    'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,

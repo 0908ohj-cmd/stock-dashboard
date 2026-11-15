@@ -628,3 +628,39 @@ def test_렐볼_양봉_정의는_sector_strength_하나():
     assert ss.bullish_rvol(normal).iloc[-1]
     assert nl.bull_since({'A': normal}, normal.index[-1]) == {'A': normal.index[-1]}
     assert nl.HOT_RVOL == ss.RVOL_BULL
+
+
+# ── #41 M7: 🔥 판정 분모 = 섹터 크기 고정, 결측 = 렐볼 아님, 그룹 크기 단일 출처 ─────────────────
+def test_hot_sectors_한_종목만_당일_봉이_없어도_분모는_섹터_크기():
+    # A·B 렐볼 양봉, C만 기준일 봉 없음 → 2/3 = 67% 🔥 (예전엔 분모가 2로 줄어 min_n 미만 → share 0, 🔥 꺼짐)
+    bars = {'A': _bars(80, (1,)), 'B': _bars(80, (1,)), 'C': _bars(80).iloc[:-1]}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1], min_aligned=0)
+    assert h['OPT']['now'] and h['OPT']['share'] == pytest.approx(2 / 3)
+    assert h['OPT']['n'] == 3
+
+
+def test_hot_sectors_이력_짧은_종목도_섹터_크기에_들어가고_렐볼_아님으로_센다():
+    # C는 상장 10거래일 — 예전엔 30봉 미만이라 그룹에서 빠져 2종목 섹터(판정 불가)가 됐다
+    bars = {'A': _bars(80, (1,)), 'B': _bars(80, (1,)), 'C': _bars(80).iloc[-10:]}
+    theme = {t: 'OPT' for t in bars}
+    assert {th: len(ts) for th, ts in nl.hot_groups(bars, theme, bars['A'].index[-1]).items()} == {'OPT': 3}
+    h = nl.hot_sectors(bars, theme, bars['A'].index[-1], min_aligned=0)
+    assert h['OPT']['now'] and h['OPT']['share'] == pytest.approx(2 / 3) and h['OPT']['n'] == 3
+
+
+def test_hot_groups_기준일_이전_봉이_없거나_미분류면_세지_않는다():
+    bars = {'A': _bars(80), 'LATE': _bars(80).iloc[-3:], 'U': _bars(80)}
+    asof = bars['A'].index[-5]                                  # LATE는 그 뒤 상장
+    groups = nl.hot_groups(bars, {'A': 'X', 'LATE': 'X', 'U': 'UNCLASSIFIED', 'NODATA': 'X'}, asof)
+    assert groups == {'X': ['A']}
+
+
+def test_단독_렐볼_판정은_hot_groups와_같은_섹터_크기를_쓴다():
+    # 분류상 3종목이지만 한 종목은 시세가 없어 🔥 판정 그룹은 2종목 → 판정 불가 섹터의 렐볼 종목은 단독 렐볼로 잡는다
+    bars = {'A': _bars(80, (2,)), 'B': _bars(80)}
+    theme = {'A': 'X', 'B': 'X', 'NODATA': 'X'}
+    asof = bars['A'].index[-1]
+    sizes = {th: len(ts) for th, ts in nl.hot_groups(bars, theme, asof).items()}
+    assert nl.hot_sectors(bars, theme, asof, min_aligned=0) == {}
+    out = nl.hot_stock_pool([_prow('A', 'X')], {}, sizes, nl.bull_since(bars, asof), bars, asof)
+    assert [(r['ticker'], r['solo']) for r in out['rows']] == [('A', True)]
