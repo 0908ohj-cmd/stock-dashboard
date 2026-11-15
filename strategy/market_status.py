@@ -196,7 +196,9 @@ def _effective_start(index_df: pd.DataFrame, ema21: pd.Series, below: pd.Series
     확인창 우선(#28): 찐반등이 실패 규칙을 통과하는 동안 확인창(DAY3~7) 안에서 종가가 EMA21
     아래로 다시 내려가도 새 조정으로 보지 않는다 — 찐반등·DAY·RS 기산점(원래 조정)을 유지한다.
     - 확인창 안에서 찐반등 저점 아래 종가 → 즉시 실패, 그 재이탈이 새 조정의 이탈일
-    - DAY7 다음 거래일에도 EMA21 아래 → 그날이 새 조정의 이탈일
+    - DAY7 다음 거래일에도 EMA21 아래 → 지금 이어지는 EMA21 아래 구간의 시작일(실제로 종가가
+      내려간 날 — 확인창 안에서 재회복 뒤 다시 내려갔다면 마지막으로 내려간 날)이 새 조정의 이탈일.
+      확인창 안의 화면(재이탈 주의)은 그대로이고, 그날부터 찐반등 탐색·RS 기산점을 다시 잡는다
     - DAY7 다음 거래일에 EMA21 위라도 확인창 내내 미회복(규칙 ① 실패) → 그 재이탈이 새 조정의 이탈일
     실패한 찐반등일은 이월 실패일로 넘긴다 — 새 조정의 탐색 범위 밖이라 _resolve_jjin이 못 본다.
     재이탈일은 지금 보호 중인 재이탈 구간(현재 EMA21 아래)일 때만 돌려준다.
@@ -240,7 +242,7 @@ def _effective_start(index_df: pd.DataFrame, ema21: pd.Series, below: pd.Series
                 rebreak = index_df.index[int(raw[-1])]
             break
         if b[after]:                                    # DAY7 다음 거래일에도 EMA21 아래 → 새 조정
-            eff = cursor = after
+            eff = cursor = int(raw[raw <= after][-1])   # 그 하락 구간이 시작된 날
             carried = jjin['date'] if failed is not None else None
             continue
         if failed is not None:                          # 확인창 내내 미회복(규칙 ①) — 재이탈을 덮지 못한다
