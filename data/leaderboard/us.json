@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-11-14T09:09:48",
-  "source_updated_at": "2026-11-14T09:09:45",
+  "synced_at": "2026-11-15T09:03:26",
+  "source_updated_at": "2026-11-15T09:03:24",
   "count": 20,
   "items": [
     {
@@ -21,7 +21,7 @@
       "perf_6m": 114.3,
       "perf_12m": 141.0,
       "dist_from_52w_high": -1.4,
-      "avg_dollar_vol": 369345001,
+      "avg_dollar_vol": 369348239,
       "theme": "국제 확장 가전",
       "sector": "가전"
     },
@@ -42,7 +42,7 @@
       "perf_6m": 111.7,
       "perf_12m": 172.6,
       "dist_from_52w_high": -6.4,
-      "avg_dollar_vol": 222585812,
+      "avg_dollar_vol": 222606772,
       "theme": "디지털 근골격 의료",
       "sector": "소프트웨어"
     },
@@ -52,8 +52,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-10-30",
       "close": 106.17,
@@ -64,7 +63,7 @@
       "perf_6m": 131.0,
       "perf_12m": 200.0,
       "dist_from_52w_high": -6.5,
-      "avg_dollar_vol": 182626165,
+      "avg_dollar_vol": 182626360,
       "theme": "국제 시장 성장",
       "sector": "의류·신발 유통"
     },
@@ -74,8 +73,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-10-22",
       "close": 337.97,
@@ -86,7 +84,7 @@
       "perf_6m": 124.0,
       "perf_12m": 97.1,
       "dist_from_52w_high": -10.1,
-      "avg_dollar_vol": 359683868,
+      "avg_dollar_vol": 359684313,
       "theme": "약물발견 안전평가",
       "sector": "기타 사업서비스"
     },
@@ -107,7 +105,7 @@
       "perf_6m": 111.0,
       "perf_12m": 109.0,
       "dist_from_52w_high": -13.0,
-      "avg_dollar_vol": 238295575,
+      "avg_dollar_vol": 238296360,
       "theme": "글로벌 프리미엄 의류 포트폴리오",
       "sector": "의류·신발 유통"
     },
@@ -128,7 +126,7 @@
       "perf_6m": 72.4,
       "perf_12m": 119.9,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 193076940,
+      "avg_dollar_vol": 193078608,
       "theme": "글로벌 신발 브랜드",
       "sector": "의류·신발"
     },
@@ -149,7 +147,7 @@
       "perf_6m": 71.7,
       "perf_12m": 84.2,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 226011196,
+      "avg_dollar_vol": 226015692,
       "theme": "소프트웨어 공급망 보안",
       "sector": "소프트웨어"
     },
@@ -170,7 +168,7 @@
       "perf_6m": 113.2,
       "perf_12m": 79.0,
       "dist_from_52w_high": -2.9,
-      "avg_dollar_vol": 224186268,
+      "avg_dollar_vol": 224224775,
       "theme": "마케팅 AI 데이터 인프라",
       "sector": "소프트웨어"
     },
@@ -180,8 +178,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-11-03",
       "close": 257.15,
@@ -192,7 +189,7 @@
       "perf_6m": 95.8,
       "perf_12m": 46.7,
       "dist_from_52w_high": -1.3,
-      "avg_dollar_vol": 185449491,
+      "avg_dollar_vol": 185449542,
       "theme": "공급망 AI 에이전트",
       "sector": "소프트웨어"
     },
@@ -213,7 +210,7 @@
       "perf_6m": 94.4,
       "perf_12m": 31.9,
       "dist_from_52w_high": 0.0,
-      "avg_dollar_vol": 580382241,
+      "avg_dollar_vol": 580399463,
       "theme": "AI 광고 플랫폼",
       "sector": "소프트웨어"
     },
@@ -234,7 +231,7 @@
       "perf_6m": 89.7,
       "perf_12m": 66.1,
       "dist_from_52w_high": -2.9,
-      "avg_dollar_vol": 188185552,
+      "avg_dollar_vol": 188193748,
       "theme": "디지털 뱅킹 플랫폼",
       "sector": "소프트웨어"
     },
@@ -244,8 +241,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-11-08",
       "close": 117.98,
@@ -256,7 +252,7 @@
       "perf_6m": 109.1,
       "perf_12m": 51.8,
       "dist_from_52w_high": -1.1,
-      "avg_dollar_vol": 170694417,
+      "avg_dollar_vol": 170696154,
       "theme": "글로벌 뷰티 포트폴리오",
       "sector": "생활·개인용품"
     },
@@ -277,7 +273,7 @@
       "perf_6m": 84.4,
       "perf_12m": 140.8,
       "dist_from_52w_high": -6.7,
-      "avg_dollar_vol": 157720074,
+      "avg_dollar_vol": 157722564,
       "theme": "외식 체인 회복",
       "sector": "외식"
     },
@@ -287,8 +283,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-11-05",
       "close": 24.0,
@@ -299,7 +294,7 @@
       "perf_6m": 106.9,
       "perf_12m": 36.9,
       "dist_from_52w_high": -5.4,
-      "avg_dollar_vol": 104109329,
+      "avg_dollar_vol": 104109334,
       "theme": "옴니채널 부서점",
       "sector": "백화점"
     },
@@ -320,7 +315,7 @@
       "perf_6m": 89.3,
       "perf_12m": 41.1,
       "dist_from_52w_high": -2.1,
-      "avg_dollar_vol": 355038630,
+      "avg_dollar_vol": 355039744,
       "theme": "AI PC 소매",
       "sector": "가전 유통"
     },
@@ -330,8 +325,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-11-06",
       "close": 113.27,
@@ -342,7 +336,7 @@
       "perf_6m": 53.7,
       "perf_12m": 73.1,
       "dist_from_52w_high": -4.3,
-      "avg_dollar_vol": 191928541,
+      "avg_dollar_vol": 191928553,
       "theme": "산업 공구 및 조임쇠",
       "sector": "공구·하드웨어"
     },
@@ -363,7 +357,7 @@
       "perf_6m": 93.9,
       "perf_12m": 4.3,
       "dist_from_52w_high": -18.0,
-      "avg_dollar_vol": 142665057,
+      "avg_dollar_vol": 142666756,
       "theme": "AI 에이전트 보안",
       "sector": "소프트웨어"
     },
@@ -384,7 +378,7 @@
       "perf_6m": 89.7,
       "perf_12m": 48.2,
       "dist_from_52w_high": -21.3,
-      "avg_dollar_vol": 177311462,
+      "avg_dollar_vol": 177312559,
       "theme": "AI 기반 사이버보안",
       "sector": "소프트웨어"
     },
@@ -394,8 +388,7 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders",
-        "leader_ride"
+        "leaders"
       ],
       "added_at": "2026-11-13",
       "close": 248.86,
@@ -406,7 +399,7 @@
       "perf_6m": 83.5,
       "perf_12m": 49.8,
       "dist_from_52w_high": -9.4,
-      "avg_dollar_vol": 176387159,
+      "avg_dollar_vol": 176388063,
       "theme": "클라우드 HCM 플랫폼",
       "sector": "소프트웨어"
     },
@@ -427,7 +420,7 @@
       "perf_6m": 23.0,
       "perf_12m": 111.7,
       "dist_from_52w_high": -2.3,
-      "avg_dollar_vol": 174851401,
+      "avg_dollar_vol": 174851470,
       "theme": "특수약학·주입약",
       "sector": "의료 서비스"
     }
