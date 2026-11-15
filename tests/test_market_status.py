@@ -28,7 +28,7 @@ def _correction_df():
     # 10일 하락: open > close (음봉), body=3
     down_c = [124, 121, 118, 115, 112, 109, 106, 103, 100, 97]
     down_o = [127, 124, 121, 118, 115, 112, 109, 106, 103, 100]
-    # 반등: close=105, open=97, body=8, prev_body=3 → cover=267%
+    # 반등: close=105 (전일 97 대비 +8.2% ≥ ADR(20일)≈2.75% × 0.9)
     bounce_c, bounce_o = 105, 97
     closes  = up_c  + down_c  + [bounce_c]
     opens   = up_o  + down_o  + [bounce_o]
@@ -57,7 +57,7 @@ def test_detect_jjin_bounce_gap_up_qualifies():
     up_o  = [100 + i for i in range(25)]
     down_c = [124, 121, 118, 115, 112, 109, 106, 103, 100, 97]
     down_o = [127, 124, 121, 118, 115, 112, 109, 106, 103, 100]
-    # 갭업: close=108, open=97, body=11 > prev_body(3)*0.7
+    # 갭업: close=108 (전일 97 대비 +11.3% ≥ ADR(20일)≈2.28% × 0.9)
     gap_c, gap_o = 108, 97
     closes  = up_c  + down_c  + [gap_c]
     opens   = up_o  + down_o  + [gap_o]
@@ -68,12 +68,13 @@ def test_detect_jjin_bounce_gap_up_qualifies():
     assert detect_jjin_bounce(df) is not None
 
 
-def test_detect_jjin_bounce_fails_when_body_coverage_below_70pct():
+def test_detect_jjin_bounce_fails_when_rise_below_adr_90pct():
+    """장중 저가 EMA21 아래 양봉이어도 상승폭이 ADR(20일) × 0.9 미만이면 찐반등이 아니다."""
     up_c  = [100 + i for i in range(25)]
     up_o  = [100 + i for i in range(25)]
     down_c = [124, 121, 118, 115, 112, 109, 106, 103, 100, 97]
     down_o = [127, 124, 121, 118, 115, 112, 109, 106, 103, 100]
-    # 바디=2 < 이전음봉바디(3)*0.7=2.1 → 커버 부족
+    # 반등: close=99 (전일 97 대비 +2.06%) < ADR(20일)≈2.47% × 0.9 ≈ 2.23%
     bounce_c, bounce_o = 99, 97
     closes  = up_c  + down_c  + [bounce_c]
     opens   = up_o  + down_o  + [bounce_o]
@@ -102,7 +103,7 @@ def test_get_market_status_correction():
 def test_get_market_status_early_signal():
     df = _correction_df()
     status = get_market_status(df)
-    assert status['state'] in ('early_signal', 'ftd_confirmed')
+    assert status['state'] == 'early_signal'
     assert status['jjin_date'] is not None
     assert status['jjin_pct'] > 0
 
