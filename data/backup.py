@@ -1,13 +1,15 @@
-"""티커 백업(JSON) 복원 — 파싱과 '이 내용을 이미 처리했나' 판정. Streamlit 무의존.
+"""티커 백업(JSON) 복원·사이드바 티커 업로드 — 파싱과 '이 내용을 이미 처리했나' 판정. Streamlit 무의존.
 
 st.file_uploader는 rerun마다 같은 파일을 다시 돌려준다. 복원처럼 처리 끝에 st.rerun()을
 부르는 경로는 내용 서명 가드가 없으면 '복원 → GitHub 커밋 → rerun → 복원 …'으로 끝없이 돈다(#36).
+티커 업로드도 같은 이유로 저장·GitHub 커밋을 가드 안에서 한다(#44 M15).
 """
 from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, MutableMapping
+import pathlib
+from collections.abc import Callable, Iterable, MutableMapping
 
 
 def content_sig(raw: bytes) -> str:
@@ -55,3 +57,35 @@ def changed_markets(restored: dict[str, list[str]], current: dict[str, str]) -> 
         if saved != tickers:
             out[key] = '\n'.join(tickers)
     return out
+
+
+# apply_upload 결과 — REPEAT: rerun으로 같은 파일이 다시 온 것(아무것도 안 함),
+# UNCHANGED: 새 업로드지만 저장된 목록과 같아 쓰지 않음, SAVED: 파일에 쓰고 원격 저장까지 함
+UPLOAD_REPEAT = 'repeat'
+UPLOAD_UNCHANGED = 'unchanged'
+UPLOAD_SAVED = 'saved'
+
+
+def apply_upload(state: MutableMapping, slot: str, raw: bytes, tickers: list[str],
+                 path: pathlib.Path, persist: Callable[[str, str], None]) -> str:
+    """사이드바 티커 업로드 1건 — 이 세션에서 처음 보는 내용일 때만 저장한다 (#44 M15).
+
+    rerun마다 같은 파일이 돌아와도 파일 쓰기·persist(GitHub 커밋)는 처음 한 번뿐이고,
+    그때도 저장된 목록과 같으면 둘 다 건너뛴다 — 빈 커밋이 쌓이고, 파일 mtime이 바뀌어
+    주도섹터 캐시(_data_key)가 rerun마다 무효화되던 문제. 반환값이 UPLOAD_REPEAT가 아니면
+    새 업로드이므로 호출부가 시세를 한 번 받는다. 쓰기가 실패하면 서명을 지워 다음 rerun에 다시 시도한다.
+    """
+    if not claim_new_content(state, slot, raw):
+        return UPLOAD_REPEAT
+    try:
+        current = path.read_text(encoding='utf-8') if path.exists() else ''
+        changed = changed_markets({slot: tickers}, {slot: current})
+        if not changed:
+            return UPLOAD_UNCHANGED
+        content = changed[slot]
+        path.write_text(content, encoding='utf-8')
+    except Exception:
+        release(state, slot)
+        raise
+    persist(path.name, content)
+    return UPLOAD_SAVED

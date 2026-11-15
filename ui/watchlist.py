@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 import streamlit.components.v1 as components
@@ -18,6 +20,13 @@ from strategy.indicators import calc_pct_from_52w_high
 from ui.intraday_overlay import intraday_overlay_chart
 from ui import tv_export
 from ui.sector_leadership import lead_scores
+from ui import sector_leadership
+from data import classification
+from ui.watchlist_logic import (
+    chart_position, chart_step, nav_button_keys, space_nav_script,
+    lead_gap_reasons, lead_gap_caption,
+    INTRADAY_CACHE_TTL, intraday_empty_reason,
+)
 
 # 매수 후보 카드 — 2026-11-10부터 끔(주도섹터 탭 차기 주도주로 일원화). 켜면 주도주 점수 상위 N개를 보여준다.
 SHOW_CANDIDATES = False
@@ -61,6 +70,26 @@ def _get_market_status_cached(market: str, ts: str = '') -> dict:
         'jjin_date': None,  'jjin_pct': 0.0,
         'jjin_stars': 0,    'ftd_date': None,
     }
+
+
+@st.cache_data(ttl=INTRADAY_CACHE_TTL, show_spinner=False)
+def _stock_intraday_cached(ticker: str, jjin_date_str: str, market: str) -> pd.DataFrame:
+    """찐반등일 포함 5거래일 종목 5분봉 — (티커, 찐반등일) 키로 캐시 (#39 M14).
+    캐시가 없으면 rerun마다(어느 위젯을 만지든) 다시 받아 야후 세션 예산을 잠식했다.
+    예외는 빈 결과로 바꿔 같은 TTL 동안 다시 묻지 않는다 — 예외는 캐시되지 않아 rerun마다 재시도된다."""
+    try:
+        return fetch_intraday_for_date(ticker, pd.Timestamp(jjin_date_str), market=market, days=5)
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=INTRADAY_CACHE_TTL, show_spinner=False)
+def _index_intraday_cached(index_name: str, jjin_date_str: str) -> pd.DataFrame:
+    """찐반등일 포함 5거래일 지수 5분봉 — (지수, 찐반등일) 키로 캐시 (#39 M14)."""
+    try:
+        return fetch_index_intraday_for_date(index_name, pd.Timestamp(jjin_date_str), days=5)
+    except Exception:
+        return pd.DataFrame()
 
 
 def _ma_position(stock_df: pd.DataFrame, index_df: pd.DataFrame) -> tuple[str, int]:
@@ -224,6 +253,36 @@ def _build_rows(
             (r['고점대비%'] or 0),
         ))
     return rows
+
+
+def _lead_universe(market: str) -> set | None:
+    """주도주 점수(lead_scores) 계산 유니버스 — 주도섹터 탭과 같은 목록. 못 읽으면 None('대상 밖' 판정 생략)."""
+    try:
+        return {t for t, _ in sector_leadership._universe(sector_leadership.MARKETS[market])}
+    except Exception:
+        return None
+
+
+# 주도주 점수·RS/ADR·200일선(모두 lead_scores 값) 칸이 비면 숨은 열의 사유를 회색으로 보여 준다 (#44 M20).
+# 정렬·필터는 원래 값 그대로(빈 값).
+_GAP_FMT = JsCode("""
+function(p) {
+    var v = p.value;
+    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) {
+        return (p.data && p.data['점수 제외 사유']) || '';
+    }
+    return String(v);
+}
+""")
+_GAP_STYLE = JsCode("""
+function(p) {
+    var v = p.value;
+    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) {
+        return {color: 'gray', fontStyle: 'italic'};
+    }
+    return null;
+}
+""")
 
 
 def _status_banner(status: dict, label: str, phase_label: str = 'Normal'):
@@ -580,6 +639,13 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
         r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
         r['200일선'] = None if s is None else s.get('sma200')
+    # 점수 대상 밖 종목은 빈칸 대신 사유를 보여 준다 (#44 M20). 값은 채우지 않는다 — _build_rows의 RS/ADR은
+    # 구간 정의(get_market_status 기준)가 달라 같은 열에 섞으면 '주도섹터 탭과 같은 값'이 깨진다.
+    _tickers_now = [r['Ticker'] for r in rows]
+    gap = lead_gap_reasons(_tickers_now, set(lead), _lead_universe(market),
+                           classification.primary_map(market, _tickers_now))
+    for r in rows:
+        r['점수제외'] = gap.get(r['Ticker'], '')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
     scored = sorted((r for r in rows if r['주도주점수'] is not None), key=lambda r: -r['주도주점수'])
     for i, r in enumerate(scored, 1):
@@ -593,6 +659,9 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         pdate = status.get('peak_date')
         start_str = custom_rs_start_str or (str(pdate.date()) if pdate else correction_start_str)
         st.caption(f"📅 하락국면 RS 기준기간: {start_str} ~ {end_str}")
+    _gap_caption = lead_gap_caption(gap, total=len(rows))
+    if _gap_caption:
+        st.caption(_gap_caption)
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
@@ -614,6 +683,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '저점선행(일)':  r['저점선행'],
         '양봉비%':       r['양봉비%'],
         '고점대비%':     r['고점대비%'],
+        '점수 제외 사유': r['점수제외'],      # 숨은 열 — 아래 빈칸 사유 포맷터가 읽는다
     } for r in rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
@@ -660,23 +730,30 @@ function(valueA, valueB) {
                         width=44, minWidth=40, maxWidth=52)
     gb.configure_column('티커 | 종목명', filter='agTextColumnFilter', flex=2)
     gb.configure_column('주도주 점수', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
-                        headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래')
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
+                        headerTooltip='주도섹터 탭 차기 주도주와 같은 점수(100) — 배점표는 그 탭 표 아래. '
+                                      '계산 대상 밖이면 사유(대상 밖·미분류·데이터 부족)를 표시')
     gb.configure_column('주도주 순위', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='이 탭 종목끼리 매긴 주도주 점수 순위')
     gb.configure_column('섹터', filter='agSetColumnFilter', flex=1)
     gb.configure_column('테마', filter='agSetColumnFilter', flex=1)
     gb.configure_column('종가', filter='agNumberColumnFilter', type=['numericColumn'], valueFormatter=close_fmt, flex=1)
     gb.configure_column('등락%',     filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('하락국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
     gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,
                         headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
     gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120,
+                        valueFormatter=_GAP_FMT, cellStyle=_GAP_STYLE,     # 이 값도 lead_scores에서 온다 (#44 M20)
                         headerTooltip='200일선 방향(20거래일 전 대비) — 상승이면 주도주 점수 장기 추세 10점. 괄호는 이격')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
+    gb.configure_column('점수 제외 사유', hide=True)
     gb.configure_selection('single', use_checkbox=False)
     # 숨은 탭에서 처음 그려지면 폭이 0이라 fit이 안 먹고 오른쪽이 빈다 — 크기가 잡힐 때마다 다시 맞춘다
     _fit = JsCode("function(p){ p.api.sizeColumnsToFit(); }")
@@ -714,63 +791,40 @@ function(valueA, valueB) {
                     "'추세추종 탭 종목만'을 켜면 이 와치리스트 종목만 볼 수 있어요. "
                     "위 표의 **주도주 점수·순위**도 같은 계산입니다.")
 
-    idx_key = f'chart_idx_{market}'
+    # 차트 선택은 행 번호가 아니라 티커로 저장하고 위치는 매번 지금 rows에서 다시 찾는다 (#44 M16).
+    # 행 번호를 저장하면 종목 수가 줄 때 rows[i]에서 IndexError가 나 뒤의 탭·내보내기까지 멈추고,
+    # 정렬이 바뀌면 같은 번호가 다른 종목을 가리킨다.
+    sel_key = f'chart_ticker_{market}'
     nav_key = f'chart_nav_{market}'
-    if idx_key not in st.session_state:
-        st.session_state[idx_key] = None
+    row_tickers = [r['Ticker'] for r in rows]
 
-    # 그리드 클릭 → 인덱스 설정 (prev/next 직후 rerun은 무시)
+    # 그리드 클릭 → 선택 종목 (prev/next 직후 rerun은 무시)
     if not st.session_state.get(nav_key, False):
         selected_rows = grid_response.get('selected_rows')
         if selected_rows is not None and len(selected_rows) > 0:
             first_row = selected_rows.iloc[0] if isinstance(selected_rows, pd.DataFrame) else selected_rows[0]
-            sel_ticker = first_row['티커 | 종목명'].split(' | ')[0]
-            for i, r in enumerate(rows):
-                if r['Ticker'] == sel_ticker:
-                    st.session_state[idx_key] = i
-                    break
+            st.session_state[sel_key] = first_row['티커 | 종목명'].split(' | ')[0]
     st.session_state[nav_key] = False
 
-    cur_idx = st.session_state[idx_key]
+    cur_ticker = st.session_state.get(sel_key)
+    cur_idx = chart_position(row_tickers, cur_ticker)
+    if cur_idx is None:
+        st.session_state[sel_key] = None     # 표에서 빠진 종목 — 선택을 지운다
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
 
     if cur_idx is not None and jjin_date_str:
         total = len(rows)
+        prev_key, next_key = nav_button_keys(market)
 
-        # 스페이스바 → ▶ 버튼 클릭 (parent document에 한 번만 등록)
-        components.html(f"""
-<script>
-(function() {{
-    var p = window.parent;
-    if (p.__spaceNavRegistered) {{
-        p.document.removeEventListener('keydown', p.__spaceNavHandler);
-    }}
-    p.__spaceNavHandler = function(e) {{
-        if (e.code !== 'Space' && e.key !== ' ') return;
-        var tag = (p.document.activeElement || {{}}).tagName || '';
-        if (/^(INPUT|TEXTAREA|SELECT)$/i.test(tag)) return;
-        e.preventDefault();
-        var target = e.shiftKey ? '◀' : '▶';
-        var btns = p.document.querySelectorAll('button');
-        for (var i = 0; i < btns.length; i++) {{
-            if (btns[i].innerText.trim() === target) {{
-                btns[i].click();
-                return;
-            }}
-        }}
-    }};
-    p.document.addEventListener('keydown', p.__spaceNavHandler);
-    p.__spaceNavRegistered = true;
-}})();
-</script>
-""", height=0)
+        # 스페이스바 → 이 탭의 ▶ (Shift → ◀). 탭마다 자기 버튼만 누른다
+        components.html(space_nav_script(market), height=0)
 
         # 이전/다음 내비게이션
         c_prev, c_info, c_next = st.columns([1, 5, 1])
         with c_prev:
-            if st.button('◀', key=f'prev_{market}', use_container_width=True):
+            if st.button('◀', key=prev_key, use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = (cur_idx - 1) % total
+                st.session_state[sel_key] = chart_step(row_tickers, cur_ticker, -1)
                 st.rerun()
         with c_info:
             r_cur = rows[cur_idx]
@@ -781,25 +835,28 @@ function(valueA, valueB) {
                 unsafe_allow_html=True,
             )
         with c_next:
-            if st.button('▶', key=f'next_{market}', use_container_width=True):
+            if st.button('▶', key=next_key, use_container_width=True):
                 st.session_state[nav_key] = True
-                st.session_state[idx_key] = (cur_idx + 1) % total
+                st.session_state[sel_key] = chart_step(row_tickers, cur_ticker, +1)
                 st.rerun()
 
-        selected_ticker = rows[cur_idx]['Ticker']
+        selected_ticker = cur_ticker
         jjin_date = pd.Timestamp(jjin_date_str)
         with st.spinner('5분봉 로드 중...'):
-            stock_5m = fetch_intraday_for_date(selected_ticker, jjin_date, market=market, days=5)
-            index_5m = fetch_index_intraday_for_date(index_name, jjin_date, days=5)
+            stock_5m = _stock_intraday_cached(selected_ticker, jjin_date_str, market)
+            index_5m = _index_intraday_cached(index_name, jjin_date_str)
 
-        if not stock_5m.empty and not index_5m.empty:
+        # 빈 결과는 원인별로 안내한다 — 예전엔 레이트리밋 빈 응답도 '찐반등일이 60일 초과'로 적었다
+        empty_reason = intraday_empty_reason(jjin_date, datetime.today(), stock_5m.empty, index_5m.empty,
+                                             selected_ticker, index_name)
+        if empty_reason is None:
             stock_name = get_stock_name(selected_ticker, market)
             st.plotly_chart(
                 intraday_overlay_chart(stock_5m, index_5m, selected_ticker, index_name, jjin_date, market=market, stock_name=stock_name),
                 use_container_width=True,
             )
         else:
-            st.info('5분봉 데이터 없음 (찐반등일이 60일 초과)')
+            st.info(empty_reason)
 
 
 def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
