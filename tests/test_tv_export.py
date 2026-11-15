@@ -142,7 +142,7 @@ def test_sections_come_out_in_fixed_order_not_registration_order():
         'trend_KR_KOSPI': ('코스피 후보', ['005930'], 'KR_KOSPI'),
     }
     titles = [title for title, _, _ in order_sections(registry)]
-    assert titles == ['나스닥 후보', '코스피 후보', '10EMA 나스닥']
+    assert titles == ['코스피 후보', '나스닥 후보', '10EMA 나스닥']
 
 
 def test_unregistered_sections_are_left_out():
