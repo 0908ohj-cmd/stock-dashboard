@@ -24,6 +24,12 @@ LOCKDIR="/tmp/stock-dashboard-batch.lock"
 # 락 나이 상한 — 배치는 실측 수 분~1시간 남짓. 이보다 오래된 락은 pid가 살아 있어도(재사용·멈춤)
 # 회수한다. KR(17:30)·US(08:10) 회차 간격(9~15시간)보다 짧아 멈춘 배치가 다음 회차를 막지 않는다
 LOCK_MAX_AGE_SEC=$((6 * 3600))
+# 락 때문에 이번 회차를 건너뛸 때의 종료 코드. 0이면 stockEdge job_wrapper가 성공으로 기록해
+# catchup(scripts/catchup.py classify — 회차 이후 성공 기록이 있으면 skip-on-time)이 놓친 회차를
+# 다시 돌리지 않는다. 75 = sysexits.h EX_TEMPFAIL("일시 실패, 나중에 재시도"). 래퍼 die·finish 1,
+# 사용법 2, fetch_snapshot 지수 실패 3(INDEX_FAILED_EXIT), job_wrapper 사용법 2·신호 130/143,
+# 셸 예약 126/127/128+n과 겹치지 않는다. job_wrapper는 0이 아니면 모두 실패(jobs.db·텔레그램)로 본다
+LOCK_BUSY_EXIT=75
 PYTHON="/opt/homebrew/bin/python3"
 
 # 로그에 KRX 로그인 ID 등이 남으므로 소유자만 읽게 만든다
@@ -125,9 +131,11 @@ case $? in
             log "WARN: $LOCK_MSG"
             notify "$LOCK_MSG — 이번 배치를 진행한다"
         fi ;;
-    1)  log "$LOCK_MSG"
-        notify "이번 회차 건너뜀 — $LOCK_MSG"
-        exit 0 ;;
+    1)  # 이번 회차를 수집하지 않았다 — 실패로 끝내 job_wrapper 알림·catchup 재실행으로 잇는다.
+        # catchup이 다시 돌 때 그 사이 폴백이 회차를 채웠으면 '이미 수집됨'으로 성공 종료한다
+        log "FAIL: 이번 회차 건너뜀 — $LOCK_MSG (종료 코드 $LOCK_BUSY_EXIT)"
+        notify_failure "이번 회차 건너뜀 — $LOCK_MSG"
+        exit "$LOCK_BUSY_EXIT" ;;
     *)  die "락 획득 실패" ;;
 esac
 # 내 pid가 적힌 락만 지운다 — 상한 초과로 회수된 뒤 늦게 끝나도 다음 배치의 락을 지우지 않는다

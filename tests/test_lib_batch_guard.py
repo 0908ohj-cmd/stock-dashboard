@@ -182,12 +182,29 @@ def test_release_lock은_내_락만_지운다(tmp_path):
     assert 'released' in out
 
 
-def test_래퍼는_건너뛸_때도_알리고_trap은_release_lock을_쓴다():
+def _lock_skip_branch():
     text = RUNNER.read_text(encoding='utf-8')
     block = text[text.index('acquire_lock "$LOCKDIR"'):]
     block = block[:block.index('esac')]
-    skip = block[block.index('1)'):]
-    assert 'notify' in skip.split(';;')[0]
+    return block[block.index('1)'):].split(';;')[0]
+
+
+def test_래퍼는_락_때문에_건너뛰면_0이_아닌_전용_코드로_끝낸다():
+    """exit 0이면 stockEdge job_wrapper가 성공으로 기록해 catchup이 놓친 회차를 다시 돌리지 않는다
+    (catchup.classify: 회차 이후 성공 기록이 있으면 skip-on-time)."""
+    skip = _lock_skip_branch()
+    assert 'exit "$LOCK_BUSY_EXIT"' in skip and 'exit 0' not in skip
+    line = next(l for l in _lines(RUNNER) if l.startswith('LOCK_BUSY_EXIT='))
+    code = int(line.split('=', 1)[1].split()[0])
+    # 래퍼 die·finish 1, 사용법 2, fetch_snapshot 지수 실패 3, job_wrapper 사용법 2·신호 130/143,
+    # 셸 예약 126/127/128+n과 겹치지 않는다
+    assert code not in (0, 1, 2, 3) and 3 < code < 126
+
+
+def test_래퍼는_건너뛸_때_알림을_job_wrapper에_맡기고_trap은_release_lock을_쓴다():
+    """실패 종료가 되므로 job_wrapper가 알린다 — 직접 실행할 때만 스스로 알린다(notify_failure)."""
+    assert 'notify_failure' in _lock_skip_branch()
+    text = RUNNER.read_text(encoding='utf-8')
     assert "trap 'release_lock \"$LOCKDIR\"' EXIT" in text
     assert 'rm -rf "$LOCKDIR"' not in text                        # 무조건 지우는 옛 trap·회수 제거
 
@@ -200,3 +217,23 @@ def test_동시에_기동해도_하나만_락을_잡는다(tmp_path):
     procs = [subprocess.Popen(['bash', '-c', script], stdout=subprocess.PIPE, text=True) for _ in range(8)]
     rcs = [p.communicate()[0].strip() for p in procs]
     assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7
+
+
+def test_래퍼의_락_분기를_실행하면_건너뛸_때_LOCK_BUSY_EXIT로_끝난다(tmp_path):
+    """run_batch_local.sh의 락 case 블록을 그대로 떼어 실행한다(env·수집 없이, log·알림은 대역)."""
+    text = RUNNER.read_text(encoding='utf-8')
+    const = next(l for l in text.splitlines() if l.startswith('LOCK_BUSY_EXIT='))
+    block = text[text.index('acquire_lock "$LOCKDIR"'):]
+    block = block[:block.index('esac') + len('esac')]
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, os.getpid())                                      # 다른 배치가 실행 중
+    harness = (f'. "{LIB}"; {const}; LOCKDIR="{lock}"; LOCK_MAX_AGE_SEC=3600; '
+               'log() { echo "LOG $*"; }; notify_failure() { echo "ALERT $*"; }; '
+               'die() { echo "DIE $*"; exit 1; }\n' + block + '\necho reached')
+    r = subprocess.run(['bash', '-c', harness], capture_output=True, text=True)
+    assert r.returncode == 75
+    assert 'ALERT 이번 회차 건너뜀' in r.stdout and 'reached' not in r.stdout
+
+    lock2 = tmp_path / 'free.lock'
+    r = subprocess.run(['bash', '-c', harness.replace(str(lock), str(lock2))], capture_output=True, text=True)
+    assert r.returncode == 0 and 'reached' in r.stdout
