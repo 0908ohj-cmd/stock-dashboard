@@ -148,9 +148,14 @@ def detect_phase(index_df: pd.DataFrame, asof, peak=None, jjin=None) -> dict:
 
 
 def _since_ret(df: pd.DataFrame, d) -> float | None:
-    if d is None or d not in df.index:
+    """d 종가 → 마지막 종가 수익률(%). d 봉이 없으면 직전 거래일 종가로 맞춘다 — 봉 하나 빠졌다고
+    항목이 통째로 0점이 되지 않게(#41 M6). d 이전 봉이 아예 없으면(그 뒤 상장) None."""
+    if d is None:
         return None
-    return 100 * (float(df['Close'].iloc[-1]) / float(df.loc[d, 'Close']) - 1)
+    before = df[df.index <= pd.Timestamp(d)]
+    if before.empty:
+        return None
+    return 100 * (float(df['Close'].iloc[-1]) / float(before['Close'].iloc[-1]) - 1)
 
 
 def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict, main_codes: set,
@@ -197,19 +202,17 @@ def score_stocks(rows: list, bars: dict, index_df: pd.DataFrame, theme_of: dict,
     # 지수 대비는 ADR 보정값만 점수에 쓴다 — 변동성 큰 종목이 %p만으로 상위를 차지하는 노이즈 제거
     p = {k: pct(k) for k in ('sincePeakExcessAdr', 'offHigh', 'leadDays', 'volRatio', 'sinceJjinExcessAdr')}
 
-    def g(k, t):
-        v = p[k][t]
-        return 0.0 if v is None else v
-
     for r in pool:
         t = r['ticker']
-        held = g('sincePeakExcessAdr', t)
-        val = {'덜 빠짐': held, '찐반등 후 회복': g('sinceJjinExcessAdr', t), '고점 근접': g('offHigh', t),
-               '저점 선행': g('leadDays', t), '양봉 렐볼': float(r['hasBullishRvol15InLast5']),
-               '장기 추세': trend_points(r.get('sma200Rising'))}
-        parts = {k: v * val[k] for k, v in WEIGHTS[scoring].items()}
+        # 백분위 None = 그 종목 값을 계산할 수 없음(기산점·찐반등 전 상장, 조정 전 ADR 없음 등) — 0점으로 두면
+        # 조용히 순위가 밀리거나(GAP), 0.0이 실제 값처럼 섞인다(IPO). 그 항목만 빼고 남은 배점으로 재정규화(#41 M6).
+        val = {'덜 빠짐': p['sincePeakExcessAdr'][t], '찐반등 후 회복': p['sinceJjinExcessAdr'][t],
+               '고점 근접': p['offHigh'][t], '저점 선행': p['leadDays'][t],
+               '양봉 렐볼': float(r['hasBullishRvol15InLast5']), '장기 추세': trend_points(r.get('sma200Rising'))}
+        parts = {k: None if val[k] is None else w * val[k] for k, w in WEIGHTS[scoring].items()}
+        used = sum(w for k, w in WEIGHTS[scoring].items() if parts[k] is not None)
         r['nextParts'] = parts
-        r['nextScore'] = float(sum(parts.values()))
+        r['nextScore'] = 100 * float(sum(v for v in parts.values() if v is not None)) / used if used else 0.0
     return pool
 
 

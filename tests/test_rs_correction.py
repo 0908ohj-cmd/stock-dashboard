@@ -207,3 +207,40 @@ def test_lead_days_when_stock_bottom_date_missing_from_index_calendar():
     result = calc_correction_rs(df_from(stk_closes, stk_dates), df_from(idx_closes, idx_dates),
                                 correction_start=idx_dates[0], jjin_date=idx_dates[-1])
     assert result['lead_days'] == 3
+
+
+# ── #41 M6: 기준일 봉 결측·늦은 상장 ─────────────────────────
+def _with_pre(closes_pre, closes_corr, start='2026-01-01'):
+    """조정 전 구간(ADR 계산용)이 있는 일봉."""
+    closes = closes_pre + closes_corr
+    return _make_df(closes, start=start)
+
+
+def test_기산점_봉이_없으면_직전_거래일_종가부터_잰다():
+    # 기산점(peak) 당일 봉만 빠진 종목 — 다음 봉부터 재면 수익률이 달라진다. 직전 거래일 종가로 맞춘다.
+    n = 40
+    idx_df = _make_df([100.0] * 20 + [100 - i for i in range(20)])
+    peak = idx_df.index[20]
+    closes = [50.0] * 20 + [50.0, 52.0] + [51.0] * 17 + [40.0]
+    full = _make_df(closes)
+    gap = full.drop(index=peak)
+    r = calc_correction_rs(gap, idx_df, peak, None, peak)
+    assert r['stock_pct'] == pytest.approx(100 * (40 / 50 - 1))     # 직전 거래일(50) 기준
+    assert r['stock_pct'] == calc_correction_rs(full, idx_df, peak, None, peak)['stock_pct']
+
+
+def test_기산점_뒤에_상장한_종목은_RS를_계산할_수_없다():
+    idx_df = _make_df([100.0] * 20 + [100 - i for i in range(20)])
+    peak = idx_df.index[20]
+    ipo = _make_df([30.0] * 10, start=str(idx_df.index[30].date()))     # 기산점 10거래일 뒤 상장
+    r = calc_correction_rs(ipo, idx_df, peak, None, peak)
+    assert r['excess_adr'] is None and r['excess_pct'] is None and r['lead_days'] is None
+    assert r['candle_ratio'] == r['candle_ratio']       # 숫자 필드는 그대로 (추세추종 탭 행 빌더가 쓴다)
+
+
+def test_조정_전_ADR이_없으면_RS_ADR은_0이_아니라_None():
+    idx_df = _make_df([100 - i for i in range(20)])
+    stk = _make_df([100 - i * 0.5 for i in range(20)])
+    r = calc_correction_rs(stk, idx_df, idx_df.index[0], None)      # 기산점 전 봉 없음 → ADR 계산 불가
+    assert r['excess_pct'] > 0
+    assert r['excess_adr'] is None

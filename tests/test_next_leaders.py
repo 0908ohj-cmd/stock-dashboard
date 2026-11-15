@@ -421,3 +421,56 @@ def test_hot_sectors_정배열_비율_낮으면_제외():
     assert nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1]) == {}
     h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1], min_aligned=0)
     assert h['OPT']['alignedShare'] == 0
+
+# ── #41 M6: 기준일 봉 결측·늦은 상장 종목의 차기 주도주 점수 ─────────────────
+def _rebound_setup():
+    """조정(기산점 → 바닥) 뒤 찐반등. 반등 구간 시작일(찐반등 전날) 종가가 그 전날과 같게 평평하게 둔다."""
+    closes = list(np.linspace(100, 130, 100)) + list(np.linspace(129, 100, 15)) + [100.0] + list(np.linspace(103, 110, 5))
+    idf = _index(closes)
+    peak, base, jjin = idf['Close'].idxmax(), idf.index[115], idf.index[116]
+    phase = {'mode': 'rebound', 'scoring': 'rebound', 'correctionStart': peak, 'peakDate': peak, 'jjinDate': jjin,
+             'jjinBase': base, 'indexSinceJjin': 100 * (idf['Close'].iloc[-1] / idf.loc[base, 'Close'] - 1)}
+    return idf, phase
+
+
+def _stock(idf, mult):
+    s = idf.copy()
+    for c in ('Open', 'High', 'Low', 'Close'):
+        s[c] = s[c] * mult
+    return s
+
+
+def _rows(*tickers):
+    return [{'ticker': t, 'status': 'FULL', 'adr20Pct': 2.0, 'aboveEma21': True, 'hasBullishRvol15InLast5': False}
+            for t in tickers]
+
+
+def test_반등_시작일_봉이_없어도_같은_가격이면_같은_점수():
+    # TWIN·GAP은 가격이 같고 GAP만 찐반등 전날 봉이 빠졌다 — 빠진 날은 직전 거래일 종가로 맞춘다 (#41 M6)
+    idf, phase = _rebound_setup()
+    twin = _stock(idf, 1.0)
+    twin.iloc[-5:, twin.columns.get_loc('Close')] *= 1.05            # 반등 세기를 지수와 다르게
+    gap = twin.drop(index=phase['jjinBase'])
+    other = _stock(idf, 1.0)
+    bars = {'TWIN': twin, 'GAP': gap, 'OTHER': other}
+    out = {r['ticker']: r for r in nl.score_stocks(_rows(*bars), bars, idf, {t: 'X' for t in bars}, {'X'},
+                                                   phase, idf.index[-1])}
+    assert out['GAP']['sinceJjinExcess'] == pytest.approx(out['TWIN']['sinceJjinExcess'])
+    assert out['GAP']['nextScore'] == pytest.approx(out['TWIN']['nextScore'])
+
+
+def test_기산점_뒤에_상장한_종목은_덜빠짐을_빼고_재정규화한다():
+    idf, phase = _rebound_setup()
+    ipo = _stock(idf, 1.0).iloc[108:]                     # 기산점(100번째 봉 근처) 뒤 상장
+    bars = {'A': _stock(idf, 1.0), 'B': _stock(idf, 2.0), 'IPO': ipo}
+    bars['B'].iloc[-5:, bars['B'].columns.get_loc('Close')] *= 0.97
+    out = {r['ticker']: r for r in nl.score_stocks(_rows(*bars), bars, idf, {t: 'X' for t in bars}, {'X'},
+                                                   phase, idf.index[-1])}
+    r = out['IPO']
+    assert r['sincePeakExcessAdr'] is None
+    assert r['nextParts']['덜 빠짐'] is None                # 0점이 아니라 '계산 불가'
+    w = nl.WEIGHTS['rebound']
+    used = {k: v for k, v in r['nextParts'].items() if v is not None}
+    assert r['nextScore'] == pytest.approx(100 * sum(used.values()) / sum(w[k] for k in used))
+    # 다 계산되는 종목은 그대로 배점 합
+    assert out['A']['nextScore'] == pytest.approx(sum(out['A']['nextParts'].values()))
