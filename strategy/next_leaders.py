@@ -381,18 +381,37 @@ def hot_groups(bars: dict, theme_of: dict, asof) -> dict:
     return out
 
 
-def _drop_unaligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple:
-    """🔥 구간(시작 ~ 다음 시작 전날) 중 시작일 정배열 비율이 min_aligned 미만인 구간의 켜짐을 지운다.
-    이력 처음부터 이어진 구간(시작일 모름)은 알 수 있는 첫 켜짐 날로 판정한다. (on, 남은 시작 위치) 반환."""
+def _aligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple:
+    """🔥 구간(시작 ~ 다음 시작 전날)마다 정배열 비율이 처음 min_aligned 이상이 된 날(통과일)을 찾아,
+    그 전의 켜짐은 지우고 통과일부터의 켜짐만 🔥로 인정한다. 한 번도 통과 못 한 구간은 통째로 지운다.
+    이력 처음부터 이어진 구간(시작일 모름)도 같은 방식 — 첫 켜짐 날 바로 통과했을 때만 '시작일 모름'으로 남는다.
+    반환 (on, 인정된 🔥 시작 위치[통과 뒤 첫 켜짐], 시작일 모름 구간이 인정됐나, {인정된 시작 위치: 통과일 위치})."""
     on = np.asarray(on, dtype=bool).copy()
     if not on.any():
-        return on, []
+        return on, [], False, {}
+    ok = np.asarray(aligned_share) >= min_aligned
     first_on = int(np.argmax(on))
-    seg = ([first_on] if not starts or first_on < starts[0] else []) + list(starts)
-    for a, b in zip(seg, seg[1:] + [len(on)]):
-        if aligned_share[a] < min_aligned:
+    lead = not starts or first_on < starts[0]
+    seg = ([first_on] if lead else []) + list(starts)
+    kept, lead_unknown, pass_of = [], False, {}
+    for k, (a, b) in enumerate(zip(seg, seg[1:] + [len(on)])):
+        hit = np.flatnonzero(ok[a:b])
+        if not len(hit):
             on[a:b] = False
-    return on, [i for i in starts if on[i]]
+            continue
+        p = a + int(hit[0])
+        on[a:p] = False
+        later = np.flatnonzero(on[p:b])
+        if not len(later):
+            continue
+        q = p + int(later[0])
+        if lead and k == 0 and q == a:
+            lead_unknown = True             # 시작일 모름 구간이 첫 켜짐부터 통과
+            pass_of[None] = p
+        else:
+            kept.append(q)
+            pass_of[q] = p
+    return on, kept, lead_unknown, pass_of
 
 
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
@@ -401,8 +420,10 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
     """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n': 섹터 크기, 'fires': [창 안 🔥 시작일…],
     'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
     'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목, 'alignedShare': 오늘 정배열 종목 비율(표시·정렬),
-    'alignedAtStart': 편입일(since)의 정배열 종목 비율}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
-    🔥 구간마다 시작일의 정배열 종목 비율이 min_aligned(기본 HOT_MIN_ALIGNED) 미만이면 그 구간은 🔥가 아니다(#41 M8).
+    'alignedPassDate'·'alignedAtPass': 지금 구간이 정배열 비율 min_aligned를 처음 넘은 날과 그날 비율}}
+    — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    🔥 구간 안에서 정배열 종목 비율이 min_aligned(기본 HOT_MIN_ALIGNED) 이상인 날이 한 번이라도 있으면 그날(통과일)부터
+    🔥로 인정하고, 편입일은 통과 뒤 첫 켜짐이다. 한 번도 못 넘은 구간은 🔥가 아니다(#41 M8).
     main_codes를 주면 그 테마만 판정한다 — 비메인('지주·기타' 같은 잡다한 묶음)은 섹터로 의미가 없어 차기 주도섹터
     (rank_sectors)와 같이 뺀다(#41 L11). 렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
     이력이 짧아 판정할 수 없는 종목은 '렐볼 아님'으로 센다(#41 M7 — 한 종목 결측으로 🔥가 꺼지지 않게)."""
@@ -418,7 +439,7 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
             bull = ss.bullish_rvol(full).astype(float)
             bull.iloc[:20] = np.nan
             flags[t] = bull.rolling(5, min_periods=1).max()
-            # 날짜별 정배열(10EMA > 21EMA > 50SMA) — 🔥 시작일 판정용. 50일 이력 전은 정배열 아님
+            # 날짜별 정배열(10EMA > 21EMA > 50SMA) — 🔥 구간 통과일 판정용. 50일 이력 전은 정배열 아님
             c = full['Close']
             e21 = c.ewm(span=21, adjust=False).mean()
             aligned[t] = (c.ewm(span=10, adjust=False).mean() > e21) & (e21 > c.rolling(50).mean())
@@ -438,11 +459,12 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         # 섹터 정배열 종목 비율(날짜별, 결측 = 정배열 아님)
         al = pd.DataFrame({t: aligned[t].astype(float) for t in ts}).reindex(f.index).fillna(0).sum(axis=1) / len(ts)
         on = (sh >= share).to_numpy()
-        # 섹터 품질 — 🔥 구간 시작일의 정배열 종목 비율이 낮으면 그 🔥는 뺀다 (바닥권 종목들이 거래량만 터진 경우).
-        # 판정은 🔥가 켜진 날 기준이라, 조건을 통과해 켜진 🔥는 뒤의 눌림(PP 셋업 대기 구간)에서 정배열이 풀려도
-        # 이력에 남는다(#41 M8 — 예전엔 기준일 하루 비율로 6주 이력·10EMA 배지를 통째로 지웠다).
-        # 검증(8534062, 🔥 1,005회 × 이후 30일 기준봉)의 단위도 🔥가 켜진 사건이다.
-        on, starts = _drop_unaligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
+        # 섹터 품질 — 정배열 종목 비율이 낮은 🔥는 뺀다 (바닥권 종목들이 거래량만 터진 경우). 판정은 🔥 구간 안에서
+        # 비율이 한 번이라도 넘은 날(통과일)부터라, 통과한 🔥는 뒤의 눌림(PP 셋업 대기 구간)에서 정배열이 풀려도 남고
+        # (#41 M8 — 예전엔 기준일 하루 비율로 6주 이력·10EMA 배지를 통째로 지웠다), 바닥에서 튄 뒤 정배열을 회복한
+        # 섹터는 회복한 날부터 들어온다(시작일 하루로 보면 HOT_GAP 재점화로 이어진 긴 구간이 영구히 빠졌다).
+        # 지난날 값만 쓰므로 point-in-time — 통과일·편입일은 뒤 데이터가 들어와도 바뀌지 않는다.
+        on, starts, lead_unknown, pass_of = _aligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
         w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
         if not on[w0:].any():
             continue
@@ -450,12 +472,15 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         # 편입일 = 지금 이어지는 🔥 구간의 시작(= 마지막 🔥 시작). 창 밖이어도 HOT_GAP보다 긴 공백이 나올 때까지
         # 이력을 거슬러 찾는다 — 창 안 첫 켜짐을 쓰면 창이 밀릴 때마다 편입일이 늦어져 탈락 기준 고점이
         # 낮아지고, 3 ADR 하락으로 빠진 종목이 가격 회복 없이 돌아왔다(#30)
+        # 편입일은 통과 뒤 첫 켜짐 — 목록에 처음 들어온 날이라 NEW·10EMA 배지 날짜와 맞고, 3 ADR 탈락 기준 고점도
+        # 바닥에서 튀기 전 구간이 아니라 🔥로 인정된 뒤(편입 5거래일 전부터)에서 잰다
         last = f.index[starts[-1]] if starts else None      # None = 이력 처음부터 이어진 🔥 (시작일 모름)
         since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
+        p_i = pass_of[starts[-1]] if starts else pass_of[None]
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': len(ts),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
                    'since': since, 'startedBefore': last is None, 'alignedShare': float(al.iloc[-1]),
-                   'alignedAtStart': float(al.loc[since]),
+                   'alignedPassDate': f.index[p_i], 'alignedAtPass': float(al.iloc[p_i]),
                    'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,
                    'tickers': [t for t in ts if f[t].iloc[-1] == 1]}
     return out
