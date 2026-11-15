@@ -86,7 +86,8 @@ def intraday_overlay_chart(
     index_5m = _filter_regular_hours(index_5m, market)
 
     if stock_5m.empty or index_5m.empty:
-        fig.update_layout(title='5분봉 데이터 없음 (60일 초과)', template='plotly_dark', height=350)
+        # 여기 오는 건 받은 봉에 정규장 시간대가 없을 때다 — '60일 초과'가 아니다 (#39 M14)
+        fig.update_layout(title='5분봉 데이터 없음 (정규장 시간대 봉 없음)', template='plotly_dark', height=350)
         return fig
 
     # UTC → 현지 시간으로 변환 (x축 시간 표시 정확하게)
@@ -116,13 +117,15 @@ def intraday_overlay_chart(
                 annotation_font=dict(size=10, color='#ffd600'),
             )
 
-    # 날짜 경계 — 정규장 시작 시각에 수직선
+    # 날짜 경계 — 정규장 시작 시각에 수직선. 데이터와 같은 tz 붙은 Timestamp를 그대로 넘긴다:
+    # plotly.js는 날짜의 벽시계 시각으로 그리는데 epoch ms(UTC)를 넘기면 KR은 9시간(접힌 장외 구간에 숨음),
+    # US는 5시간(14:30에 표시) 어긋났다 (#44 L2)
     open_time = '09:00' if market.startswith('KR') else '09:30'
     dates = index_5m.index.normalize().unique()
     for d in dates:
         open_ts = pd.Timestamp(f'{d.date()} {open_time}', tz=tz)
         fig.add_vline(
-            x=open_ts.timestamp() * 1000,
+            x=open_ts,
             line_width=0.8, line_dash='dot', line_color='#3a3a3a',
         )
 

@@ -54,6 +54,10 @@ FUTURE_TOLERANCE = timedelta(minutes=10)
 #     나스닥 탭의 국면·DAY·RS가 하루 묵은 지수로 계산됐다.
 # 같은 거래소 달력이라 휴장일엔 둘 다 그날이 없어 오경보가 나지 않는다.
 SNAPSHOT_INDEX = {'KR_KOSPI.json': 'KOSPI', 'KR_KOSDAQ.json': 'KOSDAQ', 'US.json': 'NASDAQ'}
+# 종목 < 지수 판정은 '지수 마지막 날짜에 도달한 종목 비율'로 한다 (#39 M1). last_trading_date는 전 종목
+# 최댓값이라 한 종목만 최신이어도 통과했다(2026-10-24 US: 252종목 중 53종목이 하루 늦음).
+# data/store.py MIN_REACHED_RATIO와 같아야 한다 — 이 스크립트는 pandas 없이 돌아 import하지 않는다.
+MIN_REACHED_RATIO = 0.9
 
 
 def last_local_slot(market: str, now: datetime) -> datetime:
@@ -111,11 +115,29 @@ def _index_last_dates(text: str | None) -> dict:
         return {}
 
 
+def _reached_ratio(snap_text: str | None, want: str) -> float | None:
+    """지수 마지막 날짜(want)에 도달한 종목 비율. data가 없거나 못 읽으면 None."""
+    try:
+        data = json.loads(snap_text).get('data') if snap_text else None
+        if not data:
+            return None
+        reached = sum(1 for rec in data.values() if (rec or {}).get('dates') and rec['dates'][-1] >= want)
+        return reached / len(data)
+    except (ValueError, TypeError, AttributeError, IndexError):
+        return None
+
+
 def behind_index(name: str, snap_text: str | None, idx_last: dict) -> str | None:
-    """종목 스냅샷 마지막 거래일이 같은 시장 지수보다 늦으면 지수 날짜를, 아니면 None."""
+    """종목이 같은 시장 지수보다 늦으면 지수 날짜를, 아니면 None.
+    지수 날짜에 도달한 종목 비율 < MIN_REACHED_RATIO면 늦다. data가 없으면 last_trading_date로 본다."""
     want = idx_last.get(SNAPSHOT_INDEX.get(name, ''))
     have = _last_trading_date(snap_text)
-    return want if want and have and have < want else None
+    if not want or not have:
+        return None
+    ratio = _reached_ratio(snap_text, want)
+    if ratio is None:
+        return want if have < want else None
+    return want if ratio < MIN_REACHED_RATIO else None
 
 
 def index_behind(name: str, snap_text: str | None, idx_last: dict) -> str | None:

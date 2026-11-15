@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 from data._atomic import atomic_write_text
-from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily
+from data.fetcher import fetch_daily, fetch_daily_bulk_us, fetch_index_daily, is_index_symbol
 
 OHLCV_DIR = pathlib.Path(__file__).parent / 'ohlcv'
 KST = timezone(timedelta(hours=9))
@@ -227,10 +227,13 @@ def _merge_ticker(market: str, key: str, df: pd.DataFrame) -> None:
 
 
 def load_daily(ticker: str, market: str) -> pd.DataFrame:
-    """스냅샷 히트 시 즉시 반환(네트워크 0), 미스 시 fetch_daily 폴백 + 로컬 병합."""
+    """스냅샷 히트 시 즉시 반환(네트워크 0), 미스 시 fetch_daily 폴백 + 로컬 병합.
+    지수 심볼(저장된 티커 파일에 섞인 IXIC·KOSDAQ 등)은 수집하지 않고 빈 프레임 (#39 L7)."""
     rec = load_snapshot(market).get('data', {}).get(ticker)
     if rec:
         return _records_to_df(rec)
+    if is_index_symbol(ticker, market):
+        return pd.DataFrame()
     df = fetch_daily(ticker, market=market, days=STOCK_DAYS)
     if not df.empty:
         _merge_ticker(market, ticker, df)
@@ -266,6 +269,49 @@ _MAX_TRADING_GAP_DAYS = 8
 # 같은 배치가 받는 시장 지수 — 같은 거래소 달력이라 마지막 날짜가 같아야 한다(휴장일엔 둘 다 없다).
 # 다른 시장 지수끼리는 비교하지 않는다: KR 배치(17:30) 뒤엔 매일 KOSPI가 당일, NASDAQ이 전날이다.
 _SNAPSHOT_INDEX = {'KR_KOSPI': 'KOSPI', 'KR_KOSDAQ': 'KOSDAQ', 'US': 'NASDAQ'}
+# 같은 시장 지수의 마지막 날짜에 도달한 종목 비율이 이보다 낮으면 '종목이 늦다'(behind_index)로 본다 (#39 M1).
+# 시장 last_trading_date는 전 종목 최댓값이라 한 종목만 최신이어도 지연이 묻힌다 — 2026-10-24 US 배치는
+# 252종목 중 53종목(21%)이 하루 늦었는데 경고가 없었다. 2026-10~11 실측 평소 지연은 0~2종목(≤1.2%)이라
+# 오경보 없이 그런 경우만 잡힌다. scripts/check_snapshot_fresh.py에도 같은 값이 있다(표준 라이브러리 전용).
+MIN_REACHED_RATIO = 0.9
+
+
+def lagging_tickers(snap: dict, ref_date: str | None) -> list:
+    """스냅샷에서 마지막 날짜가 ref_date보다 이른 종목(정렬). 날짜가 없는 레코드도 지연으로 센다."""
+    if not ref_date:
+        return []
+    return sorted(t for t, rec in (snap.get('data') or {}).items()
+                  if not (rec or {}).get('dates') or rec['dates'][-1] < ref_date)
+
+
+def stocks_behind(snap: dict, index_last: str | None) -> bool:
+    """종목이 같은 시장 지수보다 늦은가 — 지수 마지막 날짜에 도달한 종목 비율 < MIN_REACHED_RATIO.
+    data가 없는(메타만 있는) 스냅샷은 last_trading_date로 판정한다."""
+    if not index_last:
+        return False
+    data = snap.get('data') or {}
+    if not data:
+        last = snap.get('last_trading_date')
+        return bool(last and last < index_last)
+    reached = len(data) - len(lagging_tickers(snap, index_last))
+    return reached / len(data) < MIN_REACHED_RATIO
+
+
+def _short_list(items: list, n: int = 3) -> str:
+    return ', '.join(items[:n]) + (f' 외 {len(items) - n}' if len(items) > n else '')
+
+
+def lag_note(fr: dict) -> str:
+    """신선도 캡션 꼬리 — ' · ⚠️ 지연 1종목(032580) · 수집 실패 1종목(ZZZZ)'. 없으면 ''.
+    실패했지만 옛 이력이 보존돼 늦은 종목은 '지연'으로만 센다 (#39 M1)."""
+    lagging = list(fr.get('lagging') or [])
+    failed_only = [t for t in (fr.get('failed') or []) if t not in set(lagging)]
+    parts = []
+    if lagging:
+        parts.append(f'지연 {len(lagging)}종목({_short_list(lagging)})')
+    if failed_only:
+        parts.append(f'수집 실패 {len(failed_only)}종목({_short_list(failed_only)})')
+    return (' · ⚠️ ' + ' · '.join(parts)) if parts else ''
 
 
 def _index_last_dates() -> dict:
@@ -339,6 +385,8 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
             pass
     # 배치가 돌았어도 종목과 같은 시장 지수의 마지막 날짜가 어긋나면 낡은 것이다 — 양방향:
     #   종목 < 지수: 2026-11-10 US (지수 11/09·종목 11/06)            → behind_index
+    #     지수 날짜에 도달한 종목 비율로 본다(stocks_behind, #39 M1) — 최댓값 하나로 보면
+    #     2026-10-24 US처럼 21%가 늦어도 묻힌다
     #   지수 < 종목: 2026-11-11·11-12 US (NASDAQ 11-09·11-10, #24)   → index_behind
     # 휴장일엔 둘 다 그날이 없어 오경보가 나지 않는다.
     if market == 'indices':
@@ -346,7 +394,15 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
     else:
         stale_by_index = False
         idx_last = idx_dates.get(_SNAPSHOT_INDEX.get(market, ''))
-        if idx_last and last_td_s and last_td_s < idx_last:
+        # 지연 판정은 배치 유니버스 종목만 — 업로드로 빠진 옛 종목은 다음 배치까지 남아 있고 🔄 재수집으로도
+        # 갱신되지 않아, 그 종목 때문에 경고가 풀리지 않게 된다 (배치 스냅샷은 원래 유니버스뿐이다)
+        universe = set(snapshot_tickers(market))
+        view = ({**snap, 'data': {t: r for t, r in (snap.get('data') or {}).items() if t in universe}}
+                if universe else snap)
+        # 화면 표시용 지연 종목 — 지수와 종목 중 늦지 않은 쪽(시장 최신 거래일)에 못 미친 종목
+        result['lagging'] = lagging_tickers(view, max(filter(None, (idx_last, last_td_s)), default=None))
+        result['failed'] = list(snap.get('failed') or [])
+        if idx_last and last_td_s and stocks_behind(view, idx_last):
             stale_by_index = True
             result['behind_index'] = idx_last
         elif idx_last and last_td_s and idx_last < last_td_s:
@@ -357,6 +413,9 @@ def get_freshness(market: str, now: datetime | None = None) -> dict:
 
 
 # ── 전체 재수집 (배치·업로드 직후·수동 새로고침) ─────────
+FAILED_KEEP_TRADING_DAYS = 5   # 수집 실패 종목의 옛 이력을 보존하는 최대 지연(거래일, #39 M1)
+
+
 def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
                           throttle_sec: float = 0.25) -> dict:
     """전 종목 수집 → 스냅샷 dict 생성. 저장하지 않는다 (성공률 게이트는 호출부 책임).
@@ -429,9 +488,24 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
 
     # 수집 실패 티커의 기존 히스토리를 통째로 버리지 않는다. 날짜 결손보다 큰 손실이고
     # (350일 전량), 이게 없으면 앱이 종목마다 실시간 폴백을 돌아 첫 로딩이 느려진다.
+    # 단 FAILED_KEEP_TRADING_DAYS 거래일까지만 — 야후에서 사라진 심볼이 몇 주 전 봉으로 10EMA
+    # '셋업'·TV 내보내기에 실리지 않게 (#39 M1). 거래일은 이번에 받은 종목들의 날짜로 센다
+    # (받은 종목이 없으면 셀 수 없어 보존한다 — 성공률 게이트가 어차피 저장을 막는다).
+    calendar = sorted({d for rec in data.values()
+                       for d in rec['dates'][-(FAILED_KEEP_TRADING_DAYS + 1):]})
+    dropped = []
     for t in failed:
-        if old_data.get(t):
-            data[t] = old_data[t]
+        old = old_data.get(t)
+        if not old:
+            continue
+        old_last = old['dates'][-1] if old.get('dates') else ''
+        if sum(1 for d in calendar if d > old_last) > FAILED_KEEP_TRADING_DAYS:
+            dropped.append(t)
+            continue
+        data[t] = old
+    if dropped:
+        print(f'[{market}] 수집 실패 {len(dropped)}종목은 {FAILED_KEEP_TRADING_DAYS}거래일 넘게 '
+              f'갱신되지 않아 옛 이력을 버린다: {dropped[:10]}')
 
     return {
         'market': market,
@@ -455,7 +529,8 @@ SNAPSHOT_TICKER_FILES = {
 
 
 def snapshot_tickers(market: str) -> list:
-    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀)."""
+    """시장 스냅샷이 담을 전 종목 — 티커 파일 합집합(파일 순서, 중복·빈 줄 제거, 없는 파일은 건너뜀).
+    지수 심볼과 KR의 6자리 종목코드가 아닌 티커는 뺀다 — 파일에 섞여 있으면 매 배치 실패로 남는다 (#39 L7)."""
     seen, result = set(), []
     for filename in SNAPSHOT_TICKER_FILES.get(market, []):
         path = SAVED_DIR / filename
@@ -463,7 +538,7 @@ def snapshot_tickers(market: str) -> list:
             continue
         for t in path.read_text(encoding='utf-8').splitlines():
             t = t.strip()
-            if t and t not in seen:
+            if t and t not in seen and not is_index_symbol(t, market):
                 seen.add(t)
                 result.append(t)
     return result

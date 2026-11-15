@@ -35,7 +35,7 @@ python3 -m pytest tests/ -k "jjin" -q                      # 테스트 이름 �
 
 ### 시세 수집 (`data/fetcher.py`) — KR 패치 체인이 핵심
 
-yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, O=H=L=C 불완전 행, Volume=0)가 잦아서 **pykrx → FinanceDataReader 순 fallback 패치**(`_patch_kr_*` 함수들)를 거친다. KR 티커는 6자리 코드에 `.KS`/`.KQ` suffix를 붙여 조회하고 KOSPI 실패 시 `.KQ` 재시도. 종목명은 번들 `data/kr_names.json` → FDR → pykrx 순. KR 시세 관련 수정 시 이 패치 체인을 우회하지 말 것.
+yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, O=H=L=C 불완전 행, Volume=0)가 잦아서 **pykrx → FinanceDataReader 순 fallback 패치**(`_patch_kr_*` 함수들)를 거친다. KR 티커는 6자리 코드에 `.KS`/`.KQ` suffix를 붙여 조회하고 실패하면 반대 suffix로 1회 재시도(코스닥 목록의 코스피 종목도). 지수 심볼(`KOSDAQ`·`IXIC` 등, `fetcher.is_index_symbol`)은 파싱·`snapshot_tickers`·`load_daily`에서 거른다. 종목명은 번들 `data/kr_names.json` → FDR → pykrx 순. KR 시세 관련 수정 시 이 패치 체인을 우회하지 말 것.
 
 ### 추세추종 전략 (코스피/코스닥/나스닥 탭 — `ui/watchlist.py`)
 
@@ -75,22 +75,23 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 근거 URL이 없거나 신뢰도 low면 `UNCLASSIFIED`로 두고 `suggestedTheme`만 남긴다. 미분류 종목은 섹터 집계에서 빠진다
 - `overrideByUser=True`(주도섹터 탭 > 분류 검토에서 확정)는 자동 분류가 덮어쓰지 않는다. 변경 이력은 `history`
 - US 배치(`run_batch_local.sh`)가 매 회차 `--scope missing`으로 신규 편입 종목만 분류한다. 테마 목록 version이 `-draft`로 끝나면 배치는 그 시장을 분류하지 않는다
-- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`)
+- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`). 렌더 경로에는 LLM 런타임 분류가 없다 — 캐시만 읽고 구 캐시에도 없으면 '기타'. 신규 종목 분류는 배치의 `classify_themes.py`만 맡는다(`data/theme_classifier.classify`는 렌더에서 호출 금지 — `themes.json`에 대분류를 자동 추가한다)
 
 ### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
 
 `와치리스트` 제목 오른쪽의 `📤 TradingView 내보내기` 버튼 하나로 각 탭의 후보를 TradingView 워치리스트 import용 txt로 내보낸다. 포맷은 **한 줄 = 한 섹션**, 줄 맨 앞 `###제목` 뒤에 심볼을 콤마로 잇는다 (KR은 `KRX:` 접두, US는 무접두).
 
-- 담기는 것: 리더보드 US·KR(랭킹 순) → 추세추종 3탭의 **매수 후보**(화면 필터 통과분) → 10EMA 3탭의 **셋업 완성** 종목. 순서는 `SECTION_ORDER`가 고정
+- 담기는 것: 리더보드 US·KR(랭킹 순) → 추세추종 3탭의 **매수 후보**(화면 필터 통과분) → 주도섹터 탭의 🎯 차기 주도주·🔥 급부상. 순서는 `SECTION_ORDER`가 고정. 10EMA 섹션은 2026-11-11 사용자 요청으로 뺐다 — 10EMA 탭은 `register_ema10(market, [])`로 비우기만 한다
 - 주도섹터 탭 섹션(🎯 차기 주도주·🔥 급부상)은 제목 끝에 그 탭의 **기준일 `MM/DD`**를 붙인다(`tv_export.dated_title`, 예: `###🎯 코스피 차기 주도주 11/12,...`) — 파일명은 내려받은 시각이라 기준일을 따로 보여야 한다
 - 각 탭은 렌더 첫머리에서 `register_*(market, [])`로 자기 섹션을 **먼저 비운다** — 조기 return 경로에서 직전 실행의 후보가 세션에 남아 파일에 실리는 것을 막는 장치라 제거하지 말 것
-- 버튼은 탭보다 위에 있으므로 `app.py`가 제목 옆 컬럼에 `st.empty()` 슬롯만 잡아두고, **모든 탭 뒤**에서 `render_export_button(slot)`으로 채운다. 이 호출 순서가 뒤집히면 버튼이 빈 목록으로 그려진다
+- 버튼은 탭보다 위에 있으므로 `app.py`가 제목 옆 컬럼에 `st.empty()` 슬롯만 잡아두고, **후보를 등록하는 탭(추세추종·주도섹터) 뒤, 10EMA 탭 앞**에서 `render_export_button(slot)`으로 채운다. 등록 탭보다 앞에 두면 버튼이 빈 목록으로 그려지고, 10EMA 탭 뒤에 두면 10EMA 스캔(캐시가 비면 수 분)이 끝날 때까지 버튼이 '⏳'로 잠긴다(#43 L17). 10EMA 섹션을 다시 내보내려면 이 호출을 10EMA 탭 뒤로 되돌리고 `tests/test_app_export_order.py`도 고칠 것
 - 담긴 섹션·종목 수는 버튼 툴팁(`summarize_sections`)으로 보여준다 — 제목 옆 좁은 자리라 목록을 펼치면 화면을 밀어낸다
 - 후보 필터는 `@st.fragment` 안이라 필터만 바꾸면 버튼이 한 박자 늦는다 — 옆의 `🔄` 버튼이 전체 재실행을 걸어 맞춘다
 
 ### 배치 데이터 신선도
 
 - "배치가 돌았나"(회차 시각) + "종목 마지막 거래일과 같은 배치가 받은 시장 지수(KOSPI·KOSDAQ·NASDAQ)의 마지막 날짜가 같은가"를 함께 본다 — **양방향**, 어느 쪽이 늦어도 미달. 같은 거래소 달력이라 휴장일엔 둘 다 그날이 없어 오경보가 없다. 다른 시장 지수끼리는 비교하지 않는다(KR 배치 뒤엔 매일 KOSPI가 당일, NASDAQ이 전날)
+- 종목이 늦다(`behind_index`)는 **지수 마지막 날짜에 도달한 종목 비율 < 90%**(`store.MIN_REACHED_RATIO`, 게이트 `check_snapshot_fresh.MIN_REACHED_RATIO`와 같은 값)로 본다 — 종목 `last_trading_date`는 전 종목 최댓값이라 한 종목만 최신이어도 지연이 묻혔다(2026-10-24 US 252종목 중 53종목, #39 M1). 지수가 늦다(`index_behind`)는 그대로 최댓값 기준. 앱 판정은 배치 유니버스(`snapshot_tickers`) 종목만 센다. 지연·수집 실패 종목은 신선도 캡션 꼬리(`store.lag_note`)에 '지연 n종목'으로 보이고, 실패 종목의 옛 이력은 `FAILED_KEEP_TRADING_DAYS`(5)거래일까지만 보존한다
 - `scripts/fetch_snapshot.py`는 지수를 먼저 받고, 종목이 늦으면 종목을·지수가 늦으면 지수를 5분·15분 뒤 재수집. 그래도 어긋나면 `scripts/check_snapshot_fresh.py`가 fresh=false → GitHub 폴백이 다시 받는다. 앱은 `store.get_freshness`의 `behind_index`(종목 지연)·`index_behind`(지수 지연)로 재수집 안내, 지수 패널은 지수별 마지막 날짜(`index_last_dates`)와 지연 지수(`lagging_indices`)를 표시 — indices의 `last_trading_date`는 세 지수의 최댓값이라 판정에 쓰지 않는다. `refetch_indices`는 수집 실패·빈 응답 지수를 `failed`에 남기고 로그한다. 첫 수집에 실패한 지수를 지연 재수집으로도 끝내 못 받으면 `fetch_snapshot.py`가 종료 코드 3(종목은 저장) → `run_batch_local.sh`가 종목을 올리고 회차 판정(미달이면 폴백 즉시) 뒤 실패로 끝내 stockEdge job_wrapper 알림·catchup 재실행으로 이어진다. 재수집으로 받아내면 실패가 아니다
 - 2026-11-10 US 배치: NASDAQ 지수는 11/09, 종목 일괄 다운로드는 11/06까지만 받아 하루 낡은 채로 남았던 사례가 계기. 반대 방향은 2026-11-11·11-12 US(종목 11-10·11-11, NASDAQ 11-09·11-10 — 한 방향만 보던 판정 세 곳이 모두 놓쳤다, #24)
 - Cloud 앱의 배치 반영(`data/repo_sync.py`)은 `origin`이 아니라 공개 HTTPS 주소에서 fetch (Cloud의 origin은 인증 오류)
@@ -104,7 +105,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 분류 저장(주도섹터 탭 '분류 수정') 뒤 `st.cache_data.clear()` 금지 — 앱 전체·전 사용자 캐시(10EMA 3탭 수 분 스캔)를 날린다(#42 M13). `_compute`는 분류 파일 mtime이 캐시 키(`_data_key`)에 있어 저절로 다시 계산되고, 키에 분류가 없는 추세추종 `_build_rows`만 비운다. 10EMA 스캔의 섹터·테마 열은 TTL(1시간)·다음 배치에 맞춰진다
 - `st.cache_data(ttl=1800)` — 지수·와치리스트 행 빌드(`ui/watchlist.py`). 캐시 키로 쓰기 위해 날짜 등 인자를 문자열로 전달하는 패턴을 유지할 것
 - **지수 현황 패널의 현재가·등락률만 실시간**(`data/live_index.py`, `st.cache_data(ttl=60)` — 접속·새로고침 때 갱신). 국면·ADR·PP와 그 밖의 모든 지수 계산은 배치 확정 일봉을 쓴다. 현재가는 yfinance `fast_info.last_price`, 등락률은 배치 확정 종가 대비이고 배치에 이미 있는 날짜는 확정값을 쓴다. yfinance KR 지수의 일봉 마지막 날·`previous_close`는 믿지 말 것(측정상 누락·불일치), Cloud에서 pykrx 호출 금지(KRX 차단)
-- 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
+- 파일 기반: `data/classification/*.json`(검증 테마 분류, 우선), `theme_cache.json`(구 테마 캐시 — 폴백용, `scripts/refresh_sectors.sh`: 대상은 `data/saved` 현행 티커 파일(`store.snapshot_tickers`)뿐이고 KRX 조회 없음, 무인자는 미캐시 종목만·재분류는 `--all`/`--stale-days` 명시. `yf_sector_cache.json`의 `scripts/refresh_yf_sectors.sh`도 같은 대상), `data/themes.json`(구 테마 정의), `data/kr_names.json`(KR 종목명 번들)
 - `strategy/` 모듈은 Streamlit을 import하지 않는다(단위 테스트 가능성 유지). 캐시가 필요하면 `ui/`·`data/` 계층에서 래핑
 
 ### 알아둘 것

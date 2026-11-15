@@ -30,7 +30,7 @@ def test_cache_hit_new_format_returns_both_fields(tmp_path, monkeypatch, fake_th
     monkeypatch.setattr(sector_classifier, "_CACHE_FILE", cache_file)
 
     with patch.object(sector_classifier, "_classify_one") as mock_one:
-        result = sector_classifier.classify(["WDC"], fake_themes)
+        result = sector_classifier.classify(["WDC"], fake_themes, market="US")
 
     assert result == {"WDC": {"theme": "NAND 메모리", "detail": "AI 데이터센터 스토리지"}}
     mock_one.assert_not_called()
@@ -44,7 +44,7 @@ def test_cache_hit_old_format_treated_as_miss(tmp_path, monkeypatch, fake_themes
     monkeypatch.setattr(sector_classifier, "_CACHE_FILE", cache_file)
 
     with patch.object(sector_classifier, "_classify_one", return_value={"theme": "NAND 메모리", "detail": "AI 데이터센터 스토리지"}) as mock_one:
-        result = sector_classifier.classify(["WDC"], fake_themes)
+        result = sector_classifier.classify(["WDC"], fake_themes, market="US")
 
     mock_one.assert_called_once()
     assert result["WDC"]["theme"] == "NAND 메모리"
@@ -56,7 +56,7 @@ def test_override_skips_llm(tmp_path, monkeypatch, fake_themes):
 
     with patch.object(sector_classifier, "_classify_one") as mock_one:
         result = sector_classifier.classify(
-            ["CRDO"], fake_themes, overrides={"CRDO": "반도체설계"}
+            ["CRDO"], fake_themes, overrides={"CRDO": "반도체설계"}, market="US"
         )
 
     assert result == {"CRDO": {"theme": "반도체설계", "detail": "반도체설계"}}
@@ -72,7 +72,7 @@ def test_cache_expired_triggers_reclassify(tmp_path, monkeypatch, fake_themes):
     monkeypatch.setattr(sector_classifier, "_CACHE_FILE", cache_file)
 
     with patch.object(sector_classifier, "_classify_one", return_value={"theme": "NAND 메모리", "detail": "메모리 반도체"}) as mock_one:
-        result = sector_classifier.classify(["WDC"], fake_themes)
+        result = sector_classifier.classify(["WDC"], fake_themes, market="US")
 
     mock_one.assert_called_once()
     assert result["WDC"]["detail"] == "메모리 반도체"
@@ -87,7 +87,7 @@ def test_first_pass_returns_known_theme_and_detail(tmp_path, monkeypatch, fake_t
         returncode=0,
     )
     with patch.object(sector_classifier.subprocess, "run", return_value=fake_proc):
-        result = sector_classifier.classify(["WDC"], fake_themes)
+        result = sector_classifier.classify(["WDC"], fake_themes, market="US")
 
     assert result["WDC"] == {"theme": "NAND 메모리", "detail": "AI 데이터센터 스토리지"}
     saved = json.loads(cache_file.read_text())
@@ -102,7 +102,7 @@ def test_first_pass_invalid_json_total_failure_not_cached(tmp_path, monkeypatch,
 
     fake_proc = MagicMock(stdout="not json at all", returncode=0)
     with patch.object(sector_classifier.subprocess, "run", return_value=fake_proc):
-        result = sector_classifier.classify(["XYZ"], fake_themes)
+        result = sector_classifier.classify(["XYZ"], fake_themes, market="US")
 
     assert result["XYZ"] == {"theme": "기타", "detail": ""}
     # 자가치유: 캐시에 저장하지 않아 다음 회차 재분류
@@ -118,7 +118,7 @@ def test_first_pass_retries_once_before_giving_up(tmp_path, monkeypatch, fake_th
     with patch.object(
         sector_classifier, "_classify_one", side_effect=[None, good]
     ) as mock_one:
-        result = sector_classifier.classify(["WDC"], fake_themes)
+        result = sector_classifier.classify(["WDC"], fake_themes, market="US")
 
     assert mock_one.call_count == 2
     assert result["WDC"] == good
@@ -137,7 +137,7 @@ def test_total_failure_empty_detail_not_resolved(tmp_path, monkeypatch, fake_the
     first_proc = MagicMock(stdout="not json at all", returncode=0)
     with patch.object(sector_classifier.subprocess, "run", return_value=first_proc):
         with patch.object(sector_classifier, "_resolve_misc") as mock_resolve:
-            result = sector_classifier.classify(["FROG"], fake_themes)
+            result = sector_classifier.classify(["FROG"], fake_themes, market="US")
 
     # 2차 resolve는 호출조차 되지 않아야 함 (추측 원천 차단)
     mock_resolve.assert_not_called()
@@ -171,7 +171,7 @@ def test_resolve_misc_appends_new_theme(tmp_path, monkeypatch, fake_themes):
         sector_classifier.subprocess, "run",
         side_effect=[first_proc, first_proc, second_proc],
     ):
-        result = sector_classifier.classify(["SOFI", "SOFI2"], fake_themes)
+        result = sector_classifier.classify(["SOFI", "SOFI2"], fake_themes, market="US")
 
     assert result["SOFI"]["theme"] == "디지털금융·핀테크"
     assert result["SOFI2"]["theme"] == "디지털금융·핀테크"
@@ -207,7 +207,7 @@ def test_resolve_misc_groups_similar_tickers(tmp_path, monkeypatch, fake_themes)
         sector_classifier.subprocess, "run",
         side_effect=[first_proc, first_proc, second_proc],
     ):
-        result = sector_classifier.classify(["SMCI", "DELL"], fake_themes)
+        result = sector_classifier.classify(["SMCI", "DELL"], fake_themes, market="US")
 
     assert result["SMCI"]["theme"] == "AI 서버 제조"
     assert result["DELL"]["theme"] == "AI 서버 제조"
@@ -232,7 +232,7 @@ def test_resolve_misc_failure_caches_as_other(tmp_path, monkeypatch, fake_themes
         sector_classifier.subprocess, "run",
         side_effect=[first_proc, second_proc],
     ):
-        result = sector_classifier.classify(["XYZ"], fake_themes)
+        result = sector_classifier.classify(["XYZ"], fake_themes, market="US")
 
     assert result["XYZ"]["theme"] == "기타"
     # 2차 실패해도 detail 후보가 있었으므로 '기타'로 캐시 저장 (자가치유)
@@ -262,7 +262,7 @@ def test_resolve_misc_single_member_kept_as_other(tmp_path, monkeypatch, fake_th
     )
 
     with patch.object(sector_classifier.subprocess, "run", side_effect=[first_proc, second_proc]):
-        result = sector_classifier.classify(["SOLO"], fake_themes)
+        result = sector_classifier.classify(["SOLO"], fake_themes, market="US")
 
     # 1종목짜리는 known_themes에 추가 안 됨
     saved_themes = json.loads(themes_file.read_text())
@@ -301,7 +301,7 @@ def test_cache_parse_failure_is_not_overwritten(tmp_path, monkeypatch, fake_them
 
     with patch.object(sector_classifier, "_classify_one",
                       return_value={"theme": "반도체설계", "detail": "AI 가속기"}):
-        result = sector_classifier.classify(["NVDA"], fake_themes)
+        result = sector_classifier.classify(["NVDA"], fake_themes, market="US")
 
     assert result["NVDA"] == {"theme": "반도체설계", "detail": "AI 가속기"}   # 표시는 그대로
     assert cache_file.read_text(encoding="utf-8") == broken
@@ -324,3 +324,26 @@ def test_cache_save_keeps_previous_file_intact_while_writing(tmp_path, monkeypat
     assert seen == [old]
     assert json.loads(cache_file.read_text(encoding="utf-8")) == new
     assert [p.name for p in tmp_path.iterdir()] == ["theme_cache.json"]
+
+
+# ── 시장 판정 (#45 L6) ─────────────────────────────────────────
+
+def test_first_prompt_KR_시장이면_영숫자_코드도_한국_종목으로_알린다(fake_themes):
+    """프롬프트가 '6자리 숫자 코드는 KRX, 그 외는 미국'이라 0015S0을 미국 종목으로 검색하게 했다."""
+    prompt = sector_classifier._build_first_prompt("0015S0", None, fake_themes, "KR_KOSDAQ")
+    assert "KRX(한국) 상장 종목" in prompt
+    assert "미국" not in prompt
+
+
+def test_first_prompt_US_시장이면_미국_종목으로_알린다(fake_themes):
+    prompt = sector_classifier._build_first_prompt("NVDA", None, fake_themes, "US")
+    assert "미국 상장 종목" in prompt
+    assert "KRX" not in prompt
+
+
+def test_classify_one_시장을_프롬프트에_싣는다(fake_themes):
+    fake_proc = MagicMock(stdout='{"theme": "NAND 메모리", "detail": "x"}', returncode=0)
+    with patch.object(sector_classifier.subprocess, "run", return_value=fake_proc) as run:
+        sector_classifier._classify_one("0015G0", "가상종목", fake_themes, "KR_KOSPI")
+    prompt = run.call_args.args[0][2]
+    assert "0015G0 (가상종목)" in prompt and "KRX(한국) 상장 종목" in prompt
