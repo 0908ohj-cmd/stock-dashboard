@@ -42,7 +42,8 @@ KO_LOCALE = {
 
 @st.cache_data(ttl=120)
 def _snapshot_ts(market: str) -> str:
-    """스냅샷 fetched_at 타임스탬프 — 변경 시 _build_rows·_fetch_index 캐시 자동 무효화."""
+    """스냅샷 fetched_at 타임스탬프 — 변경 시 _build_rows·_fetch_index·10EMA 표 캐시 자동 무효화.
+    TTL(120초) 동안은 옛 값을 주므로, 스냅샷을 다시 쓴 쪽은 이 캐시를 직접 비운다."""
     return store.load_snapshot(market).get('fetched_at', '')
 
 
@@ -104,11 +105,14 @@ def _build_rows(
     custom_rs_start_str: str | None = None,
     as_of_date_str: str | None = None,
     swing_dates_str: str | None = None,   # 쉼표 구분 날짜: "2026-05-20,2026-06-08,..."
-    _snapshot_ts: str = '',               # 캐시 무효화 전용 — 스냅샷 갱신 시 자동 bust
+    # 캐시 무효화 전용 — 종목·지수 스냅샷 fetched_at. 밑줄로 시작하면 st.cache_data가 해시하지 않아
+    # 스냅샷이 바뀌어도 30분간 옛 표가 나온다(#32, 20d3cf0과 같은 실수)
+    snap_ts: str = '',
+    idx_ts: str = '',
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
-    index_df   = _fetch_index_cached(index_name)
+    index_df   = _fetch_index_cached(index_name, idx_ts)
 
     correction_start  = pd.Timestamp(correction_start_str)  if correction_start_str  else None
     jjin_date         = pd.Timestamp(jjin_date_str)         if jjin_date_str         else None
@@ -251,6 +255,11 @@ def _status_banner(status: dict, label: str, phase_label: str = 'Normal'):
         meta_parts.append(f"찐반등일: {jdate}")
         meta = f"({' | '.join(meta_parts)})"
         st.success(f"⚡ **{label} {phase_label} 찐반등 감지!** &nbsp; **+{status.get('jjin_pct', 0)}%** &nbsp; {vol_stars}\n\n{meta}")
+        rebreak = status.get('rebreak_date')
+        if rebreak is not None:
+            # 확인창 안 재이탈은 새 조정이 아니다(#28) — 찐반등은 유지하되 주의만 알린다
+            st.warning(f"⚠️ **EMA21 재이탈 주의** — {rebreak.date()} 종가가 EMA21 아래로 다시 내려갔습니다 "
+                       "(확인창 안이라 찐반등 유지 · DAY7 다음 날에도 EMA21 아래면 새 조정 DAY1)")
     else:  # Normal — DAY 윈도우(7일) 완전히 지난 후
         if status.get('correction_start') and not status.get('jjin_date'):
             cdate  = status['correction_start'].date()
@@ -365,6 +374,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             '|------|------|------|\n'
             '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
             '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
+            '| 200일선 | 200일선 방향(오늘 vs 20거래일 전) + (이격%) | **↗ 상승**이면 주도주 점수 장기 추세 10점 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
@@ -426,6 +436,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             with st.spinner(f'{label} 재수집 중... ({len(tickers)}개 종목)'):
                 store.refetch_market(market, tickers)
                 store.refetch_indices()
+            _snapshot_ts.clear()    # 새 fetched_at을 바로 읽게 — 10EMA 탭 표도 캐시 키로 함께 갱신된다
             _build_rows.clear()
             _fetch_index_cached.clear()
             _get_market_status_cached.clear()
@@ -440,6 +451,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if fr.get('behind_index'):
         st.warning(f"⚠️ 종목 데이터가 {fr['last_trading_date']}까지만 있습니다 (지수는 {fr['behind_index']}까지) — "
                    '사이드바 [데이터 재수집]을 눌러 주세요. 그 전 후보는 하루 늦은 데이터로 계산된 것입니다.')
+    elif fr.get('index_behind'):   # 반대로 지수가 늦다 (#24)
+        st.warning(f"⚠️ {INDEX_FOR_MARKET.get(market, 'NASDAQ')} 지수가 {fr['index_behind']}까지만 있습니다 "
+                   f"(종목은 {fr['last_trading_date']}까지) — 사이드바 [데이터 재수집]을 눌러 주세요. "
+                   '그 전 국면·DAY·RS는 늦은 지수로 계산된 것입니다.')
     elif fr['is_stale']:
         st.warning('⚠️ 배치 수집이 실패한 것 같습니다 — 사이드바 [데이터 재수집]을 눌러 주세요.')
 
@@ -548,7 +563,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             correction_start_str, jjin_date_str,
             custom_rs_start_str, None,
             swing_dates_str,
-            snap_ts,
+            snap_ts, idx_ts,
         )
 
     if not rows:
@@ -564,6 +579,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['주도주순위'] = None if s is None else s['rank']
         r['하락RS'] = None if s is None or s.get('downAdr') is None else round(s['downAdr'], 2)
         r['상승RS'] = None if s is None or s.get('upAdr') is None else round(s['upAdr'], 2)
+        r['200일선'] = None if s is None else s.get('sma200')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
     scored = sorted((r for r in rows if r['주도주점수'] is not None), key=lambda r: -r['주도주점수'])
     for i, r in enumerate(scored, 1):
@@ -593,6 +609,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '등락%':         r['등락%'],
         '하락국면 RS/ADR': r['하락RS'],
         '상승국면 RS/ADR': r['상승RS'],
+        '200일선':       r['200일선'],
         '이평선위치':    r['이평선위치'],
         '저점선행(일)':  r['저점선행'],
         '양봉비%':       r['양봉비%'],
@@ -654,6 +671,8 @@ function(valueA, valueB) {
                         headerTooltip='기산점 ~ 찐반등일(찐반등 전이면 ~ 기준일) — 주도섹터 탭과 같은 값')
     gb.configure_column('상승국면 RS/ADR', filter='agNumberColumnFilter', type=['numericColumn'], flex=1,
                         headerTooltip='찐반등 전날 종가 ~ 기준일, 찐반등 전엔 빈칸 — 주도섹터 탭과 같은 값')
+    gb.configure_column('200일선', filter='agTextColumnFilter', flex=1, minWidth=120,
+                        headerTooltip='200일선 방향(20거래일 전 대비) — 상승이면 주도주 점수 장기 추세 10점. 괄호는 이격')
     gb.configure_column('이평선위치', filter='agTextColumnFilter', flex=2)
     gb.configure_column('저점선행(일)', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
@@ -845,6 +864,7 @@ def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
             '|------|------|------|\n'
             '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
             '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
+            '| 200일선 | 200일선 방향(오늘 vs 20거래일 전) + (이격%) | **↗ 상승**이면 주도주 점수 장기 추세 10점 |\n'
             '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
             '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
             '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'

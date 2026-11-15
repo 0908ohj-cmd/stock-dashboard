@@ -13,6 +13,7 @@ from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter
 from ui import tv_export
 from ui.sector_leadership import hot_history, hot_badge
+from ui.watchlist import _snapshot_ts      # 스냅샷 fetched_at — 추세추종 탭과 같은 캐시 키 출처
 
 # 정렬: 케이스1 → 케이스2 → 이탈류 → 없음
 # 케이스1 내부: 현재→타점%(10EMA 거리) 오름차순 — 가까울수록 위
@@ -125,7 +126,10 @@ def _process_one(ticker: str, market: str) -> dict | None:
 _ROW_SCHEMA_VER = 23  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
-def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER) -> list:
+def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER,
+                      snap_ts: str = '') -> list:
+    """snap_ts는 캐시 무효화 전용 — 시장 스냅샷 fetched_at. 없으면 배치가 새 스냅샷을 올려도
+    TTL(1시간) 동안 어제 기준 셋업·타점이 '오늘 장마감 기준' 캡션 아래 나온다(#32)."""
     rows = []
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(_process_one, t, market): t for t in tickers_tuple}
@@ -334,6 +338,7 @@ def render_10ema_tab(market: str, label: str):
         if st.button('🔄 재스캔', key=f'rescan_10ema_{market}', help='전 종목 재스캔 — 수 분 소요'):
             with st.spinner(f'{label} 시세 재수집 중... ({len(tickers)}개 종목)'):
                 refetch_market(market, tickers)
+            _snapshot_ts.clear()    # 새 fetched_at을 바로 읽게 — 추세추종 탭 표도 캐시 키로 함께 갱신된다
             _build_10ema_rows.clear()
             st.rerun()
 
@@ -345,7 +350,7 @@ def render_10ema_tab(market: str, label: str):
         )
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
-        rows = _build_10ema_rows(tuple(sorted(tickers)), market, _ROW_SCHEMA_VER)
+        rows = _build_10ema_rows(tuple(sorted(tickers)), market, _ROW_SCHEMA_VER, _snapshot_ts(market))
 
     if not rows:
         st.warning('분석 가능한 종목이 없습니다.')

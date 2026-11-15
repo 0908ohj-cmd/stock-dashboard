@@ -4,9 +4,13 @@
 폴백은 폐기 — 폴백 라벨이 캐시에 영구 고착되는 오염의 원인이었다.)
 """
 import json
+import logging
 from pathlib import Path
 
 from data import classification, theme_classifier
+
+_log = logging.getLogger(__name__)
+_LOGGED: set = set()   # 같은 실패를 종목마다·렌더마다 반복해 찍지 않는다
 
 _NAMES_FILE = Path(__file__).parent / 'kr_names.json'
 
@@ -71,27 +75,36 @@ def get_sectors(tickers: list, market: str) -> dict:
     return result
 
 
+def _warn_once(market: str, ticker: str, e: Exception) -> None:
+    key = (market, type(e).__name__, str(e))
+    if key in _LOGGED:
+        return
+    _LOGGED.add(key)
+    _log.warning('[sector] %s %s 새 분류 읽기 실패(%s: %s) — 구 라벨로 대체 (같은 사유는 이후 생략)',
+                 market, ticker, type(e).__name__, e)
+
+
 def _verified_label(market: str, ticker: str) -> str | None:
-    """새 분류 저장소(data/classification)의 승인된 라벨. 없으면 None → 구 캐시 사용."""
+    """새 분류 저장소(data/classification)의 라벨. 기록이 있으면 미분류라도 '미분류'를 쓰고,
+    기록이 없을 때만 None → 구 캐시 사용."""
     try:
         return classification.display_label(market, ticker)
-    except Exception:
+    except Exception as e:
+        _warn_once(market, ticker, e)
         return None
 
 
 def _verified_major(market: str, ticker: str) -> str:
     try:
-        rec = classification.load_store(market).get(ticker)
-        if rec and rec.get('primaryTheme') not in (None, classification.UNCLASSIFIED):
-            return classification.theme_index(market)[rec['primaryTheme']]['label']
-    except Exception:
-        pass
-    return ''
+        return classification.display_major(market, ticker) or ''
+    except Exception as e:
+        _warn_once(market, ticker, e)
+        return ''
 
 
 def get_display_sectors(tickers: list, market: str, yf_secs: dict) -> dict:
-    """와치리스트 '섹터' 컬럼 — 주도섹터 탭과 같은 기준(승인된 주력 테마)을 먼저 쓴다.
-    승인된 분류가 없는 종목만 예전 방식(yfinance 산업분류 → 구 LLM 대분류)으로 채운다."""
+    """와치리스트 '섹터' 컬럼 — 주도섹터 탭과 같은 기준(주력 테마)을 먼저 쓴다. 미분류 기록은 '미분류'.
+    분류 기록이 아예 없는 종목만 예전 방식(yfinance 산업분류 → 구 LLM 대분류)으로 채운다."""
     from data.yf_sector import resolve_sector
     old = get_major_themes(tickers, market)
     return {t: _verified_major(market, t) or resolve_sector(yf_secs.get(t, ''), old.get(t, ''))
@@ -99,7 +112,8 @@ def get_display_sectors(tickers: list, market: str, yf_secs: dict) -> dict:
 
 
 def get_major_themes(tickers: list, market: str = 'US') -> dict:
-    """{ticker: 대분류}. 새 분류 저장소의 주력 테마를 먼저 쓰고, 없으면 구 LLM 캐시.
+    """{ticker: 대분류}. 새 분류 저장소의 주력 테마를 먼저 쓰고(미분류 기록은 '미분류'),
+    기록이 없으면 구 LLM 캐시.
     캐시만 읽고 분류를 트리거하지 않는다.
 
     표시용은 detail(get_sectors)이지만, yfinance가 industry를 주지 않는 종목의 '섹터' 컬럼을
