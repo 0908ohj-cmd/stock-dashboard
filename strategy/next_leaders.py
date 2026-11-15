@@ -528,20 +528,56 @@ def hot_stock_pool(rot_stocks: list, hot: dict, sizes: dict, bull_since: dict, b
         entry, unknown = (h['since'], h['startedBefore']) if h else (bull_since.get(r['ticker']), False)
         rows.append({**r, 'solo': solo, 'entry': entry, 'entryUnknown': unknown,
                      'isNew': entry is not None and not unknown and pd.Timestamp(entry) == asof})
-    rows = [r for r in rows if r['adrNow'] >= PP_MIN_ADR]      # 미만은 10EMA 탭 판정 대상이 아님
+    cand = len(rows)
+    n_hot = sum(not r['solo'] for r in rows)
+    dropped = dict.fromkeys(('adr', 'ownBull', 'drawdown', 'sma50', 'sma150_200'), 0)
+
+    def keep(rows, reason, ok):
+        out = [r for r in rows if ok(r)]
+        dropped[reason] += len(rows) - len(out)
+        return out
+
+    rows = keep(rows, 'adr', lambda r: r['adrNow'] >= PP_MIN_ADR)      # 미만은 10EMA 탭 판정 대상이 아님
     for r in rows:
         r['ddAdr'], r['ownBull'] = _since_entry(r, bars.get(r['ticker']), asof)
     # 종목 자신도 핫해야 한다 — 편입 후 자기 렐볼 양봉이 한 번도 없으면 섹터만 뜨겁고 종목은 안 움직인 것.
     # 검증(🔥 뒤 0·10·20일): 없음 4~36%, 이후 30일 기준봉 17~21% vs 있음 21~25%
-    rows = [r for r in rows if r['ownBull']]
+    rows = keep(rows, 'ownBull', lambda r: r['ownBull'])
     # 탈락 — 편입 후 종가 고점에서 3 ADR 이상 하락(이후 30일 기준봉 3.6~3.9% vs 평균 16~17%), 종가가 50일선 아래
     # (8.6~9.8%), 150·200일선 아래(PP 기준봉 조건). 매일 다시 계산 — 가격이 회복하면 다음 날 목록에 돌아온다
-    rows = [r for r in rows if r['ddAdr'] > -PP_DROP_ADR and not r['belowSma50']
-            and not r['belowSma150'] and not r['belowSma200']]
+    rows = keep(rows, 'drawdown', lambda r: r['ddAdr'] > -PP_DROP_ADR)
+    rows = keep(rows, 'sma50', lambda r: not r['belowSma50'])
+    rows = keep(rows, 'sma150_200', lambda r: not r['belowSma150'] and not r['belowSma200'])
     for r in rows:
         r['weak'] = r['ppScore'] < PP_MIN_SCORE
     rows.sort(key=lambda r: -r['ppScore'])
-    return {'rows': rows}
+    # candidates·hotSectors·dropped: 목록이 비었을 때 원인 안내용(hot_pool_message, #42 L9)
+    return {'rows': rows, 'candidates': cand, 'hotCandidates': n_hot, 'soloCandidates': cand - n_hot,
+            'hotSectors': len(hot), 'dropped': dropped}
+
+
+_DROP_LABEL = {'adr': f'ADR {PP_MIN_ADR:g}% 미만', 'ownBull': '편입 후 자기 렐볼 양봉 없음',
+               'drawdown': f'고점 대비 {PP_DROP_ADR:g} ADR 이상 하락', 'sma50': '50일선 아래', 'sma150_200': '150·200일선 아래'}
+
+
+def hot_pool_message(hp: dict, show_weak: bool = True) -> str | None:
+    """급부상 종목 표가 비었을 때 원인 안내 (#42 L9). 보여줄 종목이 있으면 None.
+    후보 자체가 없음 / 🔥 섹터는 있는데 점수 낼 종목 없음 / 후보가 탈락 규칙으로 모두 빠짐 / 50점 미만만 남음을 나눈다."""
+    rows = hp.get('rows') or []
+    if rows:
+        if show_weak or any(not r['weak'] for r in rows):
+            return None
+        return (f'관문을 통과한 {len(rows)}종목이 모두 PP 가능성 점수 {PP_MIN_SCORE}점 미만이라 숨겼습니다 — '
+                f"'{PP_MIN_SCORE}점 미만도 보기'를 켜면 보입니다.")
+    cand = hp.get('candidates', 0)
+    if not cand:
+        if hp.get('hotSectors'):
+            return (f"최근 6주 안에 🔥 급부상 섹터는 {hp['hotSectors']}개 있지만, 점수를 낼 수 있는 소속 종목이 없습니다 "
+                    '(기준일 시세 없음·이력 부족 등).')
+        return '최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.'
+    why = ', '.join(f'{_DROP_LABEL[k]} {v}' for k, v in (hp.get('dropped') or {}).items() if v)
+    return (f"후보 {cand}종목(🔥 섹터 {hp.get('hotCandidates', 0)} · 단독 렐볼 {hp.get('soloCandidates', 0)})이 "
+            f'탈락 규칙으로 모두 빠졌습니다 — {why}.')
 
 
 def _since_entry(r: dict, df: pd.DataFrame | None, asof: pd.Timestamp) -> tuple[float, bool]:

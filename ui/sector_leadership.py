@@ -573,9 +573,10 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     tv_export.register_hot(m.key, [])       # 조기 return 때 직전 목록이 남지 않게 먼저 비운다
     hot = res.get('hot') or {}
     # 후보(🔥 섹터 종목 + 단독 렐볼)와 탈락·관문 규칙은 next_leaders.hot_stock_pool — 여기선 토글 필터·표시만 (#41 M9)
-    pool = (res.get('hotPool') or {}).get('rows') or []
-    if not pool:
-        st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
+    hp = res.get('hotPool') or {}
+    pool = hp.get('rows') or []
+    if not pool:        # 후보가 없는지, 탈락 규칙으로 다 빠졌는지 구분해 안내 (#42 L9)
+        st.caption(nl.hot_pool_message(hp))
         return
     in_trend = _trend_tickers(m)
     bar = st.container(horizontal=True, gap='medium')      # 차기 주도주 토글과 같은 배치
@@ -591,8 +592,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                    and r['primaryTheme'] not in hidden),
                   key=lambda r: -r['ppScore'])[:30]
     tv_export.register_hot(m.key, [r['ticker'] for r in rows])   # 화면 표 그대로
-    if not rows:
-        st.caption('조건에 맞는 종목이 없습니다.')
+    if not rows:        # 50점 미만만 남았으면 그 안내, 아니면 토글로 숨긴 것
+        st.caption(nl.hot_pool_message(hp, show_weak) or '조건에 맞는 종목이 없습니다 — 위 토글로 숨긴 종목만 남았습니다.')
 
     body = []
     for rank, r in enumerate(rows, 1):

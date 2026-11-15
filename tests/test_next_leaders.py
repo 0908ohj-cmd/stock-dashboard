@@ -726,3 +726,39 @@ def test_hot_stock_pool_비메인_테마_종목은_단독_렐볼로도_넣지_�
     out = _pool(rows, {}, bars, sizes={'TINY': 1, 'HOLDING_OTHER': 1}, bull={'M': idx[-2], 'H': idx[-2]},
                 main_codes={'TINY'})
     assert [r['ticker'] for r in out['rows']] == ['M']
+
+
+# ── #42 L9: 급부상 종목이 비었을 때 원인 구분 ─────────────────
+def test_급부상_종목_안내_후보_자체가_없을_때():
+    bars = {'A': _bars(80)}
+    hp = _pool([_prow('A', 'OPT', bull5=False)], {}, bars, sizes={'OPT': 3})
+    assert hp['candidates'] == 0
+    assert nl.hot_pool_message(hp) == '최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.'
+
+
+def test_급부상_종목_안내_불_섹터는_있는데_점수_낼_종목이_없을_때():
+    bars = {'A': _bars(80, (2,))}
+    hp = _pool([], {'OPT': _hot(bars['A'].index[-3])}, bars)
+    msg = nl.hot_pool_message(hp)
+    assert '🔥 급부상 섹터는 1개 있지만' in msg and '단독 급등 종목도 없습니다' not in msg
+
+
+def test_급부상_종목_안내_후보가_탈락_규칙으로_모두_빠졌을_때():
+    bars = {t: _bars(80, (2,)) for t in ('LOW', 'S50', 'S200')}
+    idx = bars['LOW'].index
+    rows = [_prow('LOW', 'OPT', adr=5.0), _prow('S50', 'OPT', belowSma50=True), _prow('S200', 'OPT', belowSma200=True)]
+    hp = _pool(rows, {'OPT': _hot(idx[-3])}, bars)
+    assert hp['rows'] == [] and hp['candidates'] == 3
+    assert hp['dropped'] == {'adr': 1, 'ownBull': 0, 'drawdown': 0, 'sma50': 1, 'sma150_200': 1}
+    msg = nl.hot_pool_message(hp)
+    assert msg.startswith('후보 3종목(🔥 섹터 3')
+    assert 'ADR 6% 미만 1' in msg and '50일선 아래 1' in msg and '150·200일선 아래 1' in msg
+    assert '자기 렐볼' not in msg                              # 0건 사유는 적지 않는다
+    assert '단독 급등 종목도 없습니다' not in msg
+
+
+def test_급부상_종목_안내_50점_미만만_남았을_때():
+    bars = {'A': _bars(80, (2,))}
+    hp = _pool([_prow('A', 'OPT', 40.0)], {'OPT': _hot(bars['A'].index[-3])}, bars)
+    assert nl.hot_pool_message(hp, show_weak=True) is None
+    assert '50점 미만' in nl.hot_pool_message(hp, show_weak=False)
