@@ -5,7 +5,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
-from data.store import load_daily, get_freshness, refetch_market
+from data.store import load_daily, get_freshness, refetch_market, lag_note
 from data.sector import get_sectors, get_display_sectors
 from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
@@ -141,7 +141,7 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
     # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
     tickers = [r['Ticker'] for r in rows]
     themes = get_sectors(tickers, market)
-    sectors = get_display_sectors(tickers, market, get_yf_sectors(tickers, market))
+    sectors = get_display_sectors(tickers, market)   # 분류 기록 없는 종목만 yfinance 조회 (#39 M14)
     for r in rows:
         t = r['Ticker']
         # 섹터 = 주력 테마(주도섹터 탭과 같은 기준). 승인된 분류가 없으면 yfinance로 메운다
@@ -346,7 +346,7 @@ def render_10ema_tab(market: str, label: str):
     if fr['fetched_at']:
         st.caption(
             f"📅 {fr['last_trading_date']} 장마감 기준 · "
-            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}" + lag_note(fr)   # 지연·실패 종목 (#39 M1)
         )
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):

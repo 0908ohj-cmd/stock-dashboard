@@ -11,8 +11,12 @@
 # 거기서 run_batch_local.sh가 reset --hard를 하면 작업이 통째로 날아간다.
 # run_batch_local.sh 자체도 $REPO가 이 경로가 아니면 실행을 거부한다.
 #
+# 로컬 배치 시각은 scripts/launchd/*.plist — KR 월~금 17:30 / US 화~토 08:10 KST.
+# plist를 바꿨으면 이 스크립트를 다시 돌려야 반영된다(래퍼만 reset --hard로 자동 갱신된다).
+# 안 돌리면 run_batch_local.sh가 매 회차 "launchd 설정 불일치"를 알린다.
+#
 # GitHub Action(.github/workflows/fetch-data.yml)이 폴백으로 남아 있다 —
-# KR 16:50 / US 08:50 KST에 깨어나(실제로는 GitHub 지연으로 몇 시간 더 늦다),
+# KR 18:10 / US 08:50 KST에 깨어나(실제로는 GitHub 지연으로 몇 시간 더 늦다),
 # 로컬이 그 회차를 이미 수집했으면 그대로 빠지고 안 했으면 이관 전과 똑같이
 # 유니버스 빌드 + 스냅샷 수집을 대신 한다. 즉 여기 등록을 빠뜨려도 데이터가
 # 끊기지는 않고, 반영이 몇 시간 늦어질 뿐이다. 폴백이 일한 날은 커밋 메시지에

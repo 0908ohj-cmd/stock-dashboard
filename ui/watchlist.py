@@ -144,7 +144,7 @@ def _build_rows(
     # 승인된 분류가 없는 종목만 yfinance 산업분류로 섹터를 메운다.
     _tickers = list(stock_cache.keys())
     themes   = get_sectors(_tickers, market)
-    sectors  = get_display_sectors(_tickers, market, get_yf_sectors(_tickers, market))
+    sectors  = get_display_sectors(_tickers, market)   # 분류 기록 없는 종목만 yfinance 조회 (#39 M14)
     rows     = []
 
     for ticker, (df, adr_val) in stock_cache.items():
@@ -446,10 +446,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if fr['fetched_at']:
         st.caption(
             f"📅 {fr['last_trading_date']} 장마감 기준 · "
-            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}" + store.lag_note(fr)   # 지연·실패 종목 (#39 M1)
         )
     if fr.get('behind_index'):
-        st.warning(f"⚠️ 종목 데이터가 {fr['last_trading_date']}까지만 있습니다 (지수는 {fr['behind_index']}까지) — "
+        st.warning(f"⚠️ {len(fr.get('lagging') or [])}종목의 데이터가 지수 마지막 날짜({fr['behind_index']})에 못 미칩니다 — "
                    '사이드바 [데이터 재수집]을 눌러 주세요. 그 전 후보는 하루 늦은 데이터로 계산된 것입니다.')
     elif fr.get('index_behind'):   # 반대로 지수가 늦다 (#24)
         st.warning(f"⚠️ {INDEX_FOR_MARKET.get(market, 'NASDAQ')} 지수가 {fr['index_behind']}까지만 있습니다 "

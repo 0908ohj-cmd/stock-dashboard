@@ -1,3 +1,4 @@
+import re
 import threading
 import time
 from functools import lru_cache
@@ -180,10 +181,10 @@ def fetch_daily(ticker: str, market: str = 'US', days: int = 300) -> pd.DataFram
     end = datetime.today() + timedelta(days=1)   # yfinance end exclusive, KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
     if market.startswith('KR'):
-        suffix = '.KS' if 'KOSPI' in market else '.KQ'
+        suffix, other = ('.KS', '.KQ') if 'KOSPI' in market else ('.KQ', '.KS')
         df = _download(ticker + suffix, start, end)
-        if df.empty and 'KOSPI' in market:
-            df = _download(ticker + '.KQ', start, end)
+        if df.empty:   # 목록과 상장 시장이 다른 종목 — 반대 suffix로 1회 (#39 L7: 코스닥 목록의 229200)
+            df = _download(ticker + other, start, end)
         df = _patch_kr_today(df, ticker)
         return df.dropna(subset=['Close']) if 'Close' in df.columns else df
     return _download(ticker, start, end).dropna()
@@ -283,6 +284,10 @@ _KR_INDEX_PYKRX = {'^KS11': '1001', '^KQ11': '2001'}
 
 
 _KR_INDEX_FDR = {'^KS11': 'KOSPI', '^KQ11': 'KOSDAQ'}
+
+# KR 지수 거래량 단위: pykrx·FDR은 주, yfinance(^KS11·^KQ11)는 천 주. 스냅샷은 주 단위로 통일한다
+# (#39 M2 — 2026-10-05 indices.json 실측: yfinance 중앙값 456,900 vs pykrx 448,614,064).
+_YF_KR_INDEX_VOLUME_UNIT = 1000
 
 
 def _fetch_kr_index_pykrx(pykrx_code: str, start, end) -> pd.DataFrame:
@@ -417,7 +422,8 @@ def _patch_us_index_ohlc(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
 
 def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     """Volume=0인 한국 지수 행을 FDR → pykrx 순서로 채움.
-    FDR은 1주 단위, yfinance는 1000주 단위 → FDR값 /1000 후 저장."""
+    df는 주 단위다(fetch_index_daily가 yfinance 폴백의 천 주를 먼저 주 단위로 바꾼다).
+    FDR·pykrx도 주 단위라 그대로 넣는다 (#39 M2 — 예전엔 FDR값을 /1000 해 pykrx 경로에 섞였다)."""
     if df.empty or 'Volume' not in df.columns:
         return df
     zero_vol = df.index[df['Volume'] == 0]
@@ -427,7 +433,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     fdr_name   = _KR_INDEX_FDR.get(yf_ticker)
     pykrx_code = _KR_INDEX_PYKRX.get(yf_ticker)
 
-    # 1순위: FDR (Volume 단위 1주 → yfinance 스케일 맞추려면 /1000)
+    # 1순위: FDR (주 단위)
     if fdr_name:
         try:
             import FinanceDataReader as fdr_lib
@@ -443,7 +449,7 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
                     continue
                 vol = float(row['Volume'].iloc[0])
                 if vol > 0:
-                    df.loc[ts, 'Volume'] = round(vol / 1000)
+                    df.loc[ts, 'Volume'] = vol
         except Exception:
             pass
 
@@ -474,6 +480,10 @@ def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
         df = _fetch_kr_index_pykrx(_KR_INDEX_PYKRX[ticker], start, end)
         if df.empty:   # KRX_ID/PW 없음 또는 요청 실패 — yfinance로 폴백
             df = _download(ticker, start, end)
+            # yfinance KR 지수 거래량은 천 주 단위 — pykrx(1순위)와 같은 주 단위로 맞춘다 (#39 M2).
+            # 아래 보정 패치(pykrx·FDR)도 주 단위로 채우므로 반드시 그 전에 바꾼다
+            if 'Volume' in df.columns:
+                df['Volume'] = df['Volume'] * _YF_KR_INDEX_VOLUME_UNIT
             df = _patch_kr_index_today(df, ticker)
         df = _patch_kr_index_ohlc(df, ticker)
         df = _patch_kr_index_volume(df, ticker)
@@ -535,13 +545,29 @@ def _load_kr_names_fdr() -> dict:
 
 
 _name_cache: dict = {}
+# 조회 실패 음성 캐시 {(ticker, market): 재시도 가능 시각(_clock)} — 렌더마다 실패 종목의 .info·pykrx를
+# 다시 두드리면 같은 프로세스의 야후 세션 예산(~245요청)을 깎는다 (#39 M14)
+_name_fail_until: dict = {}
+_NAME_FAIL_TTL_SEC = 3600
+
+
+def _classified_company_name(ticker: str, market: str) -> str | None:
+    """테마 분류 저장소(data/classification)의 companyName — 네트워크 없이 읽는다."""
+    try:
+        from data import classification
+        rec = classification.load_store(market).get(ticker) or {}
+        return (rec.get('companyName') or '').strip() or None
+    except Exception:
+        return None
 
 
 def get_stock_name(ticker: str, market: str = 'US') -> str:
-    """종목 이름 반환. 성공한 결과만 캐시 (실패 시 재시도)."""
+    """종목 이름 반환. 성공은 프로세스 동안, 실패는 _NAME_FAIL_TTL_SEC 동안 캐시한다."""
     key = (ticker, market)
     if key in _name_cache:
         return _name_cache[key]
+    if _clock() < _name_fail_until.get(key, float('-inf')):
+        return ticker
 
     name = None
 
@@ -560,15 +586,19 @@ def get_stock_name(ticker: str, market: str = 'US') -> str:
                 pass
 
     else:
-        # US: yfinance shortName / longName
-        try:
-            info = yf.Ticker(ticker).info
-            name = info.get('shortName') or info.get('longName') or info.get('name') or None
-        except Exception:
-            pass
+        # US: 1순위 분류 저장소 companyName, 2순위 yfinance shortName / longName
+        name = _classified_company_name(ticker, market)
+        if not name:
+            try:
+                info = yf.Ticker(ticker).info
+                name = info.get('shortName') or info.get('longName') or info.get('name') or None
+            except Exception:
+                pass
 
     if name:
         _name_cache[key] = name
+    else:
+        _name_fail_until[key] = _clock() + _NAME_FAIL_TTL_SEC
     return name or ticker
 
 
@@ -618,14 +648,33 @@ def fetch_index_intraday_for_date(name: str, target_date, days: int = 1) -> pd.D
     return df
 
 
+# 지수 심볼 — TradingView 와치리스트·스크리너에 지수가 섞여 들어온다(KRX:KOSDAQ, NASDAQ:IXIC).
+# 종목처럼 수집하면 매 배치 실패로 남고 앱이 재계산마다 다시 받는다 (#39 L7).
+# 실제 종목 티커와 겹치지 않는 것만 둔다 (예: COMP는 Compass Inc. 종목이라 넣지 않는다)
+_INDEX_SYMBOLS = frozenset({
+    'KOSPI', 'KOSDAQ', 'KOSPI200', 'KOSDAQ150', 'KRX100',
+    'IXIC', 'NDX', 'SPX', 'DJI', 'VIX', 'RUT',
+})
+# KRX 종목코드: 숫자로 시작하는 6자리 영숫자 (2024년부터 0091C0 같은 영문 혼합 코드가 있다)
+_KR_CODE = re.compile(r'\d[0-9A-Z]{5}')
+
+
+def is_index_symbol(ticker: str, market: str | None = None) -> bool:
+    """종목이 아닌 심볼인지 — 지수 이름·'^' 심볼, KR 시장이면 6자리 종목코드가 아닌 것."""
+    t = str(ticker).strip().upper()
+    if not t or t.startswith('^') or t in _INDEX_SYMBOLS:
+        return True
+    return bool(market and market.startswith('KR') and not _KR_CODE.fullmatch(t))
+
+
 def parse_tradingview_csv(uploaded_file) -> pd.DataFrame:
-    """TradingView 스크리너 CSV 파싱."""
+    """TradingView 스크리너 CSV 파싱. 지수 심볼 행은 뺀다."""
     df = pd.read_csv(uploaded_file)
     ticker_col = df.columns[0]
     df = df.rename(columns={ticker_col: 'Ticker'})
     # KRX:005930 → 005930
     df['Ticker'] = df['Ticker'].astype(str).str.split(':').str[-1]
-    return df
+    return df[~df['Ticker'].map(is_index_symbol)].reset_index(drop=True)
 
 
 def parse_ticker_txt(content: str) -> list:
@@ -634,7 +683,7 @@ def parse_ticker_txt(content: str) -> list:
     포맷: KRX:229200,KRX:KOSDAQ,###그룹명,KRX:200470,...
     - ###로 시작하는 그룹 라벨 제거
     - KRX: 접두사 제거
-    - 숫자로 시작하는 것만 유효 티커로 취급 (지수·이름 제외)
+    - 지수 심볼(KRX:KOSDAQ, NASDAQ:IXIC 등) 제외 (is_index_symbol)
     """
     tickers = []
     for part in content.replace('\n', ',').split(','):
@@ -642,6 +691,6 @@ def parse_ticker_txt(content: str) -> list:
         if not part or part.startswith('###'):
             continue
         ticker = part.split(':')[-1].strip()
-        if ticker:
+        if ticker and not is_index_symbol(ticker):
             tickers.append(ticker)
     return tickers
