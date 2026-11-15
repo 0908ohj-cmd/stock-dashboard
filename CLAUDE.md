@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-TradingView 스크리너에서 내보낸 CSV/TXT 티커 목록을 업로드하면, 추세추종 전략(지수 조정 → 찐반등 DAY1~5)과 10EMA 기준봉 전략으로 분석해 한국(KOSPI/KOSDAQ)·미국(NASDAQ) 와치리스트를 보여주는 Streamlit 대시보드.
+TradingView 스크리너에서 내보낸 CSV/TXT 티커 목록을 업로드하면, 추세추종 전략(지수 조정 → 찐반등 DAY1~7)과 10EMA 기준봉 전략으로 분석해 한국(KOSPI/KOSDAQ)·미국(NASDAQ) 와치리스트를 보여주는 Streamlit 대시보드.
 
 - 배포: Streamlit Cloud (GitHub `0908ohj-cmd/stock-dashboard`, `runtime.txt` = python-3.11)
 - UI 라벨·주석·커밋 메시지 모두 한국어. 커밋은 `feat:` / `fix:` / `docs:` / `refactor:` 접두사 사용.
@@ -15,12 +15,11 @@ TradingView 스크리너에서 내보낸 CSV/TXT 티커 목록을 업로드하�
 pip install -r requirements.txt                            # 의존성 설치
 streamlit run app.py                                       # 로컬 실행 (port 8501, .streamlit/config.toml)
 
-python3 -m pytest tests/ --ignore=tests/test_scoring.py    # 전체 테스트
+python3 -m pytest tests/                                   # 전체 테스트
 python3 -m pytest tests/test_phases.py -q                  # 파일 단위
 python3 -m pytest tests/ -k "jjin" -q                      # 테스트 이름 패턴
 ```
 
-- ⚠️ `tests/test_scoring.py`는 삭제된 `strategy/scoring.py`를 import하는 스테일 파일이라 이 파일 포함 시 전체 수집이 깨진다 — 반드시 `--ignore` 필요.
 - 루트의 `실행.bat`·`주식대시보드_실행.bat`는 Windows PC용 런처 (이 Mac과 무관).
 
 ## 아키텍처
@@ -41,10 +40,10 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 지수 상태 머신 `strategy/market_status.py:get_market_status`가 중심:
 
-- `normal` → 지수 종가 EMA21 이탈 시 `correction`(DAY1) → 찐반등(장중 저가 EMA21 아래 + 양봉 + 상승폭 ≥ ADR×0.9) 감지 시 `early_signal`(DAY2) → 이후 DAY3~5 (`strategy/phases.py`)
+- `normal` → 지수 종가 EMA21 이탈 시 `correction`(DAY1) → 찐반등(장중 저가 EMA21 아래 + 양봉 + 상승폭 ≥ ADR×0.9 — 전일 종가가 EMA21 아래였다가 당일 종가로 EMA21을 돌파한 날은 장중 저가 조건 면제) 감지 시 `early_signal`(DAY2) → 이후 DAY3~7 (`strategy/phases.py`)
 - 찐반등 실패 판정: 5거래일 내 EMA21 미회복(6번째 거래일에 확정) 또는 찐반등 저점 아래 종가(당일 즉시) → `correction` 복귀. 실패한 후보의 **다음 거래일부터 새 찐반등을 다시 탐색**하므로, 실패가 이후의 유효한 반등을 가리지 않는다
   - 확인창 우선(#28): 찐반등이 실패 규칙을 통과하는 동안 DAY3~7 안의 EMA21 재이탈은 새 조정이 아니다 — 찐반등·DAY·RS 기산점을 유지하고 `rebreak_date`로 '재이탈 주의'만 표시. 확인창 안 저점 아래 종가는 즉시 실패(그 재이탈이 새 이탈일), DAY7 다음 거래일에도 EMA21 아래면 그날이 새 조정의 이탈일 (`market_status._effective_start`)
-- 종목 지표: 조정 구간 RS(`strategy/rs_correction.py` — 전고점~찐반등일 지수 대비 초과수익), 3종 RS(`strategy/indicators.py` — 초과수익률·RS Line 기울기·IBD식 등급), 스윙 등급(`strategy/swing_grade.py`)
+- 종목 지표: 조정 구간 RS(`strategy/rs_correction.py` — 전고점~찐반등일 지수 대비 초과수익), 주도주 점수·하락/상승국면 RS/ADR(`sector_leadership.lead_scores`), 스윙 등급(`strategy/swing_grade.py`)
 - 스윙 등급: 사용자가 지정한 스윙로우 날짜들의 저가 시퀀스를 신고(3)/고(2)/저(1)/신저(0)로 레이블 → 최근 구간 가중 4진수 점수 → S / A++~B-- / C / F. 직전과 같은 저가는 고(2)(쌍바닥 = 지지 확인), 같은 거래일로 매핑되는 날짜(금·토 등)는 하나로 합친다. 상태 전이 DFS(`_TRANSITIONS` → `_achievable_intermediate_scores`)로 달성 가능한 점수만 인정하고, 순위 눈금은 서로 다른 저가 패턴(`_grade_scale`)이라 같은 저가 경로가 기존 패턴 등급을 밀지 않는다(같은 저가로만 나오는 점수는 바로 아래 눈금 등급, 날짜 2개면 B--)
 - ADR 필터: KR ≥ 2%, US ≥ 4%
 - 매수 후보 필터: RS/ADR > 0 · 이평선위치 · 52주 고점대비 ≥ −30% (없으면 −35%로 완화한 상위 5개). **거래량비% 필터는 2026-11-09 제거**
@@ -52,7 +51,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 ### 10EMA 전략 (10EMA 탭 — `ui/watchlist_10ema.py` + `strategy/pivot_candle.py`)
 
-기준봉(거래량 급증 + 60일 신고가 돌파 + 10>21>50 정배열 + 종가 상단 30% + 사전 30% 상승) 탐지 → 상태 분류(셋업/형성중/돌파완료/각종 이탈) → 타점(기준봉 고가)·손절(중간선)·리스크% 산출. ADR ≥ 6% 필터, ThreadPoolExecutor로 병렬 수집.
+최근 63거래일 안의 기준봉(거래량 2배+ + 60일 신고가·VCP 박스 돌파 + 10>21>50 정배열 + 종가 150·200SMA 위 + 종가 상단 30% + 사전 30% 상승) 탐지 → 상태 분류(셋업 케이스1·2/돌파완료/10EMA·중간선·저가 이탈/없음) → 타점(케이스1 = 10EMA, 그 밖 = 기준봉 고가)·현재→타점% 산출. 손절은 사용 가이드에만 있다(케이스1 10EMA − 0.5×ADR, 케이스2 기준봉 저가 − 2%). 사전 필터 `pivot_candle.pp_prefilter`(ADR ≥ 6% · 정배열 · 150·200SMA 위), ThreadPoolExecutor로 병렬 수집.
 
 ### 🇺🇸 주도섹터 탭 (`ui/sector_leadership.py` + `strategy/sector_strength.py`)
 
@@ -63,7 +62,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 섹터 100점은 구성 5종목 이상 + 데이터 80% 이상일 때만 산출. 결측은 0점이 아니라 UNVERIFIED. A/B는 점수 + 게이트 모두 통과
 - 기준일 선택 시 그날 이하 일봉만 쓴다 (point-in-time). 기준일은 사용자가 상자에서 **직접 고른 과거 날짜만** 세션에 기억하고(on_change → `sector_view.pin_asof`/`resolve_asof`), 그 밖엔 매 실행 최신일을 쓴다 — 세션 값을 그대로 쓰면 새 배치가 들어와도 이 탭과 TV 내보내기만 전날 기준에 남았다(#42 M10). 최신일을 고르면 다시 '최신 따라가기'
 - **국면별 화면** (`strategy/next_leaders.py`): 시장 지수(코스피 KOSPI, 코스닥 KOSDAQ, 나스닥 NASDAQ)의 `get_phase_label`로 국면을 나눈다. 배점은 `next_leaders.WEIGHTS` 한 곳에서 관리하고 화면 배점표도 이걸 읽는다 — 조정: 하락국면 RS/ADR 35·52주 고점 근접 35·저점 선행 20·장기 추세 10 / 찐반등 이후: 상승국면 RS/ADR 35·하락국면 20·52주 고점 근접 25·양봉 렐볼 10·장기 추세 10. 장기 추세 = 200일선 방향(오늘 200일선 > 20거래일 전 200일선이면 만점, 아니면 0 — `sma200_rising`·`trend_points`, 주가 위치는 안 봄. 2026-11-14 책 추세 템플릿 8조건 5년 검증에서 이것만 효과 — 나머지는 차기 주도주·급부상 모두 효과 없음/반대라 미도입). 차기 주도주 표 '200일선' 열 = ↗ 상승/↘ 하락 + (이격). 구간: 하락국면 = 기산점~찐반등일, 상승국면 = 찐반등 **전날** 종가~기준일(찐반등 당일 포함). 화면 배치는 국면과 무관하게 고정: 지수 현황 → [🧭 차기 주도 — 추세추종용 묶음: 사용 방법(하락국면·상승국면) + 차기 주도섹터·차기 주도주] → [🔥 급부상 — 10EMA PP용 묶음: 사용 방법 + 급부상 섹터·급부상 종목] → 자세히 보기(섹터별 종목 — 추세추종 탭과 같은 열·`watchlist._build_rows`+`lead_scores`, 둘 다 이 탭 기준일 `res['asof']`로 계산(#42 M11) / 분류 수정만, 2026-11-11 A/B 판정·순환매 점수 순위·섹터 지도·전체 순위·계산 방법 화면 제거). 묶음은 테두리 박스, 안쪽 네 칸은 접기(기본 접힘). 급부상 종목 토글: 추세추종 탭 종목만 · 50점 미만도 보기 · 테마( 차기 주도주와 같은 목록(`_theme_toggles`, 항상 표시, 목록은 `sector_view.theme_toggle_codes`로 중복 제거 — 같은 코드가 두 번이면 DuplicateWidgetID로 탭 전체가 깨진다)에서 비메인 테마 토글은 뺀다(`non_main=False`) — 급부상은 메인 테마만(#41 L11), 섹터 3종목 미만 종목은 최근 5일 렐볼 양봉이면 '섹터 종목 부족 · 단독 렐볼'로 함께 표시. 급부상 종목 정렬은 **PP 가능성 점수**(`next_leaders.PP_WEIGHTS`: 52주 고점 −20% 이내 30·10EMA 5일 유지 25·정배열 25·렐볼 10·1주 RS/ADR 10, 200일선은 점수 대신 관문 — 2026-11-11 검증: 🔥 섹터 종목 중 이 조건일수록 30일 안 PP 기준봉 비율↑, 수익 예측력은 약함). ADR 6% 미만은 제외, 편입 후 자기 렐볼 양봉이 없는 종목도 제외(종목 자신도 핫해야), PP 가능성 점수 50점 미만은 기본 숨김(`PP_MIN_SCORE`, 토글로 보기), 편입일(지금 이어지는 🔥 구간의 시작 — `HOT_GAP` 넘는 공백이 나올 때까지 30거래일 창 밖 이력까지 거슬러 찾아 창이 밀려도 안 바뀜(#30), 공백 뒤 재점화는 새 편입. 이력 처음부터 이어져 모르면 `startedBefore`. 단독 렐볼은 `bull_since`) 5거래일 전부터의 종가 고점에서 3 ADR 이상 밀리거나 종가가 50·150·200일선 아래면 탈락(`PP_DROP_ADR`·`belowSma50/150/200`, 150·200일선은 PP 기준봉 조건 — `pivot_candle.pp_prefilter`와 같은 정의(`next_leaders.below_sma`)라 50점 미만 보기에서도 제외, 검증: 이후 기준봉 4%·9% 안팎, 매일 재계산이라 회복하면 복귀). 후보·탈락·관문·NEW·단독 렐볼 판정은 `next_leaders.hot_stock_pool` 한 곳(UI는 토글 필터·표시만, #41 M9), 렐볼 양봉 정의는 `sector_strength.bullish_rvol` 하나. 편입일 열은 화면에 없고 NEW(오늘 편입) 배지만. 차기 주도주 표: 순위 아래 전일 대비 ▲▼(같은 조건·토글로 전일 재계산, _prev_ranks), 찐반등 기간엔 전일 상위 20 밖→오늘 진입 종목 NEW. TradingView 내보내기에 '🎯 차기 주도주'(화면 상위 20)·'🔥 급부상'(화면 상위 30 중 PP 대상) 섹션 — 렌더 첫머리에서 `register_lead/hot(market, [])`로 먼저 비운다. 차기 주도섹터·주도주는 조정~찐반등 후 약 2주용이고, 상승 추세에서도 다음 21EMA 이탈 전까지 마지막 기산점·찐반등을 유지한다
-- 순환매(`next_leaders.rotation_scores`/`rotation_sectors`): 차기 주도와 같은 재료를 최근 1~2주 롤링 구간으로. 종목 100점 = 52주 고점 근접 30 + 10EMA 5일 유지 25 + 1주 RS/ADR 15 + 양봉 렐볼 20 + 장기 추세 10 (ROT_WEIGHTS, 덜 빠짐 없음). 섹터 점수는 차기 주도섹터와 동일 방식. 🆕 = 2주 전(같은 방식 재계산) 50 미만 → 지금 60 이상 & +15. A/B 판정표는 '자세히 보기'로 이동 섹터 순위는 3종목 이상만
+- 순환매 종목 점수(`next_leaders.rotation_scores`): 차기 주도와 같은 재료를 최근 1~2주 롤링 구간으로. 종목 100점 = 52주 고점 근접 30 + 10EMA 5일 유지 25 + 1주 RS/ADR 15 + 양봉 렐볼 20 + 장기 추세 10 (ROT_WEIGHTS, 덜 빠짐 없음). 지금은 급부상 종목 후보(`hot_stock_pool`)의 재료(PP 가능성 점수·정배열·50·150·200일선 관문 값)로만 쓴다 — 순환매 섹터 순위·🆕 새 순환매(`rotation_sectors`)는 2026-11-11 화면에서 빠졌고 #46에서 코드도 지웠다
 - 🔥 돈 몰린 섹터(`next_leaders.hot_sectors`): 메인 테마 섹터 종목 50%↑가 최근 5일 렐볼(1.5배) 양봉이면 🔥(비메인 '지주·기타' 등은 차기 주도섹터처럼 판정 제외, 단독 렐볼에도 안 넣음 — #41 L11), 10거래일 안 재점화는 같은 🔥, 최근 30거래일 이력 유지. 🔥가 켜진 날(🔥 구간 시작일) 섹터 정배열 종목 비율이 20% 미만이면 그 🔥는 제외(`HOT_MIN_ALIGNED`, 검증: 기준봉 나온 섹터 26% vs 43~54%) — 통과해 켜진 🔥는 뒤 눌림에서 정배열이 풀려도 이력에 남는다(#41 M8), 표는 지금 🔥 → 오늘 정배열 비율 순. 2026-11-11 5년 검증에서 급부상 섹터의 61%를 1~2일 만에 잡은 가장 빠른 신호(순환매 점수·🆕는 20~29%, 5~6일 늦음) — 단 🔥 뒤 성과 예측력은 없음(알림 용도). 시장 대비 보정은 효과 없어 안 씀. 2026-11-11 '순환매' 섹션을 '🔥 급부상 섹터'·'🔥 급부상 종목'으로 교체(종목 칸은 🔥 섹터 종목만, 정렬은 순환매 종목 점수, 🆕 토글 삭제, 순환매 점수 섹터 순위는 '자세히 보기'), 흐름은 🔥 → 6주 안 PP 기준봉·셋업 대기(🔥 뒤 기준봉 발생이 평소의 약 1.3배, 40거래일까지 유지), 10EMA 탭 '🔥 섹터' 열(🔥 판정은 `sector_leadership.hot_history` 단일 출처, 종목의 테마는 10EMA 탭이 `classification.primary_map`으로 직접 찾는다 — 주도섹터 유니버스 밖 종목에도 붙게, #42 M12)
 - '⚙️ RS 구간 설정'(추세추종 탭과 **공유**하는 session_state 키 `{market}_rs_peak`/`{market}_rs_jjin` — `ui/rs_range.py`, 위젯 키만 탭별이고 on_change로 공유 키에 동기화)으로 기산점·찐반등일을 수동 지정 → `detect_phase(peak, jjin)`이 자동값을 대체. 두 탭 모두 `rs_correction.clean_manual_rs_range`로 정리한 같은 값을 점수(`_compute`/`lead_scores`)에 넘기고, 추세추종 탭 자체 RS 구간(저점선행·양봉비)과 '자세히 보기 → 섹터별 종목'의 같은 열은 detect_phase와 같은 규칙의 `resolve_rs_range`로 정한다. `calc_correction_rs`는 기산점 ≥ 찐반등일이면 0 대신 None + `range_error`를 돌려 추세추종 탭이 '구간 설정 오류'를 띄운다(#40 M5). 날짜 위젯의 max_value는 두 탭 모두 지수 최신일로 고정(기준일로 두면 과거 기준일 선택 때 Streamlit이 값을 지웠다), 기준일보다 뒤인 찐반등일·기준일과 같거나 뒤인 기산점은 그 기준일 계산에서만 빼고 경고 — 설정은 남는다(#42 L8). 찐반등일 지정 시 찐반등 국면, 기산점만 자동 찐반등일과 같거나 뒤로 지정하면(상승 추세·찐반등 국면 모두) 그 찐반등을 버리고 '버틴 힘' 화면. 수동 값 때문에 기산점 ≥ 찐반등일(빈 구간 → 덜 빠짐 전원 동점)이 되면 그 수동 값을 무시한다(둘 다 지정이면 기산점부터, 검증은 `rs_correction.is_valid_rs_range` 공용). 무시·조정 사유는 `phase['warning']` → 국면 배너 아래 경고. 휴장일은 직전 거래일로 맞춤
 - 변화 감지(`attach_trend`): 1주·2주 전 같은 구성으로 재계산해 10EMA 위 비율 추이·전주 대비 점수를 붙이고, 10EMA 회복률·RS/ADR·RVOL 확산이 함께 좋아지면 '동시 개선'
@@ -75,18 +74,18 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 - 근거 URL이 없거나 신뢰도 low면 `UNCLASSIFIED`로 두고 `suggestedTheme`만 남긴다. 미분류 종목은 섹터 집계에서 빠진다
 - `overrideByUser=True`(주도섹터 탭 > 분류 검토에서 확정)는 자동 분류가 덮어쓰지 않는다. 변경 이력은 `history`
 - US 배치(`run_batch_local.sh`)가 매 회차 `--scope missing`으로 신규 편입 종목만 분류한다. 테마 목록 version이 `-draft`로 끝나면 배치는 그 시장을 분류하지 않는다
-- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 구 `theme_cache.json`·yfinance로 폴백 (`data/sector.py`). 렌더 경로에는 LLM 런타임 분류가 없다 — 캐시만 읽고 구 캐시에도 없으면 '기타'. 신규 종목 분류는 배치의 `classify_themes.py`만 맡는다(`data/theme_classifier.classify`는 렌더에서 호출 금지 — `themes.json`에 대분류를 자동 추가한다)
+- 와치리스트 '테마'·'섹터' 컬럼은 새 분류를 먼저 쓴다. 기록이 있는데 미분류(사용자 확정·게이트 탈락)면 '미분류'로 표시하고, 분류 기록이 아예 없는 종목만 폴백한다 (`data/sector.py`) — '테마'는 구 `theme_cache.json`의 detail, '섹터'는 yfinance 산업분류 먼저·없으면 구 캐시 대분류(`yf_sector.resolve_sector`). 렌더 경로에는 LLM 런타임 분류가 없다 — 캐시만 읽고 구 캐시에도 없으면 '기타'. 신규 종목 분류는 배치의 `classify_themes.py`만 맡는다. 구 캐시 갱신(LLM)은 `scripts/refresh_sectors.py`만 `data/theme_classifier`의 1차·2차 분류 부품으로 돌린다 — 렌더에서 부르지 말 것(2차 resolve가 `themes.json`에 대분류를 자동 추가한다). 렌더용 일괄 분류 `classify`는 #46에서 지웠다
 
 ### TradingView 내보내기 (`strategy/tv_export.py` + `ui/tv_export.py`)
 
 `와치리스트` 제목 오른쪽의 `📤 TradingView 내보내기` 버튼 하나로 각 탭의 후보를 TradingView 워치리스트 import용 txt로 내보낸다. 포맷은 **한 줄 = 한 섹션**, 줄 맨 앞 `###제목` 뒤에 심볼을 콤마로 잇는다 (KR은 `KRX:` 접두, US는 무접두).
 
-- 담기는 것: 리더보드 US·KR(랭킹 순) → 추세추종 3탭의 **매수 후보**(화면 필터 통과분) → 주도섹터 탭의 🎯 차기 주도주·🔥 급부상. 순서는 `SECTION_ORDER`가 고정. 10EMA 섹션은 2026-11-11 사용자 요청으로 뺐다 — 10EMA 탭은 `register_ema10(market, [])`로 비우기만 한다
+- 담기는 것: 리더보드 US·KR(랭킹 순) → 주도섹터 탭의 🎯 차기 주도주·🔥 급부상. 순서는 `SECTION_ORDER`가 고정. 추세추종 3탭의 매수 후보 섹션은 2026-11-10 차기 주도주로 일원화하며 비웠다(`watchlist.SHOW_CANDIDATES = False` → `register_trend(market, [])`). 10EMA 섹션은 2026-11-11 사용자 요청으로 뺐다 — 10EMA 탭은 `register_ema10(market, [])`로 비우기만 한다. 두 섹션의 `SECTION_ORDER` 키는 다시 켤 때의 자리 때문에 남겨 둔다
 - 주도섹터 탭 섹션(🎯 차기 주도주·🔥 급부상)은 제목 끝에 그 탭의 **기준일 `MM/DD`**를 붙인다(`tv_export.dated_title`, 예: `###🎯 코스피 차기 주도주 11/12,...`) — 파일명은 내려받은 시각이라 기준일을 따로 보여야 한다
 - 각 탭은 렌더 첫머리에서 `register_*(market, [])`로 자기 섹션을 **먼저 비운다** — 조기 return 경로에서 직전 실행의 후보가 세션에 남아 파일에 실리는 것을 막는 장치라 제거하지 말 것
 - 버튼은 탭보다 위에 있으므로 `app.py`가 제목 옆 컬럼에 `st.empty()` 슬롯만 잡아두고, **후보를 등록하는 탭(추세추종·주도섹터) 뒤, 10EMA 탭 앞**에서 `render_export_button(slot)`으로 채운다. 등록 탭보다 앞에 두면 버튼이 빈 목록으로 그려지고, 10EMA 탭 뒤에 두면 10EMA 스캔(캐시가 비면 수 분)이 끝날 때까지 버튼이 '⏳'로 잠긴다(#43 L17). 10EMA 섹션을 다시 내보내려면 이 호출을 10EMA 탭 뒤로 되돌리고 `tests/test_app_export_order.py`도 고칠 것
 - 담긴 섹션·종목 수는 버튼 툴팁(`summarize_sections`)으로 보여준다 — 제목 옆 좁은 자리라 목록을 펼치면 화면을 밀어낸다
-- 후보 필터는 `@st.fragment` 안이라 필터만 바꾸면 버튼이 한 박자 늦는다 — 옆의 `🔄` 버튼이 전체 재실행을 걸어 맞춘다
+- 옆의 `🔄` 버튼은 전체 재실행만 건다. 예전엔 후보 필터가 `@st.fragment` 안이라 필터만 바꾸면 버튼이 한 박자 늦어 필요했지만, fragment는 추세추종 매수 후보 목록과 함께 빠져(e13da8d) 지금은 토글을 바꾸면 전체가 다시 돌아 버튼도 바로 맞는다
 
 ### 배치 데이터 신선도
 

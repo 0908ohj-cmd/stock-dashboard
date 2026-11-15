@@ -259,7 +259,7 @@ def render_10ema_tab(market: str, label: str):
             (_it1, '🔴 10EMA이탈',  '10EMA 아래 연속 2거래일'),
             (_it2, '🔴 중간선이탈', '기준봉 중간선 아래 연속 2거래일'),
             (_it3, '🔴 저가이탈',   '기준봉 저가 하방 이탈'),
-            (_it4, '⚫ 없음',        '최근 6개월 내 기준봉 미탐지'),
+            (_it4, '⚫ 없음',        '최근 63거래일(약 3개월) 내 기준봉 미탐지'),
         ]:
             _col.markdown(
                 '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(180,50,50,0.25)">'
@@ -267,7 +267,7 @@ def render_10ema_tab(market: str, label: str):
                 f'<span style="font-weight:700;color:#fff;font-size:0.81em">{_title}</span>'
                 '</div>'
                 f'<div style="padding:10px 12px;font-size:0.82em;line-height:1.7">{_body}<br>'
-                '<span style="color:#aaa;font-size:0.9em">→ 셋업 무효</span></div>'
+                '<span style="color:#aaa;font-size:0.9em">→ 셋업 무효 · 새 기준봉이 나오면 그 봉으로 다시 판정</span></div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
@@ -297,7 +297,7 @@ def render_10ema_tab(market: str, label: str):
             '| 컬럼 | 설명 | 기준 |\n'
             '|------|------|------|\n'
             '| 기준봉일 | 기준봉 발생 날짜 | |\n'
-            '| 타점 | 기준봉 고가 — ORH 매수 진입가 | |\n'
+            '| 타점 | 케이스1 = 10EMA, 케이스2 = 기준봉 고가(ORH 매수 진입가) | |\n'
             '| 현재→타점% | 현재가 대비 타점까지 남은 거리 (음수 = 타점 아래 = 진입 가능) | −5% 이내 |\n'
             '| 횡보일수 | 기준봉 이후 경과 거래일 수 | 3 ~ 40일 |\n'
             '| 이전상승% | 기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move) | 30%+ 필수 |\n'

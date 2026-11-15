@@ -12,6 +12,7 @@ def get_phase_label(df: pd.DataFrame, index_adr: float) -> str:
       DAY6 = 찐반등 이후 4 거래일 (매수 유효 4일차)
       DAY7 = 찐반등 이후 5 거래일 (매수 유효 마지막)
       DAY7 이후 EMA21 미회복 시 DAY1 복귀
+    index_adr는 쓰지 않는다 — 찐반등 판정은 get_market_status가 지수 자체의 ADR로 한다(호출부 호환용 인자).
     """
     from strategy.market_status import get_market_status
     from strategy.trading_days import trading_days_after

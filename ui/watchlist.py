@@ -455,7 +455,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">② 자동 계산</div>
-    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">구간별 저가가 구간 내 절대 최저가를<br>갱신했는지 여부로 등급 산정<br>최근 날짜 가중치 3배씩 증가</div>
+    <div style="font-size:0.82em;line-height:1.5;opacity:0.8">구간별 저가가 구간 내 절대 최저가를<br>갱신했는지 여부로 등급 산정<br>최근 날짜 가중치 4배씩 증가</div>
   </div>
   <div style="border:1px solid #55555530;border-radius:8px;padding:10px 14px">
     <div style="font-weight:700;font-size:0.85em;margin-bottom:4px">③ 등급순 정렬</div>
@@ -485,7 +485,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
   </div>
 </div>
 <div style="font-size:0.78em;opacity:0.65;margin-top:8px;padding:6px 10px;border-left:3px solid #55555560;line-height:1.6">
-  💡 패턴 레이블: <b>신고</b>(구간 내 절대 최고가 갱신) · <b>고</b>(이전 저가 대비 상승, 최고가 미갱신) · <b>저</b>(하락했으나 최저가 유지) · <b>신저</b>(구간 내 절대 최저가 갱신)<br>
+  💡 패턴 레이블: <b>신고</b>(구간 내 절대 최고가 갱신) · <b>고</b>(이전 저가 이상 — 같은 저가 = 쌍바닥도 고, 최고가 미갱신) · <b>저</b>(하락했으나 최저가 유지) · <b>신저</b>(구간 내 절대 최저가 갱신)<br>
   날짜 3개 → 최대 6패턴 &nbsp;|&nbsp; 날짜 4개 이상 → 전 등급(S·A·B·C) 세분화 활성화
 </div>
 """, unsafe_allow_html=True)

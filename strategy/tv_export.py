@@ -16,6 +16,9 @@ _KRX_PREFIX = 'KRX:'
 
 # 파일 안 섹션 순서. 탭은 화면 순서와 무관하게 등록되므로 여기서 한 번 고정해
 # 매번 같은 자리에서 같은 그룹이 나오게 한다. 주도주(리더보드)를 맨 위에 둔다.
+# trend_*(추세추종 매수 후보, ui.watchlist.SHOW_CANDIDATES=False)·ema10_*(10EMA 셋업, 2026-11-11 제외)는
+# 지금 늘 빈 목록이다. 각 탭이 렌더 첫머리에서 빈 목록으로 먼저 등록하는 계약과 다시 켤 때의 자리 때문에
+# 키는 남긴다 — 빼면 다시 켰을 때 order_sections가 맨 뒤에 붙인다.
 SECTION_ORDER = (
     'leaderboard_us',
     'leaderboard_kr',

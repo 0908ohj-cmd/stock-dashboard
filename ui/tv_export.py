@@ -145,9 +145,9 @@ def render_export_button(slot=None, key: str = 'final', pending: bool = False) -
                 )
 
         with refresh_col:
-            # 후보 필터를 바꾼 직후엔 목록이 한 박자 늦는다(필터는 탭 안 fragment만
-            # 다시 그린다) — 이 버튼이 전체 재실행을 걸어 목록을 지금 화면과 맞춘다.
-            # 분석 중에 누르면 처음부터 다시 도는 꼴이라 그동안은 같이 잠근다.
+            # 수동 전체 재실행 버튼. 예전엔 후보 필터가 탭 안 st.fragment라 필터만 바꾸면 목록이 한 박자
+            # 늦었다 — fragment는 추세추종 매수 후보 목록과 함께 빠져(e13da8d) 지금은 토글을 바꾸면 전체가
+            # 다시 돌아 버튼도 바로 맞는다. 분석 중에 누르면 처음부터 다시 도는 꼴이라 그동안은 같이 잠근다.
             if st.button('🔄', use_container_width=True,
                          disabled=pending,
                          key=f'tv_export_refresh_{key}',
