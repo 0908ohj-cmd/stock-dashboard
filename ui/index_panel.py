@@ -81,6 +81,11 @@ def render_index_panel():
                 elif status.get('correction_start'):
                     icon = '⚫'
                     desc = '정상 (찐반등 미확인)'
+            elif phase != 'DAY1':
+                # 확인창 안 EMA21 재이탈 — 찐반등은 유지하되 주의 표시(#28)
+                rebreak = get_market_status(df).get('rebreak_date')
+                if rebreak is not None:
+                    desc += f' · ⚠️ EMA21 재이탈 주의({rebreak:%m-%d})'
 
             # 현재가·등락률만 실시간 — 국면·ADR·PP는 위에서 배치 확정 일봉으로 계산했다
             disp = live_index.display_values(df, _live_quote(name))
