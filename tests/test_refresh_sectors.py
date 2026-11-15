@@ -134,8 +134,10 @@ def no_universe(monkeypatch):
     return calls
 
 
+# 지수 심볼(KOSDAQ·KOSPI)은 store.snapshot_tickers가 거른다(#39 L7) — 갱신 대상에도 들어오지 않는다.
+# QQQ는 ETF라 지수 심볼이 아니다.
 _EXPECTED_PAIRS = [('0015S0', 'KR_KOSDAQ'), ('005930', 'KR_KOSPI'), ('247540', 'KR_KOSDAQ'),
-                   ('KOSDAQ', 'KR_KOSDAQ'), ('KOSPI', 'KR_KOSPI'), ('NVDA', 'US'), ('QQQ', 'US')]
+                   ('NVDA', 'US'), ('QQQ', 'US')]
 
 
 def test_테마_갱신_대상은_saved_현행_티커파일_합집합이고_KRX를_조회하지_않는다(saved_dir, no_universe):
