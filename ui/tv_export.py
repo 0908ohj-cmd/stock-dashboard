@@ -13,7 +13,7 @@ import streamlit as st
 
 from data import leaderboard_store
 from strategy.tv_export import (
-    build_export, export_filename, order_sections, summarize_sections,
+    build_export, dated_title, export_filename, order_sections, summarize_sections,
 )
 
 # 배포 컨테이너(Streamlit Cloud)는 UTC다 — 그대로 쓰면 파일명 스탬프가 9시간 어긋난다
@@ -59,9 +59,9 @@ _LEAD_TITLE = {
 }
 
 
-def register_lead(market: str, tickers) -> None:
-    """주도섹터 탭 '🎯 차기 주도주' (점수 순, 토글 반영 화면 그대로)."""
-    _register(f'lead_{market}', _LEAD_TITLE.get(market, market), tickers, market)
+def register_lead(market: str, tickers, asof: str | None = None) -> None:
+    """주도섹터 탭 '🎯 차기 주도주' (점수 순, 토글 반영 화면 그대로). 제목 끝에 기준일(MM/DD)을 붙인다."""
+    _register(f'lead_{market}', dated_title(_LEAD_TITLE.get(market, market), asof), tickers, market)
 
 
 _HOT_TITLE = {
@@ -71,9 +71,9 @@ _HOT_TITLE = {
 }
 
 
-def register_hot(market: str, tickers) -> None:
-    """주도섹터 탭 '🔥 급부상 종목' (PP 가능성 점수 순, 토글 반영 화면 그대로)."""
-    _register(f'hot_{market}', _HOT_TITLE.get(market, market), tickers, market)
+def register_hot(market: str, tickers, asof: str | None = None) -> None:
+    """주도섹터 탭 '🔥 급부상 종목' (PP 가능성 점수 순, 토글 반영 화면 그대로). 제목 끝에 기준일(MM/DD)을 붙인다."""
+    _register(f'hot_{market}', dated_title(_HOT_TITLE.get(market, market), asof), tickers, market)
 
 
 def register_ema10(market: str, tickers) -> None:

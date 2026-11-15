@@ -9,6 +9,7 @@ from data.store import load_daily, get_freshness, refetch_market, lag_note
 from data.sector import get_sectors, get_display_sectors
 from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
+from data import classification as cls
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
 from strategy.pivot_candle import (find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter,
                                    setup_sort_key)
@@ -380,9 +381,11 @@ def render_10ema_tab(market: str, label: str):
         return
 
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
-    # 🔥 돈 몰린 섹터(지금 또는 최근 6주) 소속이면 배지 — 주도섹터 탭 순환매와 같은 계산
+    # 🔥 돈 몰린 섹터(지금 또는 최근 6주) 소속이면 배지 — 🔥 판정은 주도섹터 탭과 같은 계산(hot_history),
+    # 종목의 테마는 분류 기록에서 직접 찾는다 (주도섹터 유니버스 밖 종목에도 붙게, #42 M12)
     try:
-        hot, theme_of, hot_labels = hot_history(market)
+        hot, hot_labels = hot_history(market)
+        theme_of = cls.primary_map(market, [r['Ticker'] for r in display_rows])
     except Exception:
         hot, theme_of, hot_labels = {}, {}, {}
 
