@@ -25,8 +25,7 @@ def test_검증된_새_분류가_구_캐시보다_우선한다(tmp_path, monkeyp
     classification.apply_auto('KR_KOSPI', '005930', classification.normalize('KR_KOSPI', {
         'primaryTheme': 'SEMI_MEMORY', 'confidence': 'low', 'evidenceUrls': []}, 't'), recs)
     classification.save_store('KR_KOSPI', recs)
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
     # 005930은 승인 게이트(근거 URL·신뢰도)에서 탈락해 기록이 미분류다. 주도섹터 탭이 집계에서 빼는
     # 종목이므로 와치리스트도 '미분류'로 보여준다 — 동결된 구 캐시 라벨로 폴백하지 않는다(#37)
     assert sector.get_sectors(['000660', '005930'], 'KR_KOSPI') == {'000660': 'HBM 메모리', '005930': '미분류'}
@@ -38,8 +37,11 @@ AAOI_LEGACY = {'AAOI': {'theme': '광통신', 'detail': 'AI 데이터센터 광�
 
 
 def _no_classify(monkeypatch):
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    """렌더 경로가 구 LLM 분류(scripts/refresh_sectors.py 전용 부품)를 부르면 실패시킨다 (#45 M18)."""
+    def boom(*a, **k):
+        raise AssertionError('LLM 분류 호출됨')
+    monkeypatch.setattr(theme_classifier, '_classify_one', boom)
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', boom)
 
 
 def test_미분류로_확정한_종목은_구_라벨로_폴백하지_않는다(tmp_path, monkeypatch):
@@ -109,7 +111,6 @@ def _setup(tmp_path, monkeypatch, cache_content: dict):
     }, ensure_ascii=False), encoding='utf-8')
     monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
     monkeypatch.setattr(theme_classifier, '_THEMES_FILE', themes_file)
-    monkeypatch.setattr(sector, '_SESSION_ATTEMPTED', set())
     monkeypatch.setattr(sector, '_LOGGED', set())
     return cache_file
 
@@ -119,8 +120,7 @@ def test_cache_hit_returns_detail_ttl_ignored(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch, {
         '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2020-01-01T00:00:00'},
     })
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
     assert sector.get_sectors(['000660'], 'KR_KOSPI') == {'000660': 'HBM'}
 
 
@@ -128,8 +128,7 @@ def test_detail_missing_falls_back_to_theme(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch, {
         '000660': {'theme': '메모리 반도체', 'detail': '', 'updated': '2026-01-01T00:00:00'},
     })
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
     assert sector.get_sectors(['000660'], 'KR_KOSPI') == {'000660': '메모리 반도체'}
 
 
@@ -145,8 +144,7 @@ def test_uncached_shows_gita_without_classify(tmp_path, monkeypatch):
 def test_override_bypasses_classify(tmp_path, monkeypatch):
     """지수 티커 등 ticker_overrides는 LLM 호출 없이 즉시 라벨."""
     _setup(tmp_path, monkeypatch, {})
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
     assert sector.get_sectors(['KOSPI'], 'KR_KOSPI') == {'KOSPI': '지수'}
 
 
@@ -162,8 +160,7 @@ def test_cached_only_never_classifies(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch, {
         '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2026-01-01T00:00:00'},
     })
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
     result = sector.get_sectors_cached_only(['000660', '005930', 'KOSPI'], 'KR_KOSPI')
     assert result == {'000660': 'HBM', '005930': '기타', 'KOSPI': '지수'}
 import json
@@ -177,8 +174,7 @@ def test_get_major_themes_캐시만_읽는다(tmp_path, monkeypatch):
         '005930': {'theme': '메모리 반도체', 'detail': 'HBM·AI 메모리', 'updated': '2026-01-01T00:00:00'},
     }, ensure_ascii=False), encoding='utf-8')
     monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
-    monkeypatch.setattr(theme_classifier, 'classify',
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+    _no_classify(monkeypatch)
 
     result = sector.get_major_themes(['005930', '없는티커'])
     assert result == {'005930': '메모리 반도체', '없는티커': ''}
@@ -192,12 +188,14 @@ def test_기록_없는_종목도_렌더에서_분류하지_않고_themes_json을
     (scripts/classify_themes.py) 몫 — 렌더는 캐시만 읽는다."""
     _setup(tmp_path, monkeypatch, {})
     themes_before = theme_classifier._THEMES_FILE.read_text(encoding='utf-8')
-    calls = {'classify': 0, 'subprocess': 0}
-    real_classify = theme_classifier.classify
+    calls = {'classify_one': 0, 'resolve_misc': 0, 'subprocess': 0}
+    real_one, real_resolve = theme_classifier._classify_one, theme_classifier._resolve_misc
 
-    def counting_classify(*a, **k):
-        calls['classify'] += 1
-        return real_classify(*a, **k)
+    def counting(name, real):
+        def f(*a, **k):
+            calls[name] += 1
+            return real(*a, **k)
+        return f
 
     def fake_run(cmd, **kw):   # claude CLI 대역 — 1차는 '기타'+detail, resolve는 2종목짜리 새 대분류
         calls['subprocess'] += 1
@@ -205,10 +203,11 @@ def test_기록_없는_종목도_렌더에서_분류하지_않고_themes_json을
                if '--allowedTools' not in cmd else '{"theme": "기타", "detail": "신규 테마"}')
         return type('P', (), {'stdout': out})()
 
-    monkeypatch.setattr(theme_classifier, 'classify', counting_classify)
+    monkeypatch.setattr(theme_classifier, '_classify_one', counting('classify_one', real_one))
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', counting('resolve_misc', real_resolve))
     monkeypatch.setattr(theme_classifier.subprocess, 'run', fake_run)
 
     assert sector.get_sectors(['NEW1', 'NEW2'], 'US') == {'NEW1': '기타', 'NEW2': '기타'}
-    assert calls == {'classify': 0, 'subprocess': 0}
+    assert calls == {'classify_one': 0, 'resolve_misc': 0, 'subprocess': 0}
     assert theme_classifier._THEMES_FILE.read_text(encoding='utf-8') == themes_before
     assert json.loads(theme_classifier._CACHE_FILE.read_text(encoding='utf-8')) == {}

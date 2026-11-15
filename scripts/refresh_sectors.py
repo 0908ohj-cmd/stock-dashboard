@@ -65,7 +65,7 @@ def _classify_targets(targets: list, themes: list, names: dict, workers: int, ma
 
     def _one(ticker):
         first = theme_classifier._classify_one(ticker, names.get(ticker), themes, markets[ticker])
-        if first is None:  # classify()와 동일하게 1회 재시도
+        if first is None:  # 일시적 실패 대비 1회 재시도
             first = theme_classifier._classify_one(ticker, names.get(ticker), themes, markets[ticker])
         return first
 
@@ -83,8 +83,8 @@ def _classify_targets(targets: list, themes: list, names: dict, workers: int, ma
         if r is not None and r.get('theme') != '기타':
             cache[ticker] = {**r, 'updated': now}
 
-    # '기타'+detail 후보 → 20개 배치 resolve (classify()와 동일 정책:
-    # resolve 실패분도 '기타'로 캐시해 자가치유 대상으로 남긴다)
+    # '기타'+detail 후보 → 20개 배치 resolve. resolve 실패분도 '기타'로 캐시해 자가치유 대상으로 남긴다.
+    # detail 없이 완전 실패한 종목(None)은 넘기지 않는다 — 티커 철자만 보고 대분류를 지어낸다(FROG 사례)
     misc = [t for t, r in results.items()
             if r is not None and r.get('theme') == '기타' and r.get('detail')]
     current = {t: results[t] for t in misc}
