@@ -87,19 +87,21 @@ def test_load_snapshot_memoized_until_file_changes(tmp_store, monkeypatch):
     assert fresh == snap_v2
 
 
-def test_refetch_market_full_replace(tmp_store, monkeypatch):
+def test_refetch_market_partial_keeps_untargeted(tmp_store, monkeypatch):
+    """앱 재수집은 부분 갱신 — 대상 밖 종목(다른 탭 유니버스)을 지우지 않는다 (#31).
+    예전엔 'OLD 제거 = 전체 교체'를 단언했고, 그게 10EMA·주도섹터 종목 소실의 원인이었다."""
     old = {'market': 'US', 'fetched_at': '2026-07-01T07:00:00+09:00',
            'data': {'OLD': store._df_to_records(_sample_df())}}
     (tmp_store / 'US.json').write_text(json.dumps(old), encoding='utf-8')
     monkeypatch.setattr(store, 'fetch_daily_bulk_us',
                         lambda tickers, days: {t: _sample_df() for t in tickers})
     monkeypatch.setattr(store, 'fetch_daily', lambda t, market, days: _sample_df())
-    store.refetch_market('US', ['AAPL', 'TSLA'])
+    snap = store.refetch_market('US', ['AAPL', 'TSLA'])
     saved = json.loads((tmp_store / 'US.json').read_text(encoding='utf-8'))
-    assert set(saved['data'].keys()) == {'AAPL', 'TSLA'}   # OLD 제거 = 전체 교체
-    assert saved['last_trading_date'] == '2026-07-21'
-    assert saved['ticker_count'] == 2
-    assert saved['fetched_at'] is not None
+    assert set(saved['data'].keys()) == {'OLD', 'AAPL', 'TSLA'}
+    assert saved['fetched_at'] == '2026-07-01T07:00:00+09:00'   # 일부만 받았으니 시장 메타 유지
+    assert saved['partial_refetched_at']
+    assert snap['ticker_count'] == 2 and snap['last_trading_date'] == '2026-07-21'   # 이번 수집 결과
 
 
 def test_build_snapshot_records_failures(tmp_store):

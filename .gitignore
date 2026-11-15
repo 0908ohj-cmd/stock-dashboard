@@ -9,3 +9,6 @@ __pycache__/
 .claude/settings.json
 docs/
 .refresh_sectors.lock
+# 원자적 쓰기 임시 파일(data/_atomic.py) — 쓰는 도중 프로세스가 죽으면 남는다.
+# 배치의 git add data/ohlcv에 딸려 들어가면 안 된다
+.*.tmp
