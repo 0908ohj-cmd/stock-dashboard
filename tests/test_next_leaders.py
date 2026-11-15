@@ -474,3 +474,157 @@ def test_기산점_뒤에_상장한_종목은_덜빠짐을_빼고_재정규화�
     assert r['nextScore'] == pytest.approx(100 * sum(used.values()) / sum(w[k] for k in used))
     # 다 계산되는 종목은 그대로 배점 합
     assert out['A']['nextScore'] == pytest.approx(sum(out['A']['nextParts'].values()))
+
+
+# ── #41 M9: 급부상 종목 관문 — 순수 함수 hot_stock_pool ─────────────────
+def _prow(t, theme, pp=60.0, adr=8.0, bull5=True, **kw):
+    """rotation_scores 결과 행 (hot_stock_pool 입력)."""
+    base = {'ticker': t, 'primaryTheme': theme, 'ppScore': pp, 'adrNow': adr, 'hasBullishRvol15InLast5': bull5,
+            'belowSma50': False, 'belowSma150': False, 'belowSma200': False}
+    base.update(kw)
+    return base
+
+
+def _hot(since, now=True, started_before=False):
+    return {'since': since, 'startedBefore': started_before, 'now': now, 'last': None if started_before else since}
+
+
+def _pool(rows, hot, bars, sizes=None, bull=None, asof=None, **kw):
+    asof = asof or next(iter(bars.values())).index[-1]
+    sizes = sizes if sizes is not None else {r['primaryTheme']: 3 for r in rows}
+    return nl.hot_stock_pool(rows, hot, sizes, bull or {}, bars, asof, **kw)
+
+
+def test_hot_stock_pool_불_섹터_종목만_PP점수순():
+    bars = {t: _bars(80, (2,)) for t in ('A', 'B', 'C')}
+    idx = bars['A'].index
+    rows = [_prow('A', 'OPT', 60), _prow('B', 'OPT', 80), _prow('C', 'COLD', 90)]
+    out = _pool(rows, {'OPT': _hot(idx[-3])}, bars)
+    assert [r['ticker'] for r in out['rows']] == ['B', 'A']
+
+
+def test_hot_stock_pool_ADR_6퍼센트_경계():
+    bars = {t: _bars(80, (2,)) for t in ('EQ', 'LO')}
+    idx = bars['EQ'].index
+    rows = [_prow('EQ', 'OPT', adr=6.0), _prow('LO', 'OPT', adr=5.99)]
+    out = _pool(rows, {'OPT': _hot(idx[-3])}, bars)
+    assert [r['ticker'] for r in out['rows']] == ['EQ']          # 6.0%는 통과 (pp_prefilter도 6 미만만 제외)
+
+
+def test_hot_stock_pool_편입_후_자기_렐볼_양봉이_없으면_제외():
+    bars = {'OWN': _bars(80, (2,)), 'NONE': _bars(80, (30,))}     # NONE은 편입(5거래일 앞)보다 훨씬 전에만 렐볼
+    idx = bars['OWN'].index
+    out = _pool([_prow('OWN', 'OPT'), _prow('NONE', 'OPT')], {'OPT': _hot(idx[-3])}, bars)
+    assert [r['ticker'] for r in out['rows']] == ['OWN']
+
+
+def _dd_bars(last):
+    """편입 뒤 종가 고점 128 → 마지막 종가 last. 편입일(뒤에서 10번째) 날 렐볼 양봉."""
+    df = _bars(80, (10,))
+    df.iloc[-10, df.columns.get_loc('Close')] = 128.0
+    df.iloc[-10, df.columns.get_loc('Open')] = 120.0
+    df.iloc[-9:, df.columns.get_loc('Close')] = 100.0
+    df.iloc[-1, df.columns.get_loc('Close')] = last
+    return df
+
+
+def test_hot_stock_pool_고점에서_정확히_3ADR_밀리면_탈락():
+    # (80/128 − 1) × 100 / 12.5 = −3.0 정확히 → '3 ADR 이상' 탈락. 조금 덜 밀리면 남는다
+    bars = {'EQ': _dd_bars(80.0), 'IN': _dd_bars(80.5)}
+    idx = bars['EQ'].index
+    rows = [_prow('EQ', 'OPT', adr=12.5), _prow('IN', 'OPT', adr=12.5)]
+    out = _pool(rows, {'OPT': _hot(idx[-10])}, bars)
+    assert [r['ticker'] for r in out['rows']] == ['IN']
+    assert out['rows'][0]['ddAdr'] == pytest.approx(100 * (80.5 / 128 - 1) / 12.5)
+
+
+def test_hot_stock_pool_50_150_200일선_아래는_탈락():
+    bars = {t: _bars(80, (2,)) for t in ('OK', 'S50', 'S150', 'S200')}
+    idx = bars['OK'].index
+    rows = [_prow('OK', 'OPT'), _prow('S50', 'OPT', belowSma50=True), _prow('S150', 'OPT', belowSma150=True),
+            _prow('S200', 'OPT', belowSma200=True)]
+    out = _pool(rows, {'OPT': _hot(idx[-3])}, bars)
+    assert [r['ticker'] for r in out['rows']] == ['OK']
+
+
+def test_hot_stock_pool_50점_경계는_weak_아님():
+    bars = {t: _bars(80, (2,)) for t in ('EQ', 'LO')}
+    idx = bars['EQ'].index
+    out = _pool([_prow('EQ', 'OPT', 50.0), _prow('LO', 'OPT', 49.99)], {'OPT': _hot(idx[-3])}, bars)
+    weak = {r['ticker']: r['weak'] for r in out['rows']}
+    assert weak == {'EQ': False, 'LO': True}                 # 50점 미만만 기본 숨김 (토글로 보기)
+
+
+def test_hot_stock_pool_NEW는_편입일이_오늘이고_시작일을_알_때만():
+    bars = {t: _bars(80, (1,)) for t in ('A',)}
+    idx = bars['A'].index
+    assert _pool([_prow('A', 'OPT')], {'OPT': _hot(idx[-1])}, bars)['rows'][0]['isNew']
+    assert not _pool([_prow('A', 'OPT')], {'OPT': _hot(idx[-2])}, bars)['rows'][0]['isNew']
+    assert not _pool([_prow('A', 'OPT')], {'OPT': _hot(idx[-1], started_before=True)}, bars)['rows'][0]['isNew']
+
+
+def test_hot_stock_pool_섹터_종목이_3개_미만이면_단독_렐볼로_포함():
+    bars = {t: _bars(80, (2,)) for t in ('SOLO', 'QUIET', 'BIG')}
+    idx = bars['SOLO'].index
+    rows = [_prow('SOLO', 'TINY'), _prow('QUIET', 'TINY', bull5=False), _prow('BIG', 'LARGE')]
+    out = _pool(rows, {}, bars, sizes={'TINY': 2, 'LARGE': 3}, bull={'SOLO': idx[-2]})
+    assert [(r['ticker'], r['solo']) for r in out['rows']] == [('SOLO', True)]
+    assert out['rows'][0]['entry'] == idx[-2]
+
+
+def test_hot_stock_pool_입력_행을_바꾸지_않는다():
+    bars = {'A': _bars(80, (2,))}
+    rows = [_prow('A', 'OPT')]
+    _pool(rows, {'OPT': _hot(bars['A'].index[-3])}, bars)
+    assert 'ddAdr' not in rows[0]                             # 캐시된 rotStocks를 오염시키지 않게
+
+
+def _long_ma_df(last):
+    """100(110봉) → 200(90봉) → 100에서 last까지 상승(60봉). ADR 7%, 최근 정배열.
+    SMA150 ≈ 172, SMA200 ≈ 154 근처라 last 160은 150일선 아래·200일선 위."""
+    closes = np.array([100.0] * 110 + [200.0] * 90 + list(np.linspace(100, last, 60)))
+    idx = pd.bdate_range(end='2026-11-06', periods=len(closes))
+    return pd.DataFrame({'Open': closes, 'High': closes * 1.04, 'Low': closes * 0.97, 'Close': closes,
+                         'Volume': np.full(len(closes), 1e6)}, index=idx)
+
+
+def test_150일선_관문은_pp_prefilter와_같은_정의():
+    from strategy.pivot_candle import pp_prefilter
+    below150 = _long_ma_df(160.0)
+    assert nl.below_sma(below150, 150) and not nl.below_sma(below150, 200)
+    assert pp_prefilter(below150) is None                  # 10EMA 탭도 제외
+    above = _long_ma_df(185.0)
+    assert not nl.below_sma(above, 150) and not nl.below_sma(above, 200)
+    assert pp_prefilter(above) is not None
+
+
+def test_장기_이평_관문_경계_이평과_같으면_통과_이력_부족도_통과():
+    flat = _index(np.full(220, 100.0))                     # 종가 = 200일선 (gap200 = 0)
+    assert nl.sma200_gap(flat) == pytest.approx(0.0)
+    assert not nl.below_sma(flat, 200) and not nl.below_sma(flat, 150)
+    short = _index(np.linspace(100, 90, 120))               # 150·200일 이력 없음 (gap200 None) — pp_prefilter와 같이 통과
+    assert nl.sma200_gap(short) is None
+    assert not nl.below_sma(short, 150) and not nl.below_sma(short, 200)
+
+
+def test_rotation_scores가_150_200일선_아래를_표시한다():
+    idf = _index(np.full(260, 100.0))
+    bars = {'B150': _long_ma_df(160.0)}
+    bars['B150'].index = idf.index
+    rows = [{'ticker': 'B150', 'status': 'FULL', 'aboveEma10': True, 'aboveEma21': True, 'ema10DaysOfLast5': 5,
+             'hasBullishRvol15InLast5': False}]
+    x = nl.rotation_scores(rows, bars, idf, {'B150': 'X'}, {'X'}, idf.index[-1])[0]
+    assert x['belowSma150'] and not x['belowSma200'] and not x['belowSma50']
+
+
+def test_렐볼_양봉_정의는_sector_strength_하나():
+    # 직전 20일 거래량 평균이 0(거래정지 뒤 재개 등)이면 RVOL을 낼 수 없다 — 명세 RVOL20과 같이 렐볼 아님.
+    # 예전 hot_sectors·bull_since·UI는 '거래량 ≥ 0 × 1.5'로 참이 되어 정의가 갈렸다.
+    df = _bars(60, (1,))
+    df.iloc[-21:-1, df.columns.get_loc('Volume')] = 0.0
+    assert not ss.bullish_rvol(df).iloc[-1]
+    assert nl.bull_since({'A': df}, df.index[-1]) == {}
+    normal = _bars(60, (1,))
+    assert ss.bullish_rvol(normal).iloc[-1]
+    assert nl.bull_since({'A': normal}, normal.index[-1]) == {'A': normal.index[-1]}
+    assert nl.HOT_RVOL == ss.RVOL_BULL

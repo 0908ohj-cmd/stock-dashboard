@@ -52,6 +52,15 @@ def rvol20_series(volume: pd.Series) -> pd.Series:
     return volume / prior.where(prior > 0)
 
 
+RVOL_BULL = 1.5     # 렐볼 양봉 거래량 배수
+
+
+def bullish_rvol(df: pd.DataFrame, mult: float = RVOL_BULL) -> pd.Series:
+    """날짜별 렐볼 양봉 여부 = 양봉(종가 > 시가) & RVOL20 ≥ mult. 직전 20일 평균이 없거나 0이면 False.
+    주도섹터 점수·🔥 급부상 섹터·단독 렐볼·급부상 종목 관문이 모두 이 정의 하나를 쓴다(#41 M9)."""
+    return (df['Close'] > df['Open']) & (rvol20_series(df['Volume']) >= mult)
+
+
 def percentile_rank(values: dict) -> dict:
     """{key: 0~1}. 동점은 평균 순위, 최하위 0·최상위 1. 유효값 2개 미만이면 전부 None."""
     valid = {k: v for k, v in values.items() if v is not None and not math.isnan(v)}
@@ -164,8 +173,7 @@ def stock_metrics(ticker: str, df: pd.DataFrame | None, bench: Bench,
     sma50 = close.rolling(50).mean()
     above10_series = close > e10          # 각 거래일 종가 vs 그날의 EMA10
     rvol = rvol20_series(vol)
-    bullish = df['Close'] > df['Open']    # 양봉 = 종가 > 시가 (전일 대비 상승과 다름)
-    bull_rvol = (bullish & (rvol >= 1.5)).iloc[-5:]
+    bull_rvol = bullish_rvol(df).iloc[-5:]    # 양봉 = 종가 > 시가 (전일 대비 상승과 다름)
 
     tr = pd.concat([df['High'] - df['Low'],
                     (df['High'] - close.shift()).abs(),

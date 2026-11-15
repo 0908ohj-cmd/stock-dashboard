@@ -158,6 +158,11 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         prev = (nl.rotation_scores(earlier[1][1].stocks, bars, idx_df, theme_of, main, earlier[1][0])
                 if len(earlier) > 1 else [])
         rot_ranked, rot_thin = nl.rotation_sectors(in_main(rot_stocks), in_main(prev))
+    hot = nl.hot_sectors(bars, theme_of, asof)
+    bull = nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof)
+    sizes: dict = {}        # 단독 렐볼 판정용 섹터 크기 (분류 기준)
+    for th in theme_of.values():
+        sizes[th] = sizes.get(th, 0) + 1
     return {
         'asof': rep.asof,
         'bench': {'names': list(rep.bench.names), 'ret5': rep.bench.ret5, 'ret21': rep.bench.ret21,
@@ -167,8 +172,9 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
         'rotStocks': rot_stocks, 'rotSectors': rot_ranked, 'rotThin': rot_thin,
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
-        'hot': nl.hot_sectors(bars, theme_of, asof), 'themeOf': dict(theme_of),
-        'bullSince': nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof),
+        'hot': hot, 'themeOf': dict(theme_of), 'bullSince': bull,
+        # 급부상 종목 후보·관문 — 규칙은 next_leaders.hot_stock_pool 한 곳 (#41 M9)
+        'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof),
     }
 
 
@@ -563,50 +569,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     # 🔥 급부상 섹터(지금 또는 최근 6주) 소속 종목만 — 정렬은 PP 가능성 점수
     tv_export.register_hot(m.key, [])       # 조기 return 때 직전 목록이 남지 않게 먼저 비운다
     hot = res.get('hot') or {}
-    # 섹터 종목이 3개 미만이라 🔥 판정을 못 받는 종목 — 최근 5일 렐볼 양봉이면 '단독 급등 종목'으로 함께 보여준다
-    size: dict = {}
-    for th in (res.get('themeOf') or {}).values():
-        size[th] = size.get(th, 0) + 1
-    solo = {r['ticker'] for r in res.get('rotStocks') or []
-            if size.get(r['primaryTheme'], 0) < nl.MIN_SECTOR_N and r['hasBullishRvol15InLast5']}
-    pool = [r for r in res.get('rotStocks') or [] if r['primaryTheme'] in hot or r['ticker'] in solo]
-    # ADR 6% 미만은 10EMA 탭 판정 대상이 아니라 아예 뺀다
-    pool = [r for r in pool if r['ppEligible']]
-    # 탈락 — 편입 후 종가 고점에서 3 ADR 이상 밀린 종목 (5년 검증: 이후 30일 기준봉 3.6~3.9% vs 평균 16~17%)
-    asof_ts = pd.Timestamp(res['asof'])
-    bull = res.get('bullSince') or {}
-    data = store.load_snapshot(m.key).get('data', {})
-
-    def since_entry(r):
-        """(편입 후 종가 고점 대비 하락 ADR 배수, 편입 후 자기 렐볼 양봉 있었나).
-        🔥는 최근 5일 렐볼 양봉으로 켜지므로 종목의 움직임은 편입일보다 최대 5거래일 앞설 수 있다 — 그날부터 잰다.
-        편입일(hot_sectors 'since')은 지금 이어지는 🔥 구간의 시작이라 창이 밀려도 안 바뀐다 — 기준 고점도 고정(#30)."""
-        h = hot.get(r['primaryTheme'])
-        since = h['since'] if h else bull.get(r['ticker'])
-        rec = data.get(r['ticker'])
-        if since is None or not rec or not r['adrNow']:
-            return 0.0, bool(r['hasBullishRvol15InLast5'])
-        df = store._records_to_df(rec)
-        df = df[df.index <= asof_ts]
-        avgv = df['Volume'].shift(1).rolling(20).mean()
-        own = (df['Close'] > df['Open']) & (df['Volume'] >= nl.HOT_RVOL * avgv)
-        pos = df.index.searchsorted(since)
-        w = df.iloc[max(0, pos - 5):]
-        if w.empty:
-            return 0.0, bool(r['hasBullishRvol15InLast5'])
-        dd = 100 * (float(w['Close'].iloc[-1]) / float(w['Close'].max()) - 1) / r['adrNow']
-        return dd, bool(own.iloc[max(0, pos - 5):].any())
-
-    for r in pool:
-        r['ddAdr'], r['ownBull'] = since_entry(r)
-    # 종목 자신도 핫해야 한다 — 편입 후 자기 렐볼 양봉이 한 번도 없으면 섹터만 뜨겁고 종목은 안 움직인 것.
-    # 검증(🔥 뒤 0·10·20일): 없음 4~36%, 이후 30일 기준봉 17~21% vs 있음 21~25%
-    pool = [r for r in pool if r['ownBull']]
-    # 탈락 2 — 종가가 50일선 아래 (검증: 3 ADR에 안 걸린 종목 중 이후 30일 기준봉 8.6~9.8% vs 평균 16~17%).
-    # 두 규칙 모두 매일 다시 계산 — 가격이 회복하면(또는 섹터가 새로 🔥 시작하면) 다음 날 목록에 돌아온다
-    # 탈락 3 — 종가가 200일선 아래 (PP 기준봉 조건이 150·200일선 위라 '50점 미만도 보기'에서도 뺀다)
-    pool = [r for r in pool if r['ddAdr'] > -nl.PP_DROP_ADR and not r['belowSma50']
-            and not (r.get('gap200') is not None and r['gap200'] < 0)]
+    # 후보(🔥 섹터 종목 + 단독 렐볼)와 탈락·관문 규칙은 next_leaders.hot_stock_pool — 여기선 토글 필터·표시만 (#41 M9)
+    pool = (res.get('hotPool') or {}).get('rows') or []
     if not pool:
         st.caption('최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.')
         return
@@ -616,7 +580,7 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     show_weak = bar.toggle(f'{nl.PP_MIN_SCORE}점 미만도 보기', key=f'{m.key}_rot_show_weak', width='content',
                            help=f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 종목도 표에 넣습니다 (기본은 숨김)')
     if not show_weak:
-        pool = [r for r in pool if r['ppScore'] >= nl.PP_MIN_SCORE]
+        pool = [r for r in pool if not r['weak']]
     hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
     rows = sorted((r for r in pool
                    if (not only_trend or r['ticker'] in in_trend)
@@ -625,26 +589,15 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
     tv_export.register_hot(m.key, [r['ticker'] for r in rows])   # 화면 표 그대로
     if not rows:
         st.caption('조건에 맞는 종목이 없습니다.')
-    asof = pd.Timestamp(res['asof'])
-    bull = res.get('bullSince') or {}
-
-    def entry(r):
-        """(편입일, 날짜 모름) — 🔥 섹터면 지금 이어지는 🔥 구간의 시작일(창 밖까지 거슬러 찾음, 이력 처음부터
-        이어졌으면 날짜 모름), 단독 렐볼이면 최근 5일 첫 렐볼 양봉 날."""
-        h = hot.get(r['primaryTheme'])
-        if h:
-            return h['since'], h['startedBefore']
-        return bull.get(r['ticker']), False
 
     body = []
     for rank, r in enumerate(rows, 1):
         t = r['ticker']
         nm = _stock_name(t, names, records)
-        d, unknown = entry(r)
-        title = _stock_title(t, nm, d is not None and not unknown and d == asof)
+        title = _stock_title(t, nm, r['isNew'])     # NEW = 편입일(지금 이어지는 🔥 구간 시작·단독 렐볼 첫 렐볼 양봉)이 오늘
         if t not in in_trend:
             title += '<div class="sl-off">추세추종 탭에 없음</div>'
-        if t in solo:
+        if r['solo']:
             title += '<div class="sl-off">섹터 종목 부족 · 단독 렐볼</div>'
         h = hot.get(r['primaryTheme'])
         star = f' <span class="two" style="display:inline">🔥{" 지금" if h["now"] else ""}</span>' if h else ''
