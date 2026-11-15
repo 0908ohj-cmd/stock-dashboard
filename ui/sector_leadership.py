@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-from ui import tv_export
+from ui import rs_range, tv_export
 
 from data import classification as cls
 from data import classification_sync as cls_sync
@@ -21,6 +21,7 @@ from data import store
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
 from strategy import sector_view as sv
+from strategy.rs_correction import _index_peak_date, clean_manual_rs_range, resolve_rs_range
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
@@ -179,7 +180,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_15_11   # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_15_12    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict]:
@@ -212,8 +213,12 @@ def lead_scores(market_key: str, peak: str = '', jjin: str = '', asof: str = '')
     opts = _asof_options(m)
     if not opts:
         return {}
+    asof = asof or opts[0]
+    # 주도섹터 탭과 같은 정리 — 계산 기준일보다 뒤인 수동 날짜는 뺀다(#42 L8). 같은 문자열 → 같은 캐시
+    p_, j_, _ = clean_manual_rs_range(peak or None, jjin or None, asof)
+    peak, jjin = rs_range.date_str(p_), rs_range.date_str(j_)
     try:
-        res = _compute(m.key, asof or opts[0], _data_key(m), peak, jjin)
+        res = _compute(m.key, asof, _data_key(m), peak, jjin)
     except ValueError:
         return {}
     picks = sorted(res['picks'], key=lambda p: -p['nextScore'])
@@ -964,8 +969,11 @@ def _prev_ranks(m: Market, res: dict, peak: str, jjin: str, keep) -> tuple[dict 
     prev_asof = opts[i + 1]
     rebound = (ph.get('jjinDate') is not None
                and pd.Timestamp(prev_asof) >= pd.Timestamp(ph.get('jjinBase') or ph['jjinDate']))
+    # 전일 화면과 같은 조건 — 수동 날짜도 전일 기준일로 다시 정리한다(#42 L8). 안 하면 오늘 찐반등일이
+    # 전일로 당겨져(detect_phase._snap) '어제가 찐반등'인 순위나, 기산점 = 전일인 빈 구간과 비교하게 된다
+    p_, j_, _ = clean_manual_rs_range(peak or None, jjin or None, prev_asof)
     try:
-        prev = _compute(m.key, prev_asof, _data_key(m), peak, jjin)
+        prev = _compute(m.key, prev_asof, _data_key(m), rs_range.date_str(p_), rs_range.date_str(j_))
     except ValueError:
         return None, rebound
     prev_top3 = {s['theme'] for s in prev['nextSectors'][:3]}
@@ -1201,13 +1209,21 @@ def _drilldown(m: Market, res: dict, labels: dict, names: dict, peak: str = '', 
     opts = {f"{labels[s['theme']]} ({s['memberCount']}종목)": s for s in sectors}
     pick = st.selectbox('섹터 선택', list(opts), key=f'{m.key}_drill')
     s = opts[pick]
-    status = wl._get_market_status_cached(m.key, wl._snapshot_ts('indices'))
+    idx_ts = wl._snapshot_ts('indices')
+    status = wl._get_market_status_cached(m.key, idx_ts)
     cs, jd = status['correction_start'], status['jjin_date']
+    # 저점선행·양봉비 구간은 추세추종 탭과 같은 규칙(resolve_rs_range) — 수동 값을 그대로 넘기면 수동 기산점이
+    # 자동 찐반등일과 같거나 뒤일 때 빈 구간이 됐다(#40 M5)
+    idx = wl._fetch_index_cached(m.phase_index, idx_ts)
+    auto_peak = _index_peak_date(idx, cs) if cs is not None and not idx.empty else None
+    custom_peak, rs_jjin, _ = (resolve_rs_range(idx.index, peak or None, jjin or None, auto_peak, jd)
+                               if not idx.empty else (None, jd, None))
     # 종가·등락·고점대비·이평선위치와 주도주 점수는 위쪽 표와 같은 기준일(res['asof'])로 — 최신일로 두면
     # 과거 기준일을 골랐을 때 같은 종목에 두 값이 보였다(#42 M11)
     rows = wl._build_rows(tuple(sorted(s['members'])), m.key,
-                          str(cs.date()) if cs else None, jjin or (str(jd.date()) if jd else None),
-                          peak or None, res['asof'], None, wl._snapshot_ts(m.key), wl._snapshot_ts('indices'))
+                          str(cs.date()) if cs else None, rs_range.date_str(rs_jjin) or None,
+                          rs_range.date_str(custom_peak) or None, res['asof'], None,
+                          wl._snapshot_ts(m.key), idx_ts)
     if not rows:
         st.caption('표시할 종목이 없습니다 (데이터 부족 또는 ADR 필터).')
         return
@@ -1408,25 +1424,20 @@ def _auto_phase(index_name: str, asof: str, idx_key: int) -> dict | None:
 
 
 def _rs_range(m: Market, asof: str) -> tuple[str, str]:
-    """추세추종 탭과 같은 '⚙️ RS 구간 설정'. 비워두면 자동. 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
+    """추세추종 탭과 같은 '⚙️ RS 구간 설정' — 같은 공유 키(ui.rs_range)라 한쪽에서 지정하면 두 탭이 같은 값으로
+    계산한다(#40 M5). 반환: (기산점, 찐반등일) 문자열, 자동이면 ''."""
     auto = _auto_phase(m.phase_index, asof, _mtime(store._snapshot_path('indices'))) or {}
-    ap, aj = auto.get('autoPeakDate'), auto.get('autoJjinDate')
-    max_d = pd.Timestamp(asof).date()
-    with st.expander('⚙️ RS 구간 설정', expanded=False):
-        c1, c2 = st.columns(2)
-        c1.caption(f'자동 기산점: {ap:%Y-%m-%d}' if ap is not None else '자동 기산점: 없음 (조정 미감지)')
-        peak = c1.date_input('기산점 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_peak',
-                             help='비워두면 지수가 21EMA를 이탈하기 전 고점을 씁니다. '
-                                  '"지수 대비 (기산점 이후)"·덜 빠짐·저점 선행이 이 날짜부터 다시 계산됩니다.')
-        c2.caption(f'자동 찐반등일: {aj:%Y-%m-%d}' if aj is not None else '자동 찐반등일: 없음 (미감지)')
-        jjin = c2.date_input('찐반등일 수동 설정', value=None, max_value=max_d, key=f'{m.key}_rs_jjin',
-                             help='비워두면 자동 감지한 찐반등일을 씁니다. 지정하면 찐반등 이후 화면으로 바뀌고 '
-                                  '"찐반등 후 지수 대비"가 이 날짜부터 계산됩니다.')
-        if peak and jjin and peak >= jjin:
-            st.warning('기산점이 찐반등일보다 앞이어야 합니다 — 기산점 설정을 무시합니다.')
-            peak = None
-        st.caption('휴장일을 고르면 직전 거래일로 맞춥니다. 기준일이 바뀌어도 설정은 유지됩니다.')
-    return (str(peak) if peak else '', str(jjin) if jjin else '')
+    # 고를 수 있는 마지막 날 = 최신일(추세추종 탭과 같은 지수의 마지막 날)로 고정 — 기준일로 두면 과거 기준일을
+    # 고를 때 Streamlit이 범위 밖 값을 None으로 지워 설정이 사라졌다(#42 L8). 기준일보다 뒤인 날짜는
+    # clean_manual_rs_range가 이 기준일 계산에서만 빼고 알린다.
+    idx_dates = (store.load_snapshot('indices').get('data', {}).get(m.phase_index) or {}).get('dates') or [asof]
+    latest = pd.Timestamp(max(idx_dates[-1], asof)).date()
+    raw_peak, raw_jjin = rs_range.rs_range_inputs(
+        m.key, 'sector', auto.get('autoPeakDate'), auto.get('autoJjinDate'),
+        max_date=latest, note='기준일이 바뀌어도 설정은 유지됩니다.')
+    peak, jjin, warns = clean_manual_rs_range(raw_peak, raw_jjin, asof)
+    rs_range.show_warnings(warns)
+    return rs_range.date_str(peak), rs_range.date_str(jjin)
 
 
 def _pin_key(market_key: str) -> str:

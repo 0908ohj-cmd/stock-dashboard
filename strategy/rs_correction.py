@@ -92,11 +92,17 @@ def calc_correction_rs(
     empty = {
         'stock_pct': 0.0, 'index_pct': 0.0, 'excess_pct': 0.0, 'excess_adr': 0.0,
         'lead_days': 0, 'ma_score': 0,
-        'vol_ratio': 0.0, 'candle_ratio': 0.0,
+        'vol_ratio': 0.0, 'candle_ratio': 0.0, 'range_error': False,
     }
 
     end       = jjin_date if jjin_date is not None else index_df.index[-1]
     peak_date = custom_peak_date if custom_peak_date is not None else _index_peak_date(index_df, correction_start)
+
+    # 기산점 ≥ 찐반등일(구간 없음) — 0을 돌려주면 전 종목 동점이 되고 RS/ADR > 0 필터가 전 종목을 조용히
+    # 거른다(#40 M5). 값 대신 None + range_error로 돌려 화면이 '구간 설정 오류'를 띄우게 한다.
+    # 아래 데이터 부족(지수 구간 2거래일 미만 → 0, 기산점 뒤 상장 → None #41 M6)은 구간 오류가 아니다(range_error False).
+    if not is_valid_rs_range(peak_date, end):
+        return {**{k: None for k in empty}, 'ma_score': 0, 'range_error': True}
 
     # RS%, 저점선행 모두 고점부터 측정
     idx_slice = index_df[(index_df.index >= peak_date) & (index_df.index <= end)]
@@ -142,4 +148,68 @@ def calc_correction_rs(
         'ma_score':     ma_score,
         'vol_ratio':    _vol_ratio(stk_slice),
         'candle_ratio': _candle_ratio(stk_slice),
+        'range_error':  False,
     }
+
+
+
+# ── RS 구간 수동 설정 — 추세추종 탭·주도섹터 탭 공용 (#40 M5) ──────────
+
+def _ts(d) -> pd.Timestamp | None:
+    return None if d is None or d == '' else pd.Timestamp(d).normalize()
+
+
+def clean_manual_rs_range(peak, jjin, asof=None) -> tuple[pd.Timestamp | None, pd.Timestamp | None, list]:
+    """'⚙️ RS 구간 설정' 입력 정리 → (기산점, 찐반등일, 경고 목록). 두 탭이 같은 값으로 점수를 부르게
+    여기 한 곳에서 거른다. 날짜는 date·문자열·Timestamp 무엇이든 자정 Timestamp로 맞춘다.
+    - asof(기준일) 뒤의 찐반등일, asof와 같거나 뒤의 기산점(구간 없음) → 이 기준일 계산에서만 뺀다 (#42 L8).
+      위젯 값은 그대로라 기준일을 되돌리면 다시 적용된다
+    - 둘 다 지정했는데 기산점 ≥ 찐반등일 → 기산점을 버린다 (next_leaders.detect_phase와 같은 '기산점부터' 규칙)"""
+    peak, jjin, asof = _ts(peak), _ts(jjin), _ts(asof)
+    warns = []
+    if asof is not None:
+        if jjin is not None and jjin > asof:
+            warns.append(f'찐반등일({jjin:%m/%d})이 기준일({asof:%m/%d})보다 뒤라 이 기준일 계산에서는 뺍니다 '
+                         '— 설정은 남아 있어 기준일을 그 뒤로 바꾸면 다시 적용됩니다.')
+            jjin = None
+        if peak is not None and peak >= asof:
+            warns.append(f'기산점({peak:%m/%d})이 기준일({asof:%m/%d})과 같거나 뒤라 RS 구간이 없어 이 기준일 계산에서는 '
+                         '뺍니다 — 설정은 남아 있어 기준일을 그 뒤로 바꾸면 다시 적용됩니다.')
+            peak = None
+    if peak is not None and jjin is not None and not is_valid_rs_range(peak, jjin):
+        warns.append(f'기산점({peak:%m/%d})이 찐반등일({jjin:%m/%d})보다 앞이어야 합니다 — 기산점 설정을 무시합니다.')
+        peak = None
+    return peak, jjin, warns
+
+
+def _snap(dates: pd.DatetimeIndex, d) -> pd.Timestamp:
+    """d 이하 마지막 거래일 (휴장일 → 직전 거래일), d가 첫 거래일보다 앞이면 첫 거래일 — next_leaders._snap과 같은 규칙."""
+    pos = int(dates.searchsorted(pd.Timestamp(d), side='right')) - 1
+    return dates[max(pos, 0)]
+
+
+def resolve_rs_range(dates: pd.DatetimeIndex, peak, jjin, auto_peak, auto_jjin
+                     ) -> tuple[pd.Timestamp | None, pd.Timestamp | None, str | None]:
+    """추세추종 탭 RS 구간(저점선행·양봉비 등) → (쓸 수동 기산점 | None, 찐반등일 | None, 경고 | None).
+    주도섹터 탭 점수(next_leaders.detect_phase)와 같은 규칙이라 같은 수동 값이면 두 탭 구간이 같다.
+    - 수동 날짜는 지수 거래일로 맞춘다 (휴장일 → 직전 거래일)
+    - 기산점만 지정했는데 자동 찐반등일과 같거나 뒤 → 그 찐반등을 버리고 기산점부터 (찐반등일 None)
+    - 그래도 기산점 ≥ 찐반등일이면 원인이 된 수동 값을 무시 (둘 다 지정이면 기산점부터)"""
+    p = _snap(dates, peak) if peak is not None else None
+    j = _snap(dates, jjin) if jjin is not None else None
+    peak_d = p if p is not None else auto_peak
+    jjin_d = j if j is not None else auto_jjin
+    warning = None
+    if p is not None and j is None and auto_jjin is not None and auto_jjin <= p:
+        warning = (f"수동 기산점({p:%m/%d})이 자동 찐반등일({auto_jjin:%m/%d})과 같거나 뒤라 그 찐반등을 무시하고 "
+                   "기산점부터 계산합니다.")
+        jjin_d = None
+    if (p is not None or j is not None) and not is_valid_rs_range(peak_d, jjin_d):
+        if p is not None and j is not None:
+            ignored, sub = '수동 기산점', resolve_rs_range(dates, None, jjin, auto_peak, auto_jjin)
+        else:
+            ignored, sub = ('수동 기산점' if p is not None else '수동 찐반등일'), (None, auto_jjin, None)
+        msg = (f'기산점({peak_d:%m/%d})이 찐반등일({jjin_d:%m/%d})과 같거나 뒤라 RS 구간이 비므로 {ignored}을 '
+               '무시했습니다 — 기산점은 찐반등일보다 앞이어야 합니다.')
+        return sub[0], sub[1], (msg if not sub[2] else f'{msg} {sub[2]}')
+    return p, jjin_d, warning

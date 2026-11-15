@@ -9,14 +9,14 @@ def _ema21(index_df: pd.DataFrame) -> pd.Series:
     return calc_ema(index_df, 21)
 
 
-def _pos(index: pd.Index, d) -> int:
-    """날짜 d의 위치. 중복 날짜면 첫 위치 (get_loc은 slice·mask를 돌려준다). 없으면 KeyError."""
-    loc = index.get_loc(d)
-    if isinstance(loc, slice):
-        return int(loc.start)
-    if isinstance(loc, np.ndarray):
-        return int(np.flatnonzero(loc)[0])
-    return int(loc)
+def _normalize(index_df: pd.DataFrame) -> pd.DataFrame:
+    """날짜순 정렬 + 같은 날짜는 마지막 행만 (store 병합에서 나중에 들어온 값이 최신) — #40 L1.
+    공개 진입점(get_market_status·detect_jjin_bounce)에서 한 번 거치므로 안쪽 함수는 날짜가
+    오름차순·유일하다고 가정한다(get_loc이 정수 위치, .loc이 스칼라를 돌려준다)."""
+    idx = index_df.index
+    if idx.is_unique and idx.is_monotonic_increasing:
+        return index_df
+    return index_df[~idx.duplicated(keep='last')].sort_index()
 
 
 def detect_jjin_bounce(index_df: pd.DataFrame,
@@ -32,6 +32,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
     corr_start: 조정 시작일(실효 이탈일). None이면 마지막 EMA21 이탈일 — 확인창 안의
       재이탈(#28)은 이탈일이 아니므로 get_market_status가 실효 이탈일을 넘긴다.
     """
+    index_df = _normalize(index_df)
     if len(index_df) < 22:
         return None
 
@@ -45,7 +46,7 @@ def detect_jjin_bounce(index_df: pd.DataFrame,
 
     last_start = corr_start if corr_start is not None else bd_starts[-1]
     try:
-        last_start_loc = _pos(index_df.index, last_start)
+        last_start_loc = index_df.index.get_loc(last_start)
     except KeyError:
         return None
 
@@ -151,18 +152,14 @@ def _jjin_failure_date(index_df: pd.DataFrame, jjin_date: pd.Timestamp,
     if jjin_date not in index_df.index:
         return None
 
-    def _scalar(v):
-        """중복 날짜가 섞이면 .loc/[]가 Series를 반환한다 — 마지막 값으로 축약."""
-        return float(v.iloc[-1] if isinstance(v, pd.Series) else v)
-
-    jjin_low = _scalar(index_df.loc[jjin_date, 'Low'])
+    jjin_low = float(index_df.loc[jjin_date, 'Low'])
     after = index_df[index_df.index > jjin_date]
     recovered = False
     for i, (idx, row) in enumerate(after.iterrows()):
         close = float(row['Close'])
         if close < jjin_low:
             return idx
-        if i < window and idx in ema21.index and close > _scalar(ema21[idx]):
+        if i < window and idx in ema21.index and close > float(ema21[idx]):
             recovered = True
         if i == window and not recovered:
             return idx
@@ -225,7 +222,7 @@ def _effective_start(index_df: pd.DataFrame, ema21: pd.Series, below: pd.Series
         if nxt - first_rec <= CONFIRM_WINDOW:
             # 재이탈 전날까지의 데이터로 판정 — 이후 데이터가 이미 지난 판정을 바꾸지 않게
             jjin, _ = _resolve_jjin(index_df.iloc[:nxt], ema21.iloc[:nxt], index_df.index[eff])
-        pj = _pos(index_df.index, jjin['date']) if jjin else None
+        pj = index_df.index.get_loc(jjin['date']) if jjin else None
         if jjin is None or nxt > pj + CONFIRM_WINDOW:
             eff = cursor = nxt
             carried = None
@@ -234,7 +231,7 @@ def _effective_start(index_df: pd.DataFrame, ema21: pd.Series, below: pd.Series
         after = win_end + 1
         # DAY7 다음 거래일(규칙 ① 확정일)까지의 실패 판정
         failed = _jjin_failure_date(index_df.iloc[:after + 1], jjin['date'], ema21)
-        if failed is not None and _pos(index_df.index, failed) <= win_end:
+        if failed is not None and index_df.index.get_loc(failed) <= win_end:
             eff = cursor = nxt                          # 확인창 안 저점 아래 종가 → 즉시 실패
             carried = jjin['date']
             continue
@@ -268,6 +265,7 @@ def get_market_status(index_df: pd.DataFrame) -> dict:
         'jjin_stars': 0, 'failed_jjin_date': None,
         'rebreak_date': None,
     }
+    index_df = _normalize(index_df)
     if len(index_df) < 22:
         return base
 

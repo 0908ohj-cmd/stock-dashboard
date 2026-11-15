@@ -358,3 +358,30 @@ def test_jjin_bounce_skips_incomplete_ohlc_row():
                        'Close': closes, 'Volume': vols}, index=dates)
 
     assert detect_jjin_bounce(df) is None
+
+
+# ── 입력 정규화: 정렬 안 된 입력·중복 날짜 (#40 L1) ─────────────
+# 진입부에서 날짜순 정렬 + 같은 날짜는 마지막 행(store 병합에서 나중에 들어온 최신 값)만 남긴다.
+
+def test_unsorted_input_gives_same_status_as_sorted():
+    """정렬 안 된 입력도 정렬한 입력과 같은 결과 — EMA·이탈일이 뒤섞인 순서로 계산되면 안 된다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK)
+    shuffled = df.iloc[np.random.default_rng(0).permutation(len(df))]
+    assert get_market_status(shuffled) == get_market_status(df)
+
+
+@pytest.mark.parametrize('dup', ['2026-02-10', '2026-02-19', '2026-02-23'])
+def test_duplicate_date_uses_last_row(dup):
+    """같은 날짜가 두 번이면 뒤 행(최신 값)을 쓴다 — 앞의 낡은 행이 계산에 섞이면 안 된다.
+    이탈일(02-10)·찐반등일(02-19)·재이탈일(02-23)에 낡은 행을 끼워 넣는다."""
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK)
+    stale = df.copy()
+    stale.loc[_T(dup), ['Open', 'High', 'Low', 'Close']] = [150.0, 151.0, 149.0, 150.0]
+    mixed = pd.concat([stale, df.loc[[_T(dup)]]])        # 진짜 행이 맨 뒤 — 정렬도 안 된 상태
+    assert get_market_status(mixed) == get_market_status(df)
+
+
+def test_detect_jjin_bounce_normalizes_unsorted_input():
+    df = _correction_df()
+    shuffled = df.iloc[::-1]
+    assert detect_jjin_bounce(shuffled) == detect_jjin_bounce(df)

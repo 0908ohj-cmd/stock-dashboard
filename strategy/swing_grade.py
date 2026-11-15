@@ -1,4 +1,4 @@
-import itertools
+from bisect import bisect_right
 from functools import lru_cache
 
 import pandas as pd
@@ -12,33 +12,41 @@ GRADE_ORDER = {
 
 _GRADES_ASC = ['B--', 'B-', 'B', 'B+', 'B++', 'A--', 'A-', 'A', 'A+', 'A++']
 
-# 레이블 전이 제약:
-#   신저(0) 직후 → 저(1) 불가  (새 seq_min = prices[i+1] 이므로 다음 구간에서 "이전가 미만 & 최저가 이상" 조건 충족 불가)
-#   신고(3) 직후 → 고(2) 불가  (새 seq_max = prices[i+1] 이므로 "이전가 초과 & 최고가 이하" 조건 충족 불가)
-_AFTER_LABELS: dict[int, tuple[int, ...]] = {
-    3: (3, 1, 0),        # 신고 다음: 신고·저·신저
-    2: (3, 2, 1, 0),     # 고   다음: 전부 가능
-    1: (3, 2, 1, 0),     # 저   다음: 전부 가능
-    0: (3, 2, 0),        # 신저 다음: 신고·고·신저
+# 레이블 전이 — 상태 = 직전 저가가 지금까지 구간의 최저·최고와 어떤 관계인가.
+# 같은 저가(=고, #40 M4)가 들어오면 다음 레이블 가능 여부가 직전 레이블만으로 정해지지 않는다
+# (첫 구간 같은 저가 '고' 직후엔 '저'가 불가능하지만, 최저보다 높은 '고' 직후엔 가능하다) → 상태로 추적.
+#   'flat': 최저 = 최고 = 직전   (첫 날짜, 또는 같은 저가만 이어짐)
+#   'top' : 직전 = 최고 > 최저
+#   'bot' : 직전 = 최저 < 최고
+#   'mid' : 최저 < 직전 < 최고
+# 항목: (레이블, 다음 상태, 서로 다른 저가만으로도 가능한가 — 등급 눈금용)
+_TRANSITIONS: dict[str, tuple[tuple[int, str, bool], ...]] = {
+    'flat': ((3, 'top', True), (2, 'flat', False), (0, 'bot', True)),
+    'top':  ((3, 'top', True), (2, 'top', False),                      # 같은 저가 = 최고
+             (1, 'mid', True), (1, 'bot', False), (0, 'bot', True)),
+    'bot':  ((3, 'top', True), (2, 'top', False), (2, 'bot', False),   # 쌍바닥
+             (2, 'mid', True), (0, 'bot', True)),
+    'mid':  ((3, 'top', True), (2, 'top', False), (2, 'mid', True),
+             (1, 'mid', True), (1, 'bot', False), (0, 'bot', True)),
 }
 
 
-def _low_on(df: pd.DataFrame, date) -> float | None:
-    """해당 날짜 이전 마지막 거래일의 저가(Low) 반환."""
-    avail = df[df.index <= pd.Timestamp(date)]
-    return float(avail['Low'].iloc[-1]) if not avail.empty else None
+def _trading_day(df: pd.DataFrame, date) -> pd.Timestamp | None:
+    """해당 날짜 이하 마지막 거래일 (주말·휴장일 → 직전 거래일). 데이터보다 앞이면 None."""
+    avail = df.index[df.index <= pd.Timestamp(date)]
+    return avail[-1] if len(avail) else None
 
 
 def _label_value(current: float, previous: float, seq_min: float, seq_max: float) -> int:
     """
     신고(3): 구간 내 절대 최고가 갱신
-    고  (2): 이전가 대비 상승, 최고가 미갱신
+    고  (2): 이전가 이상(같은 저가 = 쌍바닥 = 지지 확인, #40 M4), 최고가 미갱신
     저  (1): 이전가 대비 하락, 최저가 미갱신
     신저(0): 구간 내 절대 최저가 갱신
     """
     if current > seq_max:
         return 3
-    elif current > previous:
+    elif current >= previous:
         return 2
     elif current >= seq_min:
         return 1
@@ -60,29 +68,35 @@ def _max_seq_score(n: int) -> int:
     return (4 ** n) - 1
 
 
-@lru_cache(maxsize=8)
-def _achievable_intermediate_scores(n: int) -> tuple:
-    """
-    실제로 달성 가능한 중간 점수 집합 (S·C 제외).
-    _AFTER_LABELS 전이 제약을 지켜 DFS로 탐색.
-    - i=0: 신고(3) 또는 신저(0)만 가능 (seq_min=seq_max=prices[0]이므로)
-    - 신저(0) 직후: 저(1) 불가
-    - 신고(3) 직후: 고(2) 불가
-    """
+def _dfs_scores(n: int, distinct_only: bool) -> tuple:
+    """_TRANSITIONS를 따라 n구간 점수를 모두 모은 뒤 S(전구간 신고)·C(0)를 뺀 중간 점수 (오름차순).
+    distinct_only: 서로 다른 저가만으로 가능한 경로만 (같은 저가 규칙 이전의 등급 눈금)."""
     max_s = _max_seq_score(n)
     scores: set[int] = set()
-    # stack: (depth, prev_label, score_so_far)  prev=-1 = 첫 구간
-    stack = [(0, -1, 0)]
+    stack = [(0, 'flat', 0)]        # (depth, 상태, 점수)
     while stack:
-        depth, prev, score = stack.pop()
+        depth, state, score = stack.pop()
         if depth == n:
             if 0 < score < max_s:
                 scores.add(score)
             continue
-        choices = (0, 3) if prev == -1 else _AFTER_LABELS[prev]
-        for v in choices:
-            stack.append((depth + 1, v, score + v * (4 ** depth)))
+        for v, nxt, distinct in _TRANSITIONS[state]:
+            if distinct or not distinct_only:
+                stack.append((depth + 1, nxt, score + v * (4 ** depth)))
     return tuple(sorted(scores))
+
+
+@lru_cache(maxsize=8)
+def _achievable_intermediate_scores(n: int) -> tuple:
+    """실제로 달성 가능한 중간 점수 집합 (S·C 제외) — 같은 저가 포함. 여기 없는 점수만 '—'."""
+    return _dfs_scores(n, distinct_only=False)
+
+
+@lru_cache(maxsize=8)
+def _grade_scale(n: int) -> tuple:
+    """등급 눈금 = 서로 다른 저가로만 된 패턴의 중간 점수. 같은 저가 경로가 늘어도 기존 패턴의 순위·등급이
+    밀리지 않게 순위는 이 눈금으로 매긴다(#40 M4)."""
+    return _dfs_scores(n, distinct_only=True)
 
 
 def _grade_from_score(t_score: int, n: int) -> str:
@@ -91,12 +105,14 @@ def _grade_from_score(t_score: int, n: int) -> str:
         return 'S'
     if t_score == 0:
         return 'C'
-    intermediates = _achievable_intermediate_scores(n)
-    if t_score not in intermediates:
+    if t_score not in _achievable_intermediate_scores(n):
         return '—'
-    rank = intermediates.index(t_score)
-    total = len(intermediates)
-    idx = min(int(rank * 10 / total), 9)
+    scale = _grade_scale(n)
+    if not scale:               # 날짜 2개: 서로 다른 저가로는 S·C뿐 — 같은 저가('고')는 가장 낮은 중간 등급
+        return _GRADES_ASC[0]
+    # 눈금에 있는 점수는 그 순위, 같은 저가로만 나오는 점수는 바로 아래 눈금 점수의 순위(보수적)
+    rank = max(bisect_right(scale, t_score) - 1, 0)
+    idx = min(int(rank * 10 / len(scale)), 9)
     return _GRADES_ASC[idx]
 
 
@@ -117,15 +133,20 @@ def _sub_score(prices: list, n: int) -> float:
 
 
 def calc_swing_grade(stock_df: pd.DataFrame, swing_dates: list) -> dict:
-    dates = sorted(set(str(d).strip() for d in swing_dates if str(d).strip()))
-    if len(dates) < 2 or stock_df.empty:
+    raw = sorted({pd.Timestamp(str(d).strip()) for d in swing_dates if str(d).strip()})
+    if len(raw) < 2 or stock_df.empty:
         return {'grade': '—', 'pattern': '', 'score': 0.0}
 
-    prices = [_low_on(stock_df, d) for d in dates]
-    if any(p is None for p in prices):
+    days = [_trading_day(stock_df, d) for d in raw]
+    if any(d is None for d in days):
         return {'grade': '—', 'pattern': '데이터부족', 'score': 0.0}
+    # 같은 거래일로 매핑되는 날짜(금·토 등)는 하나로 — 같은 저가가 두 번 들어가 패턴이 어긋나지 않게
+    days = sorted(set(days))
+    if len(days) < 2:
+        return {'grade': '—', 'pattern': '', 'score': 0.0}
 
-    n = len(dates) - 1
+    prices = [float(stock_df.loc[stock_df.index <= d, 'Low'].iloc[-1]) for d in days]
+    n = len(days) - 1
     label_values: list[int] = []
     seq_min = prices[0]
     seq_max = prices[0]
