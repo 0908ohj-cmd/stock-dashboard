@@ -261,6 +261,19 @@ def test_slots_follow_measured_scheduled_fallbacks():
 def fresh_state(monkeypatch):
     monkeypatch.setattr(rs, '_last_attempt', None)
     monkeypatch.setattr(rs, '_last_result', None)
+    monkeypatch.setattr(rs, '_fail_streak', 0)
+
+
+def _scripted(*oks):
+    """ok 값을 차례로 돌려주는 가짜 sync_fn — 호출 횟수를 calls로 센다."""
+    calls = []
+
+    def fn(root):
+        ok = oks[len(calls)]
+        calls.append(root)
+        return rs.SyncResult(at=_at(5, 0, 0), ok=ok, error='' if ok else 'git fetch 실패: timeout')
+
+    return fn, calls
 
 
 def test_maybe_sync_runs_once_per_slot(fresh_state, tmp_path):
@@ -281,8 +294,65 @@ def test_maybe_sync_keeps_last_failure_for_warning(fresh_state, tmp_path):
         return rs.SyncResult(at=_at(5, 8, 31), ok=False, error='git fetch 실패: x')
 
     rs.maybe_sync(tmp_path, now=_at(5, 8, 31), sync_fn=fail)
-    assert rs.maybe_sync(tmp_path, now=_at(5, 9, 0), sync_fn=fail) is None
+    assert rs.maybe_sync(tmp_path, now=_at(5, 8, 40), sync_fn=fail) is None   # 백오프 안
     assert rs.last_result().ok is False and 'fetch' in rs.last_result().error
+
+
+def test_maybe_sync_retries_last_slot_failure_after_backoff(fresh_state, tmp_path):
+    """#35: 18:40 슬롯이 실패해도 다음 슬롯(03:00)까지 8시간 넘게 기다리지 않는다."""
+    fn, calls = _scripted(False, True)
+
+    assert rs.maybe_sync(tmp_path, now=_at(5, 18, 41), sync_fn=fn).ok is False
+    assert rs.maybe_sync(tmp_path, now=_at(5, 18, 50), sync_fn=fn) is None    # 백오프 10분 안
+    assert rs.maybe_sync(tmp_path, now=_at(5, 18, 51), sync_fn=fn).ok is True
+    assert rs.maybe_sync(tmp_path, now=_at(5, 23, 0), sync_fn=fn) is None     # 성공 뒤엔 다음 슬롯까지 쉰다
+    assert len(calls) == 2
+    assert rs.last_result().ok is True                                        # 실패 경고가 걷힌다
+
+
+def test_maybe_sync_no_change_is_not_a_failure(fresh_state, tmp_path):
+    """새 커밋 없음(ok=True, updated=False)은 재시도 대상이 아니다."""
+    fn, calls = _scripted(True)
+
+    rs.maybe_sync(tmp_path, now=_at(5, 8, 31), sync_fn=fn)
+    assert rs.maybe_sync(tmp_path, now=_at(5, 9, 0), sync_fn=fn) is None
+    assert len(calls) == 1
+
+
+def test_retry_backoff_doubles_up_to_cap():
+    """연속 실패마다 10 → 20 → 40분, 60분에서 멈춘다 — git이 계속 죽어 있어도 시간당 1회."""
+    assert [rs.retry_backoff(n) for n in range(1, 7)] == [
+        timedelta(minutes=m) for m in (10, 20, 40, 60, 60, 60)]
+
+
+def test_maybe_sync_backoff_grows_with_consecutive_failures(fresh_state, tmp_path):
+    fn, calls = _scripted(False, False, False)
+
+    rs.maybe_sync(tmp_path, now=_at(5, 18, 41), sync_fn=fn)                   # 1회 실패 → 10분
+    assert rs.maybe_sync(tmp_path, now=_at(5, 18, 51), sync_fn=fn) is not None  # 2회 실패 → 20분
+    assert rs.maybe_sync(tmp_path, now=_at(5, 19, 10), sync_fn=fn) is None
+    assert rs.maybe_sync(tmp_path, now=_at(5, 19, 11), sync_fn=fn) is not None
+    assert len(calls) == 3
+
+
+def test_maybe_sync_success_resets_backoff(fresh_state, tmp_path):
+    fn, calls = _scripted(False, False, True, False, True)
+
+    rs.maybe_sync(tmp_path, now=_at(5, 8, 31), sync_fn=fn)       # 실패 → 10분
+    rs.maybe_sync(tmp_path, now=_at(5, 8, 41), sync_fn=fn)       # 실패 → 20분
+    rs.maybe_sync(tmp_path, now=_at(5, 9, 1), sync_fn=fn)        # 성공
+    rs.maybe_sync(tmp_path, now=_at(5, 9, 16), sync_fn=fn)       # 다음 슬롯 실패 → 다시 10분부터
+    assert rs.maybe_sync(tmp_path, now=_at(5, 9, 26), sync_fn=fn).ok is True
+    assert len(calls) == 5
+
+
+def test_maybe_sync_retry_crosses_midnight(fresh_state, tmp_path):
+    """자정 너머의 재시도도 그날 슬롯과 무관하게 백오프 기준으로 돈다."""
+    fn, calls = _scripted(False, True)
+
+    rs.maybe_sync(tmp_path, now=_at(5, 23, 55), sync_fn=fn)
+    assert rs.maybe_sync(tmp_path, now=_at(6, 0, 5), sync_fn=fn).ok is True
+    assert len(calls) == 2
 
 
 def test_maybe_sync_skips_while_another_session_syncs(fresh_state, tmp_path):
