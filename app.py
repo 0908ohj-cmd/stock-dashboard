@@ -271,9 +271,9 @@ with _title_col:
     st.subheader('와치리스트')
 _tv_export_slot = _tv_export_col.empty()
 
-# 1차 렌더 — 아래 탭들의 10EMA 스캔은 수 분이 걸린다. 탭 뒤에서만 그리면 그동안
-# 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 직전 실행 기준 목록으로 먼저
-# 자리를 채워 둔다. 스크립트 맨 아래에서 최신 목록으로 덮어쓴다.
+# 1차 렌더 — 아래 탭들의 분석은 캐시가 비면 시간이 걸린다. 탭 뒤에서만 그리면 그동안
+# 이 자리가 비어 버튼이 아예 없는 것처럼 보이므로, 잠긴 로딩 버튼으로 먼저 자리를
+# 채워 둔다. 주도섹터 탭 뒤(10EMA 탭 앞)의 2차 렌더가 최신 목록으로 덮어쓴다.
 tv_export.render_export_button(_tv_export_slot, key='early', pending=True)
 (tab_sector_kospi, tab_sector_kosdaq, tab_sector_us,
  tab_kospi, tab_kosdaq, tab_us,
@@ -296,15 +296,19 @@ with tab_sector_kosdaq:
     render_sector_leadership_tab('KR_KOSDAQ')
 with tab_sector_us:
     render_sector_leadership_tab('US')
+
+# ── TradingView 내보내기 (2차 렌더) ───────────────────────
+# 후보를 등록하는 탭(추세추종·주도섹터)이 모두 돈 뒤, 10EMA 탭 앞에서 위 슬롯을 최신
+# 후보로 덮어쓴다. 이 호출을 그 탭들 앞으로 옮기면 후보가 등록되기 전이라 목록이 비고,
+# 지우면 1차 렌더의 직전 실행 목록에 머문다. 10EMA 섹션은 내보내기에서 빠졌으므로
+# 10EMA 스캔(캐시가 비면 수 분)을 기다리며 버튼을 잠가 둘 이유가 없다 (#43 L17).
+# 10EMA 셋업을 다시 내보내려면 이 호출을 10EMA 탭 뒤로 되돌릴 것.
+tv_export.render_export_button(_tv_export_slot, key='final')
+
 with tab_10ema_kospi:
     render_10ema_tab('KR_KOSPI', '10EMA 코스피')
 with tab_10ema_kosdaq:
     render_10ema_tab('KR_KOSDAQ', '10EMA 코스닥')
 with tab_10ema_us:
     render_10ema_tab('US', '10EMA 나스닥')
-
-# ── TradingView 내보내기 (2차 렌더) ───────────────────────
-# 탭들이 등록해 둔 최신 후보로 위 슬롯을 덮어쓴다. 이 호출을 탭 앞으로 옮기면
-# 후보가 등록되기 전이라 목록이 비고, 지우면 1차 렌더의 직전 실행 목록에 머문다.
-tv_export.render_export_button(_tv_export_slot, key='final')
 
