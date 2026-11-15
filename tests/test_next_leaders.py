@@ -664,3 +664,47 @@ def test_단독_렐볼_판정은_hot_groups와_같은_섹터_크기를_쓴다():
     assert nl.hot_sectors(bars, theme, asof, min_aligned=0) == {}
     out = nl.hot_stock_pool([_prow('A', 'X')], {}, sizes, nl.bull_since(bars, asof), bars, asof)
     assert [(r['ticker'], r['solo']) for r in out['rows']] == [('A', True)]
+
+
+# ── #41 M8: 정배열 20% 필터는 🔥가 켜진 날(🔥 구간 시작일) 기준 ─────────────────
+def _path_bars(closes, bull_idx=()):
+    """종가 경로 + bull_idx 위치만 거래량 3배 양봉 (나머지는 음봉·거래량 100)."""
+    c = np.asarray(closes, dtype=float)
+    idx = pd.bdate_range('2026-01-01', periods=len(c))
+    o = c + 0.1
+    v = np.full(len(c), 100.0)
+    for i in bull_idx:
+        o[i] = c[i] - 0.1
+        v[i] = 300.0
+    return pd.DataFrame({'Open': o, 'High': np.maximum(o, c) + .1, 'Low': np.minimum(o, c) - .1,
+                         'Close': c, 'Volume': v}, index=idx)
+
+
+def test_hot_sectors_정배열일_때_켜진_불은_눌림으로_정배열이_풀려도_이력에_남는다():
+    # 꾸준히 오르다(정배열) 60번째 봉에 🔥 → 이후 하락으로 오늘은 정배열 0%. 예전엔 오늘 비율로 이력째 지웠다
+    closes = list(np.linspace(10, 20, 62)) + list(np.linspace(19.5, 12, 18))
+    bars = {t: _path_bars(closes, (60,)) for t in 'ABC'}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1])
+    assert 'OPT' in h
+    assert h['OPT']['since'] == bars['A'].index[60] and not h['OPT']['now']
+    assert h['OPT']['alignedShare'] == 0                     # 오늘 비율(표시용)
+    assert h['OPT']['alignedAtStart'] == 1.0                 # 🔥 시작일 비율(판정용)
+
+
+def test_hot_sectors_정배열_아닐_때_켜진_불은_오늘_정배열이어도_제외():
+    # 하락 중(정배열 아님) 60번째 봉에 🔥 → 이후 급반등으로 오늘은 정배열 100%. 시작일 기준이라 제외
+    closes = list(np.linspace(20, 10, 60)) + list(np.linspace(10.5, 30, 20))
+    bars = {t: _path_bars(closes, (60,)) for t in 'ABC'}
+    asof = bars['A'].index[-1]
+    assert nl.hot_sectors(bars, {t: 'OPT' for t in bars}, asof) == {}
+    assert nl.hot_sectors(bars, {t: 'OPT' for t in bars}, asof, min_aligned=0)['OPT']['alignedShare'] == 1.0
+
+
+def test_hot_sectors_정배열_미달로_새로_켜진_불은_무시하고_앞선_불을_유지():
+    # 52번째 봉 🔥(정배열) → 하락 → 77번째 봉 재점화(정배열 아님, HOT_GAP 넘는 공백 뒤 새 🔥)
+    closes = list(np.linspace(10, 20, 55)) + list(np.linspace(19.5, 12, 25))
+    bars = {t: _path_bars(closes, (52, 77)) for t in 'ABC'}
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, bars['A'].index[-1])['OPT']
+    assert h['share'] == 1.0 and not h['now']               # 오늘 렐볼 비율은 높지만 무효인 🔥
+    assert h['since'] == bars['A'].index[52] and h['daysAgo'] == 27
+    assert h['fires'] == [bars['A'].index[52]]

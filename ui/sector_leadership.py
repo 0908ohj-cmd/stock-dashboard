@@ -483,19 +483,22 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
         peak = '<span class="two" style="display:inline"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
+        start_al = ('' if h.get('alignedAtStart') is None else
+                    '<span class="two" style="display:inline"> · 🔥 시작일 %.0f%%</span>' % (100 * h['alignedAtStart']))
         rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="two">{h["n"]}종목</div></td>'
                     f'<td>{state}</td><td class="hb-num" style="white-space:normal">{fires}</td>'
-                    f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb")}</td>'
+                    f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb", start_al)}</td>'
                     f'<td>{pct_bar(h["share"], "#f97316", peak)}</td>'
                     f'<td style="font-size:.84rem">{who or "—"}</td></tr>')
     st.markdown('<div class="sl-wrap"><table class="sl-t fx" style="min-width:820px">'
                 + _colgroup([15, 17, 10, 13, 15, 30]) +
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
-                '<th>정배열 종목 비율</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
+                '<th>정배열 종목 비율 (오늘)</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
                f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.  \n'
-               f'단, 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 미만이면 🔥여도 급부상 섹터로 보지 않습니다.')
+               f'단, 🔥가 켜진 날 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 미만이면 그 🔥는 '
+               '급부상으로 보지 않습니다. 켜진 날 통과했으면 뒤의 눌림으로 정배열이 풀려도 이력에 남습니다.')
     st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">상태 설명</div>'
                 '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
                 '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'

@@ -407,11 +407,27 @@ def hot_groups(bars: dict, theme_of: dict, asof) -> dict:
     return out
 
 
+def _drop_unaligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple:
+    """🔥 구간(시작 ~ 다음 시작 전날) 중 시작일 정배열 비율이 min_aligned 미만인 구간의 켜짐을 지운다.
+    이력 처음부터 이어진 구간(시작일 모름)은 알 수 있는 첫 켜짐 날로 판정한다. (on, 남은 시작 위치) 반환."""
+    on = np.asarray(on, dtype=bool).copy()
+    if not on.any():
+        return on, []
+    first_on = int(np.argmax(on))
+    seg = ([first_on] if not starts or first_on < starts[0] else []) + list(starts)
+    for a, b in zip(seg, seg[1:] + [len(on)]):
+        if aligned_share[a] < min_aligned:
+            on[a:b] = False
+    return on, [i for i in starts if on[i]]
+
+
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
                 share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
     """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n': 섹터 크기, 'fires': [창 안 🔥 시작일…],
     'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
-    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목, 'alignedShare': 오늘 정배열 종목 비율(표시·정렬),
+    'alignedAtStart': 편입일(since)의 정배열 종목 비율}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
+    🔥 구간마다 시작일의 정배열 종목 비율이 min_aligned(기본 HOT_MIN_ALIGNED) 미만이면 그 구간은 🔥가 아니다(#41 M8).
     렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
     이력이 짧아 판정할 수 없는 종목은 '렐볼 아님'으로 센다(#41 M7 — 한 종목 결측으로 🔥가 꺼지지 않게)."""
     asof = pd.Timestamp(asof)
@@ -425,16 +441,13 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
             bull = ss.bullish_rvol(full).astype(float)
             bull.iloc[:20] = np.nan
             flags[t] = bull.rolling(5, min_periods=1).max()
-            c = full['Close'].tail(250)
-            s50 = c.rolling(50).mean().iloc[-1]
-            aligned[t] = bool(not pd.isna(s50) and c.ewm(span=10, adjust=False).mean().iloc[-1]
-                              > c.ewm(span=21, adjust=False).mean().iloc[-1] > s50)
+            # 날짜별 정배열(10EMA > 21EMA > 50SMA) — 🔥 시작일 판정용. 50일 이력 전은 정배열 아님
+            c = full['Close']
+            e21 = c.ewm(span=21, adjust=False).mean()
+            aligned[t] = (c.ewm(span=10, adjust=False).mean() > e21) & (e21 > c.rolling(50).mean())
+    min_al = HOT_MIN_ALIGNED if min_aligned is None else min_aligned
     out = {}
     for th, ts in groups.items():
-        # 섹터 품질 — 정배열(10EMA>21EMA>50SMA) 종목 비율이 낮으면 🔥여도 뺀다 (바닥권 종목들이 거래량만 터진 경우)
-        al_share = sum(aligned[t] for t in ts) / len(ts)
-        if al_share < (HOT_MIN_ALIGNED if min_aligned is None else min_aligned):
-            continue
         f = pd.DataFrame({t: flags[t] for t in ts})
         n = f.notna().sum(axis=1)
         # 섹터 판정이 가능한 첫날부터 (그 앞은 '모름'). 이력 짧은 종목이 끝내 판정 불가로 남아도 섹터 판정은
@@ -445,11 +458,17 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         first = int(np.argmax(known))
         f = f.iloc[first:]
         sh = f.fillna(0).sum(axis=1) / len(ts)      # 결측 = 렐볼 아님, 분모 = 섹터 크기 고정
+        # 섹터 정배열 종목 비율(날짜별, 결측 = 정배열 아님)
+        al = pd.DataFrame({t: aligned[t].astype(float) for t in ts}).reindex(f.index).fillna(0).sum(axis=1) / len(ts)
         on = (sh >= share).to_numpy()
+        # 섹터 품질 — 🔥 구간 시작일의 정배열 종목 비율이 낮으면 그 🔥는 뺀다 (바닥권 종목들이 거래량만 터진 경우).
+        # 판정은 🔥가 켜진 날 기준이라, 조건을 통과해 켜진 🔥는 뒤의 눌림(PP 셋업 대기 구간)에서 정배열이 풀려도
+        # 이력에 남는다(#41 M8 — 예전엔 기준일 하루 비율로 6주 이력·10EMA 배지를 통째로 지웠다).
+        # 검증(8534062, 🔥 1,005회 × 이후 30일 기준봉)의 단위도 🔥가 켜진 사건이다.
+        on, starts = _drop_unaligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
         w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
         if not on[w0:].any():
             continue
-        starts = fire_starts(on)
         fires = [f.index[i] for i in starts if i >= w0]
         # 편입일 = 지금 이어지는 🔥 구간의 시작(= 마지막 🔥 시작). 창 밖이어도 HOT_GAP보다 긴 공백이 나올 때까지
         # 이력을 거슬러 찾는다 — 창 안 첫 켜짐을 쓰면 창이 밀릴 때마다 편입일이 늦어져 탈락 기준 고점이
@@ -458,7 +477,8 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': len(ts),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
-                   'since': since, 'startedBefore': last is None, 'alignedShare': al_share,
+                   'since': since, 'startedBefore': last is None, 'alignedShare': float(al.iloc[-1]),
+                   'alignedAtStart': float(al.loc[since]),
                    'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,
                    'tickers': [t for t in ts if f[t].iloc[-1] == 1]}
     return out
