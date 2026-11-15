@@ -666,7 +666,7 @@ def test_단독_렐볼_판정은_hot_groups와_같은_섹터_크기를_쓴다():
     assert [(r['ticker'], r['solo']) for r in out['rows']] == [('A', True)]
 
 
-# ── #41 M8: 정배열 20% 필터는 🔥가 켜진 날(🔥 구간 시작일) 기준 ─────────────────
+# ── #41 M8: 정배열 20% 필터는 🔥 구간 안에서 한 번이라도 넘은 날(통과일)부터 ─────────────────
 def _path_bars(closes, bull_idx=()):
     """종가 경로 + bull_idx 위치만 거래량 3배 양봉 (나머지는 음봉·거래량 100)."""
     c = np.asarray(closes, dtype=float)
@@ -688,11 +688,13 @@ def test_hot_sectors_정배열일_때_켜진_불은_눌림으로_정배열이_�
     assert 'OPT' in h
     assert h['OPT']['since'] == bars['A'].index[60] and not h['OPT']['now']
     assert h['OPT']['alignedShare'] == 0                     # 오늘 비율(표시용)
-    assert h['OPT']['alignedAtStart'] == 1.0                 # 🔥 시작일 비율(판정용)
+    assert h['OPT']['alignedPassDate'] == h['OPT']['since']  # 켜진 날 바로 통과 → 통과일 = 편입일
+    assert h['OPT']['alignedAtPass'] == 1.0                  # 통과일 비율(판정용)
 
 
 def test_hot_sectors_정배열_아닐_때_켜진_불은_오늘_정배열이어도_제외():
-    # 하락 중(정배열 아님) 60번째 봉에 🔥 → 이후 급반등으로 오늘은 정배열 100%. 시작일 기준이라 제외
+    # 하락 중(정배열 아님) 60번째 봉에 🔥(64번째까지 켜짐) → 🔥가 꺼진 뒤 급반등으로 오늘은 정배열 100%.
+    # 통과일 뒤에 켜진 날이 없으면 그 구간은 🔥로 인정되지 않는다
     closes = list(np.linspace(20, 10, 60)) + list(np.linspace(10.5, 30, 20))
     bars = {t: _path_bars(closes, (60,)) for t in 'ABC'}
     asof = bars['A'].index[-1]
@@ -708,6 +710,42 @@ def test_hot_sectors_정배열_미달로_새로_켜진_불은_무시하고_앞�
     assert h['share'] == 1.0 and not h['now']               # 오늘 렐볼 비율은 높지만 무효인 🔥
     assert h['since'] == bars['A'].index[52] and h['daysAgo'] == 27
     assert h['fires'] == [bars['A'].index[52]]
+
+
+def _aligned_days(df):
+    """hot_sectors와 같은 날짜별 정배열(10EMA > 21EMA > 50SMA)."""
+    c = df['Close']
+    e21 = c.ewm(span=21, adjust=False).mean()
+    return (c.ewm(span=10, adjust=False).mean() > e21) & (e21 > c.rolling(50).mean())
+
+
+def test_hot_sectors_켜진_날_미달이어도_구간_안에서_통과하면_통과일부터_포함():
+    # 하락 중 60번째 봉에 🔥(정배열 0%) → 8거래일마다 재점화(같은 🔥 구간)하며 급반등 → 구간 중간에 정배열 통과.
+    # 예전(시작일 기준)엔 영구 제외됐다. 통과 전 켜짐은 🔥로 치지 않고, 통과 뒤 첫 켜짐이 편입일
+    closes = list(np.linspace(20, 10, 60)) + list(np.linspace(10.5, 30, 30))
+    bars = {t: _path_bars(closes, (60, 68, 76, 84)) for t in 'ABC'}
+    idx = bars['A'].index
+    al = _aligned_days(bars['A']).to_numpy()
+    pass_i = 60 + int(np.argmax(al[60:]))                   # 구간 시작(60) 이후 처음 정배열인 날
+    assert 60 < pass_i < 84                                 # 시나리오 전제: 켜진 날엔 미달, 구간 안에서 통과
+    on_days = [i for b in (60, 68, 76, 84) for i in range(b, b + 5)]
+    first_on_after = min(i for i in on_days if i >= pass_i)
+    h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, idx[-1])['OPT']
+    assert h['alignedPassDate'] == idx[pass_i] and h['alignedAtPass'] == 1.0
+    assert h['since'] == idx[first_on_after] and h['last'] == idx[first_on_after]
+    assert not h['startedBefore'] and h['fires'] == [idx[first_on_after]]
+    assert h['daysAgo'] == len(idx) - 1 - first_on_after     # 마지막 켜짐은 84~88, 기준일(89)은 꺼짐
+    # point-in-time: 통과 전날 기준으로는 아직 🔥 섹터가 아니다
+    assert 'OPT' not in nl.hot_sectors(bars, {t: 'OPT' for t in bars}, idx[pass_i - 1])
+
+
+def test_hot_sectors_구간_내내_정배열_미달이면_제외():
+    # 꾸준히 내려가며 8거래일마다 렐볼 양봉 — 같은 🔥 구간이 계속 이어지지만 정배열은 한 번도 안 됨
+    closes = list(np.linspace(30, 10, 90))
+    bars = {t: _path_bars(closes, (60, 68, 76, 84)) for t in 'ABC'}
+    asof = bars['A'].index[-1]
+    assert nl.hot_sectors(bars, {t: 'OPT' for t in bars}, asof) == {}
+    assert 'OPT' in nl.hot_sectors(bars, {t: 'OPT' for t in bars}, asof, min_aligned=0)
 
 
 # ── #41 L11: 비메인 테마(지주·기타 등)는 급부상 판정에서 제외 — 차기 주도섹터(rank_sectors)와 같은 기준 ─────────

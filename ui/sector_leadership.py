@@ -180,7 +180,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_15_12    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_16_41   # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict]:
@@ -492,8 +492,9 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
         peak = '<span class="two" style="display:inline"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
-        start_al = ('' if h.get('alignedAtStart') is None else
-                    '<span class="two" style="display:inline"> · 🔥 시작일 %.0f%%</span>' % (100 * h['alignedAtStart']))
+        start_al = ('' if h.get('alignedPassDate') is None else
+                    '<span class="two" style="display:inline"> · %s 통과 %.0f%%</span>'
+                    % (f"{h['alignedPassDate']:%m/%d}", 100 * h['alignedAtPass']))
         rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="two">{h["n"]}종목</div></td>'
                     f'<td>{state}</td><td class="hb-num" style="white-space:normal">{fires}</td>'
                     f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb", start_al)}</td>'
@@ -506,8 +507,9 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
                f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.  \n'
-               f'단, 🔥가 켜진 날 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 미만이면 그 🔥는 '
-               '급부상으로 보지 않습니다. 켜진 날 통과했으면 뒤의 눌림으로 정배열이 풀려도 이력에 남습니다.')
+               f'단, 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 이상이 된 날(통과일)부터 '
+               '급부상으로 봅니다 — 🔥가 이어지는 동안 한 번이라도 넘으면 그날부터 들어오고, 한 번 통과하면 뒤의 눌림으로 '
+               '정배열이 풀려도 이력에 남습니다.')
     st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">상태 설명</div>'
                 '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
                 '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'
