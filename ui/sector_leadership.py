@@ -158,7 +158,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         prev = (nl.rotation_scores(earlier[1][1].stocks, bars, idx_df, theme_of, main, earlier[1][0])
                 if len(earlier) > 1 else [])
         rot_ranked, rot_thin = nl.rotation_sectors(in_main(rot_stocks), in_main(prev))
-    hot = nl.hot_sectors(bars, theme_of, asof)
+    hot = nl.hot_sectors(bars, theme_of, asof, main_codes=main)      # 비메인 테마는 섹터 순위처럼 제외(#41 L11)
     bull = nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof)
     # 단독 렐볼 판정의 섹터 크기 = 🔥 판정과 같은 그룹(hot_groups) — 두 판정이 다른 크기를 써서 어느 쪽에도
     # 안 잡히는 종목이 생기지 않게(#41 M7)
@@ -174,7 +174,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
         'hot': hot, 'themeOf': dict(theme_of), 'bullSince': bull,
         # 급부상 종목 후보·관문 — 규칙은 next_leaders.hot_stock_pool 한 곳 (#41 M9)
-        'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof),
+        'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof, main_codes=main),
     }
 
 
@@ -584,7 +584,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                            help=f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 종목도 표에 넣습니다 (기본은 숨김)')
     if not show_weak:
         pool = [r for r in pool if not r['weak']]
-    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
+    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show',
+                            non_main=False)
     rows = sorted((r for r in pool
                    if (not only_trend or r['ticker'] in in_trend)
                    and r['primaryTheme'] not in hidden),
@@ -932,13 +933,14 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
 _THEME_TOGGLES = {'KR_KOSPI': ('BIO_PHARMA', 'FINANCE'), 'KR_KOSDAQ': ('BIO_PHARMA', 'FINANCE')}
 
 
-def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str) -> set:
+def _theme_toggles(m: Market, bar, labels: dict, present: set, key_prefix: str, non_main: bool = True) -> set:
     """테마별 켜고 끄는 토글 — 차기 주도주·순환매 종목 표 공통. 끈(숨길) 테마 코드 집합을 돌려준다.
     국장 바이오·제약·금융 + 메인 밖 테마(KR 지주·기타, US 바이오·헬스케어·금속·소재 등), 모두 기본 꺼짐.
-    두 표가 같은 토글 목록을 보이도록 표에 그 테마 종목이 없어도 항상 보여준다 (present는 쓰지 않음)."""
+    두 표가 같은 토글 목록을 보이도록 표에 그 테마 종목이 없어도 항상 보여준다 (present는 쓰지 않음).
+    non_main=False: 메인 밖 테마 토글은 뺀다 — 급부상 종목 표는 비메인 테마 종목이 아예 없다(#41 L11)."""
     side = list(_THEME_TOGGLES.get(m.key, ()))
     side += [t['code'] for t in cls.load_taxonomy(m.key)['themes']
-             if not t['main'] and t['code'] != 'UNCLASSIFIED']
+             if non_main and not t['main'] and t['code'] != 'UNCLASSIFIED']
     return {code for code in side
             if not bar.toggle(labels.get(code, code), value=False, key=f'{key_prefix}_{code}', width='content',
                               help='켜면 이 테마 종목도 표에 넣습니다 (기본은 빠져 있음)')}

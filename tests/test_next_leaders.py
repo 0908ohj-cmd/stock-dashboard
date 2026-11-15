@@ -708,3 +708,21 @@ def test_hot_sectors_정배열_미달로_새로_켜진_불은_무시하고_앞�
     assert h['share'] == 1.0 and not h['now']               # 오늘 렐볼 비율은 높지만 무효인 🔥
     assert h['since'] == bars['A'].index[52] and h['daysAgo'] == 27
     assert h['fires'] == [bars['A'].index[52]]
+
+
+# ── #41 L11: 비메인 테마(지주·기타 등)는 급부상 판정에서 제외 — 차기 주도섹터(rank_sectors)와 같은 기준 ─────────
+def test_hot_sectors_비메인_테마는_불이어도_제외():
+    bars = {t: _bars(80, (1,)) for t in ('A', 'B', 'C', 'D', 'E', 'F')}
+    theme = {'A': 'MAIN', 'B': 'MAIN', 'C': 'MAIN', 'D': 'HOLDING_OTHER', 'E': 'HOLDING_OTHER', 'F': 'HOLDING_OTHER'}
+    asof = bars['A'].index[-1]
+    assert set(nl.hot_sectors(bars, theme, asof, min_aligned=0)) == {'MAIN', 'HOLDING_OTHER'}     # 거르지 않으면 둘 다
+    assert set(nl.hot_sectors(bars, theme, asof, min_aligned=0, main_codes={'MAIN'})) == {'MAIN'}
+
+
+def test_hot_stock_pool_비메인_테마_종목은_단독_렐볼로도_넣지_않는다():
+    bars = {t: _bars(80, (2,)) for t in ('M', 'H')}
+    idx = bars['M'].index
+    rows = [_prow('M', 'TINY'), _prow('H', 'HOLDING_OTHER')]
+    out = _pool(rows, {}, bars, sizes={'TINY': 1, 'HOLDING_OTHER': 1}, bull={'M': idx[-2], 'H': idx[-2]},
+                main_codes={'TINY'})
+    assert [r['ticker'] for r in out['rows']] == ['M']

@@ -422,17 +422,20 @@ def _drop_unaligned_fires(on, starts: list, aligned_share, min_aligned: float) -
 
 
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
-                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None) -> dict:
+                share: float = HOT_SHARE, min_n: int = MIN_SECTOR_N, min_aligned: float | None = None,
+                main_codes: set | None = None) -> dict:
     """{테마: {'now': 오늘 🔥?, 'share': 오늘 렐볼 양봉 비율, 'n': 섹터 크기, 'fires': [창 안 🔥 시작일…],
     'last'·'since': 지금 이어지는 🔥 구간의 시작일 = 편입일, 'startedBefore': 시작일 모름(이력 처음부터 이어짐),
     'peakShare', 'tickers': 최근 5일 렐볼 양봉 종목, 'alignedShare': 오늘 정배열 종목 비율(표시·정렬),
     'alignedAtStart': 편입일(since)의 정배열 종목 비율}} — 최근 lookback 거래일 안에 한 번이라도 🔥였던 섹터만.
     🔥 구간마다 시작일의 정배열 종목 비율이 min_aligned(기본 HOT_MIN_ALIGNED) 미만이면 그 구간은 🔥가 아니다(#41 M8).
-    렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
+    main_codes를 주면 그 테마만 판정한다 — 비메인('지주·기타' 같은 잡다한 묶음)은 섹터로 의미가 없어 차기 주도섹터
+    (rank_sectors)와 같이 뺀다(#41 L11). 렐볼 양봉 = sector_strength.bullish_rvol. 비율의 분모는 섹터 크기(hot_groups)로 고정하고, 그날 봉이 없거나
     이력이 짧아 판정할 수 없는 종목은 '렐볼 아님'으로 센다(#41 M7 — 한 종목 결측으로 🔥가 꺼지지 않게)."""
     asof = pd.Timestamp(asof)
     flags, aligned = {}, {}
-    groups = {th: ts for th, ts in hot_groups(bars, theme_of, asof).items() if len(ts) >= min_n}
+    groups = {th: ts for th, ts in hot_groups(bars, theme_of, asof).items()
+              if len(ts) >= min_n and (main_codes is None or th in main_codes)}
     for ts in groups.values():
         for t in ts:
             full = bars[t][bars[t].index <= asof]
@@ -498,10 +501,12 @@ def bull_since(bars: dict, asof) -> dict:
     return out
 
 
-def hot_stock_pool(rot_stocks: list, hot: dict, sizes: dict, bull_since: dict, bars: dict, asof) -> dict:
+def hot_stock_pool(rot_stocks: list, hot: dict, sizes: dict, bull_since: dict, bars: dict, asof,
+                   main_codes: set | None = None) -> dict:
     """🔥 급부상 종목 — 후보와 탈락·관문 규칙 (UI는 토글 필터·표시만, #41 M9).
 
     후보: 🔥 섹터(hot) 소속 종목 + 단독 렐볼(섹터 종목 수 sizes가 MIN_SECTOR_N 미만이고 최근 5일 렐볼 양봉).
+    main_codes를 주면 비메인 테마 종목은 단독 렐볼로도 넣지 않는다 — 🔥 판정에서 빠진 테마라서(#41 L11).
     관문(순서대로): ADR 6% 이상(PP_MIN_ADR, 10EMA 탭 대상) → 편입 후 자기 렐볼 양봉 있음(종목 자신도 핫해야)
       → 편입 5거래일 전부터의 종가 고점 대비 하락이 PP_DROP_ADR(3 ADR) 미만 → 종가가 50·150·200일선 위
       (150·200은 PP 기준봉 조건 = pp_prefilter, '50점 미만 보기'에서도 뺀다).
@@ -514,6 +519,8 @@ def hot_stock_pool(rot_stocks: list, hot: dict, sizes: dict, bull_since: dict, b
     rows = []
     for r in rot_stocks:
         th = r['primaryTheme']
+        if main_codes is not None and th not in main_codes:
+            continue
         solo = th not in hot and sizes.get(th, 0) < MIN_SECTOR_N and bool(r['hasBullishRvol15InLast5'])
         if th not in hot and not solo:
             continue
