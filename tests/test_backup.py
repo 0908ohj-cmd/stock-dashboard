@@ -129,3 +129,94 @@ def test_changed_markets_ignores_blank_lines_in_saved_file():
 def test_changed_markets_includes_emptied_market():
     """백업의 빈 목록은 그 시장을 비우는 것 — 기존 동작대로 파일을 비운다."""
     assert backup.changed_markets({'KR_KOSPI': []}, {'KR_KOSPI': '005930'}) == {'KR_KOSPI': ''}
+
+
+# ── apply_upload (#44 M15) ────────────────────────────────
+# 사이드바 티커 업로드도 file_uploader라 rerun마다 같은 파일이 돌아온다. 저장·GitHub 커밋이
+# 서명 가드 밖에 있어서 위젯을 만질 때마다 파일을 다시 쓰고 PUT했다(빈 커밋 279개, 파일 mtime이
+# 바뀌어 주도섹터 캐시도 매번 무효화).
+
+class _Persist:
+    """_github_save 대역 — (파일명, 내용) 호출 기록."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, name, content):
+        self.calls.append((name, content))
+
+
+def test_upload_saves_once_across_reruns(tmp_path):
+    """같은 업로드가 rerun마다 돌아와도 파일 쓰기·GitHub 저장은 처음 한 번뿐이다."""
+    state, persist = {}, _Persist()
+    path = tmp_path / 'kospi.tickers'
+    raw = b'KRX:005930,KRX:000660'
+
+    results = [backup.apply_upload(state, 'up', raw, ['005930', '000660'], path, persist) for _ in range(5)]
+
+    assert results == [backup.UPLOAD_SAVED] + [backup.UPLOAD_REPEAT] * 4
+    assert path.read_text(encoding='utf-8') == '005930\n000660'
+    assert persist.calls == [('kospi.tickers', '005930\n000660')]
+
+
+def test_upload_does_not_touch_file_on_rerun(tmp_path):
+    """rerun에 파일을 다시 쓰지 않는다 — mtime이 바뀌면 주도섹터 _compute가 다시 돈다."""
+    state, persist = {}, _Persist()
+    path = tmp_path / 'kospi.tickers'
+    raw = b'KRX:005930'
+    backup.apply_upload(state, 'up', raw, ['005930'], path, persist)
+    mtime = path.stat().st_mtime_ns
+
+    backup.apply_upload(state, 'up', raw, ['005930'], path, persist)
+
+    assert path.stat().st_mtime_ns == mtime
+
+
+def test_upload_same_as_saved_file_skips_write_and_persist(tmp_path):
+    """새 업로드라도 저장된 목록과 같으면 쓰지도 PUT하지도 않는다(빈 커밋 방지). 새 업로드라는 사실은 알린다."""
+    state, persist = {}, _Persist()
+    path = tmp_path / 'us.tickers'
+    path.write_text('NVDA\nAMZN\n', encoding='utf-8')
+    mtime = path.stat().st_mtime_ns
+
+    result = backup.apply_upload(state, 'up', b'NVDA,AMZN', ['NVDA', 'AMZN'], path, persist)
+
+    assert result == backup.UPLOAD_UNCHANGED
+    assert persist.calls == []
+    assert path.stat().st_mtime_ns == mtime
+
+
+def test_upload_with_different_content_saves_again(tmp_path):
+    state, persist = {}, _Persist()
+    path = tmp_path / 'us.tickers'
+    backup.apply_upload(state, 'up', b'NVDA', ['NVDA'], path, persist)
+
+    result = backup.apply_upload(state, 'up', b'NVDA,AMZN', ['NVDA', 'AMZN'], path, persist)
+
+    assert result == backup.UPLOAD_SAVED
+    assert path.read_text(encoding='utf-8') == 'NVDA\nAMZN'
+    assert [c[1] for c in persist.calls] == ['NVDA', 'NVDA\nAMZN']
+
+
+def test_upload_reprocessed_after_release(tmp_path):
+    """업로더를 비웠다가 같은 파일을 다시 올리면 새 업로드로 처리한다(저장본과 같으니 쓰기는 없음)."""
+    state, persist = {}, _Persist()
+    path = tmp_path / 'us.tickers'
+    backup.apply_upload(state, 'up', b'NVDA', ['NVDA'], path, persist)
+    backup.release(state, 'up')
+
+    assert backup.apply_upload(state, 'up', b'NVDA', ['NVDA'], path, persist) == backup.UPLOAD_UNCHANGED
+    assert len(persist.calls) == 1
+
+
+def test_upload_write_failure_is_retried_on_next_rerun(tmp_path):
+    """파일 쓰기가 실패하면 서명을 남기지 않는다 — 다음 rerun에서 다시 시도한다(전처럼 오류가 다시 보인다)."""
+    state, persist = {}, _Persist()
+    path = tmp_path / 'missing_dir' / 'us.tickers'      # 상위 폴더가 없어 쓰기 실패
+
+    with pytest.raises(OSError):
+        backup.apply_upload(state, 'up', b'NVDA', ['NVDA'], path, persist)
+    assert persist.calls == []
+
+    path.parent.mkdir()
+    assert backup.apply_upload(state, 'up', b'NVDA', ['NVDA'], path, persist) == backup.UPLOAD_SAVED

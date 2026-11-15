@@ -105,6 +105,20 @@ def _low_broken_after(df: pd.DataFrame, idx: int) -> bool:
     return bool((df['Close'].iloc[idx + 1:] < pivot_low).any())
 
 
+def _setup_broken_at(df: pd.DataFrame, idx: int, ema10: pd.Series) -> int | None:
+    """기준봉(idx) 뒤 종가가 중간선 또는 10EMA 아래로 연속 2거래일 마감한 첫 위치(둘째 날).
+    classify_case의 중간선이탈·10EMA이탈과 같은 규칙이다. 없으면 None."""
+    high, low = float(df['High'].iloc[idx]), float(df['Low'].iloc[idx])
+    close = df['Close'].iloc[idx + 1:]
+    below_mid = close < (high + low) / 2
+    below_ema = close < ema10.iloc[idx + 1:]
+    broken = ((below_mid & below_mid.shift(1, fill_value=False))
+              | (below_ema & below_ema.shift(1, fill_value=False)))
+    if not broken.any():
+        return None
+    return idx + 1 + int(broken.to_numpy().argmax())
+
+
 def _pivot_result(df: pd.DataFrame, cand: tuple, cluster_end_idx: int,
                   invalidated: bool = False) -> dict:
     i, vr = cand
@@ -117,7 +131,8 @@ def _pivot_result(df: pd.DataFrame, cand: tuple, cluster_end_idx: int,
         'low':       low,
         'midline':   round((high + low) / 2, 4),
         'close':     close,
-        # 같은 흐름의 마지막 후보 — 과열(돌파완료) 판정을 여기서부터 센다
+        # 같은 흐름의 마지막 후보 — 클러스터가 어디까지 이어졌는지 보여주는 정보용.
+        # 케이스 확정·돌파완료는 기준봉 날짜(date)에서 센다 (#43 M23)
         'cluster_end': df.index[cluster_end_idx],
         # 저가가 이미 뚫린 기준봉. None으로 지우면 '없음'으로 표시돼 저가이탈이 가려진다
         'invalidated': invalidated,
@@ -135,7 +150,9 @@ def find_pivot_candle(
     안에서는 첫 봉이 낮은 진입가를 준다):
       1) 전체 후보를 클러스터로 묶는다. 무효화를 먼저 걸러내면 버려진 후보 유무가
          살아남은 후보 간 선택을 뒤집으므로 순서가 중요하다
-      2) 최신 클러스터부터 거슬러 올라가며, 저가가 살아있는 첫 봉을 쓴다
+      2) 최신 클러스터부터 거슬러 올라가며, 저가가 살아있는 첫 봉을 쓴다.
+         그 봉이 중간선·10EMA 이탈(연속 2거래일)로 무효가 됐고 무효 확정 뒤에 살아있는
+         후보가 있으면 그 후보로 다시 고른다 — 이탈 판정은 이렇게 고른 봉에 적용된다
       3) 살아있는 후보가 하나도 없으면 가장 최근 후보를 invalidated로 돌려준다
          (None을 주면 저가를 깬 종목이 '기준봉 미탐지'로 보인다)
     후보 자체가 없을 때만 None.
@@ -186,7 +203,15 @@ def find_pivot_candle(
     for cluster in reversed(clusters):          # 최신 클러스터부터
         alive = [c for c in cluster if not _low_broken_after(stock_df, c[0])]
         if alive:
-            return _pivot_result(stock_df, alive[0], cluster[-1][0])
+            # 고른 봉이 중간선·10EMA 이탈로 무효가 되면, 무효가 확정된 뒤에 나온 후보로
+            # 다시 고른다. 첫 봉에 묶어 두면 그 뒤 새 기준봉이 '이탈'에 가려진다 (#43 M22)
+            chosen = alive[0]
+            while (broke := _setup_broken_at(stock_df, chosen[0], ema10)) is not None:
+                later = [c for c in alive if c[0] > broke]
+                if not later:
+                    break
+                chosen = later[0]
+            return _pivot_result(stock_df, chosen, cluster[-1][0])
 
     # 살아남은 후보 없음 → 가장 최근 후보를 무효 표시로 반환 (저가이탈 표시용)
     last = candidates[-1]
@@ -199,14 +224,16 @@ def classify_case(
 ) -> str:
     """'없음' | '저가이탈' | '셋업(케이스1)' | '셋업(케이스2)' | '중간선이탈' | '10EMA이탈' | '돌파완료'
 
-    케이스1/2는 cluster_end 이후 첫 2거래일로 확정, 이후 전환 없음:
+    케이스1/2는 선택된 기준봉 이후 첫 2거래일(D+1·D+2)로 확정, 이후 전환 없음:
       Day1 > 고가 + Day2 > 고가 → 케이스1 (확정)
       Day1 > 고가 + Day2 ≤ 고가 → 케이스2 (확정)
       Day1 ≤ 고가            → 케이스2 (확정)
       Day1 > 고가, Day2 미도래  → 케이스1 (잠정)
+    같은 클러스터의 뒤 후보(cluster_end)는 케이스 확정·돌파완료에 쓰지 않는다 —
+    고가를 뚫은 돌파봉이 클러스터를 늘려 확정된 케이스를 뒤집기 때문이다 (#43 M23)
 
     돌파완료(케이스1): 기준봉 이후 10EMA 위 종가 누적 10일+
-    돌파완료(케이스2): after_cluster 내 이틀 연속 기준봉 고가 위 종가
+    돌파완료(케이스2): 기준봉 이후 이틀 연속 기준봉 고가 위 종가
     중간선이탈: 중간선 아래 연속 2거래일
     10EMA이탈: 10EMA 아래 연속 2거래일
     저가이탈: 기준봉 저가 하방 (무효화 포함)
@@ -235,18 +262,17 @@ def classify_case(
         if (below_ema & below_ema.shift(1)).any():
             return '10EMA이탈'
 
-    # 케이스1/2 확정: cluster_end 이후 첫 2거래일로 판정
-    after_cluster = stock_df[stock_df.index > pivot.get('cluster_end', pivot['date'])]
-
-    if after_cluster.empty:
+    # 케이스1/2 확정: 선택된 기준봉의 D+1·D+2로 판정한다. cluster_end에서 세면 고가를
+    # 뚫은 돌파봉이 클러스터를 늘려 확정된 케이스를 다시 뒤집는다 (#43 M23)
+    if since_pivot.empty:
         is_case1 = False
     else:
-        day1_above = float(after_cluster['Close'].iloc[0]) > pivot['high']
+        day1_above = float(since_pivot['Close'].iloc[0]) > pivot['high']
         if day1_above:
-            if len(after_cluster) == 1:
+            if len(since_pivot) == 1:
                 is_case1 = True  # Day2 미도래 — 케이스1 잠정
             else:
-                is_case1 = float(after_cluster['Close'].iloc[1]) > pivot['high']
+                is_case1 = float(since_pivot['Close'].iloc[1]) > pivot['high']
         else:
             is_case1 = False
 
@@ -258,12 +284,28 @@ def classify_case(
                 return '돌파완료'
         return '셋업(케이스1)'
 
-    # 케이스2 돌파완료: after_cluster 내 이틀 연속 기준봉 고가 위 종가
-    if not after_cluster.empty:
-        above_high = after_cluster['Close'] > pivot['high']
-        if (above_high & above_high.shift(1)).any():
+    # 케이스2 돌파완료: 기준봉 이후 이틀 연속 기준봉 고가 위 종가
+    if not since_pivot.empty:
+        above_high = since_pivot['Close'] > pivot['high']
+        if (above_high & above_high.shift(1, fill_value=False)).any():
             return '돌파완료'
     return '셋업(케이스2)'
+
+
+def setup_sort_key(state_rank: int, near_entry_pct: float | None,
+                   prior_move_pct: float | None) -> tuple:
+    """10EMA 표·배너 정렬 키 — 상태 순위 → 타점까지 거리 |현재→타점%| 오름차순 → 이전상승% 큰 순.
+
+    거리가 없으면(None) 같은 상태의 맨 뒤. `or`로 결측을 메우면 정확히 0.0%(타점 위)가
+    결측으로 취급돼 맨 아래로 간다 (#43 M25).
+    """
+    missing = near_entry_pct is None
+    return (
+        state_rank,
+        missing,
+        0.0 if missing else abs(near_entry_pct),
+        -(prior_move_pct if prior_move_pct is not None else 0.0),
+    )
 
 
 PP_MIN_ADR = 6.0

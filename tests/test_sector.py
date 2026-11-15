@@ -133,36 +133,13 @@ def test_detail_missing_falls_back_to_theme(tmp_path, monkeypatch):
     assert sector.get_sectors(['000660'], 'KR_KOSPI') == {'000660': '메모리 반도체'}
 
 
-def test_only_uncached_passed_to_classify(tmp_path, monkeypatch):
-    """미캐시 종목만 classify로 넘어간다."""
+def test_uncached_shows_gita_without_classify(tmp_path, monkeypatch):
+    """미캐시 종목은 분류하지 않고 '기타' — 캐시 보유분은 그대로 (#45 M18 이전엔 classify로 넘어갔다)."""
     _setup(tmp_path, monkeypatch, {
         '000660': {'theme': '메모리 반도체', 'detail': 'HBM', 'updated': '2026-01-01T00:00:00'},
     })
-    calls = []
-
-    def fake_classify(tickers, themes, overrides=None, names=None):
-        calls.append(list(tickers))
-        return {t: {'theme': '메모리 반도체', 'detail': 'DRAM'} for t in tickers}
-
-    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
-    result = sector.get_sectors(['000660', '005930'], 'KR_KOSPI')
-    assert calls == [['005930']]
-    assert result == {'000660': 'HBM', '005930': 'DRAM'}
-
-
-def test_failure_shows_gita_and_not_retried_within_session(tmp_path, monkeypatch):
-    """분류 실패는 '기타' 표시 + 세션 내 재시도 금지 (rerun마다 subprocess 반복 방지)."""
-    _setup(tmp_path, monkeypatch, {})
-    calls = []
-
-    def fake_classify(tickers, themes, overrides=None, names=None):
-        calls.append(list(tickers))
-        return {t: {'theme': '기타', 'detail': ''} for t in tickers}
-
-    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
-    assert sector.get_sectors(['005930'], 'KR_KOSPI') == {'005930': '기타'}
-    assert sector.get_sectors(['005930'], 'KR_KOSPI') == {'005930': '기타'}
-    assert len(calls) == 1
+    _no_classify(monkeypatch)
+    assert sector.get_sectors(['000660', '005930'], 'KR_KOSPI') == {'000660': 'HBM', '005930': '기타'}
 
 
 def test_override_bypasses_classify(tmp_path, monkeypatch):
@@ -173,21 +150,12 @@ def test_override_bypasses_classify(tmp_path, monkeypatch):
     assert sector.get_sectors(['KOSPI'], 'KR_KOSPI') == {'KOSPI': '지수'}
 
 
-def test_kr_names_hint_passed(tmp_path, monkeypatch):
-    """KR 마켓이면 kr_names.json 번들의 종목명이 names 힌트로 전달된다."""
-    _setup(tmp_path, monkeypatch, {})
+def test_kr_names_hint_from_bundle(tmp_path, monkeypatch):
+    """kr_names.json 번들에서 종목명 힌트 추출 (scripts/refresh_sectors.py가 LLM 프롬프트에 쓴다)."""
     names_file = tmp_path / 'kr_names.json'
     names_file.write_text(json.dumps({'005930': '삼성전자'}, ensure_ascii=False), encoding='utf-8')
     monkeypatch.setattr(sector, '_NAMES_FILE', names_file)
-    seen = {}
-
-    def fake_classify(tickers, themes, overrides=None, names=None):
-        seen['names'] = names
-        return {t: {'theme': '메모리 반도체', 'detail': 'DRAM'} for t in tickers}
-
-    monkeypatch.setattr(theme_classifier, 'classify', fake_classify)
-    sector.get_sectors(['005930'], 'KR_KOSPI')
-    assert seen['names'] == {'005930': '삼성전자'}
+    assert sector._kr_names(['005930', '000000']) == {'005930': '삼성전자'}
 
 
 def test_cached_only_never_classifies(tmp_path, monkeypatch):
@@ -214,3 +182,33 @@ def test_get_major_themes_캐시만_읽는다(tmp_path, monkeypatch):
 
     result = sector.get_major_themes(['005930', '없는티커'])
     assert result == {'005930': '메모리 반도체', '없는티커': ''}
+
+
+# ── 렌더 경로의 구 LLM 런타임 분류 제거 (#45 M18) ─────────────────
+
+def test_기록_없는_종목도_렌더에서_분류하지_않고_themes_json을_쓰지_않는다(tmp_path, monkeypatch):
+    """승인 분류·구 캐시가 모두 없는 종목이 렌더마다 claude CLI(종목당 최대 90초 × 2)를 돌리고,
+    '기타' 묶음 resolve가 themes.json에 새 대분류를 자동 추가하던 문제. 신규 분류는 배치
+    (scripts/classify_themes.py) 몫 — 렌더는 캐시만 읽는다."""
+    _setup(tmp_path, monkeypatch, {})
+    themes_before = theme_classifier._THEMES_FILE.read_text(encoding='utf-8')
+    calls = {'classify': 0, 'subprocess': 0}
+    real_classify = theme_classifier.classify
+
+    def counting_classify(*a, **k):
+        calls['classify'] += 1
+        return real_classify(*a, **k)
+
+    def fake_run(cmd, **kw):   # claude CLI 대역 — 1차는 '기타'+detail, resolve는 2종목짜리 새 대분류
+        calls['subprocess'] += 1
+        out = ('[{"theme": "신규 대분류", "description": "x", "members": ["NEW1", "NEW2"]}]'
+               if '--allowedTools' not in cmd else '{"theme": "기타", "detail": "신규 테마"}')
+        return type('P', (), {'stdout': out})()
+
+    monkeypatch.setattr(theme_classifier, 'classify', counting_classify)
+    monkeypatch.setattr(theme_classifier.subprocess, 'run', fake_run)
+
+    assert sector.get_sectors(['NEW1', 'NEW2'], 'US') == {'NEW1': '기타', 'NEW2': '기타'}
+    assert calls == {'classify': 0, 'subprocess': 0}
+    assert theme_classifier._THEMES_FILE.read_text(encoding='utf-8') == themes_before
+    assert json.loads(theme_classifier._CACHE_FILE.read_text(encoding='utf-8')) == {}

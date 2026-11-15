@@ -5,18 +5,20 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
-from data.store import load_daily, get_freshness, refetch_market
+from data.store import load_daily, get_freshness, refetch_market, lag_note
 from data.sector import get_sectors, get_display_sectors
 from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
+from data import classification as cls
 from strategy.indicators import calc_pct_from_52w_high, calc_ema
-from strategy.pivot_candle import find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter
+from strategy.pivot_candle import (find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter,
+                                   setup_sort_key)
 from ui import tv_export
 from ui.sector_leadership import hot_history, hot_badge
 from ui.watchlist import _snapshot_ts      # 스냅샷 fetched_at — 추세추종 탭과 같은 캐시 키 출처
 
 # 정렬: 케이스1 → 케이스2 → 이탈류 → 없음
-# 케이스1 내부: 현재→타점%(10EMA 거리) 오름차순 — 가까울수록 위
+# 상태 내부: |현재→타점%| 오름차순 — 타점에 가까울수록 위 (strategy.pivot_candle.setup_sort_key)
 STATE_ORDER = {
     '셋업(케이스1)': 0,
     '셋업(케이스2)': 1,
@@ -141,18 +143,16 @@ def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_
     # 섹터·테마는 수집 완료 후 배치 1회 부착 (워커 안에서 부르면 종목마다 분류가 뜬다)
     tickers = [r['Ticker'] for r in rows]
     themes = get_sectors(tickers, market)
-    sectors = get_display_sectors(tickers, market, get_yf_sectors(tickers, market))
+    sectors = get_display_sectors(tickers, market)   # 분류 기록 없는 종목만 yfinance 조회 (#39 M14)
     for r in rows:
         t = r['Ticker']
         # 섹터 = 주력 테마(주도섹터 탭과 같은 기준). 승인된 분류가 없으면 yfinance로 메운다
         r['섹터'] = sectors.get(t, '-')
         r['테마'] = themes.get(t, '기타')
 
-    rows.sort(key=lambda r: (
-        STATE_ORDER.get(r['상태'], 99),
-        -(r['현재→타점%'] or -99),   # 셋업 내: 타점에 가까울수록 먼저 (0에 가까운 순)
-        -(r['이전상승%'] or 0),
-    ))
+    # 상태 순 → 타점까지 거리 |현재→타점%| 가까운 순 → 이전상승% 큰 순. 배너도 이 순서를 따른다
+    rows.sort(key=lambda r: setup_sort_key(
+        STATE_ORDER.get(r['상태'], 99), r['현재→타점%'], r['이전상승%']))
     return rows
 
 
@@ -346,7 +346,7 @@ def render_10ema_tab(market: str, label: str):
     if fr['fetched_at']:
         st.caption(
             f"📅 {fr['last_trading_date']} 장마감 기준 · "
-            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}"
+            f"수집 {fr['fetched_at'].strftime('%m-%d %H:%M')}" + lag_note(fr)   # 지연·실패 종목 (#39 M1)
         )
 
     with st.spinner(f'{label} 스캔 중... {len(tickers)}개 종목 (첫 로드 시 수 분 소요)'):
@@ -381,9 +381,11 @@ def render_10ema_tab(market: str, label: str):
         return
 
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
-    # 🔥 돈 몰린 섹터(지금 또는 최근 6주) 소속이면 배지 — 주도섹터 탭 순환매와 같은 계산
+    # 🔥 돈 몰린 섹터(지금 또는 최근 6주) 소속이면 배지 — 🔥 판정은 주도섹터 탭과 같은 계산(hot_history),
+    # 종목의 테마는 분류 기록에서 직접 찾는다 (주도섹터 유니버스 밖 종목에도 붙게, #42 M12)
     try:
-        hot, theme_of, hot_labels = hot_history(market)
+        hot, hot_labels = hot_history(market)
+        theme_of = cls.primary_map(market, [r['Ticker'] for r in display_rows])
     except Exception:
         hot, theme_of, hot_labels = {}, {}, {}
 

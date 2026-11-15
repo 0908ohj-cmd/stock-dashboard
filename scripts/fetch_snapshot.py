@@ -58,13 +58,17 @@ def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
     want = _index_last(market)
     for wait in waits:
         have = snap.get('last_trading_date')
-        if not want or not have or have == want:
+        if not want or not have:
             break
-        if have < want:
-            print(f'[{market}] 종목 마지막 거래일 {have} < {idx_name} {want} — {wait}초 뒤 종목 재수집')
+        # 종목이 늦은지는 지수 날짜에 도달한 종목 비율로 본다 — have(최댓값)는 한 종목만 최신이어도
+        # 지수와 같아진다 (#39 M1, 2026-10-24 US: 252종목 중 53종목 지연)
+        if store.stocks_behind(snap, want):
+            lag = store.lagging_tickers(snap, want)
+            print(f'[{market}] {len(lag)}종목이 {idx_name} {want}에 못 미침(최신 {have}) — '
+                  f'{wait}초 뒤 종목 재수집')
             sleep(wait)
             snap = store.build_market_snapshot(market, tickers)
-        else:
+        elif want < have:
             print(f'[{market}] {idx_name} 마지막 날짜 {want} < 종목 {have} — {wait}초 뒤 지수 재수집')
             sleep(wait)
             res = store.refetch_indices(INDEX_GROUP[market])
@@ -72,10 +76,12 @@ def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
                 group = {MARKET_INDEX[m] for m in MARKET_GROUPS[INDEX_GROUP[market]]}
                 index_failed -= group - set(res.get('failed', []))
             want = _index_last(market)
+        else:
+            break
     have = snap.get('last_trading_date')
-    if want and have and have < want:
-        print(f'[{market}] ⚠️ 재시도 후에도 종목 {have} < 지수 {want} — '
-              '폴백 배치가 다시 받는다 (check_snapshot_fresh)')
+    if want and have and store.stocks_behind(snap, want):
+        print(f'[{market}] ⚠️ 재시도 후에도 {len(store.lagging_tickers(snap, want))}종목이 지수 {want}에 '
+              f'못 미침(최신 {have}) — 폴백 배치가 다시 받는다 (check_snapshot_fresh)')
     elif want and have and want < have:
         print(f'[{market}] ⚠️ 재시도 후에도 {idx_name} {want} < 종목 {have} — '
               '폴백 배치가 다시 받는다 (check_snapshot_fresh)')

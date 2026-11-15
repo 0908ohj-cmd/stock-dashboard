@@ -100,7 +100,7 @@ def calc_correction_rs(
 
     # 기산점 ≥ 찐반등일(구간 없음) — 0을 돌려주면 전 종목 동점이 되고 RS/ADR > 0 필터가 전 종목을 조용히
     # 거른다(#40 M5). 값 대신 None + range_error로 돌려 화면이 '구간 설정 오류'를 띄우게 한다.
-    # 종목 데이터 부족(아래 len < 2)은 구간 오류가 아니므로 예전처럼 0.
+    # 아래 데이터 부족(지수 구간 2거래일 미만 → 0, 기산점 뒤 상장 → None #41 M6)은 구간 오류가 아니다(range_error False).
     if not is_valid_rs_range(peak_date, end):
         return {**{k: None for k in empty}, 'ma_score': 0, 'range_error': True}
 
@@ -108,11 +108,17 @@ def calc_correction_rs(
     idx_slice = index_df[(index_df.index >= peak_date) & (index_df.index <= end)]
     stk_slice = stock_df[(stock_df.index >= peak_date) & (stock_df.index <= end)]
 
-    if len(idx_slice) < 2 or len(stk_slice) < 2:
+    if len(idx_slice) < 2:
         return empty
+    # 기산점 당일 봉이 없으면 직전 거래일 종가에서 잰다 — 다음 봉부터 재면 지수와 다른 구간이 된다(#41 M6).
+    # 기산점 이전 봉이 아예 없으면(기산점 뒤 상장) 지수와 같은 구간을 잴 수 없다 → 0이 아니라 None.
+    # 0.0을 넣으면 '지수와 똑같이 움직임'이라는 실제 값처럼 순위에 들어갔다.
+    before = stock_df[stock_df.index <= peak_date]
+    if before.empty or stk_slice.empty:
+        return {**empty, 'stock_pct': None, 'excess_pct': None, 'excess_adr': None, 'lead_days': None}
 
     idx_pct = (float(idx_slice['Close'].iloc[-1]) / float(idx_slice['Close'].iloc[0]) - 1) * 100
-    stk_pct = (float(stk_slice['Close'].iloc[-1]) / float(stk_slice['Close'].iloc[0]) - 1) * 100
+    stk_pct = (float(stk_slice['Close'].iloc[-1]) / float(before['Close'].iloc[-1]) - 1) * 100
 
     idx_bottom = idx_slice['Low'].idxmin()
     stk_bottom = stk_slice['Low'].idxmin()
@@ -130,7 +136,8 @@ def calc_correction_rs(
 
     excess_pct = round(stk_pct - idx_pct, 2)
     adr        = _pre_adr(stock_df, correction_start)
-    excess_adr = round(excess_pct / adr, 2) if adr > 0 else 0.0
+    # 조정 전 ADR이 없으면(조정 직전 상장 등) 보정값을 낼 수 없다 — 0.0이 아니라 None (#41 M6)
+    excess_adr = round(excess_pct / adr, 2) if adr > 0 else None
 
     return {
         'stock_pct':    round(stk_pct, 2),

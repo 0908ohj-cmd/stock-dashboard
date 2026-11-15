@@ -155,3 +155,48 @@ def test_incomplete_ohlc_dates_catches_nan_and_flat():
     got = [str(ts.date()) for ts in fetcher._incomplete_ohlc_dates(df)]
 
     assert got == ['2026-09-08', '2026-09-09']
+
+
+# ── #39 M2: KR 지수 거래량은 어느 경로든 주 단위 ─────────────────────
+# pykrx(1순위)는 주, yfinance(폴백)는 천 주 단위다. 보정 함수가 천 주를 가정하면
+# 찐반등 별점(vol_ratio ≥ 1.2)과 FTD(Volume > prev_vol)가 1000배 차이로 뒤집힌다.
+
+def _fake_fdr(volume_by_date):
+    """FDR 대역 — DataReader가 날짜별 거래량(주 단위)을 돌려준다."""
+    def _reader(name, start, end):
+        return pd.DataFrame({'Volume': list(volume_by_date.values())},
+                            index=pd.to_datetime(list(volume_by_date)))
+    return types.SimpleNamespace(DataReader=_reader)
+
+
+def test_kr_index_volume_patch_keeps_share_unit_on_pykrx_path(monkeypatch):
+    """pykrx 경로(주 단위) [602854743, 0, 613729940] — 가운데를 FDR 주 단위 그대로 채운다(610000 아님)."""
+    df = _df([('2026-10-06', 1.0, 2.0, 0.5, 1.5, 602854743.0),
+              ('2026-10-07', 1.0, 2.0, 0.5, 1.5, 0.0),
+              ('2026-10-08', 1.0, 2.0, 0.5, 1.5, 613729940.0)])
+    monkeypatch.setitem(sys.modules, 'FinanceDataReader', _fake_fdr({'2026-10-07': 610000000.0}))
+
+    out = fetcher._patch_kr_index_volume(df.copy(), '^KQ11')
+
+    assert list(out['Volume']) == [602854743.0, 610000000.0, 613729940.0]
+
+
+def test_fetch_index_daily_yfinance_fallback_volume_in_shares(monkeypatch):
+    """yfinance 폴백(천 주) [602854, 0, 613729] — 주 단위로 바꾸고, pykrx 보정값도 주 단위 그대로 들어간다."""
+    monkeypatch.setattr(fetcher, '_fetch_kr_index_pykrx', lambda *a, **k: pd.DataFrame())
+    yf_df = _df([('2026-10-06', 1.0, 2.0, 0.5, 1.5, 602854.0),
+                 ('2026-10-07', 1.0, 2.0, 0.5, 1.5, 0.0),
+                 ('2026-10-08', 1.0, 2.0, 0.5, 1.5, 613729.0)])
+    monkeypatch.setattr(fetcher, '_download', lambda *a, **k: yf_df.copy())
+
+    def _no_fdr(*a, **k):
+        raise RuntimeError('FDR 실패')
+    monkeypatch.setitem(sys.modules, 'FinanceDataReader', types.SimpleNamespace(DataReader=_no_fdr))
+    pk = pd.DataFrame({'시가': [1.0], '고가': [2.0], '저가': [0.5], '종가': [1.5],
+                       '거래량': [610000000.0]}, index=pd.to_datetime(['2026-10-07']))
+    fake_pykrx, _ = _fake_pykrx_module(lambda *a, **k: pk)
+    monkeypatch.setitem(sys.modules, 'pykrx', fake_pykrx)
+
+    out = fetcher.fetch_index_daily('KOSDAQ')
+
+    assert list(out['Volume']) == [602854000.0, 610000000.0, 613729000.0]
