@@ -139,6 +139,62 @@ def test_2차_resolve가_실패해도_1차_기타_detail로_캐시한다(tmp_pat
     assert (saved['theme'], saved['detail']) == ('기타', '모호 테마')
 
 
+# ── 깨진 캐시를 덮어쓰지 않는다 (#26 패턴, #46 후속) ─────────────────────────
+# _load_cache는 파싱 실패를 {}로 돌려준다 — 그 위에 저장하면 1400여 종목 캐시가 이번 회차 결과만 남는다.
+# 스크립트는 엄격 읽기(_read_cache, 실패 = None)로 확인하고 저장 없이 0이 아닌 값으로 끝나야 한다.
+
+_BROKEN = '{"AAA": {"theme": "메모리 반도체", "detail": "HBM", "upd'
+
+
+def _no_call(name):
+    def f(*a, **k):
+        raise AssertionError(f'{name} 호출됨 — 깨진 캐시에서 분류·조회로 넘어가면 안 된다')
+    return f
+
+
+def test_테마_갱신은_캐시가_깨져_있으면_저장하지_않고_실패로_끝난다(tmp_path, monkeypatch, capsys):
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text(_BROKEN, encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(refresh_sectors, '_collect_targets', lambda: [('AAA', 'US'), ('BBB', 'US')])
+    monkeypatch.setattr(refresh_sectors, '_load_themes', lambda: ([], {}))
+    monkeypatch.setattr(theme_classifier, '_classify_one', _no_call('_classify_one'))
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', _no_call('_resolve_misc'))
+    monkeypatch.setattr(theme_classifier, '_save_cache', _no_call('_save_cache'))
+    monkeypatch.setattr(sys, 'argv', ['refresh_sectors.py'])
+
+    assert refresh_sectors.main() != 0
+    assert cache_file.read_text(encoding='utf-8') == _BROKEN
+    assert 'theme_cache.json' in capsys.readouterr().err
+
+
+def test_테마_분류_단계도_깨진_캐시면_저장하지_않는다(tmp_path, monkeypatch):
+    """main을 거치지 않고 _classify_targets를 바로 불러도 깨진 캐시를 {}로 보고 덮어쓰지 않는다."""
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text(_BROKEN, encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(theme_classifier, '_classify_one', _no_call('_classify_one'))
+
+    with pytest.raises(refresh_sectors.CacheUnreadable):
+        refresh_sectors._classify_targets(['AAA'], [], {}, workers=1, markets={'AAA': 'US'})
+    assert cache_file.read_text(encoding='utf-8') == _BROKEN
+
+
+def test_yf_갱신은_캐시가_깨져_있으면_저장하지_않고_실패로_끝난다(tmp_path, monkeypatch, capsys):
+    from data import yf_sector
+    cache_file = tmp_path / 'yf_sector_cache.json'
+    cache_file.write_text('{"AAA": "반도', encoding='utf-8')
+    monkeypatch.setattr(yf_sector, '_CACHE_FILE', cache_file)
+    monkeypatch.setattr(refresh_yf_sectors, '_collect_targets', lambda: [('AAA', 'US'), ('BBB', 'US')])
+    monkeypatch.setattr(yf_sector, 'fetch_label', _no_call('fetch_label'))
+    monkeypatch.setattr(yf_sector, '_save_cache', _no_call('_save_cache'))
+    monkeypatch.setattr(sys, 'argv', ['refresh_yf_sectors.py'])
+
+    assert refresh_yf_sectors.main() != 0
+    assert cache_file.read_text(encoding='utf-8') == '{"AAA": "반도'
+    assert 'yf_sector_cache.json' in capsys.readouterr().err
+
+
 # ── 구 갱신 스크립트 안전화 (#45 M19) ─────────────────────────────
 
 @pytest.fixture
@@ -215,13 +271,13 @@ echo "수집할 종목 없음"
 """
 
 
-def _fake_repo(tmp_path, script):
+def _fake_repo(tmp_path, script, py=_FAKE_PY):
     repo, bin_dir = tmp_path / 'repo', tmp_path / 'bin'
     (repo / 'scripts').mkdir(parents=True)
     (repo / 'venv' / 'bin').mkdir(parents=True)
     bin_dir.mkdir()
     shutil.copy(_SCRIPTS / script, repo / 'scripts' / script)
-    stubs = {repo / 'venv' / 'bin' / 'python': _FAKE_PY,
+    stubs = {repo / 'venv' / 'bin' / 'python': py,
              bin_dir / 'git': '#!/usr/bin/env bash\nexit 0\n',
              bin_dir / 'claude': '#!/usr/bin/env bash\nexit 0\n'}
     for path, body in stubs.items():
@@ -273,3 +329,19 @@ def test_셸_락이_잡혀_있으면_실행하지_않고_락을_건드리지_않
 def test_yf_갱신_락파일은_git_추적에서_빠진다():
     lines = (Path(__file__).parent.parent / '.gitignore').read_text(encoding='utf-8').splitlines()
     assert '.refresh_yf_sectors.lock' in lines
+
+
+# 수집 스크립트가 깨진 캐시로 중단(0이 아닌 종료)하면 래퍼도 실패로 끝나야 한다 — yf 래퍼는 출력만 보고
+# '조회 실패 N종목'이 없으면 '[done] 실패 종목 없음'(종료 0)으로 처리했다
+_FAKE_PY_FAILS = _FAKE_PY.replace('echo "수집할 종목 없음"\n',
+                                  'echo "⛔ 캐시 파일을 읽지 못해 중단" >&2\nexit 2\n')
+
+
+@pytest.mark.parametrize('script', ['refresh_sectors.sh', 'refresh_yf_sectors.sh'])
+def test_셸은_갱신_스크립트가_실패하면_실패로_끝난다(tmp_path, script):
+    assert _FAKE_PY_FAILS != _FAKE_PY
+    repo, bin_dir = _fake_repo(tmp_path, script, py=_FAKE_PY_FAILS)
+    proc, calls = _run_wrapper(repo, bin_dir, script)
+    assert proc.returncode != 0
+    assert '[done]' not in proc.stdout and '완료' not in proc.stdout
+    assert len([c for c in calls if 'args=-c' not in c]) == 1      # 재시도 라운드로 넘어가지 않는다

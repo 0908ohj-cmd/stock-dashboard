@@ -21,6 +21,20 @@ from data import store, theme_classifier        # noqa: E402
 from data.sector import _kr_names, _load_themes  # noqa: E402
 
 
+class CacheUnreadable(RuntimeError):
+    """theme_cache.json이 있는데 파싱이 안 된다 — 그 위에 저장하면 캐시 전체가 이번 회차 결과로 덮인다."""
+
+
+def _read_cache_strict() -> dict:
+    """캐시를 엄격하게 읽는다(theme_classifier._read_cache — 파일 없음 {}, 파싱 실패 None, #26).
+    _load_cache는 파싱 실패를 {}로 돌려줘 저장 경로에서 쓰면 깨진 파일을 덮어쓴다."""
+    cache = theme_classifier._read_cache()
+    if cache is None:
+        raise CacheUnreadable(f'{theme_classifier._CACHE_FILE} 파싱 실패 — 덮어쓰지 않고 중단합니다. '
+                              '파일을 git에서 되살리거나 고친 뒤 다시 실행하세요.')
+    return cache
+
+
 def _collect_targets() -> list:
     """(ticker, market) 쌍 — data/saved의 현행 티커 파일(store.snapshot_tickers) 합집합, 티커순.
 
@@ -59,8 +73,9 @@ def _select_targets(tickers: list, cache: dict, all_mode: bool, stale_days) -> l
 def _classify_targets(targets: list, themes: list, names: dict, workers: int, markets: dict) -> list:
     """병렬 1차 분류 → '기타' 배치 resolve → 캐시 1회 저장. 완전 실패 티커 목록 반환.
 
-    markets = {ticker: 시장} — 프롬프트가 KR/US를 코드 모양이 아니라 시장으로 알린다(#45 L6)."""
-    cache = theme_classifier._load_cache()
+    markets = {ticker: 시장} — 프롬프트가 KR/US를 코드 모양이 아니라 시장으로 알린다(#45 L6).
+    캐시 파일이 깨져 있으면 분류 전에 CacheUnreadable — 저장하지 않는다."""
+    cache = _read_cache_strict()
     results: dict = {}
 
     def _one(ticker):
@@ -106,8 +121,12 @@ def main() -> int:
     parser.add_argument('--workers', type=int, default=4, help='병렬 워커 수 (기본 4)')
     args = parser.parse_args()
 
+    try:
+        cache = _read_cache_strict()
+    except CacheUnreadable as e:
+        print(f'⛔ {e}', file=sys.stderr)
+        return 2
     themes, overrides = _load_themes()
-    cache = theme_classifier._load_cache()
 
     markets = dict(_collect_targets())
     tickers = [t for t in markets if t not in overrides]
