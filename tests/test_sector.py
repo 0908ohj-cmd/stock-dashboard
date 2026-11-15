@@ -27,9 +27,76 @@ def test_검증된_새_분류가_구_캐시보다_우선한다(tmp_path, monkeyp
     classification.save_store('KR_KOSPI', recs)
     monkeypatch.setattr(theme_classifier, 'classify',
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
-    assert sector.get_sectors(['000660', '005930'], 'KR_KOSPI') == {'000660': 'HBM 메모리', '005930': '구 라벨'}
+    # 005930은 승인 게이트(근거 URL·신뢰도)에서 탈락해 기록이 미분류다. 주도섹터 탭이 집계에서 빼는
+    # 종목이므로 와치리스트도 '미분류'로 보여준다 — 동결된 구 캐시 라벨로 폴백하지 않는다(#37)
+    assert sector.get_sectors(['000660', '005930'], 'KR_KOSPI') == {'000660': 'HBM 메모리', '005930': '미분류'}
     assert sector.get_major_themes(['000660', '005930'], 'KR_KOSPI') == {
-        '000660': '반도체·메모리', '005930': '메모리 반도체'}
+        '000660': '반도체·메모리', '005930': '미분류'}
+
+
+AAOI_LEGACY = {'AAOI': {'theme': '광통신', 'detail': 'AI 데이터센터 광부품', 'updated': '2026-08-15T22:43:12'}}
+
+
+def _no_classify(monkeypatch):
+    monkeypatch.setattr(theme_classifier, 'classify',
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError('classify 호출됨')))
+
+
+def test_미분류로_확정한_종목은_구_라벨로_폴백하지_않는다(tmp_path, monkeypatch):
+    """AAOI를 '미분류'로 확정해도 와치리스트에 '광통신 / AI 데이터센터 광부품'이 나오던 문제(#37)."""
+    _setup(tmp_path, monkeypatch, AAOI_LEGACY)
+    _no_classify(monkeypatch)
+    recs = {}
+    classification.apply_auto('US', 'AAOI', classification.normalize('US', {
+        'primaryTheme': 'OPTICAL_INTERCONNECT', 'confidence': 'medium', 'detail': '광트랜시버·CATV 광장비',
+        'evidenceUrls': ['https://stockanalysis.com/stocks/aaoi/company/']}, 't'), recs)
+    classification.set_override('US', 'AAOI', 'UNCLASSIFIED', [], '사업 비중 재확인 필요', recs)
+    classification.save_store('US', recs)
+
+    assert sector.get_sectors(['AAOI'], 'US') == {'AAOI': '미분류'}
+    assert sector.get_sectors_cached_only(['AAOI'], 'US') == {'AAOI': '미분류'}
+    assert sector.get_major_themes(['AAOI'], 'US') == {'AAOI': '미분류'}
+    assert sector.get_display_sectors(['AAOI'], 'US', {'AAOI': '통신장비'}) == {'AAOI': '미분류'}
+
+
+def test_분류_기록이_없는_신규종목은_예전처럼_구_라벨로_폴백한다(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch, AAOI_LEGACY)
+    _no_classify(monkeypatch)
+
+    assert sector.get_sectors(['AAOI'], 'US') == {'AAOI': 'AI 데이터센터 광부품'}
+    assert sector.get_display_sectors(['AAOI'], 'US', {'AAOI': '통신장비'}) == {'AAOI': '통신장비'}
+    assert sector.get_display_sectors(['AAOI'], 'US', {}) == {'AAOI': '광통신'}
+
+
+def test_분류_저장소를_못_읽으면_로그를_남기고_구_라벨로_폴백한다(tmp_path, monkeypatch, caplog):
+    _setup(tmp_path, monkeypatch, AAOI_LEGACY)
+    _no_classify(monkeypatch)
+    classification.STORE_DIR.mkdir(exist_ok=True)
+    (classification.STORE_DIR / 'us.json').write_text('{깨진 JSON', encoding='utf-8')
+
+    with caplog.at_level('WARNING', logger='data.sector'):
+        labels = sector.get_sectors(['AAOI'], 'US')
+        majors = sector.get_display_sectors(['AAOI'], 'US', {})
+
+    assert labels == {'AAOI': 'AI 데이터센터 광부품'}
+    assert majors == {'AAOI': '광통신'}
+    assert any('AAOI' in r.getMessage() and 'JSONDecodeError' in r.getMessage() for r in caplog.records)
+
+
+def test_테마_목록에_없는_코드는_로그를_남긴다(tmp_path, monkeypatch, caplog):
+    """taxonomy 코드가 바뀌어 기록의 코드가 목록에 없으면 조용히 넘어가지 않는다."""
+    _setup(tmp_path, monkeypatch, AAOI_LEGACY)
+    _no_classify(monkeypatch)
+    rec = classification.normalize('US', {
+        'primaryTheme': 'OPTICAL_INTERCONNECT', 'confidence': 'high',
+        'evidenceUrls': ['https://stockanalysis.com/stocks/aaoi/company/']}, 't')
+    rec['primaryTheme'] = 'RENAMED_CODE'
+    classification.save_store('US', {'AAOI': rec})
+
+    with caplog.at_level('WARNING', logger='data.sector'):
+        sector.get_display_sectors(['AAOI'], 'US', {})
+
+    assert any('RENAMED_CODE' in r.getMessage() for r in caplog.records)
 
 
 def _setup(tmp_path, monkeypatch, cache_content: dict):
@@ -43,6 +110,7 @@ def _setup(tmp_path, monkeypatch, cache_content: dict):
     monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
     monkeypatch.setattr(theme_classifier, '_THEMES_FILE', themes_file)
     monkeypatch.setattr(sector, '_SESSION_ATTEMPTED', set())
+    monkeypatch.setattr(sector, '_LOGGED', set())
     return cache_file
 
 
