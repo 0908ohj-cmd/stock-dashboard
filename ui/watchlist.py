@@ -12,7 +12,6 @@ from data.fetcher import (
 )
 from data import store
 from data.sector import get_sectors, get_display_sectors
-from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from strategy.market_status import get_market_status
 from strategy.rs_correction import calc_correction_rs, _index_peak_date, clean_manual_rs_range, resolve_rs_range
@@ -851,81 +850,3 @@ function(valueA, valueB) {
             )
         else:
             st.info(empty_reason)
-
-
-def render_watchlist(kr_kospi: list, kr_kosdaq: list, us_tickers: list):
-    st.subheader('와치리스트')
-    with st.expander('사용 가이드', expanded=False):
-
-        # ① DAY 카운팅
-        st.caption('DAY 카운팅 & 복귀 조건')
-        st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
-  <div style="border:1px solid #e74c3c55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔴 DAY1</div>
-    <div style="font-size:0.85em;line-height:1.6">EMA21 아래 · 조정 중</div>
-    <div style="color:#e74c3c;font-size:0.82em;margin-top:8px">→ 찐반등 봉 출현 대기</div>
-  </div>
-  <div style="border:1px solid #f1c40f55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟡 DAY2</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 감지 당일</div>
-    <div style="color:#f1c40f;font-size:0.82em;margin-top:8px">→ 주도섹터 탭 차기 주도주 확인</div>
-  </div>
-  <div style="border:1px solid #3498db55;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🔵 DAY3~7</div>
-    <div style="font-size:0.85em;line-height:1.6">찐반등 이후 1~5 거래일 동안 매수 유효</div>
-    <div style="color:#3498db;font-size:0.82em;margin-top:8px">→ 차기 주도주 순위 변화 확인</div>
-  </div>
-  <div style="border:1px solid #2ecc7155;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">🟢 정상</div>
-    <div style="font-size:0.85em;line-height:1.6">EMA21 위 · 찐반등 확인</div>
-    <div style="color:#2ecc71;font-size:0.82em;margin-top:8px">→ 보유 유지</div>
-  </div>
-  <div style="border:1px solid #55555555;border-radius:8px;padding:12px 14px">
-    <div style="font-weight:700;margin-bottom:6px">⚫ 정상</div>
-    <div style="font-size:0.85em;line-height:1.6">EMA21 위 · 찐반등 미확인</div>
-    <div style="color:gray;font-size:0.82em;margin-top:8px">→ Gray Zone</div>
-  </div>
-</div>
-<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
-    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ①</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">DAY7 이후 EMA21 미회복 시</div>
-  </div>
-  <div style="border:1px solid #e67e2255;border-radius:8px;padding:10px 14px">
-    <div style="font-weight:700;font-size:0.9em;margin-bottom:4px">↩ DAY1 복귀 ②</div>
-    <div style="font-size:0.82em;line-height:1.5;color:#e67e22">찐반등 저점 아래 종가 즉시</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-        st.divider()
-
-        # ② 핵심 후보
-        st.caption('매수 후보')
-        st.markdown('매수 후보는 **🧭 주도섹터 탭 → 🎯 차기 주도주**에서 봅니다. 하락국면·상승국면 RS/ADR, '
-                    '52주 고점 근접 등 5년 검증으로 정한 배점표가 그 표 아래에 있습니다.')
-
-        st.divider()
-
-        # ③ 컬럼 설명
-        st.caption('컬럼 설명')
-        st.markdown(
-            '| 컬럼 | 설명 | 기준 |\n'
-            '|------|------|------|\n'
-            '| 하락국면 RS/ADR | 기산점~찐반등일(전이면 ~기준일) 지수 대비 초과수익 ÷ ADR | 높을수록 강함 |\n'
-            '| 상승국면 RS/ADR | 찐반등 전날 종가~기준일 지수 대비 초과수익 ÷ ADR (찐반등 전 빈칸) | 높을수록 강함 |\n'
-            '| 200일선 | 200일선 방향(오늘 vs 20거래일 전) + (이격%) | **↗ 상승**이면 주도주 점수 장기 추세 10점 |\n'
-            '| 이평선위치 | 지수가 이탈한 이평선(EMA21·SMA50·150·200) 기준 종목 위/아래 | 위가 많을수록 강함 |\n'
-            '| 저점선행(일) | 지수 저점보다 N거래일 먼저 저점 형성 | 양수일수록 강함 |\n'
-            '| 양봉비% | 양봉 바디 합 / 음봉 바디 합 ×100 | **100 이상** = 매수 우위 |\n'
-            '| 고점대비% | 52주 고점 대비 현재 낙폭% | **−30% 이내** 권장 |'
-        )
-
-    tab_kospi, tab_kosdaq, tab_us = st.tabs(['🇰🇷 KOSPI', '🇰🇷 KOSDAQ', '🇺🇸 US'])
-    with tab_kospi:
-        render_watchlist_tab(kr_kospi,  'KR_KOSPI',  'KOSPI')
-    with tab_kosdaq:
-        render_watchlist_tab(kr_kosdaq, 'KR_KOSDAQ', 'KOSDAQ')
-    with tab_us:
-        render_watchlist_tab(us_tickers, 'US', 'US')
