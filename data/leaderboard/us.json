@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-11-15T09:03:26",
-  "source_updated_at": "2026-11-15T09:03:24",
+  "synced_at": "2026-11-16T07:02:42",
+  "source_updated_at": "2026-11-16T07:02:40",
   "count": 20,
   "items": [
     {
@@ -52,7 +52,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-10-30",
       "close": 106.17,
@@ -73,7 +74,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-10-22",
       "close": 337.97,
@@ -178,7 +180,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-11-03",
       "close": 257.15,
@@ -232,7 +235,7 @@
       "perf_12m": 66.1,
       "dist_from_52w_high": -2.9,
       "avg_dollar_vol": 188193748,
-      "theme": "디지털 뱅킹 플랫폼",
+      "theme": "모바일 핀테크 은행",
       "sector": "소프트웨어"
     },
     {
@@ -241,7 +244,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-11-08",
       "close": 117.98,
@@ -253,7 +257,7 @@
       "perf_12m": 51.8,
       "dist_from_52w_high": -1.1,
       "avg_dollar_vol": 170696154,
-      "theme": "글로벌 뷰티 포트폴리오",
+      "theme": "스킨케어 브랜드 확대",
       "sector": "생활·개인용품"
     },
     {
@@ -283,7 +287,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-11-05",
       "close": 24.0,
@@ -325,7 +330,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-11-06",
       "close": 113.27,
@@ -388,7 +394,8 @@
       "name": "",
       "market": "US",
       "sources": [
-        "leaders"
+        "leaders",
+        "leader_ride"
       ],
       "added_at": "2026-11-13",
       "close": 248.86,

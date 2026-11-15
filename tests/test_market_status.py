@@ -293,24 +293,70 @@ _BELOW4 = [(108, 107), (107, 106), (106, 107), (107, 106)]     # 02-24 ~ 02-27 (
 
 
 def test_still_below_ema21_on_day_after_day7_starts_new_correction():
-    """DAY7(02-26)까지는 찐반등 유지, DAY7 다음 거래일(02-27)에도 EMA21 아래면 그날이 새 조정 DAY1."""
+    """DAY7(02-26)까지는 찐반등 유지, DAY7 다음 거래일(02-27)에도 EMA21 아래면 새 조정 DAY1 —
+    이탈일은 실제로 종가가 EMA21 아래로 내려간 재이탈일(02-23)이다."""
+    from strategy.next_leaders import detect_phase
     from strategy.rs_correction import _index_peak_date
     df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK + _BELOW4)
 
     day7 = get_market_status(df.iloc[:-1])
     assert day7['state'] == 'early_signal'
     assert day7['jjin_date'] == _T('2026-02-19')
+    assert day7['correction_start'] == _T('2026-02-10')
     assert day7['rebreak_date'] == _T('2026-02-23')
     assert get_phase_label(df.iloc[:-1], 2.0) == 'DAY7'
 
     status = get_market_status(df)
     assert status['state'] == 'correction'
-    assert status['correction_start'] == _T('2026-02-27')
+    assert status['correction_start'] == _T('2026-02-23')
     assert status['jjin_date'] is None
     assert status['rebreak_date'] is None
     assert get_phase_label(df, 2.0) == 'DAY1'
     # 새 조정의 RS 기산점은 기존 규칙 — 직전 EMA21 회복(02-20) 이후 최고 종가
     assert _index_peak_date(df, status['correction_start']) == _T('2026-02-20')
+    phase = detect_phase(df, df.index[-1])
+    assert (phase['mode'], phase['correctionStart'], phase['peakDate']) == (
+        'correction', _T('2026-02-23'), _T('2026-02-20'))
+
+
+def test_rebreak_recover_rebreak_inside_window_starts_at_last_breakdown():
+    """확인창 안 재이탈(02-23) → 재회복(02-24 종가 111) → 다시 이탈(02-25) → DAY7 다음 날(02-27)에도
+    EMA21 아래면, 새 조정의 이탈일은 지금 이어지는 하락 구간의 시작일(02-25)이다."""
+    from strategy.rs_correction import _index_peak_date
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK
+                + [(108, 111), (111, 107), (107, 106), (106, 105)])
+
+    day7 = get_market_status(df.iloc[:-1])                     # 02-26 화면 판정은 그대로
+    assert (day7['state'], day7['jjin_date'], day7['rebreak_date']) == (
+        'early_signal', _T('2026-02-19'), _T('2026-02-25'))
+
+    status = get_market_status(df)
+    assert status['state'] == 'correction'
+    assert status['correction_start'] == _T('2026-02-25')
+    assert _index_peak_date(df, status['correction_start']) == _T('2026-02-24')
+
+
+def test_bounce_inside_window_becomes_jjin_of_new_correction():
+    """재이탈(02-23) 뒤 확인창 안에서 나온 반등(02-25, +4.4%, EMA21 아래)은 DAY7 다음 날(02-27)에도
+    EMA21 아래면 새 조정(이탈일 02-23)의 찐반등 후보로 잡힌다 — 02-26까지의 화면은 그대로."""
+    from strategy.next_leaders import detect_phase
+    df = _oc_df(_UP + _DOWN + _B1 + _REC1 + _REBREAK
+                + [(107, 103), (103, 107.5), (107.5, 107), (107, 106.5)])
+
+    day7 = get_market_status(df.iloc[:-1])
+    assert (day7['state'], day7['jjin_date'], day7['rebreak_date']) == (
+        'early_signal', _T('2026-02-19'), _T('2026-02-23'))
+    assert get_phase_label(df.iloc[:-1], 2.0) == 'DAY7'
+
+    status = get_market_status(df)
+    assert status['state'] == 'early_signal'
+    assert status['correction_start'] == _T('2026-02-23')
+    assert status['jjin_date'] == _T('2026-02-25')
+    assert status['rebreak_date'] is None
+    assert get_phase_label(df, 2.0) == 'DAY4'
+    phase = detect_phase(df, df.index[-1])
+    assert (phase['label'], phase['jjinDate'], phase['peakDate']) == (
+        'DAY4', _T('2026-02-25'), _T('2026-02-20'))
 
 
 def test_rebreak_then_recovery_returns_to_normal_flow():

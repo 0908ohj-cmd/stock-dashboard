@@ -340,9 +340,3 @@ def resolve_sector(yf_label: str, llm_theme: str) -> str:
     if llm_theme and llm_theme not in ('기타', '-'):
         return llm_theme
     return '-'
-
-
-def get_yf_sectors_cached_only(tickers: list) -> dict:
-    """캐시만 조회, 네트워크 미접촉."""
-    cache = _load_cache()
-    return {t: cache.get(t) or '-' for t in tickers}

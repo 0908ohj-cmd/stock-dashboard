@@ -6,7 +6,7 @@ from strategy.market_status import get_market_status
 
 
 def _pp_ok(df) -> bool:
-    """PP 거래 가능 조건: 지수 10EMA > 21EMA, 두 EMA 모두 기울기 양수 (5일 기준)."""
+    """PP 거래 가능 조건: 지수 10EMA > 21EMA, 두 EMA 모두 기울기 양수 (전일 대비 1일 기준)."""
     if len(df) < 26:
         return False
     ema10 = calc_ema(df, 10)

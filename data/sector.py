@@ -14,9 +14,6 @@ _LOGGED: set = set()   # 같은 실패를 종목마다·렌더마다 반복해 �
 
 _NAMES_FILE = Path(__file__).parent / 'kr_names.json'
 
-# 렌더 경로 런타임 분류(#45 M18에서 제거)가 쓰던 세션 가드 — 지금은 쓰이지 않는다. 정리는 #46
-_SESSION_ATTEMPTED: set = set()
-
 
 def _load_themes() -> tuple[list, dict]:
     data = json.loads(theme_classifier._THEMES_FILE.read_text(encoding='utf-8'))

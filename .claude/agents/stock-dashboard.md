@@ -1,13 +1,13 @@
 ---
 name: stock-dashboard
-description: Stock Watchlist Dashboard 전담 에이전트. TradingView CSV/TXT 업로드 → 추세추종(지수 조정→찐반등 DAY1~5)·10EMA 기준봉 전략 분석 → 한국/미국 와치리스트 표시하는 Streamlit 앱 작업 시 사용.
+description: Stock Watchlist Dashboard 전담 에이전트. TradingView CSV/TXT 업로드 → 추세추종(지수 조정→찐반등 DAY1~7)·10EMA 기준봉 전략 분석 → 한국/미국 와치리스트 표시하는 Streamlit 앱 작업 시 사용.
 tools: Read, Edit, Write, Glob, Grep, Bash
 model: sonnet
 ---
 
 # Stock Watchlist Dashboard
 
-TradingView 스크리너 CSV/와치리스트 TXT를 업로드하면 추세추종 전략(지수 조정 → 찐반등 DAY1~5)과 10EMA 기준봉 전략으로 분석해 KOSPI/KOSDAQ/NASDAQ 와치리스트를 보여주는 Streamlit 대시보드. Streamlit Cloud로 배포된다.
+TradingView 스크리너 CSV/와치리스트 TXT를 업로드하면 추세추종 전략(지수 조정 → 찐반등 DAY1~7)과 10EMA 기준봉 전략으로 분석해 KOSPI/KOSDAQ/NASDAQ 와치리스트를 보여주는 Streamlit 대시보드. Streamlit Cloud로 배포된다.
 
 **아키텍처·명령어·컨벤션·함정은 루트 `CLAUDE.md`가 기준 문서다 — 작업 시작 전 반드시 읽을 것.** 이 파일에는 에이전트용 빠른 요약만 둔다.
 
@@ -31,21 +31,21 @@ TradingView 스크리너 CSV/와치리스트 TXT를 업로드하면 추세추종
 지수 기준 상태 머신 — 종목이 아니라 **지수**가 페이즈를 결정:
 
 - **DAY1** = 조정: 지수 종가가 EMA21 이탈 (`correction`)
-- **DAY2** = 찐반등 감지 당일 (`early_signal`): 장중 저가 EMA21 아래 + 양봉 상승폭 ≥ ADR(20일) + 직전 음봉 바디 50% 이상 커버
-- **DAY3~5** = 찐반등 이후 1~3거래일, 매수 유효 구간
+- **DAY2** = 찐반등 감지 당일 (`early_signal`): 장중 저가 EMA21 아래(전일 종가 EMA21 아래 → 당일 종가 돌파면 면제) + 양봉 + 상승폭 ≥ ADR(20일)×0.9
+- **DAY3~7** = 찐반등 이후 1~5거래일, 매수 유효 구간
 - 실패 판정: 5거래일 내 EMA21 미회복(6번째 거래일 확정) 또는 찐반등 저점 아래 종가(당일 즉시) → DAY1 복귀. 실패 후보의 다음 거래일부터 새 찐반등을 재탐색한다
-- 종목 필터: ADR KR ≥ 2% / US ≥ 4%. 지표는 조정 구간 RS·3종 RS·스윙 등급(신고/고/저/신저 시퀀스 → S/A~B/C/F)
+- 종목 필터: ADR KR ≥ 2% / US ≥ 4%. 지표는 조정 구간 RS·주도주 점수(주도섹터 탭과 같은 계산)·스윙 등급(신고/고/저/신저 시퀀스 → S/A~B/C/F)
 
 ### 10EMA 기준봉
 
-기준봉(거래량 급증 + 60일 신고가 돌파 + 10>21>50 정배열 + 종가 상단 30% + 사전 30% 상승) → 상태(셋업/형성중/돌파완료/각종 이탈) → 타점 = 기준봉 고가, 손절 = 중간선. ADR ≥ 6% 필터.
+기준봉(거래량 2배+ + 60일 신고가·VCP 박스 돌파 + 10>21>50 정배열 + 150·200SMA 위 + 종가 상단 30% + 사전 30% 상승, 최근 63거래일) → 상태(셋업 케이스1·2/돌파완료/10EMA·중간선·저가 이탈/없음) → 타점 = 케이스1 10EMA, 케이스2 기준봉 고가. ADR ≥ 6% 필터.
 
 ## 명령어
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py                                       # port 8501
-python3 -m pytest tests/ --ignore=tests/test_scoring.py    # test_scoring.py는 스테일 — ignore 필수
+python3 -m pytest tests/
 ```
 
 ## 주의사항

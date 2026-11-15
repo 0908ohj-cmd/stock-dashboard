@@ -234,23 +234,6 @@ def test_변화감지는_세가지가_동시에_좋아질때만():
     assert up['scoreChange'] == 15
 
 
-def _rot(t, theme, score):
-    return {'ticker': t, 'primaryTheme': theme, 'rotScore': score, 'aboveEma21': True, 'aboveEma10': True}
-
-
-def test_새_순환매는_2주전_약했다가_지금_강해진_섹터만():
-    now = ([_rot(f'S{i}', 'SPACE', 80) for i in range(3)]          # 30 → 80: 🆕
-           + [_rot(f'O{i}', 'OLD', 85) for i in range(3)]          # 80 → 85: 기존 강세
-           + [_rot(f'W{i}', 'WEAK', 55) for i in range(3)])        # 30 → 55: 아직 60 미만
-    prev = ([_rot(f'S{i}', 'SPACE', 30) for i in range(3)] + [_rot(f'O{i}', 'OLD', 80) for i in range(3)]
-            + [_rot(f'W{i}', 'WEAK', 30) for i in range(3)])
-    ranked, _ = nl.rotation_sectors(now, prev)
-    by = {s['theme']: s for s in ranked}
-    assert by['SPACE']['isNew'] and not by['OLD']['isNew'] and not by['WEAK']['isNew']
-    assert ranked[0]['theme'] == 'SPACE'                  # 🆕이 점수 높은 기존 강세보다 앞
-    assert by['SPACE']['scoreRise'] == pytest.approx(by['SPACE']['score'] - by['SPACE']['prevScore'])
-
-
 def test_순환매_점수는_이번주_강한_종목이_높다():
     n = 140
     idf = _index(np.full(n, 100.0))

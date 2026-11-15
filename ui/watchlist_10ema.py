@@ -7,12 +7,9 @@ from strategy.trading_days import trading_days_after
 from data.fetcher import get_stock_name
 from data.store import load_daily, get_freshness, refetch_market, lag_note
 from data.sector import get_sectors, get_display_sectors
-from data.yf_sector import get_yf_sectors
 from data import leaderboard_store
 from data import classification as cls
-from strategy.indicators import calc_pct_from_52w_high, calc_ema
-from strategy.pivot_candle import (find_pivot_candle, classify_case, calc_10ema_slope, pp_prefilter,
-                                   setup_sort_key)
+from strategy.pivot_candle import find_pivot_candle, classify_case, pp_prefilter, setup_sort_key
 from ui import tv_export
 from ui.sector_leadership import hot_history, hot_badge
 from ui.watchlist import _snapshot_ts      # 스냅샷 fetched_at — 추세추종 탭과 같은 캐시 키 출처
@@ -50,17 +47,6 @@ KO_LOCALE = {
 }
 
 
-def _ma_score(df: pd.DataFrame, close: float) -> int:
-    mas = [
-        calc_ema(df, 10).iloc[-1],
-        calc_ema(df, 21).iloc[-1],
-        df['Close'].rolling(50).mean().iloc[-1],
-        df['Close'].rolling(150).mean().iloc[-1],
-        df['Close'].rolling(200).mean().iloc[-1],
-    ]
-    return sum(1 for v in mas if not pd.isna(v) and close > v)
-
-
 def _process_one(ticker: str, market: str) -> dict | None:
     try:
         df = load_daily(ticker, market=market)
@@ -78,7 +64,6 @@ def _process_one(ticker: str, market: str) -> dict | None:
         change_pct = (last_close - prev_close) / prev_close * 100
 
         pivot_date_str = str(pivot['date'].date()) if pivot else ''
-        pivot_vol_r    = pivot['vol_ratio'] if pivot else 0.0
         days_since     = trading_days_after(df, pivot['date']) if pivot else 0
 
         if pivot:
@@ -86,21 +71,12 @@ def _process_one(ticker: str, market: str) -> dict | None:
             start_pos  = max(0, pivot_pos - 65)
             prior_low  = float(df['Low'].iloc[start_pos:pivot_pos].min()) if pivot_pos > 0 else 0.0
             prior_move_pct = round((pivot['high'] / prior_low - 1) * 100, 0) if prior_low > 0 else 0.0
-            if state == '셋업(케이스1)':
-                # 타점=10EMA, 손절=10EMA-0.5ADR
-                entry_price    = round(ema10_v, 2)
-                stop_price     = round(ema10_v * (1 - adr * 0.5 / 100), 2)
-                risk_pct       = round(adr * 0.5, 1)
-                near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
-            else:
-                # 케이스2: 타점=기준봉 고가, 손절=기준봉 저가 -2%
-                entry_price    = round(pivot['high'], 2)
-                stop_price     = round(pivot['low'] * 0.98, 2)
-                risk_pct       = round((entry_price - stop_price) / entry_price * 100, 1)
-                near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
+            # 타점 — 케이스1 = 10EMA, 그 밖(케이스2·돌파완료·이탈) = 기준봉 고가.
+            # 손절(케이스1 10EMA − 0.5×ADR, 케이스2 기준봉 저가 − 2%)은 사용 가이드에만 있고 표에는 없다
+            entry_price    = round(ema10_v if state == '셋업(케이스1)' else pivot['high'], 2)
+            near_entry_pct = round((last_close / entry_price - 1) * 100, 2)
         else:
-            entry_price = stop_price = risk_pct = near_entry_pct = prior_move_pct = 0.0
-        aligned3 = True  # _process_one 진입 시점에 이미 정배열 체크 완료
+            entry_price = near_entry_pct = prior_move_pct = 0.0
 
         return {
             'Ticker':        ticker,
@@ -109,23 +85,17 @@ def _process_one(ticker: str, market: str) -> dict | None:
             'Close':         round(last_close, 2),
             '타점':          entry_price,
             '현재→타점%':    near_entry_pct,
-            '손절':          stop_price,
-            '리스크%':       risk_pct,
             '이전상승%':     prior_move_pct,
             '등락%':         round(change_pct, 2),
             '횡보일수':      days_since,
-            '기준봉거래량비': round(pivot_vol_r, 1),
-            'MA점수':        _ma_score(df, last_close),
-            '고점대비%':     calc_pct_from_52w_high(df),
             '기준봉일':      pivot_date_str,
             'ADR%':          round(adr, 1),
-            '정배열3':       aligned3,
         }
     except Exception:
         return None
 
 
-_ROW_SCHEMA_VER = 23  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
+_ROW_SCHEMA_VER = 24  # 컬럼 구조 변경 시 증가 → 구캐시 자동 무효화
 
 @st.cache_data(ttl=3600)
 def _build_10ema_rows(tickers_tuple: tuple, market: str, schema_ver: int = _ROW_SCHEMA_VER,
@@ -289,7 +259,7 @@ def render_10ema_tab(market: str, label: str):
             (_it1, '🔴 10EMA이탈',  '10EMA 아래 연속 2거래일'),
             (_it2, '🔴 중간선이탈', '기준봉 중간선 아래 연속 2거래일'),
             (_it3, '🔴 저가이탈',   '기준봉 저가 하방 이탈'),
-            (_it4, '⚫ 없음',        '최근 6개월 내 기준봉 미탐지'),
+            (_it4, '⚫ 없음',        '최근 63거래일(약 3개월) 내 기준봉 미탐지'),
         ]:
             _col.markdown(
                 '<div style="border-radius:10px;overflow:hidden;border:1px solid rgba(180,50,50,0.25)">'
@@ -297,7 +267,7 @@ def render_10ema_tab(market: str, label: str):
                 f'<span style="font-weight:700;color:#fff;font-size:0.81em">{_title}</span>'
                 '</div>'
                 f'<div style="padding:10px 12px;font-size:0.82em;line-height:1.7">{_body}<br>'
-                '<span style="color:#aaa;font-size:0.9em">→ 셋업 무효</span></div>'
+                '<span style="color:#aaa;font-size:0.9em">→ 셋업 무효 · 새 기준봉이 나오면 그 봉으로 다시 판정</span></div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
@@ -327,7 +297,7 @@ def render_10ema_tab(market: str, label: str):
             '| 컬럼 | 설명 | 기준 |\n'
             '|------|------|------|\n'
             '| 기준봉일 | 기준봉 발생 날짜 | |\n'
-            '| 타점 | 기준봉 고가 — ORH 매수 진입가 | |\n'
+            '| 타점 | 케이스1 = 10EMA, 케이스2 = 기준봉 고가(ORH 매수 진입가) | |\n'
             '| 현재→타점% | 현재가 대비 타점까지 남은 거리 (음수 = 타점 아래 = 진입 가능) | −5% 이내 |\n'
             '| 횡보일수 | 기준봉 이후 경과 거래일 수 | 3 ~ 40일 |\n'
             '| 이전상승% | 기준봉 전 65거래일 저점 → 고가 상승폭 (Prior Move) | 30%+ 필수 |\n'
@@ -359,7 +329,6 @@ def render_10ema_tab(market: str, label: str):
     # 상단 요약 메트릭
     case1_rows  = [r for r in rows if r['상태'] == '셋업(케이스1)']
     case2_rows  = [r for r in rows if r['상태'] == '셋업(케이스2)']
-    near_rows   = [r for r in case2_rows if abs(r['현재→타점%'] or 99) <= 5]
     entry_rows  = case1_rows + case2_rows
 
     # 2026-11-11 사용자 요청으로 10EMA 섹션은 TradingView 내보내기에서 뺐다 (맨 위에서 빈 목록 등록만 유지).
