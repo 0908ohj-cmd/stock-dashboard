@@ -55,13 +55,14 @@ def _lines(path):
     return path.read_text(encoding='utf-8').splitlines()
 
 
-def test_래퍼는_저장소_동기화_뒤_수집_전에_plist를_비교한다():
-    """reset --hard로 받은 최신 repo plist와 비교해야 한다 — 그 전이면 옛 plist와 비교한다."""
+def test_래퍼는_저장소_동기화_직후_조기_종료_전에_plist를_비교한다():
+    """reset --hard로 받은 최신 repo plist와 비교해야 한다 — 그 전이면 옛 plist와 비교한다.
+    '이번 회차는 이미 수집됨' 조기 종료보다 앞에 둔다 — 뒤에 두면 그 회차엔 비교를 건너뛴다."""
     lines = _lines(RUNNER)
     reset_at = next(i for i, l in enumerate(lines) if 'git reset --hard origin/main' in l)
     drift_at = next(i for i, l in enumerate(lines) if 'plist_drift' in l)
-    fetch_at = next(i for i, l in enumerate(lines) if 'scripts/fetch_snapshot.py' in l)
-    assert reset_at < drift_at < fetch_at
+    guard_at = next(i for i, l in enumerate(lines) if 'round_is_fresh' in l and 'if type' in l)
+    assert reset_at < drift_at < guard_at
     block = '\n'.join(lines[drift_at:drift_at + 4])
     assert 'notify' in block
 

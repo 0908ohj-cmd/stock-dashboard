@@ -145,20 +145,20 @@ else
     [ "$REPO" = "$BATCH_REPO" ] || die "배치 전용 체크아웃이 아니다($REPO) — 실제 실행은 $BATCH_REPO 에서만 허용한다"
     git fetch origin --quiet || die "git fetch 실패"
     git reset --hard origin/main --quiet || die "git reset 실패"
+    # 설치된 launchd plist가 방금 받은 repo plist와 어긋나면 알린다 — 수집은 그대로 진행한다 (#39 M21).
+    # 아래 '이미 수집됨' 조기 종료보다 앞에 둬야 그런 회차에도 비교한다. dry-run(개발 체크아웃)은
+    # 브랜치 plist가 설치본과 다를 수 있어 비교하지 않는다.
+    LABEL="com.stockdashboard.batch.$MARKET"
+    if ! drift="$(plist_drift "${LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$LABEL.plist" "$REPO/scripts/launchd/$LABEL.plist")"; then
+        log "WARN: launchd 설정 불일치 — $drift"
+        notify "launchd 설정 불일치 — $drift"
+    fi
     # 이번 회차가 이미 채워졌으면(GitHub 폴백·수동 실행 등) 다시 받지 않는다 — catchup이 실패한
     # 회차를 재실행할 때 폴백이 먼저 채웠다면 같은 수집(KR은 KRX 조회)을 반복하지 않고 성공으로 끝난다.
     if type round_is_fresh >/dev/null 2>&1 && round_is_fresh "$PYTHON" "$MARKET" "$REPO" >>"$LOG" 2>&1; then
         log "이번 회차는 이미 수집됨 — 건너뜀"
         exit 0
     fi
-fi
-
-# 설치된 launchd plist가 방금 받은 repo plist와 어긋나면 알린다 — 수집은 그대로 진행한다 (#39 M21).
-# dry-run(개발 체크아웃)은 브랜치 plist가 다를 수 있어 로그만 남긴다.
-LABEL="com.stockdashboard.batch.$MARKET"
-if ! drift="$(plist_drift "${LAUNCH_AGENTS_DIR:-$HOME/Library/LaunchAgents}/$LABEL.plist" "$REPO/scripts/launchd/$LABEL.plist")"; then
-    log "WARN: launchd 설정 불일치 — $drift"
-    [ "$DRY_RUN" = "--dry-run" ] || notify "launchd 설정 불일치 — $drift"
 fi
 
 # 유니버스 빌드는 실패해도 스냅샷 수집을 막지 않는다.
