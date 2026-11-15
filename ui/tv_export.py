@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
-from data import leaderboard_store
 from strategy.tv_export import (
     build_export, dated_title, export_filename, order_sections, summarize_sections,
 )
@@ -31,12 +30,6 @@ _EMA10_TITLE = {
     'KR_KOSDAQ': '📈 10EMA 코스닥',
     'US':        '📈 10EMA 나스닥',
 }
-_LEADERBOARD_TITLE = {
-    'us': '👑 리더보드 US',
-    'kr': '👑 리더보드 KR',
-}
-
-
 def _register(key: str, title: str, tickers, market: str) -> None:
     """섹션 하나를 세션에 등록. 같은 키를 다시 부르면 최신 값으로 덮어쓴다."""
     registry = st.session_state.setdefault(_REGISTRY_KEY, {})
@@ -81,20 +74,6 @@ def register_ema10(market: str, tickers) -> None:
     _register(f'ema10_{market}', _EMA10_TITLE.get(market, market), tickers, market)
 
 
-def register_leaderboard() -> None:
-    """리더보드 US·KR. 화면의 시장 선택과 무관하게 양쪽 모두 파일에 담는다.
-
-    JSON 파일만 읽으므로 비용이 없고, `items` 순서(랭킹)를 그대로 유지한다.
-    """
-    for market, title in _LEADERBOARD_TITLE.items():
-        items = leaderboard_store.load(market).get('items', [])
-        tickers = [
-            it.get('ticker') for it in items
-            if isinstance(it, dict) and isinstance(it.get('ticker'), str)
-        ]
-        _register(f'leaderboard_{market}', title, tickers, market)
-
-
 def render_export_button(slot=None, key: str = 'final', pending: bool = False) -> None:
     """모아둔 섹션을 다운로드 버튼으로. `slot`은 와치리스트 제목 옆에 잡아둔 st.empty().
 
@@ -120,7 +99,7 @@ def render_export_button(slot=None, key: str = 'final', pending: bool = False) -
 
         with btn_col:
             if pending:
-                # 아직 탭들이 후보를 등록하는 중이다. 이 시점의 목록은 리더보드 정도만
+                # 아직 탭들이 후보를 등록하는 중이다. 이 시점의 목록은 일부만
                 # 찬 반쪽짜리라, 내주는 것보다 잠가 두는 편이 낫다 — 사용자가 모르고
                 # 받아 가면 후보가 통째로 빠진 파일을 TradingView에 올리게 된다.
                 # 탭이 끝나면 2차 렌더가 이 자리를 활성 버튼으로 덮어쓴다.

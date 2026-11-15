@@ -138,15 +138,15 @@ def test_sections_come_out_in_fixed_order_not_registration_order():
     # 사용자가 매번 같은 자리에서 같은 그룹을 본다
     registry = {
         'ema10_US': ('10EMA 나스닥', ['NVDA'], 'US'),
-        'leaderboard_us': ('리더보드 US', ['AAPL'], 'US'),
+        'trend_US': ('나스닥 후보', ['AAPL'], 'US'),
         'trend_KR_KOSPI': ('코스피 후보', ['005930'], 'KR_KOSPI'),
     }
     titles = [title for title, _, _ in order_sections(registry)]
-    assert titles == ['리더보드 US', '코스피 후보', '10EMA 나스닥']
+    assert titles == ['나스닥 후보', '코스피 후보', '10EMA 나스닥']
 
 
 def test_unregistered_sections_are_left_out():
-    registry = {'leaderboard_us': ('리더보드 US', ['AAPL'], 'US')}
+    registry = {'trend_US': ('나스닥 후보', ['AAPL'], 'US')}
     assert len(order_sections(registry)) == 1
 
 
@@ -158,14 +158,14 @@ def test_unknown_keys_are_kept_at_the_end():
     # 나중에 탭이 늘었는데 SECTION_ORDER 갱신을 잊어도 종목이 사라지진 않게 한다
     registry = {
         'mystery_tab': ('새 탭', ['TSLA'], 'US'),
-        'leaderboard_us': ('리더보드 US', ['AAPL'], 'US'),
+        'trend_US': ('나스닥 후보', ['AAPL'], 'US'),
     }
     titles = [title for title, _, _ in order_sections(registry)]
-    assert titles == ['리더보드 US', '새 탭']
+    assert titles == ['나스닥 후보', '새 탭']
 
 
-def test_leaderboards_precede_watchlist_sections():
-    assert SECTION_ORDER.index('leaderboard_us') < SECTION_ORDER.index('trend_KR_KOSPI')
+def test_leaderboards_are_not_exported():
+    assert not any(k.startswith('leaderboard') for k in SECTION_ORDER)
 
 
 # ── summarize_sections ────────────────────────────────────

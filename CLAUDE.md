@@ -80,7 +80,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 `와치리스트` 제목 오른쪽의 `📤 TradingView 내보내기` 버튼 하나로 각 탭의 후보를 TradingView 워치리스트 import용 txt로 내보낸다. 포맷은 **한 줄 = 한 섹션**, 줄 맨 앞 `###제목` 뒤에 심볼을 콤마로 잇는다 (KR은 `KRX:` 접두, US는 무접두).
 
-- 담기는 것: 리더보드 US·KR(랭킹 순) → 주도섹터 탭의 🎯 차기 주도주·🔥 급부상. 순서는 `SECTION_ORDER`가 고정. 추세추종 3탭의 매수 후보 섹션은 2026-11-10 차기 주도주로 일원화하며 비웠다(`watchlist.SHOW_CANDIDATES = False` → `register_trend(market, [])`). 10EMA 섹션은 2026-11-11 사용자 요청으로 뺐다 — 10EMA 탭은 `register_ema10(market, [])`로 비우기만 한다. 두 섹션의 `SECTION_ORDER` 키는 다시 켤 때의 자리 때문에 남겨 둔다
+- 담기는 것: 주도섹터 탭의 🎯 차기 주도주·🔥 급부상. 순서는 `SECTION_ORDER`가 고정. 추세추종 3탭의 매수 후보 섹션은 2026-11-10 차기 주도주로 일원화하며 비웠다(`watchlist.SHOW_CANDIDATES = False` → `register_trend(market, [])`). 10EMA 섹션은 2026-11-11 사용자 요청으로 뺐다 — 10EMA 탭은 `register_ema10(market, [])`로 비우기만 한다. 두 섹션의 `SECTION_ORDER` 키는 다시 켤 때의 자리 때문에 남겨 둔다
 - 주도섹터 탭 섹션(🎯 차기 주도주·🔥 급부상)은 제목 끝에 그 탭의 **기준일 `MM/DD`**를 붙인다(`tv_export.dated_title`, 예: `###🎯 코스피 차기 주도주 11/12,...`) — 파일명은 내려받은 시각이라 기준일을 따로 보여야 한다
 - 각 탭은 렌더 첫머리에서 `register_*(market, [])`로 자기 섹션을 **먼저 비운다** — 조기 return 경로에서 직전 실행의 후보가 세션에 남아 파일에 실리는 것을 막는 장치라 제거하지 말 것
 - 버튼은 탭보다 위에 있으므로 `app.py`가 제목 옆 컬럼에 `st.empty()` 슬롯만 잡아두고, **후보를 등록하는 탭(추세추종·주도섹터) 뒤, 10EMA 탭 앞**에서 `render_export_button(slot)`으로 채운다. 등록 탭보다 앞에 두면 버튼이 빈 목록으로 그려지고, 10EMA 탭 뒤에 두면 10EMA 스캔(캐시가 비면 수 분)이 끝날 때까지 버튼이 '⏳'로 잠긴다(#43 L17). 10EMA 섹션을 다시 내보내려면 이 호출을 10EMA 탭 뒤로 되돌리고 `tests/test_app_export_order.py`도 고칠 것
