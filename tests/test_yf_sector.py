@@ -124,14 +124,6 @@ def test_resolve_sector_둘다_없으면_대시():
     assert yf_sector.resolve_sector('', '') == '-'
 
 
-def test_cached_only_는_조회를_트리거하지_않는다(tmp_path, monkeypatch):
-    _setup(tmp_path, monkeypatch, {'012450': '방위산업'})
-    monkeypatch.setattr(yf_sector, 'fetch_label',
-                        lambda *a: (_ for _ in ()).throw(AssertionError('fetch 호출됨')))
-    assert yf_sector.get_yf_sectors_cached_only(['012450', '없는티커']) == {
-        '012450': '방위산업', '없는티커': '-'}
-
-
 def test_캐시_파싱_실패면_덮어쓰지_않는다(tmp_path, monkeypatch):
     """#26 같은 패턴: 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 1327개가 2개로 줄었다."""
     cache_file = tmp_path / 'yf_sector_cache.json'

@@ -2,8 +2,7 @@ import pandas as pd
 import numpy as np
 import pytest
 from strategy.indicators import calc_ema
-from strategy.pivot_candle import (find_pivot_candle, classify_case,
-                                   calc_10ema_slope, _broke_vcp_box)
+from strategy.pivot_candle import find_pivot_candle, classify_case, pp_prefilter, _broke_vcp_box
 
 
 def _make_df(closes, highs=None, lows=None, volumes=None, start='2026-01-01'):
@@ -38,15 +37,15 @@ STEEP_BASE = [80 + i * 0.5 for i in range(73)]   # 80 → 116 (+45%)
 
 
 def test_detects_high_volume_breakout():
-    """거래량 1.5배+, 60일 고점 돌파, 정배열, 사전 30%+ 상승 → 기준봉 탐지"""
+    """거래량 2배+, 60일 고점 돌파, 정배열, 사전 30%+ 상승 → 기준봉 탐지"""
     df = _make_breakout_df(STEEP_BASE, breakout_close=120.0, today_close=120.0)
     result = find_pivot_candle(df, lookback=5)
     assert result is not None
-    assert result['vol_ratio'] >= 1.5
+    assert result['vol_ratio'] >= 2.0
 
 
 def test_no_pivot_when_volume_insufficient():
-    """거래량 1.5배 미만 → 기준봉 없음"""
+    """거래량 2배 미만 → 기준봉 없음"""
     df = _make_breakout_df(STEEP_BASE, breakout_close=120.0, today_close=120.0,
                            breakout_vol=1_200_000)
     assert find_pivot_candle(df, lookback=5) is None
@@ -393,7 +392,7 @@ def test_classify_returns_no_pivot_when_none():
 
 
 def test_classify_setup_or_forming_in_consolidation():
-    """가파른 상승 + 기준봉 + 눌림 9일 → 셋업 또는 형성중 (탈락 상태는 아님)"""
+    """가파른 상승 + 기준봉 + 눌림 9일 → D+1 종가가 기준봉 고가 아래라 셋업(케이스2) (탈락 상태는 아님)"""
     base = [60 + i * 0.8 for i in range(62)]   # 60 → 108.8 (+81%)
     breakout_close = 112.0
     consolidation  = [111.5] * 9
@@ -404,7 +403,7 @@ def test_classify_setup_or_forming_in_consolidation():
     df = _make_df(closes, highs=highs, lows=lows, volumes=volumes)
     pivot = find_pivot_candle(df, lookback=15)
     assert pivot is not None, "테스트 데이터가 기준봉 탐지 조건을 충족하지 못함"
-    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
+    assert classify_case(df, pivot) == '셋업(케이스2)'
 
 
 def test_classify_downbreak():
@@ -441,11 +440,11 @@ def _consolidation_df(post_dates):
 
 
 def test_classify_counts_consolidation_in_trading_days_not_busdays():
-    """기준봉 뒤 실제 거래일이 2일뿐이면(연휴로 달력 영업일은 5일) 아직 셋업이 아니어야 한다."""
+    """기준봉 뒤 실제 거래일이 2일뿐이면(연휴로 달력 영업일은 5일) 그 2일(D+1·D+2)로 케이스를 정한다."""
     pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
     post_dates = [pivot_date + pd.Timedelta(days=6), pivot_date + pd.Timedelta(days=7)]
     df, pivot = _consolidation_df(post_dates)
-    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
+    assert classify_case(df, pivot) == '셋업(케이스2)'
 
 
 def test_classify_setup_with_three_consecutive_trading_days():
@@ -453,19 +452,7 @@ def test_classify_setup_with_three_consecutive_trading_days():
     pivot_date = pd.bdate_range('2026-01-01', periods=60)[-1]
     post_dates = pd.bdate_range(pivot_date + pd.Timedelta(days=1), periods=3)
     df, pivot = _consolidation_df(post_dates)
-    assert classify_case(df, pivot) in ('셋업(케이스1)', '셋업(케이스2)')
-
-
-def test_10ema_slope_positive_on_uptrend():
-    closes = [100 + i for i in range(30)]
-    df = _make_df(closes)
-    assert calc_10ema_slope(df) > 0
-
-
-def test_10ema_slope_negative_on_downtrend():
-    closes = [130 - i for i in range(30)]
-    df = _make_df(closes)
-    assert calc_10ema_slope(df) < 0
+    assert classify_case(df, pivot) == '셋업(케이스2)'
 
 
 # ── 10EMA 표·배너 정렬 키 (#43 M25) ──────────────────────────────────
@@ -498,3 +485,47 @@ def test_sort_key_tie_prefers_larger_prior_move():
     ordered = sorted(rows, key=lambda r: setup_sort_key(0, r[0], r[1]))
 
     assert ordered == [(1.0, 50.0), (1.0, 30.0), (1.0, None)]
+
+
+# ── 기준봉 조건 경계·10EMA 탭 사전 필터 (#46 L15) ─────────────────────────────
+
+def test_거래량은_직전_20일_평균의_2배부터_기준봉():
+    """문서·가이드에 1.5배로 남아 있던 기준 — 실제 문턱은 2.0배(이상)."""
+    below = _make_breakout_df(STEEP_BASE, 120.0, 120.0, breakout_vol=1_990_000)
+    at = _make_breakout_df(STEEP_BASE, 120.0, 120.0, breakout_vol=2_000_000)
+    assert find_pivot_candle(below, lookback=5) is None
+    assert find_pivot_candle(at, lookback=5)['vol_ratio'] == 2.0
+
+
+def test_장기_이평선_아래_돌파는_기준봉이_아니다():
+    """나머지 조건(거래량·60일 고점·정배열·사전 상승)을 모두 갖춰도 종가가 150·200SMA 아래면 제외 —
+    장기 하락 중 단기 반등. 같은 돌파에서 앞의 고가권 이력만 뺀 test_detects_high_volume_breakout은 탐지된다."""
+    prefix = [200.0] * 150 + list(np.linspace(200, 80.5, 30))
+    df = _make_breakout_df(prefix + STEEP_BASE, breakout_close=120.0, today_close=120.0)
+    assert find_pivot_candle(df, lookback=5) is None
+
+
+def _pp_df(closes, band):
+    """(고가 − 저가) / 종가 = 2 × band — ADR(%) = 200 × band."""
+    c = np.asarray(closes, dtype=float)
+    return pd.DataFrame({'Open': c, 'High': c * (1 + band), 'Low': c * (1 - band), 'Close': c, 'Volume': 1e6},
+                        index=pd.bdate_range('2026-01-01', periods=len(c)))
+
+
+def test_pp_prefilter_통과하면_ADR·종가·10EMA를_돌려준다():
+    out = pp_prefilter(_pp_df(np.linspace(50, 100, 80), 0.035))      # ADR 7%, 정배열 상승
+    assert out is not None
+    assert out['adr'] == pytest.approx(7.0)
+    assert out['close'] == 100.0 and out['ema10'] < out['close']
+
+
+def test_pp_prefilter_ADR_6퍼센트_미만은_제외():
+    assert pp_prefilter(_pp_df(np.linspace(50, 100, 80), 0.02)) is None    # ADR 4%
+
+
+def test_pp_prefilter_정배열이_아니면_제외():
+    assert pp_prefilter(_pp_df(np.linspace(100, 50, 80), 0.035)) is None   # 하락 — 10EMA < 21EMA
+
+
+def test_pp_prefilter_이력_70일_미만은_제외():
+    assert pp_prefilter(_pp_df(np.linspace(50, 100, 69), 0.035)) is None

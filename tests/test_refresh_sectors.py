@@ -93,6 +93,52 @@ def test_run_saves_cache_once_and_resolves_misc(tmp_path, monkeypatch):
     assert seen_markets == markets     # 프롬프트가 시장을 알도록 종목별 시장을 넘긴다 (#45 L6)
 
 
+# 아래 셋은 지운 theme_classifier.classify의 테스트가 지키던 정책 — 같은 정책을 지금 쓰는 곳(_classify_targets)에서 (#46)
+
+def _cache_file(tmp_path, monkeypatch):
+    cache_file = tmp_path / 'theme_cache.json'
+    cache_file.write_text('{}', encoding='utf-8')
+    monkeypatch.setattr(theme_classifier, '_CACHE_FILE', cache_file)
+    return cache_file
+
+
+def test_1차_분류가_일시_실패하면_1회_재시도한다(tmp_path, monkeypatch):
+    cache_file = _cache_file(tmp_path, monkeypatch)
+    answers = iter([None, {'theme': '메모리 반도체', 'detail': 'HBM'}])
+    calls = []
+    monkeypatch.setattr(theme_classifier, '_classify_one', lambda *a: calls.append(a[0]) or next(answers))
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', lambda *a: {})
+
+    failed = refresh_sectors._classify_targets(['WDC'], [], {}, workers=1, markets={'WDC': 'US'})
+
+    assert calls == ['WDC', 'WDC'] and failed == []
+    assert json.loads(cache_file.read_text(encoding='utf-8'))['WDC']['detail'] == 'HBM'
+
+
+def test_1차_완전_실패는_2차_resolve로_넘기지_않는다(tmp_path, monkeypatch):
+    """FROG 오분류 회귀 방지 — detail 없이 실패한 종목을 2차에 넘기면 티커 철자만 보고 대분류를 지어낸다."""
+    cache_file = _cache_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(theme_classifier, '_classify_one', lambda *a: None)
+    resolved_with = []
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', lambda batch, *a: resolved_with.append(batch) or {})
+
+    failed = refresh_sectors._classify_targets(['FROG'], [], {}, workers=1, markets={'FROG': 'US'})
+
+    assert resolved_with == [] and failed == ['FROG']
+    assert json.loads(cache_file.read_text(encoding='utf-8')) == {}      # 미저장 → 다음 실행 때 재시도
+
+
+def test_2차_resolve가_실패해도_1차_기타_detail로_캐시한다(tmp_path, monkeypatch):
+    cache_file = _cache_file(tmp_path, monkeypatch)
+    monkeypatch.setattr(theme_classifier, '_classify_one', lambda *a: {'theme': '기타', 'detail': '모호 테마'})
+    monkeypatch.setattr(theme_classifier, '_resolve_misc', lambda *a: {})
+
+    refresh_sectors._classify_targets(['XYZ'], [], {}, workers=1, markets={'XYZ': 'US'})
+
+    saved = json.loads(cache_file.read_text(encoding='utf-8'))['XYZ']
+    assert (saved['theme'], saved['detail']) == ('기타', '모호 테마')
+
+
 # ── 구 갱신 스크립트 안전화 (#45 M19) ─────────────────────────────
 
 @pytest.fixture

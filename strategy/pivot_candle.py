@@ -2,16 +2,6 @@ import pandas as pd
 from strategy.indicators import calc_ema
 
 
-def calc_10ema_slope(stock_df: pd.DataFrame, period: int = 5) -> float:
-    if len(stock_df) < period + 10:
-        return 0.0
-    ema10 = calc_ema(stock_df, 10)
-    base = float(ema10.iloc[-(period + 1)])
-    if base == 0:
-        return 0.0
-    return float((ema10.iloc[-1] - base) / base * 100)
-
-
 def _has_prior_move(df: pd.DataFrame, pivot_idx: int, pivot_high: float,
                     lookback: int = 65, min_pct: float = 30.0) -> bool:
     """기준봉 이전 lookback 거래일 내 저점 → 기준봉 고가까지 min_pct% 이상 상승 여부."""
@@ -144,8 +134,9 @@ def find_pivot_candle(
     lookback: int = 63,
 ) -> dict | None:
     """
-    최근 lookback 거래일 내 기준봉 탐지.
-    조건: 거래량 150%+(1.5배), 종가 레인지 상위 30%, 저항 돌파(60일 고점 or VCP 박스), 정배열.
+    최근 lookback(기본 63) 거래일 내 기준봉 탐지.
+    조건: 거래량 200%+(직전 20일 평균의 2배), 종가 레인지 상위 30%, 저항 돌파(60일 고점 or VCP 박스),
+    10EMA > 21EMA > 50SMA 정배열, 종가 150·200SMA 위, 기준봉 고가가 이전 65거래일 저점보다 30%+ 높음.
     복수 후보 시 (거래량비율로 고르지 않는다 — 타점이 기준봉 고가라 같은 흐름
     안에서는 첫 봉이 낮은 진입가를 준다):
       1) 전체 후보를 클러스터로 묶는다. 무효화를 먼저 걸러내면 버려진 후보 유무가
@@ -331,11 +322,3 @@ def pp_prefilter(df: pd.DataFrame) -> dict | None:
     if (not pd.isna(sma150) and close < float(sma150)) or (not pd.isna(sma200) and close < float(sma200)):
         return None
     return {'adr': adr, 'close': close, 'ema10': ema10_v}
-
-
-def pp_setup_state(df: pd.DataFrame) -> str | None:
-    """10EMA 탭 기준 셋업이면 '셋업(케이스1)'/'셋업(케이스2)', 아니면 None."""
-    if pp_prefilter(df) is None:
-        return None
-    state = classify_case(df, find_pivot_candle(df))
-    return state if state in ('셋업(케이스1)', '셋업(케이스2)') else None

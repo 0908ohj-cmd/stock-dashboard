@@ -1,24 +1,24 @@
 """
-통합 섹터 분류기 — stockEdge portfolio_advisor/sector_classifier.py 이식본
+구 섹터(테마) 분류기 — stockEdge portfolio_advisor/sector_classifier.py 이식본
 (캐시 경로 상수만 다름. 개선 시 원본에서 다시 복사할 것.)
 
-- 캐시 우선 (TTL 7일)
-- 1차: 종목별 LLM 분류 ({theme, detail}) — claude haiku WebSearch
-- 2차: '기타' 묶음 resolve → known_themes 자동 확장
+구 캐시(theme_cache.json) 폴백 체계용이다. 렌더 경로는 캐시만 읽고(data.sector, #45 M18),
+분류는 scripts/refresh_sectors.py만 아래 부품으로 돌린다:
+- 1차: 종목별 LLM 분류 ({theme, detail}) — claude haiku WebSearch (_classify_one)
+- 2차: '기타' 묶음 resolve → known_themes 자동 확장 (_resolve_misc)
+렌더용 일괄 분류 함수 classify(캐시 TTL 7일)는 호출처가 없어져 #46에서 지웠다.
 """
 import json
 import os
 import re
 import shutil
 import subprocess
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from data._atomic import atomic_write_text
 
 _CACHE_FILE = Path(__file__).parent.parent / "theme_cache.json"
 _THEMES_FILE = Path(__file__).parent / "themes.json"
-_CACHE_TTL_DAYS = 7
 # claude 바이너리 위치는 환경마다 다를 수 있어 동적으로 해석한다
 # (CLAUDE_BIN 환경변수 → PATH 검색 → ~/.local/bin fallback)
 _CLAUDE_BIN = (
@@ -49,16 +49,6 @@ def _save_cache(cache: dict) -> None:
     atomic_write_text(  # 쓰는 도중 읽어도 이전 파일이 온전히 보인다 (#26 같은 패턴)
         _CACHE_FILE, json.dumps(cache, ensure_ascii=False, indent=2)
     )
-
-
-def _is_fresh(entry: dict) -> bool:
-    if "detail" not in entry:
-        return False  # 구 포맷 → 미스
-    try:
-        updated = datetime.fromisoformat(entry["updated"])
-        return datetime.now() - updated < timedelta(days=_CACHE_TTL_DAYS)
-    except Exception:
-        return False
 
 
 _FIRST_SYSTEM_PROMPT = (
@@ -126,75 +116,6 @@ def _classify_one(ticker: str, name_hint: str | None, themes: list[dict], market
         return None
     except Exception:
         return None
-
-
-def classify(
-    tickers: list[str],
-    themes: list[dict],
-    overrides: dict[str, str] | None = None,
-    names: dict[str, str] | None = None,
-    *,
-    market: str,
-) -> dict[str, dict]:
-    loaded = _read_cache()
-    # 파싱 실패를 빈 캐시로 보고 새 항목만 저장하면 캐시 전체가 사라진다 (#26 같은 패턴).
-    # 분류 결과는 그대로 돌려주되, 깨진 파일은 덮어쓰지 않는다
-    cache = {} if loaded is None else loaded
-    overrides = overrides or {}
-    names = names or {}
-    result: dict[str, dict] = {}
-    cache_dirty = False
-
-    for ticker in tickers:
-        if ticker in overrides:
-            ovr = overrides[ticker]
-            result[ticker] = {"theme": ovr, "detail": ovr}
-            continue
-
-        entry = cache.get(ticker, {})
-        if _is_fresh(entry):
-            result[ticker] = {"theme": entry["theme"], "detail": entry["detail"]}
-            continue
-
-        # 캐시 미스/만료 → 1차 분류 (일시적 실패 대비 1회 재시도)
-        first = _classify_one(ticker, names.get(ticker), themes, market)
-        if first is None:
-            first = _classify_one(ticker, names.get(ticker), themes, market)
-        if first is not None:
-            cache[ticker] = {
-                **first,
-                "updated": datetime.now().isoformat(),
-            }
-            result[ticker] = first
-            cache_dirty = True
-        else:
-            # 1차 완전 실패(detail 확보 실패) — 티커 철자만으로 추측 금지.
-            # '기타'로 두되 캐시 저장 보류 → 다음 회차 재시도(자가치유).
-            result[ticker] = {"theme": "기타", "detail": ""}
-
-    # 2차 resolve — detail 후보가 있는 '기타'만 대상.
-    # detail이 비어 있으면(=1차 완전 실패) 2차는 티커 철자만 보고 엉뚱한 대분류를
-    # 지어내므로(예: FROG→헬스케어) resolve 대상에서 제외한다.
-    misc_tickers = [
-        t for t, r in result.items()
-        if r["theme"] == "기타" and r.get("detail") and t not in overrides
-    ]
-    if misc_tickers:
-        resolved = _resolve_misc(misc_tickers, result, themes)
-        now = datetime.now().isoformat()
-        for ticker in misc_tickers:
-            if ticker in resolved:
-                result[ticker] = resolved[ticker]
-                cache[ticker] = {**resolved[ticker], "updated": now}
-            else:
-                # 2차 실패: '기타'로 캐시 (자가치유)
-                cache[ticker] = {"theme": "기타", "detail": result[ticker].get("detail", ""), "updated": now}
-            cache_dirty = True
-
-    if cache_dirty and loaded is not None:
-        _save_cache(cache)
-
-    return result
 
 
 _RESOLVE_SYSTEM_PROMPT = (
