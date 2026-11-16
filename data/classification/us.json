@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-14T09:09:53+09:00",
+ "updatedAt": "2026-11-17T08:14:54+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -442,6 +442,28 @@
    "overrideReason": "",
    "history": []
   },
+  "ALNY": {
+   "companyName": "Alnylam Pharmaceuticals, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "RNAi 치료제",
+   "businessSummary": "RNA 간섭(RNAi) 기반 치료제를 개발·상업화하는 글로벌 상업 단계 바이오의약품 회사다. 주력 제품은 ATTR 아밀로이드증 치료제 AMVUTTRA(ONPATTRO 포함)이며, 최근 분기 매출 대부분이 TTR 제품에서 나온다.",
+   "confidence": "high",
+   "why": "SEC 제출 FY2025 10-K 요약과 Q1 2026 실적 발표 기준으로 AMVUTTRA·ONPATTRO의 TTR 매출이 전체 제품 매출의 대부분(Q1 2026 기준 약 910백만 달러 중심)을 차지하며, 회사 스스로 RNAi 치료제 기업으로 정의한다. 2026년 실적과 가이던스 수치 일부는 2차 매체(Pulse 2) 확인이라 세부 수치는 원문 대조가 필요하다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1178670/0001628280-26-007497-index.html",
+    "https://www.biospace.com/press-releases/alnylam-pharmaceuticals-reports-first-quarter-2026-financial-results-and-highlights-recent-period-progress",
+    "https://investors.alnylam.com/press-release?id=29381"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:13+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "ALOY": {
    "companyName": "REalloys Inc.",
    "primaryTheme": "PRECIOUS_METALS_MATERIALS",
@@ -463,6 +485,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:41:03+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "AMAT": {
+   "companyName": "Applied Materials, Inc.",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "반도체 장비·WFE",
+   "businessSummary": "반도체 웨이퍼 제조 장비(증착·식각·이온주입·CMP·계측·패키징)를 만드는 세계 최대급 WFE 업체다. 2026 회계연도 3분기 매출 91.2억 달러 중 반도체 시스템 부문이 약 70억 달러로 대부분을 차지하며, 설치 장비 서비스(AGS)가 나머지를 차지한다.",
+   "confidence": "high",
+   "why": "2026년 3분기 매출 91.15억 달러 중 Semiconductor Systems가 70.4억 달러(약 77%), Applied Global Services가 17.8억 달러(약 20%)다. 두 부문 모두 웨이퍼 팹 장비와 그 서비스이므로 반도체 장비로 분류한다. 2026 회계연도 10-K는 아직 나오지 않아 최신 분기 공시를 근거로 했다.",
+   "evidenceUrls": [
+    "https://www.appliedmaterials.com/us/en/newsroom/press-releases/081326-applied-materials-announces-third-quarter-2026-results.html",
+    "https://investor.appliedmaterials.com/news-releases/news-release-details/applied-materials-announces-third-quarter-2026-results",
+    "https://stockanalysis.com/quote/tsx/AMAT/company",
+    "https://sec-api.io/insights/applied-materials-amat-financial-analysis-q3-fy2026-china-revenue-share-export-control-settlement-wafer-equipment-peers-and-scenarios-to-fy2029"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:36+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1626,6 +1671,30 @@
    "overrideReason": "",
    "history": []
   },
+  "CERT": {
+   "companyName": "Certara, Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "BIOTECH_HEALTHCARE"
+   ],
+   "detail": "바이오시뮬레이션 소프트웨어",
+   "businessSummary": "제약사의 신약 개발을 지원하는 바이오시뮬레이션(MIDD) 소프트웨어 라이선스와 QSP·약동학 컨설팅 서비스를 제공한다. 나스닥 티커 CERT로 거래된다.",
+   "confidence": "medium",
+   "why": "소프트웨어 라이선스와 데이터·분석 플랫폼이 핵심 수익원이다. FY2025 매출 약 4억 1,900만 달러 중 소프트웨어 비중이 약 44%(Hudson Labs)이고, 나머지는 제약 고객 대상 컨설팅 서비스다. 고객은 제약사이지만 제품 형태가 SaaS형 분석 소프트웨어라 헬스케어 서비스보다 소프트웨어·데이터로 분류했다. 10-K 원문은 열지 못하고 검색 결과 요약으로 확인했다.",
+   "evidenceUrls": [
+    "https://www.board-cybersecurity.com/annual-reports/tracker/20260226-certara-inc-cybersecurity-10k",
+    "https://umbrex.com/resources/company-profiles/certara/",
+    "https://www.hudson-labs.com/research/certara-stock-analysis"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:17+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "CGON": {
    "companyName": "CG Oncology, Inc.",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -1644,6 +1713,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-10T10:53:53+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "CHTR": {
+   "companyName": "Charter Communications, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "케이블 인터넷·통신",
+   "businessSummary": "스펙트럼 브랜드로 미국 케이블 인터넷·TV·모바일 서비스를 제공하는 통신사업자다. 2026년 2분기 기준 인터넷 가입자 29.4백만 명이며, 모바일 회선은 12.5백만 회선이다.",
+   "confidence": "medium",
+   "why": "매출의 대부분은 케이블 인터넷(2026년 2분기 약 57억8천만 달러)과 TV 등 가정용 통신 서비스다. 모바일은 번들 상품으로 빠르게 커지고 있지만 주력은 아니다. 목록에 케이블 통신사에 맞는 테마가 없어 위 테마에 해당하지 않는 사업으로 보고 CONSUMER_OTHER로 두었다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1091667/0001091667-26-000017-index.html",
+    "https://ir.charter.com/news-releases/news-release-details/charter-announces-second-quarter-2026-results",
+    "https://marketchameleon.com/articles/b/2026/4/24/charter-q1-2026-mobile-strength-internet-pressure"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:37+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3651,6 +3742,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:32:56+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "IONS": {
+   "companyName": "Ionis Pharmaceuticals, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "RNA 치료제 바이오",
+   "businessSummary": "RNA 표적 치료제(안티센스 올리고뉴클레오타이드)를 개발·상업화하는 바이오 기업이다. 2025년 매출 9억 4,400만 달러 중 TRYNGOLZA 제품 매출 1억 800만 달러와 SPINRAZA·WAINUA 로열티, 라이선스 매출이 주를 이룬다.",
+   "confidence": "high",
+   "why": "2025년 매출 9억 4,400만 달러 중 R&D 매출 5억 800만 달러(Ono의 sapablursen 라이선스 선급금 2억 8,000만 달러 포함), 상업 매출(TRYNGOLZA 제품 매출 1억 800만 달러 포함)과 SPINRAZA·WAINUA 로열티가 있어 신약 개발·상업화 사업이 주력이다. 회사명과 NASDAQ:IONS 티커 매칭도 확인했다.",
+   "evidenceUrls": [
+    "https://businesswire.com/news/home/20260225250070/en/Ionis-reports-fourth-quarter-and-full-year-2025-financial-results-and-highlights-progress-on-key-programs",
+    "https://ycharts.com/companies/IONS",
+    "https://lightyear.com/en/stock/IONS:NASDAQ"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:34+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -6373,6 +6486,28 @@
    "overrideReason": "",
    "history": []
   },
+  "RYTM": {
+   "companyName": "Rhythm Pharmaceuticals, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "희귀질환 비만 치료제",
+   "businessSummary": "MC4R(멜라노코르틴-4 수용체) 작용제 기반 희귀 유전성 비만 치료제를 개발·상업화하는 바이오 기업이다. 주력 제품은 IMCIVREE(setmelanotide)이며, 시상하부 비만 등 적응증 확대를 진행 중이다.",
+   "confidence": "high",
+   "why": "회사 IR 및 SEC 10-K 설명이 MC4R 경로 희귀질환 비만 치료제 개발·판매를 본업으로 명시하고, 주력 제품 IMCIVREE가 2025년 4분기 순매출 $57.3M으로 매출의 대부분을 차지한다. 다른 테마에 해당하는 사업은 없다.",
+   "evidenceUrls": [
+    "https://ir.rhythmtx.com/node/8901/html",
+    "https://sec.gov/Archives/edgar/data/1649904/000155837020001896/rytm-20191231x10k.htm",
+    "https://qnow.quantisnow.com/insight/rhythm-pharmaceuticals-reports-fourth-quarter-and-full-year-2025-financial-6414688"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:32+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "SAIL": {
    "companyName": "SailPoint, Inc.",
    "primaryTheme": "CYBERSECURITY",
@@ -6568,6 +6703,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:33:14+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "SFM": {
+   "companyName": "Sprouts Farmers Market, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "천연·유기농 식료품 리테일",
+   "businessSummary": "미국 25개 주에서 천연·유기농 중심의 신선식품 전문 식료품 체인을 운영한다. 2026년 6월 28일 기준 490개 점포이며 온라인 매출 비중은 약 16%다.",
+   "confidence": "high",
+   "why": "매출 대부분이 신선식품·식료품 점포 판매에서 나오는 오프라인 식료품 리테일이라 소비재 테마다. 온라인 비중 16%는 식품 판매의 한 채널이고, 기술·AI 테마와 관련된 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1575515/000156459019003562/sfm-10k_20181230.htm",
+    "https://sec.gov/Archives/edgar/data/1575515/000156459020005552/sfm-10k_20191229.htm",
+    "https://www.barchart.com/story/news/1600555/sprouts-nasdaqsfm-reports-q1-cy2026-in-line-with-expectations",
+    "https://www.businesswire.com/news/home/20260729824108/en/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:54+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -7827,6 +7985,28 @@
    "overrideReason": "",
    "history": []
   },
+  "VIR": {
+   "companyName": "Vir Biotechnology, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "바이러스 간염·면역 치료 바이오",
+   "businessSummary": "B형·D형 간염 치료제 개발이 주력이며, 대표 파이프라인은 항체 tobevibart와 siRNA elebsiran을 병용하는 만성 B형간염 δ형(HDV) 요법이다. 2차 축은 Astellas와 공동 개발하는 전립선암 PSMA 표적 마스킹 T세포 engager VIR-5500이다.",
+   "confidence": "high",
+   "why": "2025 회계연도 10-K 표지에서 VIR 티커가 Nasdaq Global Select Market 보통주로 확인되고, 사업 내용도 간염·면역 치료 신약 개발이다. 매출 기준 세그먼트는 확인하지 못했지만 주력 파이프라인이 모두 신약이므로 BIOTECH_HEALTHCARE로 분류했다. 항암 T세포 engager는 바이오 범주 안이라 별도 테마로 나누지 않았다.",
+   "evidenceUrls": [
+    "https://www.boardroomalpha.com/sec/vir-10-k-2026-02-23-0001628280-26-010749",
+    "https://www.businesswire.com/news/home/20260222469334/en/",
+    "https://s203.q4cdn.com/628578897/files/doc_news/Vir-Biotechnology-Provides-Corporate-Update-and-Reports-Fourth-Quarter-and-Full-Year-2025-Financial-Results-2026.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:16+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "VKTX": {
    "companyName": "Viking Therapeutics, Inc.",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -8291,6 +8471,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:40:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ZLAB": {
+   "companyName": "Zai Lab Limited",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "중국 바이오의약품 상업화",
+   "businessSummary": "중국(대중화권) 시장 중심의 상업화 단계 바이오의약품 회사로, 종양학·면역학·신경과학·감염병 치료제를 개발·판매한다. 주요 제품은 ZEJULA, VYVGART, QINLOCK, AUGTYRO 등이다.",
+   "confidence": "high",
+   "why": "주력 사업이 신약 개발·판매인 바이오의약품 회사다. 2025 매출 4.6억 달러 대부분이 승인 의약품 판매에서 나오며, 여기에 AI·반도체 등 다른 테마의 근거는 없다.",
+   "evidenceUrls": [
+    "https://app.edgar.tools/companies/ZLAB",
+    "https://www-web.itiger.com/news/2614046880",
+    "https://www.barchart.com/story/news/37016634/zai-lab-highlights-strategic-priorities-and-global-pipeline-progress-at-44th-annual-j-p-morgan-healthcare-conference"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-17T08:14:16+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
