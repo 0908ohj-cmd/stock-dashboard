@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-17T08:14:54+09:00",
+ "updatedAt": "2026-11-18T08:13:42+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -3574,6 +3574,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:51:12+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "IDYA": {
+   "companyName": "IDEAYA Biosciences, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "정밀항암 신약",
+   "businessSummary": "합성 치사(synthetic lethality)와 항체-약물접합체(ADC) 기반 정밀의학 항암 신약을 개발하는 바이오 기업. 주력 파이프라인은 포도막 흑색종 치료제 darovasertib(PKC 억제제)이다.",
+   "confidence": "high",
+   "why": "FY2024·FY2025 10-K 개요와 회사 프로필 모두 신약 개발(정밀 종양학, 임상 파이프라인)을 본업으로 기술하며, 매출 기반 사업 세그먼트나 기타 테마 근거는 확인되지 않았다. 티커 IDYA는 현재 IDEAYA Biosciences(Nasdaq)로 거래 중임을 프로필 자료에서 확인했다.",
+   "evidenceUrls": [
+    "https://capedge.com/filing/1676725/0000950170-25-022183/10K-2024FY",
+    "https://stockanalysis.com/stocks/idya/company/",
+    "https://craft.co/ideaya-biosciences"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-18T08:13:42+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
