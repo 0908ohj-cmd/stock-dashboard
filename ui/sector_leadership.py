@@ -254,10 +254,13 @@ def _num(v, digits=2, signed=True):
 _CSS = """<style>
 .sl-wrap{overflow-x:auto;margin:4px 0 18px}
 /* 표 바로 아래 붙는 설명 — 같은 st.markdown 안에 넣어 표와 붙이고, ↳로 '위 표 설명'임을 보인다 */
-.sl-wrap.has-note{margin-bottom:4px}
-.sl-note{font-size:.82rem;line-height:1.7;margin:0 0 18px 2px}
-.sl-note div{padding-left:1.1em;text-indent:-1.1em;opacity:.7}
-.sl-note .arr{margin-right:.35em;font-weight:700}
+.sl-wrap.has-note{margin-bottom:0}
+/* 표 바닥에 붙은 회색 띠(표의 꼬리말) — 이 표에 대한 설명임이 한눈에 보이게 */
+.sl-note{font-size:.82rem;line-height:1.7;margin:0 0 18px;padding:7px 14px;
+  background:rgba(128,128,128,.08);border-bottom:1px solid rgba(128,128,128,.25)}
+.sl-note div{padding-left:1.2em;text-indent:-1.2em}
+.sl-note .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
+.sl-note .txt{opacity:.8}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -379,7 +382,7 @@ def _stock_title(t: str, nm: str, new: bool = False) -> str:
 def _note(*lines: str) -> str:
     """표 바로 아래 설명(HTML) — 표와 같은 st.markdown에 이어 붙여 간격 없이 붙인다. 줄마다 ↳.
     표 쪽 <div class="sl-wrap">는 'sl-wrap has-note'로 써야 아래 여백이 줄어 붙어 보인다."""
-    body = ''.join(f'<div><span class="arr">└</span>{ln}</div>' for ln in lines if ln)
+    body = ''.join(f'<div><span class="arr">└</span><span class="txt">{ln}</span></div>' for ln in lines if ln)
     return f'<div class="sl-note">{body}</div>' if body else ''
 
 
