@@ -209,14 +209,42 @@ def test_래퍼는_건너뛸_때_알림을_job_wrapper에_맡기고_trap은_rele
     assert 'rm -rf "$LOCKDIR"' not in text                        # 무조건 지우는 옛 trap·회수 제거
 
 
+def _race_lock(tmp_path, n=8, pre=''):
+    """n개를 출발 신호에 맞춰 동시에 acquire_lock 시키고 각자의 rc 목록을 돌려준다. 락을 잡은 쪽은 n개가
+    모두 결과를 남길 때까지 살아 있는다(주인이 죽어 정상 회수되는 경우를 배제). pre는 lib을 읽은 뒤 실행할 셸."""
+    lock, go, out = tmp_path / 'batch.lock', tmp_path / 'go', tmp_path / 'rc'
+    out.mkdir()
+    script = (f'. "{LIB}"; {pre} '
+              f'while [ ! -e "{go}" ]; do sleep 0.01; done; '
+              f'acquire_lock "{lock}" {MAX_AGE}; rc=$?; echo "$rc" > "{out}/rc.$$"; '
+              f'if [ $rc -eq 0 ]; then '
+              f'  for _ in $(seq 1 1500); do '
+              f'    [ "$(ls "{out}" | wc -l)" -ge {n} ] && break; sleep 0.01; '
+              f'  done; '
+              f'fi; '
+              f'echo "rc=$rc"')
+    procs = [subprocess.Popen(['bash', '-c', script], stdout=subprocess.PIPE, text=True) for _ in range(n)]
+    go.touch()
+    return [p.communicate(timeout=30)[0].strip() for p in procs]
+
+
+def test_pid_기록이_늦어도_하나만_락을_잡는다(tmp_path):
+    """mkdir과 pid 기록 사이 틈을 0.3초로 벌려 그 틈에 들어온 배치를 확실히 만든다 — 빈 pid 락을
+    '잡는 중'(LOCK_PID_GRACE_SEC)으로 보지 않고 회수하면 여기서 rc=0이 둘 이상 나온다."""
+    slow = '_write_lock_pid() { sleep 0.3; echo "$$" > "$1/pid.tmp.$$" && mv -f "$1/pid.tmp.$$" "$1/pid"; };'
+    rcs = _race_lock(tmp_path, pre=slow)
+    assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7, rcs
+
+
 def test_동시에_기동해도_하나만_락을_잡는다(tmp_path):
-    """예전엔 mkdir 직후 pid 기록 전의 빈 pid를 다른 배치가 '죽은 락'으로 회수해 둘이 같이 돌 수 있었다."""
-    lock = tmp_path / 'batch.lock'
-    script = (f'. "{LIB}"; acquire_lock "{lock}" {MAX_AGE}; rc=$?; echo "rc=$rc"; '
-              f'[ $rc -eq 0 ] && sleep 1; exit 0')
-    procs = [subprocess.Popen(['bash', '-c', script], stdout=subprocess.PIPE, text=True) for _ in range(8)]
-    rcs = [p.communicate()[0].strip() for p in procs]
-    assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7
+    """예전엔 mkdir 직후 pid 기록 전의 빈 pid를 다른 배치가 '죽은 락'으로 회수해 둘이 같이 돌 수 있었다.
+
+    8개가 출발 신호(go)를 기다렸다 한꺼번에 락을 시도하고, 락을 잡은 쪽은 8개가 모두 결과를 남길 때까지
+    살아 있는다. 예전 테스트는 주인이 1초 뒤 락을 쥔 채 끝나서, 느린 CI에서 늦게 검사한 프로세스가
+    '주인이 죽은 락'을 정상 회수해 rc=0이 둘 나왔다(2026-11-18 Linux CI 1회) — 락 버그가 아니라 테스트
+    설계 문제라 주인 수명을 검사 완료까지로 묶는다. 이 조건에서도 둘이 잡으면 그건 진짜 경합이다."""
+    rcs = _race_lock(tmp_path)
+    assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7, rcs
 
 
 def test_래퍼의_락_분기를_실행하면_건너뛸_때_LOCK_BUSY_EXIT로_끝난다(tmp_path):
