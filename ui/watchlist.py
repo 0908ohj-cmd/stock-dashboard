@@ -137,6 +137,7 @@ def _build_rows(
     # 스냅샷이 바뀌어도 30분간 옛 표가 나온다(#32, 20d3cf0과 같은 실수)
     snap_ts: str = '',
     idx_ts: str = '',
+    include_low_adr: bool = False,        # True: ADR 필터 미달 종목도 넣고 'ADR미달'=True (추세추종 탭 표시용)
 ) -> list:
     tickers    = list(tickers_tuple)
     index_name = INDEX_FOR_MARKET.get(market, 'NASDAQ')
@@ -162,7 +163,7 @@ def _build_rows(
             if len(df_asof) < 20:
                 continue
             adr = float(((df_asof['High'] - df_asof['Low']) / df_asof['Close']).iloc[-20:].mean() * 100)
-            if adr < adr_min:
+            if adr < adr_min and not include_low_adr:
                 continue
             stock_cache[ticker] = (df, round(adr, 2))
         except Exception:
@@ -220,6 +221,7 @@ def _build_rows(
                 '섹터':        sectors.get(ticker, '-'),
                 '테마':        themes.get(ticker, '기타'),
                 'ADR':         adr_val,
+                'ADR미달':     adr_val < adr_min,     # include_low_adr일 때만 True가 남는다 — 표 맨 아래 흐리게
                 'Close':       round(last_close, 2),
                 '등락%':       round(change_pct, 2),
                 '고점대비%':   calc_pct_from_52w_high(df_asof),
@@ -612,7 +614,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
             correction_start_str, rs_jjin_str,
             custom_rs_start_str, None,
             swing_dates_str,
-            snap_ts, idx_ts,
+            snap_ts, idx_ts, include_low_adr=True,   # ADR 미달도 표 맨 아래 흐리게 — 왜 빠졌는지 보이게
         )
 
     if not rows:
@@ -634,8 +636,11 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     _tickers_now = [r['Ticker'] for r in rows]
     _low_adr, _adr_min = sector_leadership.lead_low_adr(market, rs_range.date_str(manual_peak),
                                                          rs_range.date_str(manual_jjin))
+    # 이 탭 ADR 필터 미달(표 맨 아래 흐리게)도 같은 사유로 — 두 탭 ADR 기준(KR 2%·US 4%)은 같다
+    _adr_floor = 2.0 if market.startswith('KR') else 4.0
+    _low_adr = {**_low_adr, **{r['Ticker']: r['ADR'] for r in rows if r.get('ADR미달')}}
     gap = lead_gap_reasons(_tickers_now, set(lead), _lead_universe(market),
-                           classification.primary_map(market, _tickers_now), _low_adr, _adr_min)
+                           classification.primary_map(market, _tickers_now), _low_adr, _adr_min or _adr_floor)
     for r in rows:
         r['점수제외'] = gap.get(r['Ticker'], '')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)
@@ -644,6 +649,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         r['주도주순위'] = i
     if not swing_dates_str:     # 스윙 등급을 쓸 땐 등급 순서 유지
         rows.sort(key=lambda r: (r['주도주점수'] is None, -(r['주도주점수'] or 0)))
+    rows.sort(key=lambda r: bool(r.get('ADR미달')))     # ADR 미달은 늘 맨 아래 (안정 정렬 — 위 순서 유지)
 
     state = status['state']
     if correction_start_str:
@@ -676,6 +682,7 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
         '양봉비%':       r['양봉비%'],
         '고점대비%':     r['고점대비%'],
         '점수 제외 사유': r['점수제외'],      # 숨은 열 — 아래 빈칸 사유 포맷터가 읽는다
+        'ADR미달':       bool(r.get('ADR미달')),   # 숨은 열 — 행을 흐리게 (getRowStyle)
     } for r in rows])
 
     gb = GridOptionsBuilder.from_dataframe(display_df)
@@ -746,11 +753,14 @@ function(valueA, valueB) {
     gb.configure_column('양봉비%',   filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('고점대비%', filter='agNumberColumnFilter', type=['numericColumn'], flex=1)
     gb.configure_column('점수 제외 사유', hide=True)
+    gb.configure_column('ADR미달', hide=True)
     gb.configure_selection('single', use_checkbox=False)
     # 숨은 탭에서 처음 그려지면 폭이 0이라 fit이 안 먹고 오른쪽이 빈다 — 크기가 잡힐 때마다 다시 맞춘다
     _fit = JsCode("function(p){ p.api.sizeColumnsToFit(); }")
+    # ADR 필터 미달 종목은 표 맨 아래에 흐리게 — 추세추종 대상은 아니지만 왜 빠졌는지 보이게
+    _low_adr_row = JsCode("function(p){ return (p.data && p.data['ADR미달']) ? {opacity: 0.45} : null; }")
     gb.configure_grid_options(domLayout='autoHeight', rowHeight=28, localeText=KO_LOCALE,
-                              onGridSizeChanged=_fit, onFirstDataRendered=_fit)
+                              onGridSizeChanged=_fit, onFirstDataRendered=_fit, getRowStyle=_low_adr_row)
 
     grid_response = AgGrid(
         display_df,
