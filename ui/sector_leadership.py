@@ -254,15 +254,14 @@ def _num(v, digits=2, signed=True):
 _CSS = """<style>
 .sl-wrap{overflow-x:auto;margin:4px 0 18px}
 /* 표 바로 아래 붙는 설명 — 같은 st.markdown 안에 넣어 표와 붙이고, ↳로 '위 표 설명'임을 보인다 */
-.sl-wrap.has-note{margin-bottom:0}
 /* 표 바닥에 붙은 회색 띠(표의 꼬리말) — 이 표에 대한 설명임이 한눈에 보이게 */
-.sl-note{font-size:.82rem;line-height:1.7;margin:0 0 18px;padding:7px 14px;
+.sl-foot{font-size:.82rem;line-height:1.7;margin:0;padding:7px 14px;
   background:rgba(128,128,128,.08);border-bottom:1px solid rgba(128,128,128,.25)}
-.sl-note div{padding-left:1.2em;text-indent:-1.2em}
-.sl-note .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
-.sl-note .txt{opacity:.8}
+.sl-foot div{padding-left:1.2em;text-indent:-1.2em}
+.sl-foot .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
+.sl-foot .txt{opacity:.8}
 /* 표와 그 아래 다른 표(설명·배점표) 사이 구분선 — 급부상 종목 표의 설명 띠 아래 선과 같은 모양 */
-.sl-sep{border-bottom:1px solid rgba(128,128,128,.25);margin:10px 0 18px}
+.sl-sep{border-bottom:1px solid rgba(128,128,128,.25);margin-top:10px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -291,7 +290,6 @@ _CSS = """<style>
 .sl-bar b{position:absolute;top:-3px;width:1px;height:12px;background:rgba(128,128,128,.7)}
 .sl-pos{color:#16a34a}.sl-neg{color:#dc2626}
 .sl-need{font-size:.76rem;opacity:.75;white-space:normal;min-width:160px}
-.sl-note{font-size:.8rem;opacity:.7;margin:-4px 0 10px}
 .sl-mkt{display:flex;flex-wrap:wrap;gap:12px;margin:4px 0 16px}
 .sl-stat{border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:8px 16px 10px;min-width:120px;
   background:rgba(128,128,128,.04)}
@@ -385,7 +383,7 @@ def _note(*lines: str) -> str:
     """표 바로 아래 설명(HTML) — 표와 같은 st.markdown에 이어 붙여 간격 없이 붙인다. 줄마다 ↳.
     표 쪽 <div class="sl-wrap">는 'sl-wrap has-note'로 써야 아래 여백이 줄어 붙어 보인다."""
     body = ''.join(f'<div><span class="arr">└</span><span class="txt">{ln}</span></div>' for ln in lines if ln)
-    return f'<div class="sl-note">{body}</div>' if body else ''
+    return f'<div class="sl-foot">{body}</div>' if body else ''
 
 
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
@@ -418,7 +416,7 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 + _colgroup([15, 17, 10, 13, 15, 30]) +
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율 (오늘)</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
-                + ''.join(rows) + '</tbody></table></div><div class="sl-sep"></div>', unsafe_allow_html=True)
+                + ''.join(rows) + '</tbody></table><div class="sl-sep"></div></div>', unsafe_allow_html=True)
     _hot_legend()
 
 
@@ -498,11 +496,11 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
-            + '</tbody></table></div>'
+            + '</tbody></table>'
             + _note('🔥 지금은 오늘도 급부상 중인 종목이며, 해당 순위는 매수 신호가 아닙니다. '
                     '— 10EMA PP 기준봉이나 셋업이 나올 때까지 관찰하세요.',
                     f'섹터 종목 부족 · 단독 렐볼은 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정에서는 빠지지만, '
-                    '최근 5일 안에 종목 자체에 렐볼 양봉이 나와 함께 보여주는 종목입니다.'),
+                    '최근 5일 안에 종목 자체에 렐볼 양봉이 나와 함께 보여주는 종목입니다.') + '</div>',
             unsafe_allow_html=True)
     _pp_score_table()
 
@@ -708,7 +706,7 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             + _colgroup([5, 13, 10] + [9] * len(cols) + [9, 13, 13, 19])
             + '<thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>' + _th_two('52주 고점 대비 (중앙값)') + '</th><th>' + _th_two('10EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>' + _th_two('21EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>대표주</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table></div>' + thin_note, unsafe_allow_html=True)
+            f'<tbody>{rows}</tbody></table>' + thin_note + '</div>', unsafe_allow_html=True)
 
 
 _THEME_TOGGLES = {'KR_KOSPI': ('BIO_PHARMA', 'FINANCE'), 'KR_KOSDAQ': ('BIO_PHARMA', 'FINANCE')}
@@ -816,9 +814,9 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         + _colgroup([5, 15, 18] + [9] * len(cols) + [8, 8, 8, 8, 12])
         + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
         + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선</th><th>저점</th>'
-        '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
+        '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table>'
         + _note(f'<span style="color:#16a34a">{_STAR}</span>은 상위 3개 섹터 소속이며, 해당 순위는 매수 신호가 아닙니다. '
-                '— 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입하세요.'),
+                '— 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입하세요.') + '</div>',
         unsafe_allow_html=True)
     _score_table(rebound)
 
