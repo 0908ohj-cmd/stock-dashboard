@@ -255,8 +255,9 @@ _CSS = """<style>
 .sl-wrap{overflow-x:auto;margin:4px 0 18px}
 /* 표 바로 아래 붙는 설명 — 같은 st.markdown 안에 넣어 표와 붙이고, ↳로 '위 표 설명'임을 보인다 */
 .sl-wrap.has-note{margin-bottom:4px}
-.sl-note{font-size:.8rem;opacity:.65;line-height:1.65;margin:0 0 18px 2px}
-.sl-note div{padding-left:1.2em;text-indent:-1.2em}
+.sl-note{font-size:.82rem;line-height:1.7;margin:0 0 18px 2px}
+.sl-note div{padding-left:1.5em;text-indent:-1.5em;opacity:.7}
+.sl-note .arr{display:inline-block;width:1.5em;text-indent:0;font-size:1.05rem;font-weight:700;opacity:1}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -378,7 +379,7 @@ def _stock_title(t: str, nm: str, new: bool = False) -> str:
 def _note(*lines: str) -> str:
     """표 바로 아래 설명(HTML) — 표와 같은 st.markdown에 이어 붙여 간격 없이 붙인다. 줄마다 ↳.
     표 쪽 <div class="sl-wrap">는 'sl-wrap has-note'로 써야 아래 여백이 줄어 붙어 보인다."""
-    body = ''.join(f'<div>↳ {ln}</div>' for ln in lines if ln)
+    body = ''.join(f'<div><span class="arr">↳</span>{ln}</div>' for ln in lines if ln)
     return f'<div class="sl-note">{body}</div>' if body else ''
 
 
@@ -493,9 +494,10 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
             + '</tbody></table></div>'
-            + _note('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.',
-                    f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
-                    '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.'),
+            + _note('🔥 지금은 오늘도 급부상 중인 종목이며, 해당 순위는 매수 신호가 아닙니다. '
+                    '— 10EMA PP 기준봉이나 셋업이 나올 때까지 관찰하세요.',
+                    f'섹터 종목 부족 · 단독 렐볼은 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 섹터 🔥 판정에서는 빠지지만, '
+                    '최근 5일 안에 종목 자체에 렐볼 양봉이 나와 함께 보여주는 종목입니다.'),
             unsafe_allow_html=True)
     _pp_score_table()
 
@@ -810,9 +812,8 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
         + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
-        + _note(f'<span style="color:#16a34a">{_STAR}</span> = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — '
-                '찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.',
-                '순위 아래 ▲▼ = 직전 거래일 같은 조건 순위 대비 등락 (– 같음).' if prev_rank is not None else '',
+        + _note(f'<span style="color:#16a34a">{_STAR}</span>은 상위 3개 섹터 소속이며, 해당 순위는 매수 신호가 아닙니다. '
+                '— 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입하세요.',
                 'NEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''),
         unsafe_allow_html=True)
     _score_table(rebound)
