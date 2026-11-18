@@ -91,9 +91,9 @@ if 'grid_initialized' not in st.session_state:
     st.session_state['grid_initialized'] = True
     st.rerun()
 
-# 📢 업데이트 안내 — 위 최초 재실행 뒤에 띄워야 재실행에 닫히지 않는다 (ui/notice.py)
+# 📢 업데이트 안내 — 자동 팝업은 2026-11-18 사용자 요청으로 끔. 사이드바 버튼으로만 열린다.
+# 새 안내를 다시 자동으로 띄우려면 아래 show_once()를 되살릴 것 — 위 최초 재실행 뒤에 둬야 재실행에 닫히지 않는다 (ui/notice.py)
 from ui import notice  # noqa: E402
-notice.show_once()
 notice.sidebar_button()
 
 INDEX_FOR_MARKET = {
