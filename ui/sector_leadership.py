@@ -140,7 +140,9 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         # 급부상 종목 후보(hot_stock_pool)의 재료 — 순환매 종목 점수·PP 가능성 점수·관문 값.
         # 2주 전 순환매 재계산·순환매 섹터 순위(rotation_sectors)는 쓰는 화면이 없어져 뺐다(#46)
         rot_stocks = nl.rotation_scores(rep.stocks, bars, idx_df, theme_of, main, asof)
-    hot = nl.hot_sectors(bars, theme_of, asof, main_codes=main)      # 비메인 테마는 섹터 순위처럼 제외(#41 L11)
+    # 비메인 테마('지주·기타' 등)도 🔥 판정에 넣는다 — 2026-11-18 사용자 결정으로 #41 L11(제외)을 되돌림.
+    # 화면에서는 테마 토글(기본 꺼짐)로 숨겨 두고, 켜면 보인다. 차기 주도섹터 순위는 그대로 메인만.
+    hot = nl.hot_sectors(bars, theme_of, asof)
     bull = nl.bull_since({t: bars[t] for t in theme_of if t in bars}, asof)
     # 단독 렐볼 판정의 섹터 크기 = 🔥 판정과 같은 그룹(hot_groups) — 두 판정이 다른 크기를 써서 어느 쪽에도
     # 안 잡히는 종목이 생기지 않게(#41 M7)
@@ -154,11 +156,11 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
         'lowAdr': sorted(low_adr), 'adrMin': adr_min,
         'hot': hot, 'themeOf': dict(theme_of), 'bullSince': bull,
         # 급부상 종목 후보·관문 — 규칙은 next_leaders.hot_stock_pool 한 곳 (#41 M9)
-        'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof, main_codes=main),
+        'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof),
     }
 
 
-SCORE_VERSION = 2026_11_16_65    # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_18_1   # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict]:
@@ -433,8 +435,8 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
                            help=f'PP 가능성 점수 {nl.PP_MIN_SCORE}점 미만 종목도 표에 넣습니다 (기본은 숨김)')
     if not show_weak:
         pool = [r for r in pool if not r['weak']]
-    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show',
-                            non_main=False)
+    # 차기 주도주와 같은 토글 목록(비메인 포함, 기본 꺼짐) — 2026-11-18 사용자 결정으로 #41 L11 되돌림
+    hidden = _theme_toggles(m, bar, labels, {r['primaryTheme'] for r in pool}, key_prefix=f'{m.key}_rot_show')
     rows = sorted((r for r in pool
                    if (not only_trend or r['ticker'] in in_trend)
                    and r['primaryTheme'] not in hidden),
