@@ -261,7 +261,7 @@ _CSS = """<style>
 .sl-foot .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
 .sl-foot .txt{opacity:.8}
 /* 표와 그 아래 다른 표(설명·배점표) 사이 구분선 — 급부상 종목 표의 설명 띠 아래 선과 같은 모양 */
-.sl-sep{border-bottom:1px solid rgba(128,128,128,.25);margin-top:10px}
+.sl-sep{border-bottom:1px solid rgba(128,128,128,.35);margin:10px 0 28px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 /* Streamlit 마크다운이 표에 자동으로 붙이는 아래 여백(marginBottom lg) 제거 — 있으면 표와 설명 띠 사이가 뜬다.
    표 사이 간격은 .sl-wrap의 margin이 맡는다 */
@@ -419,12 +419,13 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 + _colgroup([15, 17, 10, 13, 15, 30]) +
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율 (오늘)</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
-                + ''.join(rows) + '</tbody></table><div class="sl-sep"></div></div>', unsafe_allow_html=True)
-    _hot_legend()
+                + ''.join(rows) + '</tbody></table></div>'
+                # 섹터 표와 설명 표 사이 한가운데 구분선 — 같은 st.markdown 안이라 위아래 여백을 정확히 맞출 수 있다
+                + '<div class="sl-sep"></div>' + _hot_legend(), unsafe_allow_html=True)
 
 
-def _hot_legend():
-    """🔥 급부상 섹터 표 아래 '🔥 기준과 표시 설명' — 🔥 조건과 상태·늦은 통과의 뜻을 표 하나로."""
+def _hot_legend() -> str:
+    """🔥 급부상 섹터 표 아래 '🔥 기준과 표시 설명'(HTML) — 🔥 조건과 상태·늦은 통과의 뜻을 표 하나로."""
     cond = (f'두 조건을 <b>모두</b> 만족한 날부터 🔥입니다.<br>'
             f'① 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
             f'거래량 {nl.HOT_RVOL:g}배↑ 양봉<br>'
@@ -439,9 +440,9 @@ def _hot_legend():
          '① 거래량이 먼저 터지고, ② 정배열 20%는 MM/DD에 뒤늦게 충족된 섹터 — 바닥에서 올라온 경우'),
     ]
     body = ''.join(f'<tr><td style="white-space:nowrap">{k}</td><td>{v}</td></tr>' for k, v in rows)
-    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">🔥 기준과 표시 설명</div>'
-                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
-                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
+    return ('<div style="font-weight:700;font-size:.9rem">🔥 기준과 표시 설명</div>'
+            '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
+            f'<tbody>{body}</tbody></table></div>')
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
