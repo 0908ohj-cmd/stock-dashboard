@@ -23,7 +23,7 @@ from ui import sector_leadership
 from data import classification
 from ui.watchlist_logic import (
     chart_position, chart_step, nav_button_keys, space_nav_script,
-    lead_gap_reasons, lead_gap_caption,
+    lead_gap_reasons,
     INTRADAY_CACHE_TTL, intraday_empty_reason,
 )
 
@@ -652,9 +652,6 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     if any(r.get('RS구간오류') for r in rows):
         st.error('**구간 설정 오류** — 기산점이 찐반등일과 같거나 뒤라 하락국면 RS 구간이 비었습니다. '
                  '저점선행·양봉비를 계산하지 않았습니다. ⚙️ RS 구간 설정을 확인해 주세요.')
-    _gap_caption = lead_gap_caption(gap, total=len(rows))
-    if _gap_caption:
-        st.caption(_gap_caption)
 
     show_grade = bool(swing_dates_str)
     crown = leaderboard_store.get_tickers(_LB_MARKET.get(market, 'us'))
