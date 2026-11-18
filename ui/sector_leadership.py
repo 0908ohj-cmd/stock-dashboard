@@ -261,6 +261,8 @@ _CSS = """<style>
 .sl-note div{padding-left:1.2em;text-indent:-1.2em}
 .sl-note .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
 .sl-note .txt{opacity:.8}
+/* 표와 그 아래 다른 표(설명·배점표) 사이 구분선 — 급부상 종목 표의 설명 띠 아래 선과 같은 모양 */
+.sl-sep{border-bottom:1px solid rgba(128,128,128,.25);margin:10px 0 18px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -412,11 +414,11 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                     f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb")}</td>'
                     f'<td>{pct_bar(h["share"], "#f97316", peak)}</td>'
                     f'<td style="font-size:.84rem">{who or "—"}</td></tr>')
-    st.markdown('<div class="sl-wrap"><table class="sl-t fx" style="min-width:820px">'
+    st.markdown('<div class="sl-wrap has-note"><table class="sl-t fx" style="min-width:820px">'
                 + _colgroup([15, 17, 10, 13, 15, 30]) +
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율 (오늘)</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
-                + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
+                + ''.join(rows) + '</tbody></table></div><div class="sl-sep"></div>', unsafe_allow_html=True)
     _hot_legend()
 
 
