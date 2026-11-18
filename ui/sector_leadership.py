@@ -850,9 +850,6 @@ def _score_table(rebound: bool):
         f'<th {on if not rebound else ""}>하락국면 (찐반등 전){" · 지금" if not rebound else ""}</th>'
         f'<th {on if rebound else ""}>상승국면 (찐반등 이후){" · 지금" if rebound else ""}</th>'
         f'</tr></thead><tbody>{rows}{total}</tbody></table></div>', unsafe_allow_html=True)
-    st.caption('양봉 렐볼을 뺀 항목은 같은 와치리스트 안 상대 순위(1등 만점·꼴찌 0점) × 배점. '
-               '종목 점수 70점 이상 = "강한 종목". 섹터 점수 = 종목 점수 중앙값 60% + 강한 종목 비율 40%. '
-               '5년 검증에서 역효과였던 거래량 우위·21EMA 위는 넣지 않습니다 (추세추종 탭·순환매와 동일).')
 
 
 # ── 상세 보기 ─────────────────────────────────────────────
