@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-18T08:13:42+09:00",
+ "updatedAt": "2026-11-19T08:15:38+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -247,6 +247,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:44:20+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "AG": {
+   "companyName": "First Majestic Silver Corp.",
+   "primaryTheme": "PRECIOUS_METALS_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "귀금속·은 광산",
+   "businessSummary": "멕시코에서 은·금 광산(산타 엘레나, 산 디마스, 로스 가토스, 라 엔칸타다)을 운영하는 귀금속 광산 회사다. 2025년 4분기 매출의 약 60%가 은이었다.",
+   "confidence": "high",
+   "why": "NYSE AG는 현재도 First Majestic Silver가 거래하는 티커이고, 회사 사업이 멕시코 은·금 광산 생산이다. 2025년 매출 12억 5,716만 달러 중 4분기 기준 은 비중이 60%이며 나머지는 금이라 귀금속 광산 테마가 맞다. 연간 은·금 비중은 10-K 세그먼트 주석으로 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/ag/company/",
+    "https://www.Wikipedia.org/wiki/First_Majestic_Silver",
+    "https://in.marketscreener.com/news/first-majestic-silver-corp-reports-earnings-results-for-the-full-year-ended-december-31-2025-ce7e5ddcdd8ef021",
+    "https://www.fool.ca/company/nyse-ag-first-majestic-silver/335846/page/8"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:14+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -536,6 +559,29 @@
    "overrideReason": "",
    "history": []
   },
+  "AMC": {
+   "companyName": "AMC Entertainment Holdings, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "영화관 체인 운영",
+   "businessSummary": "북미·유럽 등지에서 영화관(극장)을 운영하는 극장 체인으로, 매출은 입장권과 식음료에서 나온다. 2025년 매출 약 48.5억 달러 중 입장권 약 26.5억, 식음료 약 16.7억 달러였다.",
+   "confidence": "high",
+   "why": "2025 연간 매출의 대부분이 입장권(약 55%)과 식음료(약 34%)이며, 반도체·AI·방산 등 테마 사업과 무관한 오프라인 레저 소비 사업이다. 티커 AMC는 현재 NYSE에서 AMC Entertainment Holdings가 쓰고 있음을 확인했다.",
+   "evidenceUrls": [
+    "https://www.marketscreener.com/news/amc-entertainment-holdings-inc-reports-earnings-results-for-the-full-year-ended-december-31-2025-ce7e5dd2d089fe24",
+    "https://www.boardroomalpha.com/sec/amc-8-k-2026-02-23-0001411579-26-000018/amc-20260223xex99d1.htm",
+    "https://in.tradingview.com/symbols/NYSE-AMC/",
+    "https://app.edgar.tools/companies/AMC/disclosures/revenue"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:52+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "AMD": {
    "companyName": "Advanced Micro Devices, Inc. (AMD)",
    "primaryTheme": "SEMI_CHIPS_MEMORY",
@@ -674,6 +720,58 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:44:54+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ANET": {
+   "companyName": "Arista Networks, Inc.",
+   "primaryTheme": "AI_DC_HARDWARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "OPTICAL_INTERCONNECT",
+    "SOFTWARE_AI_DATA"
+   ],
+   "detail": "AI 네트워킹 스위치",
+   "businessSummary": "데이터센터·AI 클러스터용 고속 이더넷 스위치와 라우팅 장비, 이를 구동하는 EOS 네트워크 OS 및 CloudVision 자동화 소프트웨어를 클라우드 사업자와 AI 기업에 판매한다. 2025년 매출의 상당 부분이 클라우드·AI 고객에서 나온다.",
+   "confidence": "medium",
+   "why": "주력 제품은 데이터센터·AI 패브릭용 스위치 하드웨어(Etherlink 등)이며, 2025년 매출 약 90억 달러 중 AI·클라우드·데이터센터 네트워킹 Core 부문이 약 65%다. 고속 네트워크 장비는 광통신 보조 태그로, 소프트웨어(EOS·CloudVision)는 보조 태그로 둔다. 다만 10-K의 제품군별 매출 비중은 직접 확인하지 못해 2차 분석 수치에 의존했다.",
+   "evidenceUrls": [
+    "https://www.arista.com/en/company/company-overview",
+    "https://sec-api.io/insights/arista-networks-anet-q3-2026-earnings-and-fy2027-outlook-sec-filing-analysis",
+    "https://www.marketbeat.com/instant-alerts/arista-networks-q4-earnings-call-highlights-2026-02-12/?.tsrc=rss",
+    "https://convergedigest.com/arista-points-to-dci-scale-across-demand-as-multi-site-ai-expands/?amp=1"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:20+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "APH": {
+   "companyName": "Amphenol Corporation",
+   "primaryTheme": "AI_DC_HARDWARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "OPTICAL_INTERCONNECT",
+    "POWER_AI_INFRA"
+   ],
+   "detail": "데이터센터 연결부품",
+   "businessSummary": "고속·광 인터커넥트, 커넥터, 센서, 케이블을 만드는 세계 최대급 연결 부품 회사다. 2025년 매출의 36%가 IT 데이터통신(AI 데이터센터 포함) 수요이며, 통신솔루션(CS) 부문이 가장 빠르게 성장하고 있다.",
+   "confidence": "medium",
+   "why": "2025년 IT 데이터통신이 매출의 36%로 최대 최종시장이며, 고속 커넥터·케이블 등 데이터센터 하드웨어 공급망 부품이 주력이다. 광섬유 제품은 비중이 더 작아 보조 태그로 두었고, 전력 인터커넥트는 AI 인프라 수요와 연결된 보조 사업이다. 다만 세그먼트 금액은 출처마다 달라 10-K 원문 표로 재확인하지 않았다.",
+   "evidenceUrls": [
+    "https://d18rn0p25nwr6d.cloudfront.net/CIK-0000820313/9732158f-2974-40b3-95d0-576d2d31ad1d.html",
+    "https://marketchameleon.com/articles/b/2026/1/28/amphenol-record-2025-earnings-major-acquisitions-2026-guidance",
+    "https://amphenol.com/docs/annual-report",
+    "https://bullfincher.io/companies/amphenol-corporation/revenue-by-segment"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:02+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1563,6 +1661,28 @@
    "overrideReason": "",
    "history": []
   },
+  "CDE": {
+   "companyName": "Coeur Mining, Inc.",
+   "primaryTheme": "PRECIOUS_METALS_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "금·은 광산 생산",
+   "businessSummary": "NYSE/TSX 상장 귀금속 광산 회사로, 금과 은을 생산·판매한다. 2026년 New Gold 인수 후 캐나다·멕시코·미국의 7개 광산을 운영하며, 구리는 부산물로 매출 비중이 약 2%다.",
+   "confidence": "high",
+   "why": "2025년 금속 매출 약 20.7억 달러 중 금 65%·은 35%이며(10-K), 2026년 1분기 매출도 금 56%·은 42%·구리 2%다. 주력은 귀금속 광산 생산이므로 금속·소재로 분류한다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/215466/000021546626000004/cde-20251231.htm",
+    "https://www.coeur.com/investors/news/news-details/2026/Coeur-Reports-Fourth-Quarter-and-Full-Year-2025-Results/default.aspx",
+    "https://www.businesswire.com/news/home/20260506602744/en/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:48+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "CDNA": {
    "companyName": "CareDx, Inc.",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -2222,6 +2342,28 @@
    "overrideReason": "",
    "history": []
   },
+  "CYTK": {
+   "companyName": "Cytokinetics, Incorporated",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "심근병증 치료제 바이오",
+   "businessSummary": "심근병증(비대성 심근병증) 치료제 개발·상업화를 하는 바이오 기업으로, 주력 제품 MYQORZO(aficamten)를 2025년 12월 FDA 승인 후 2026년 1월 미국에서 출시했고 EU·중국 승인도 받았다. 후속 파이프라인으로 omecamtiv mecarbil, ulacamten 등을 개발 중이다.",
+   "confidence": "high",
+   "why": "매출 기준 주력은 자체 신약 MYQORZO(aficamten) 상업화이며 제품·파이프라인 전부 신약 개발 사업이다. 검색으로 확인한 회사 IR 자료에서 FDA 승인·미국 출시·EU/중국 승인이 확인됐고, 회사 사명·티커(Nasdaq: CYTK)도 현재 기준으로 일치한다.",
+   "evidenceUrls": [
+    "https://s206.q4cdn.com/793207125/files/doc_news/Cytokinetics-Reports-Second-Quarter-2026-Financial-Results-and-Provides-Business-Update-2026.pdf",
+    "https://s206.q4cdn.com/793207125/files/doc_financials/2025/ar/Cytokinetics-2026-Annual-Report.pdf",
+    "https://ir.cytokinetics.com/press-releases/press-release-details/2026/Cytokinetics-Reports-First-Quarter-2026-Financial-Results-and-Provides-Business-Update/default.aspx"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:14+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "DASH": {
    "companyName": "DoorDash, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -2492,6 +2634,29 @@
    "overrideReason": "",
    "history": []
   },
+  "DPC": {
+   "companyName": "DPC Holdings Limited (Doncasters Group)",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "항공엔진 주조부품",
+   "businessSummary": "항공·산업용 가스터빈(IGT)의 고온부에 들어가는 정밀 주조 부품과 니켈·코발트계 초합금을 만드는 영국 기업이다. 2026년 6월 NYSE에 상장했다.",
+   "confidence": "medium",
+   "why": "사업 자체는 공식 S-1/A와 분기 실적으로 확인됐다. 항공엔진 부품 매출이 대부분이고 테마 목록의 우주·방산·로봇·반도체·AI 인프라 어느 항목에도 맞지 않는다. 목록상 해당 없는 사업의 기타 칸인 CONSUMER_OTHER로 두었고, 이 분류는 테마 적합성 판단이라 medium으로 낮췄다. 2025년 매출 약 8.37억 달러의 대부분이 항공·IGT이며, 2026 Q3 매출은 약 3.08억 달러(+39%)로 확인했다. IGT의 발전용 수요와 AI·데이터센터 연관성은 확인하지 못해 POWER_AI_INFRA는 보조 태그로 두지 않았다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/dpc/company/",
+    "https://www.sec.gov/Archives/edgar/data/2107018/000110465926073752/tm269965-6_s1a.htm",
+    "https://www.sec.gov/Archives/edgar/data/2107018/000110465926125825/tm2629268d1_ex99-1.htm",
+    "https://www.fool.com/earnings/call-transcripts/2026/11/12/dpc-holdings-dpc-q3-2026-earnings-call-transcript/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "DUOL": {
    "companyName": "Duolingo, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -2535,6 +2700,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:53:39+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ELF": {
+   "companyName": "e.l.f. Beauty, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "뷰티·화장품 소비재",
+   "businessSummary": "색조·스킨케어 화장품 브랜드(e.l.f. Cosmetics, e.l.f. SKIN, rhode, Naturium, Well People)를 운영하는 뷰티 소비재 회사다. 10-K 기준 단일 사업부문이다.",
+   "confidence": "high",
+   "why": "FY2026 10-K(2026-03-31 결산)가 단일 보고 세그먼트이며 사업 전체가 화장품 브랜드 포트폴리오다. 기술·AI 관련 사업은 확인되지 않아 소비재로 분류했다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/0001600033/000160003326000020/elf-20260331.htm",
+    "https://app.edgar.tools/companies/ELF/disclosures/segments",
+    "https://stockanalysis.com/stocks/elf/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:29+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2671,6 +2858,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:41:56+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "EROC": {
+   "companyName": "ERock, Inc. (구 Enchanted Rock)",
+   "primaryTheme": "POWER_AI_INFRA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "데이터센터 가스발전",
+   "businessSummary": "천연가스 기반 분산형 자체 발전 시스템을 설계·설치·운영하는 회사로, 데이터센터·유틸리티·대형 상업·산업 고객에게 브리지·백업 전력을 공급한다.",
+   "confidence": "medium",
+   "why": "S-1 및 IPO 보도에 따르면 핵심 고객이 하이퍼스케일·콜로케이션 데이터센터이고 브리지·백업 전력이 주력 사업이라 AI·데이터센터 전력 수요와 직결된다. 고객별 매출 비중은 S-1 원문을 열어 확인하지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/0002110029/000119312526227199/d12401ds1.htm",
+    "https://www.iposcoop.com/ipo/erock/",
+    "https://stockanalysis.com/stocks/eroc/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3320,6 +3529,27 @@
    "overrideReason": "",
    "history": []
   },
+  "GPN": {
+   "companyName": "Global Payments Inc.",
+   "primaryTheme": "DIGITAL_ASSETS_FINTECH",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "결제처리·가맹점 솔루션",
+   "businessSummary": "가맹점 결제 처리(매입·정산·단말기 서비스)를 주력으로 하는 결제 기술 회사. 2026년 1월 Worldpay 인수와 Issuer Solutions 매각을 함께 마쳤다.",
+   "confidence": "medium",
+   "why": "온라인 결제·가맹점 정산 핀테크가 주력이다. SEC 424B5 공시가 Global Payments를 결제 기술 회사로 설명하고, 2026년 1월 Worldpay 인수와 Issuer Solutions 매각이 확인된다. 다만 2026 사업보고서의 세그먼트별 매출 비중은 열어 보지 못해 medium으로 둔다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1123360/000110465926024776/tm267259-2_424b5.htm",
+    "https://investors.globalpayments.com/financial-information/all-sec-filings/content/0001123360-26-000008/0001123360-26-000008.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:24+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "GTLB": {
    "companyName": "GitLab Inc.",
    "primaryTheme": "SOFTWARE_AI_DATA",
@@ -3338,6 +3568,27 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:55:18+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "HBM": {
+   "companyName": "Hudbay Minerals Inc.",
+   "primaryTheme": "PRECIOUS_METALS_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "구리 광산 개발",
+   "businessSummary": "캐나다 토론토 기반 구리 광산 회사로, 페루 Constancia·매니토바 Snow Lake·BC Copper Mountain을 운영하고 애리조나 Copper World를 개발 중이다. 구리가 매출의 대부분이며 금 매출 비중도 크다.",
+   "confidence": "medium",
+   "why": "매출의 대부분이 구리 생산에서 나오고 2025년 3분기에는 금 매출이 전체의 38% 이상이었다는 보도가 있어 원자재 광산 테마로 분류했다. 같은 HBM 티커를 쓰는 HBM Holdings(HKG:2142, 바이오)·HBM Limited(HBMHF)는 무관한 회사라 제외했다. 1차 공식 IR·10-K는 열지 않고 검색 결과 요약으로 확인해 신뢰도는 medium으로 뒀다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/hbm/company/",
+    "https://quantisnow.com/insight/hudbays-third-quarter-2025-results-demonstrate-operational-resilience-6272243"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4427,6 +4678,31 @@
    "overrideReason": "",
    "history": []
   },
+  "MAIR": {
+   "companyName": "Madison Air Solutions Corporation",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "POWER_AI_INFRA"
+   ],
+   "detail": "공조·환기·필터 장비",
+   "businessSummary": "미국 NYSE 티커 MAIR의 현재 회사는 시카고 기반 환기·필터·공조(HVAC) 기업 Madison Air Solutions다. 주력은 주거·상업용 환기와 공기질 제품이며, 데이터센터 냉각(Nortek Data Center Cooling)은 상업 부문 안의 일부다.",
+   "confidence": "medium",
+   "why": "주력 매출은 AI 전용이 아닌 일반 환기·공조 제품(주거 환기 등)이라 위 테마 중 특정 테마에 들어가지 않아 CONSUMER_OTHER로 두었다. 데이터센터 냉각은 보조로 POWER_AI_INFRA에 태그했다. 검색 요약에서 상업 부문 66%(데이터센터 냉각 포함)라는 수치가 있으나 S-1 기준 주거 환기 약 65%와 정의가 달라 매출 비중은 확정하지 못했고, 10-Q·424B4 원문은 열지 않고 검색 결과 요약만 확인했다. 과거 MAIR는 항공사 지주사(MAIR Holdings, NASDAQ, 2008년 거래 종료)였으므로 티커가 재사용된 경우다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/0002098430/000162828026070541/mair-20260930.htm",
+    "https://www.sec.gov/Archives/edgar/data/2098430/000119312526160250/project_breathe_form_424.htm",
+    "https://www.mainsights.io/ma-news/madison-air-solutions-completes-22-billion-ipo-raising-capital-at-132-billion-valuation",
+    "https://www.bloomberg.com/news/articles/2026-03-09/ventilation-and-filtration-system-firm-madison-air-files-for-ipo"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:42+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "MCHP": {
    "companyName": "Microchip Technology Inc.",
    "primaryTheme": "SEMI_CHIPS_MEMORY",
@@ -4877,6 +5153,28 @@
    "overrideReason": "",
    "history": []
   },
+  "NAT": {
+   "companyName": "Nordic American Tankers Limited",
+   "primaryTheme": "OIL_GAS_ENERGY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "원유 탱커 해운",
+   "businessSummary": "버뮤다 기반 원유 운송 선사로, 더블헐 Suezmax 원유 탱커 20척을 정기·나용선·스팟 방식으로 운용해 운임 수익을 얻는다. 2025년 말 기준 전 선대가 Suezmax이다.",
+   "confidence": "high",
+   "why": "사업 세그먼트가 Suezmax 원유 탱커 운송 하나뿐이고 매출이 모두 여기서 나온다. 원유 해운은 OIL_GAS_ENERGY의 명시 범위이며 AI·우주 등 다른 테마에 해당하는 사업은 확인되지 않는다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1000177/000091957426001450/d12110853_ex99-1.htm",
+    "https://stockanalysis.com/stocks/nat/company/",
+    "https://stockanalysis.com/stocks/nat/financials/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:06+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "NAVN": {
    "companyName": "Navan, Inc.",
    "primaryTheme": "SOFTWARE_AI_DATA",
@@ -5193,6 +5491,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:49:43+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "NVDA": {
+   "companyName": "NVIDIA Corporation",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "AI_DC_HARDWARE",
+    "AI_NEOCLOUD"
+   ],
+   "detail": "AI GPU·데이터센터 칩",
+   "businessSummary": "GPU·AI 가속기 등 데이터센터용 반도체와 데이터센터 네트워킹(NVLink·InfiniBand·이더넷 장비)을 설계해 하이퍼스케일러와 AI 클라우드에 공급하는 팹리스 반도체 회사. 데이터센터 부문이 매출의 대부분(약 90%)이다.",
+   "confidence": "high",
+   "why": "FY2026 데이터센터 매출이 1,937억 달러(총매출 2,159억 달러의 약 90%)이고, 그 안에서 컴퓨트(GPU)가 주류다. 제조는 외주(팹리스)이며 칩 설계가 본업이라 반도체로 분류하고, 네트워킹 장비와 랙·시스템은 AI_DC_HARDWARE 보조 태그로 둔다. AI_NEOCLOUD는 NVIDIA가 클라우드를 직접 임대하는 비중이 작아 보조로만 둔다.",
+   "evidenceUrls": [
+    "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-First-Quarter-Fiscal-2027",
+    "https://www.marketscreener.com/news/nvidia-annual-report-for-fiscal-year-ending-january-25-2026-form-10-k-ce7e5cd8d18af32d",
+    "https://last10k.com/sec-filings/nvda/0001045810-26-000051.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:17+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -6299,6 +6622,30 @@
    "overrideReason": "",
    "history": []
   },
+  "RIVN": {
+   "companyName": "Rivian Automotive, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS_AUTONOMY"
+   ],
+   "detail": "전기차 완성차·상용밴",
+   "businessSummary": "전기차 완성차 회사로 R1T·R1S 소비자용 SUV·픽업과 아마존 등에 공급하는 상용 밴(EDV)을 판매한다. 2026년에는 R2 신차 출시를 앞두고 있다.",
+   "confidence": "high",
+   "why": "2025년 매출 약 53.9억달러 중 자동차 부문이 약 38.3억달러로 대부분이다(검색 요약 기준, 10-K 원문은 미확인). 자율주행 플랫폼(3세대)과 Autonomy+ 구독은 차량 기능이라 보조 태그로만 둔다. 소프트웨어·서비스 부문 매출 대부분은 폭스바겐 JV로 AI 소프트웨어 사업이 아니다.",
+   "evidenceUrls": [
+    "https://www.businesswire.com/news/home/20260212515244/en/Rivian-Releases-Fourth-Quarter-and-Full-Year-2025-Financial-Results",
+    "https://www.autobound.ai/companies/rivian/10-k",
+    "https://cdn-fastly.autoguide.com/auto/rivians-full-year-losses-widen-in-2025-as-spotlight-turns-to-r2-44630101"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:36+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "RKLB": {
    "companyName": "Rocket Lab Corporation",
    "primaryTheme": "SPACE_LAUNCH_SATELLITES",
@@ -7186,6 +7533,50 @@
    "overrideReason": "",
    "history": []
   },
+  "SRRK": {
+   "companyName": "Scholar Rock Holding Corporation",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "희귀질환 신약 개발",
+   "businessSummary": "케임브리지(매사추세츠) 기반 바이오기업으로, 척수성 근위축증(SMA) 치료제 apitegromab(미오스타틴 활성 억제 항체)을 주력으로 개발한다. 매출은 없고 SRK-181·SRK-439 등 신약 파이프라인에 집중한다.",
+   "confidence": "high",
+   "why": "매출 없이 신약 후보(apitegromab, SRK-181, SRK-439) 개발이 사업의 전부로 확인된다. 여러 종목 정보 사이트와 연간보고서 검색 결과가 같은 회사·파이프라인을 가리키며, 티커 SRRK는 현재 Scholar Rock 회사로 거래된다. 다만 최신 10-K 본문은 열어보지 못했다.",
+   "evidenceUrls": [
+    "https://www.stocknear.com/stocks/SRRK/profile",
+    "https://www.stockmarketguides.com/stock/srrk",
+    "https://last10k.com/sec-filings/srrk/0001558370-25-001682.htm",
+    "https://investors.scholarrock.com/static-files/29da647b-162d-4faa-89fe-f92ead3f8700"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:38+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "STEP": {
+   "companyName": "StepStone Group Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "사모시장 자산운용",
+   "businessSummary": "글로벌 사모시장(프라이빗마켓) 투자 운용사로, 사모펀드·사모신용·인프라 등 대체투자 상품을 기관과 프라이빗 웰스 고객에게 운용하고 관리보수·성과보수로 수익을 낸다. 자문·데이터 서비스도 함께 제공한다.",
+   "confidence": "medium",
+   "why": "주력 수익은 대체투자 운용 수수료이며 반도체·AI·우주 등 고정 테마의 사업이 아니다. 고정 목록에 금융·자산운용 테마가 없어 위 테마에 해당하지 않는 사업으로 CONSUMER_OTHER에 두었다. 10-K 본문 Item 1은 열지 않아 신뢰도는 medium이다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1796022/000179602224000041/step-20240331.htm",
+    "https://www.barchart.com/story/news/71399/step-q4-deep-dive-private-wealth-and-diversification-drive-growth-amid-ai-disruption"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:14:34+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "STLD": {
    "companyName": "Steel Dynamics, Inc.",
    "primaryTheme": "PRECIOUS_METALS_MATERIALS",
@@ -7776,6 +8167,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:49:16+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "U": {
+   "companyName": "Unity Software Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "게임엔진·AI 광고 플랫폼",
+   "businessSummary": "실시간 3D 개발 엔진(Create)과 AI 기반 광고·수익화 플랫폼 Vector(Grow)를 제공하는 소프트웨어 회사다. 2025년 매출은 Grow Solutions 약 12억 달러, Create Solutions 약 6.2억 달러로 Grow 쪽이 약 3분의 2를 차지한다.",
+   "confidence": "high",
+   "why": "매출의 다수를 차지하는 Grow Solutions가 AI 광고 플랫폼 Unity Vector(Grow 매출의 약 56%, 2025 Q4)와 광고 수익화 도구이며, 나머지는 소프트웨어 엔진 구독인 Create Solutions다. 둘 다 소프트웨어·AI 광고기술로 SOFTWARE_AI_DATA에 해당한다. 2025년 세그먼트 수치는 보도자료 요약 기준이라 10-K 원문은 아직 대조하지 않았다.",
+   "evidenceUrls": [
+    "https://investors.unity.com/news/news-details/2026/Unity-Reports-Fourth-Quarter-and-Fiscal-Year-2025-Financial-Results/default.aspx",
+    "https://investors.unity.com/news/news-details/2026/Unity-Reports-First-Quarter-2026-Financial-Results/default.aspx",
+    "https://www.sec.gov/Archives/edgar/data/1810806/000181080624000053/unity-20231231.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-19T08:15:21+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
