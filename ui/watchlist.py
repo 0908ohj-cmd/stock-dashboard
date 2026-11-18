@@ -632,8 +632,10 @@ def render_watchlist_tab(tickers: list, market: str, label: str):
     # 점수 대상 밖 종목은 빈칸 대신 사유를 보여 준다 (#44 M20). 값은 채우지 않는다 — _build_rows의 RS/ADR은
     # 구간 정의(get_market_status 기준)가 달라 같은 열에 섞으면 '주도섹터 탭과 같은 값'이 깨진다.
     _tickers_now = [r['Ticker'] for r in rows]
+    _low_adr, _adr_min = sector_leadership.lead_low_adr(market, rs_range.date_str(manual_peak),
+                                                         rs_range.date_str(manual_jjin))
     gap = lead_gap_reasons(_tickers_now, set(lead), _lead_universe(market),
-                           classification.primary_map(market, _tickers_now))
+                           classification.primary_map(market, _tickers_now), _low_adr, _adr_min)
     for r in rows:
         r['점수제외'] = gap.get(r['Ticker'], '')
     # 순위는 이 탭 종목끼리만 다시 매긴다 (점수는 주도섹터 탭과 같고, 순위만 탭 안 기준)

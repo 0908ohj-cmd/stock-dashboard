@@ -91,7 +91,7 @@ def space_nav_script(market: str) -> str:
 # 계산 대상은 주도섹터 유니버스(US 210종목, KR 와치리스트+10EMA) 안의 분류 완료·데이터 정상(FULL) 종목뿐이라
 # 그 밖 종목은 빈칸이다. 다른 계산(_build_rows의 RS/ADR)으로 채우면 같은 열에 정의가 다른 값이 섞이므로
 # 값은 비워 두고 사유만 보여 준다.
-GAP_OUTSIDE = '대상 밖'          # 주도섹터 유니버스 밖 (US는 기술·혁신 210종목 밖)
+GAP_OUTSIDE = '대상 밖'          # 주도섹터 유니버스 밖 (US는 기술·혁신 210종목 + 추세추종 목록 밖)
 GAP_UNCLASSIFIED = '미분류'      # 테마 분류 기록 없음 또는 UNCLASSIFIED — 섹터 집계·점수에서 빠진다
 GAP_DATA = '데이터 부족'          # 대상·분류는 됐지만 점수 없음 (기준일 종가 없음·이력 부족·이상 데이터 등)
 GAP_NO_CALC = '산출 불가'         # 주도섹터 계산이 점수를 하나도 내지 못함
@@ -100,18 +100,23 @@ _UNCLASSIFIED = 'UNCLASSIFIED'   # data.classification.UNCLASSIFIED와 같은 �
 
 
 def lead_gap_reasons(tickers: list[str], scored: set, universe: set | None,
-                     theme_of: dict) -> dict[str, str]:
+                     theme_of: dict, low_adr: dict | None = None, adr_min: float | None = None) -> dict[str, str]:
     """{티커: 빈칸 사유} — 점수가 있는 종목은 빠진다.
 
     scored: lead_scores 결과의 티커. universe: 주도섹터 계산 유니버스(못 읽었으면 None — '대상 밖'으로
     단정하지 않는다). theme_of: {티커: 주력 테마 코드}(classification.primary_map).
+    low_adr: {티커: ADR%} — 주도섹터 계산의 ADR 필터(KR 2%·US 4%)로 빠진 종목 → 'ADR 미달 (3.9%<4%)'.
     """
+    low_adr = low_adr or {}
     out = {}
     for t in tickers:
         if t in scored:
             continue
         if universe is not None and t not in universe:
             out[t] = GAP_OUTSIDE
+        elif t in low_adr:
+            out[t] = (f'ADR 미달 ({low_adr[t]:.2f}%<{adr_min:g}%)' if adr_min
+                      else f'ADR 미달 ({low_adr[t]:.2f}%)')
         elif theme_of.get(t) in (None, _UNCLASSIFIED):
             out[t] = GAP_UNCLASSIFIED
         elif not scored:

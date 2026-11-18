@@ -173,3 +173,9 @@ def test_intraday_reason_names_the_empty_side():
 
     assert 'NVDA' in stock and '60일' not in stock
     assert 'NASDAQ' in index and 'NVDA' not in index and '60일' not in index
+
+def test_lead_gap_reasons_ADR_미달은_수치와_함께():
+    from ui.watchlist_logic import lead_gap_reasons
+    gap = lead_gap_reasons(['A', 'B', 'C'], {'A'}, {'A', 'B', 'C'}, {'A': 'X', 'B': 'X', 'C': 'X'},
+                           {'B': 3.86}, 4.0)
+    assert gap == {'B': 'ADR 미달 (3.86%<4%)', 'C': '데이터 부족'}

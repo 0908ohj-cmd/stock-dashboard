@@ -55,7 +55,7 @@ yfinance가 1차 소스지만 한국 데이터 품질 문제(마지막 행 NaN, 
 
 ### 🇺🇸 주도섹터 탭 (`ui/sector_leadership.py` + `strategy/sector_strength.py`)
 
-미국 기술·혁신 성장주 210종목(`data/universe/us_innovation_210.json`, 원본 워치리스트 고정 멤버십)의 섹터 강도. 설계 기준은 사용자 마스터 명세(2026-11-08).
+미국 기술·혁신 성장주 210종목(`data/universe/us_innovation_210.json`, 원본 워치리스트 고정 멤버십) **+ 추세추종 탭 목록(`us.tickers`)**의 섹터 강도 — 2026-11-19 사용자 결정: 추세추종 탭에 들어온 종목은 주도주 유니버스에 자동 편입(KR은 원래 와치리스트+10EMA 목록이 유니버스). 벤치마크 ETF(QQQ·IWM)·지수 심볼은 제외(`sector_leadership._universe`). ADR 필터로 빠진 종목은 추세추종 탭 점수 칸에 'ADR 미달 (3.86%<4%)'(`lead_low_adr`). 설계 기준은 사용자 마스터 명세(2026-11-08).
 
 - 시세는 US 스냅샷만 읽는다. 210종목 + QQQ·IWM은 `data/saved/us_sector.tickers`로 US 배치에 포함된다. 화면에서 실시간 다운로드 금지, 스냅샷에 없으면 MISSING
 - 벤치마크는 시장마다 자기 지수 하나(`MARKETS[...].bench`): 코스피 KOSPI, 코스닥 KOSDAQ, 나스닥 NASDAQ(^IXIC, indices 스냅샷) — 추세추종 탭과 동일. 엔진(`sector_strength`)은 벤치마크 1~2개를 모두 지원하고 명세 원안은 QQQ·IWM이었다. ADR20 보정 RS = RS / ADR20. 섹터 값은 종목 **중앙값**. 양봉 = 종가 > 시가, RVOL20 분모는 당일 제외, 10EMA 유지는 각 거래일의 EMA와 비교 — 명세 11장 필수 테스트가 `tests/test_sector_strength.py`에 있다

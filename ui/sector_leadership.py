@@ -17,6 +17,7 @@ from ui import rs_range, tv_export
 from data import classification as cls
 from data import classification_sync as cls_sync
 from data import store
+from data.fetcher import is_index_symbol
 from strategy import next_leaders as nl
 from strategy import sector_strength as ss
 from strategy import sector_view as sv
@@ -26,6 +27,7 @@ _ROOT = pathlib.Path(__file__).resolve().parent.parent
 _SAVED = _ROOT / 'data' / 'saved'
 _US_UNIVERSE = _ROOT / 'data' / 'universe' / 'us_innovation_210.json'
 _KR_NAMES = _ROOT / 'data' / 'kr_names.json'
+_US_BENCH_ETF = {'QQQ', 'IWM'}      # 벤치마크 ETF — 추세추종 목록에 있어도 주도주 유니버스에는 넣지 않는다
 _GITHUB_REPO = '0908ohj-cmd/stock-dashboard'
 
 
@@ -44,7 +46,9 @@ class Market:
 
 
 MARKETS = {
-    'US': Market('US', '나스닥 기술·혁신 성장주 210종목', ('NASDAQ',), 'indices', (),
+    # US 유니버스 = 고정 210종목 + 추세추종 탭 목록(us.tickers) — 추세추종 탭에 종목이 들어오면 자동 편입
+    # (2026-11-19 사용자 결정. KR은 원래 와치리스트 목록 그대로라 같은 규칙)
+    'US': Market('US', '나스닥 기술·혁신 210종목 + 추세추종 목록', ('NASDAQ',), 'indices', ('us.tickers',),
                  1_000_000, None, '$M', 1e6, 'NASDAQ'),
     'KR_KOSPI': Market('KR_KOSPI', '코스피 와치리스트', ('KOSPI',), 'indices',
                        ('kospi.tickers', 'kospi_10ema.tickers'), None, 5e9, '억원', 1e8, 'KOSPI'),
@@ -56,11 +60,20 @@ MARKETS = {
 # ── 데이터 ───────────────────────────────────────────────
 
 def _universe(m: Market) -> list:
-    """[(ticker, legacySector or '')]. US는 고정 210종목, KR은 현재 와치리스트 + 10EMA 목록."""
+    """[(ticker, legacySector or '')]. US는 고정 210종목 + 추세추종 목록, KR은 현재 와치리스트 + 10EMA 목록.
+    지수 심볼·벤치마크 ETF(QQQ·IWM)는 뺀다."""
+    out = []
     if m.key == 'US':
         uni = json.loads(_US_UNIVERSE.read_text(encoding='utf-8'))
-        return [(s['ticker'], s['legacySector']) for s in uni['stocks']]
-    out = []
+        base = [(s['ticker'], s['legacySector']) for s in uni['stocks']]
+        seen = {t for t, _ in base}
+        for name in m.ticker_files:
+            p = _SAVED / name
+            if p.exists():
+                out += [x.strip() for x in p.read_text(encoding='utf-8').splitlines() if x.strip()]
+        extra = [(t, '') for t in dict.fromkeys(out)
+                 if t not in seen and t not in _US_BENCH_ETF and not is_index_symbol(t, m.key)]
+        return base + extra
     for name in m.ticker_files:
         p = _SAVED / name
         if p.exists():
@@ -99,11 +112,13 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     # 저변동(ADR 낮은) 종목은 아예 제외 — 추세추종 탭과 같은 기준(KR 2%, US 4%, 기준일 직전 20일).
     # 방어주가 RS/ADR(작은 ADR로 나눠 커짐)로 '덜 빠짐' 상위를 차지하는 것을 막는다.
     adr_min = 4.0 if m.key == 'US' else 2.0
-    low_adr = []
+    low_adr, low_adr_val = [], {}
     for t in list(bars):
         d = bars[t][bars[t].index <= pd.Timestamp(asof)].tail(20)
-        if len(d) >= 10 and float(((d['High'] - d['Low']) / d['Close']).mean() * 100) < adr_min:
+        adr = float(((d['High'] - d['Low']) / d['Close']).mean() * 100) if len(d) >= 10 else None
+        if adr is not None and adr < adr_min:
             low_adr.append(t)
+            low_adr_val[t] = adr      # 추세추종 탭 빈칸 사유 'ADR 미달 (3.9%<4%)'용
             del bars[t]
     tickers = [t for t in tickers if t not in low_adr]
     bdata = store.load_snapshot(m.bench_snapshot).get('data', {})
@@ -153,14 +168,14 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
                   'blend5': rep.bench.blend5, 'blend21': rep.bench.blend21},
         'sectors': rep.sectors, 'coverage': rep.coverage,
         'phase': phase, 'picks': picks, 'nextSectors': ranked, 'thinSectors': thin,
-        'lowAdr': sorted(low_adr), 'adrMin': adr_min,
+        'lowAdr': sorted(low_adr), 'lowAdrVal': low_adr_val, 'adrMin': adr_min,
         'hot': hot, 'themeOf': dict(theme_of), 'bullSince': bull,
         # 급부상 종목 후보·관문 — 규칙은 next_leaders.hot_stock_pool 한 곳 (#41 M9)
         'hotPool': nl.hot_stock_pool(rot_stocks, hot, sizes, bull, bars, rep.asof),
     }
 
 
-SCORE_VERSION = 2026_11_18_2 # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_19_1 # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict]:
@@ -182,6 +197,22 @@ def hot_badge(info: dict, label: str) -> str:
     """'🔥 광통신 (지금)' / '🔥 광통신 10/20'."""
     when = ('지금' if info['now'] else '6주 전부터' if info['last'] is None else f"{info['last']:%m/%d}")
     return f"🔥 {label} ({when})"
+
+
+def lead_low_adr(market_key: str, peak: str = '', jjin: str = '', asof: str = '') -> tuple[dict, float | None]:
+    """({티커: ADR%}, 기준 ADR%) — 주도주 점수 계산에서 ADR 필터(KR 2%·US 4%)로 빠진 종목.
+    lead_scores와 같은 _compute(같은 캐시)를 읽는다 — 추세추종 탭 빈칸 사유 'ADR 미달'용."""
+    m = MARKETS[market_key]
+    opts = _asof_options(m)
+    if not opts:
+        return {}, None
+    asof = asof or opts[0]
+    p_, j_, _ = clean_manual_rs_range(peak or None, jjin or None, asof)
+    try:
+        res = _compute(m.key, asof, _data_key(m), rs_range.date_str(p_), rs_range.date_str(j_))
+    except ValueError:
+        return {}, None
+    return res.get('lowAdrVal') or {}, res.get('adrMin')
 
 
 def lead_scores(market_key: str, peak: str = '', jjin: str = '', asof: str = '') -> dict:
@@ -261,7 +292,8 @@ _CSS = """<style>
 .sl-foot .arr{margin-right:.4em;font-weight:800;font-size:.95rem;color:#2563eb}
 .sl-foot .txt{opacity:.8}
 /* 표와 그 아래 다른 표(설명·배점표) 사이 구분선 — 급부상 종목 표의 설명 띠 아래 선과 같은 모양 */
-.sl-sep{border-bottom:1px solid rgba(128,128,128,.35);margin:10px 0 28px}
+/* 위 여백은 표 래퍼의 아래 여백(18px)과 겹쳐(margin collapse) 큰 쪽만 남는다 — 위 30 / 아래 22 + 제목 줄 간격 ≈ 가운데 */
+.sl-sep{border-bottom:1px solid rgba(128,128,128,.35);margin:30px 0 22px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 /* Streamlit 마크다운이 표에 자동으로 붙이는 아래 여백(marginBottom lg) 제거 — 있으면 표와 설명 띠 사이가 뜬다.
    표 사이 간격은 .sl-wrap의 margin이 맡는다 */
