@@ -253,6 +253,10 @@ def _num(v, digits=2, signed=True):
 
 _CSS = """<style>
 .sl-wrap{overflow-x:auto;margin:4px 0 18px}
+/* 표 바로 아래 붙는 설명 — 같은 st.markdown 안에 넣어 표와 붙이고, ↳로 '위 표 설명'임을 보인다 */
+.sl-wrap.has-note{margin-bottom:4px}
+.sl-note{font-size:.8rem;opacity:.65;line-height:1.65;margin:0 0 18px 2px}
+.sl-note div{padding-left:1.2em;text-indent:-1.2em}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -371,6 +375,13 @@ def _stock_title(t: str, nm: str, new: bool = False) -> str:
             else f'<div class="sl-name">{_esc(t)}{tag}</div>')
 
 
+def _note(*lines: str) -> str:
+    """표 바로 아래 설명(HTML) — 표와 같은 st.markdown에 이어 붙여 간격 없이 붙인다. 줄마다 ↳.
+    표 쪽 <div class="sl-wrap">는 'sl-wrap has-note'로 써야 아래 여백이 줄어 붙어 보인다."""
+    body = ''.join(f'<div>↳ {ln}</div>' for ln in lines if ln)
+    return f'<div class="sl-note">{body}</div>' if body else ''
+
+
 def _hot_block(res: dict, labels: dict, names: dict, records: dict):
     """🔥 급부상 섹터 — 지금 🔥 + 최근 약 6주 안에 🔥였던 섹터 (이력)."""
     hot = res.get('hot') or {}
@@ -422,9 +433,9 @@ def _hot_legend():
     ]
     body = ''.join(f'<tr><td style="white-space:nowrap">{k}</td><td>{v}</td></tr>' for k, v in rows)
     st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">🔥 기준과 표시 설명</div>'
-                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
-                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
-    st.caption(f'{nl.HOT_GAP}거래일 안에 다시 켜지면 같은 🔥로 봅니다.')
+                '<div class="sl-wrap has-note"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
+                f'<tbody>{body}</tbody></table></div>'
+                + _note(f'{nl.HOT_GAP}거래일 안에 다시 켜지면 같은 🔥로 봅니다.'), unsafe_allow_html=True)
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
@@ -478,14 +489,15 @@ def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: d
             f'<td>{_bar_cell(r["ppScore"])}</td></tr>')
     if rows:
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t fx" style="min-width:900px">' + _colgroup([5, 17, 21, 9, 10, 7, 9, 9, 13])
+            '<div class="sl-wrap has-note"><table class="sl-t fx" style="min-width:900px">' + _colgroup([5, 17, 21, 9, 10, 7, 9, 9, 13])
             + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
             '<th>52주 고점 대비</th><th>10EMA 최근 5일</th><th>정배열</th><th>1주 RS/ADR</th>'
             '<th>양봉 렐볼 (최근 5일)</th><th>PP 가능성 점수</th></tr></thead><tbody>' + ''.join(body)
-            + '</tbody></table></div>', unsafe_allow_html=True)
-        st.caption('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.  \n'
-                   f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
-                   '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.')
+            + '</tbody></table></div>'
+            + _note('🔥 지금 = 오늘도 급부상 중. 매수 신호가 아닙니다 — 10EMA PP 기준봉·셋업이 나올 때까지 관찰.',
+                    f'섹터 종목 부족 · 단독 렐볼 = 섹터 분류는 됐지만 같은 섹터 종목이 {nl.MIN_SECTOR_N}개 미만이라 '
+                    '섹터 🔥 판정이 안 되는데, 최근 5일 안에 렐볼 양봉이 나온 종목.'),
+            unsafe_allow_html=True)
     _pp_score_table()
 
 
@@ -683,15 +695,14 @@ def _lead_sectors(m: Market, res: dict, labels: dict, names: dict):
             f'<td>{_trend_txt(trend.get(s["theme"], {}).get("history"), "pctAbove21")}</td>'
             f'<td style="font-size:.84rem">{", ".join(_esc(_stock_name(r["ticker"], names, records)) for r in s["top"])}</td></tr>'
             for i, s in enumerate(rest))
+        thin_note = (_note('표본 부족(3종목 미만)으로 순위 제외: '
+                           + ', '.join(f"{_esc(labels[s['theme']])}({s['n']})" for s in thin)) if thin else '')
         st.markdown(
-            '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
+            f'<div class="sl-wrap{" has-note" if thin_note else ""}"><table class="sl-t fx" style="min-width:980px">'
             + _colgroup([5, 13, 10] + [9] * len(cols) + [9, 13, 13, 19])
             + '<thead><tr><th>순위</th><th>섹터</th><th>점수</th>'
             + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>' + _th_two('52주 고점 대비 (중앙값)') + '</th><th>' + _th_two('10EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>' + _th_two('21EMA 위 종목 비율 (2주전→1주전→기준일)') + '</th><th>대표주</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table></div>', unsafe_allow_html=True)
-    if thin:
-        st.caption('표본 부족(3종목 미만)으로 순위 제외: '
-                   + ', '.join(f"{labels[s['theme']]}({s['n']})" for s in thin))
+            f'<tbody>{rows}</tbody></table></div>' + thin_note, unsafe_allow_html=True)
 
 
 _THEME_TOGGLES = {'KR_KOSPI': ('BIO_PHARMA', 'FINANCE'), 'KR_KOSDAQ': ('BIO_PHARMA', 'FINANCE')}
@@ -795,15 +806,16 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
             + f'<td>{"✓" if r.get("hasBullishRvol15InLast5") else ""}</td>'
             f'<td>{_bar_cell(r["nextScore"])}</td></tr>')
     st.markdown(
-        '<div class="sl-wrap"><table class="sl-t fx" style="min-width:980px">'
+        '<div class="sl-wrap has-note"><table class="sl-t fx" style="min-width:980px">'
         + _colgroup([5, 15, 18] + [9] * len(cols) + [8, 8, 8, 8, 12])
         + '<thead><tr><th>순위</th><th>종목</th><th>섹터 · 테마</th>'
         + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선</th><th>저점</th>'
-        '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>',
+        '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
+        + _note(f'<span style="color:#16a34a">{_STAR}</span> = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — '
+                '찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.',
+                '순위 아래 ▲▼ = 직전 거래일 같은 조건 순위 대비 등락 (– 같음).' if prev_rank is not None else '',
+                'NEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''),
         unsafe_allow_html=True)
-    st.caption(f'{_STAR} = 상위 3개 섹터 소속. 매수 신호가 아닙니다 — 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입.'
-               + ('  \n순위 아래 ▲▼ = 직전 거래일 같은 조건 순위 대비 등락 (– 같음).' if prev_rank is not None else '')
-               + ('  \nNEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''))
     _score_table(rebound)
 
 
