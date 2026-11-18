@@ -579,8 +579,8 @@ def hot_pool_message(hp: dict, show_weak: bool = True) -> str | None:
             return (f"최근 6주 안에 🔥 급부상 섹터는 {hp['hotSectors']}개 있지만, 점수를 낼 수 있는 소속 종목이 없습니다 "
                     '(기준일 시세 없음·이력 부족 등).')
         return '최근 6주 안에 🔥 급부상 섹터도, 단독 급등 종목도 없습니다.'
-    why = ', '.join(f'{_DROP_LABEL[k]} {v}' for k, v in (hp.get('dropped') or {}).items() if v)
-    return (f"후보 {cand}종목(🔥 섹터 {hp.get('hotCandidates', 0)} · 단독 렐볼 {hp.get('soloCandidates', 0)})이 "
+    why = ', '.join(f'{_DROP_LABEL[k]} {v}종목' for k, v in (hp.get('dropped') or {}).items() if v)
+    return (f"후보 {cand}종목(🔥 섹터 {hp.get('hotCandidates', 0)}종목 · 단독 렐볼 {hp.get('soloCandidates', 0)}종목)이 "
             f'탈락 규칙으로 모두 빠졌습니다 — {why}.')
 
 

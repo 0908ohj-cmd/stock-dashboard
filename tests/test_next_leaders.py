@@ -775,7 +775,7 @@ def test_급부상_종목_안내_후보가_탈락_규칙으로_모두_빠졌을_
     assert hp['dropped'] == {'adr': 1, 'ownBull': 0, 'drawdown': 0, 'sma50': 1, 'sma150_200': 1}
     msg = nl.hot_pool_message(hp)
     assert msg.startswith('후보 3종목(🔥 섹터 3')
-    assert 'ADR 6% 미만 1' in msg and '50일선 아래 1' in msg and '150·200일선 아래 1' in msg
+    assert 'ADR 6% 미만 1종목' in msg and '50일선 아래 1종목' in msg and '150·200일선 아래 1종목' in msg
     assert '자기 렐볼' not in msg                              # 0건 사유는 적지 않는다
     assert '단독 급등 종목도 없습니다' not in msg
 
