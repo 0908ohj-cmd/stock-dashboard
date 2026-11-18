@@ -256,8 +256,8 @@ _CSS = """<style>
 /* 표 바로 아래 붙는 설명 — 같은 st.markdown 안에 넣어 표와 붙이고, ↳로 '위 표 설명'임을 보인다 */
 .sl-wrap.has-note{margin-bottom:4px}
 .sl-note{font-size:.82rem;line-height:1.7;margin:0 0 18px 2px}
-.sl-note div{padding-left:1.5em;text-indent:-1.5em;opacity:.7}
-.sl-note .arr{display:inline-block;width:1.5em;text-indent:0;font-size:1.05rem;font-weight:700;opacity:1}
+.sl-note div{padding-left:1.1em;text-indent:-1.1em;opacity:.7}
+.sl-note .arr{margin-right:.35em;font-weight:700}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
@@ -379,7 +379,7 @@ def _stock_title(t: str, nm: str, new: bool = False) -> str:
 def _note(*lines: str) -> str:
     """표 바로 아래 설명(HTML) — 표와 같은 st.markdown에 이어 붙여 간격 없이 붙인다. 줄마다 ↳.
     표 쪽 <div class="sl-wrap">는 'sl-wrap has-note'로 써야 아래 여백이 줄어 붙어 보인다."""
-    body = ''.join(f'<div><span class="arr">↳</span>{ln}</div>' for ln in lines if ln)
+    body = ''.join(f'<div><span class="arr">└</span>{ln}</div>' for ln in lines if ln)
     return f'<div class="sl-note">{body}</div>' if body else ''
 
 
@@ -813,8 +813,7 @@ def _lead_stocks(m: Market, res: dict, labels: dict, names: dict, peak: str = ''
         + ''.join(f'<th>{_th_two(c[0])}</th>' for c in cols) + '<th>52주 고점 대비</th><th>200일선</th><th>저점</th>'
         '<th>양봉 렐볼 (최근 5일)</th><th>점수</th></tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
         + _note(f'<span style="color:#16a34a">{_STAR}</span>은 상위 3개 섹터 소속이며, 해당 순위는 매수 신호가 아닙니다. '
-                '— 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입하세요.',
-                'NEW = 찐반등 이후, 직전 거래일 상위 20에 없다가 오늘 새로 들어온 종목.' if prev_top is not None else ''),
+                '— 찐반등 확인 후 5분봉 렐볼 기준봉에서 진입하세요.'),
         unsafe_allow_html=True)
     _score_table(rebound)
 
