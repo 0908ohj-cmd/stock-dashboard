@@ -160,7 +160,7 @@ def _compute(market_key: str, asof: str, data_key: tuple, peak: str = '', jjin: 
     }
 
 
-SCORE_VERSION = 2026_11_18_1   # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
+SCORE_VERSION = 2026_11_18_2 # next_leaders 점수·필드가 바뀌면 올릴 것 (캐시 무효화)
 
 
 def hot_history(market_key: str) -> tuple[dict, dict]:
@@ -387,15 +387,14 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
         state = ('<span class="sl-badge sl-A">지금 🔥</span>' if h['now']
                  else f'<span class="sl-badge sl-C">꺼짐 · {h["daysAgo"]}거래일 전 시작</span>' if h['last'] is not None
                  else '<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>')
+        if h.get('latePass'):
+            state += f'<div class="two">늦은 통과 ({h["alignedPassDate"]:%m/%d})</div>'
         fires = ', '.join(f'{d:%m/%d}' for d in h['fires']) or '6주보다 전'
         who = ', '.join(_esc(_stock_name(t, names, records)) for t in h['tickers'][:6])
         peak = '<span class="two" style="display:inline"> · 최고 %.0f%%</span>' % (100 * h['peakShare'])
-        start_al = ('' if h.get('alignedPassDate') is None else
-                    '<span class="two" style="display:inline"> · %s 통과 %.0f%%</span>'
-                    % (f"{h['alignedPassDate']:%m/%d}", 100 * h['alignedAtPass']))
         rows.append(f'<tr><td><div class="sl-name">{_esc(labels.get(th, th))}</div><div class="two">{h["n"]}종목</div></td>'
                     f'<td>{state}</td><td class="hb-num" style="white-space:normal">{fires}</td>'
-                    f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb", start_al)}</td>'
+                    f'<td>{pct_bar(h.get("alignedShare", 0), "#2563eb")}</td>'
                     f'<td>{pct_bar(h["share"], "#f97316", peak)}</td>'
                     f'<td style="font-size:.84rem">{who or "—"}</td></tr>')
     st.markdown('<div class="sl-wrap"><table class="sl-t fx" style="min-width:820px">'
@@ -403,19 +402,30 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
                 '<thead><tr><th>섹터</th><th>상태</th><th>🔥 시작일</th>'
                 '<th>정배열 종목 비율 (오늘)</th><th>현재 렐볼 양봉 비율</th><th>최근 5일 렐볼 양봉 종목</th></tr></thead><tbody>'
                 + ''.join(rows) + '</tbody></table></div>', unsafe_allow_html=True)
-    st.caption(f'🔥 = 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 {100 * nl.HOT_SHARE:.0f}% 이상이 최근 5일 안에 거래량 '
-               f'{nl.HOT_RVOL}배↑ 양봉. {nl.HOT_GAP}거래일 안에 다시 켜진 건 같은 🔥로 보고, 약 6주({nl.HOT_LOOKBACK}거래일) 이력을 남깁니다.  \n'
-               f'단, 섹터의 정배열(10EMA>21EMA>50SMA) 종목 비율이 {100 * nl.HOT_MIN_ALIGNED:.0f}% 이상이 된 날(통과일)부터 '
-               '급부상으로 봅니다 — 🔥가 이어지는 동안 한 번이라도 넘으면 그날부터 들어오고, 한 번 통과하면 뒤의 눌림으로 '
-               '정배열이 풀려도 이력에 남습니다.')
-    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">상태 설명</div>'
-                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>상태</th><th>뜻</th></tr></thead><tbody>'
-                '<tr><td><span class="sl-badge sl-A">지금 🔥</span></td><td>오늘도 돈이 몰리는 중</td></tr>'
-                '<tr><td><span class="sl-badge sl-C">꺼짐 · N거래일 전 시작</span></td>'
-                '<td>N거래일 전에 🔥가 켜졌다가 지금은 꺼짐 — 돈이 몰린 뒤 쉬는 중, PP 기준봉을 기다릴 구간</td></tr>'
-                '<tr><td><span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span></td>'
-                '<td>6주 창이 시작될 때 이미 🔥여서 시작일을 알 수 없고, 지금은 꺼짐</td></tr>'
-                '</tbody></table></div>', unsafe_allow_html=True)
+    _hot_legend()
+
+
+def _hot_legend():
+    """🔥 급부상 섹터 표 아래 '읽는 법' — 🔥 조건과 상태·늦은 통과의 뜻을 표 하나로."""
+    cond = (f'두 조건을 <b>모두</b> 만족한 날부터 🔥입니다.<br>'
+            f'① 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
+            f'거래량 {nl.HOT_RVOL:g}배↑ 양봉<br>'
+            f'② 섹터 종목의 <b>{100 * nl.HOT_MIN_ALIGNED:.0f}% 이상</b>이 정배열(10EMA &gt; 21EMA &gt; 50일선)')
+    rows = [
+        ('<b>🔥 급부상 섹터</b>', cond),
+        ('<span class="sl-badge sl-A">지금 🔥</span>', '오늘도 ①을 만족 — 돈이 몰리는 중'),
+        ('<span class="sl-badge sl-C">꺼짐 · N거래일 전 시작</span>',
+         f'🔥였다가 지금은 쉬는 중 — PP 기준봉을 기다릴 구간. 눌림으로 정배열이 풀려도 약 6주({nl.HOT_LOOKBACK}거래일) 표시'),
+        ('<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>', '6주보다 오래전에 시작된 🔥 — 시작일을 알 수 없고 지금은 꺼짐'),
+        ('<span class="two" style="display:inline">늦은 통과 (MM/DD)</span>',
+         '①이 먼저 오고 ②는 MM/DD에 충족 — 바닥에서 올라온 섹터. 두 조건을 같은 날 만족한 섹터보다 '
+         '이후 PP 기준봉이 덜 나왔습니다(종목당 14% vs 24%). 우선순위를 낮춰서 보세요'),
+    ]
+    body = ''.join(f'<tr><td style="white-space:nowrap">{k}</td><td>{v}</td></tr>' for k, v in rows)
+    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">읽는 법</div>'
+                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
+                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
+    st.caption(f'{nl.HOT_GAP}거래일 안에 다시 켜지면 같은 🔥로 봅니다.')
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):

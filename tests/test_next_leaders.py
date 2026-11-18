@@ -673,6 +673,7 @@ def test_hot_sectors_정배열일_때_켜진_불은_눌림으로_정배열이_�
     assert h['OPT']['alignedShare'] == 0                     # 오늘 비율(표시용)
     assert h['OPT']['alignedPassDate'] == h['OPT']['since']  # 켜진 날 바로 통과 → 통과일 = 편입일
     assert h['OPT']['alignedAtPass'] == 1.0                  # 통과일 비율(판정용)
+    assert h['OPT']['latePass'] is False                     # 두 조건을 같은 날 만족 = 늦은 통과 아님
 
 
 def test_hot_sectors_정배열_아닐_때_켜진_불은_오늘_정배열이어도_제외():
@@ -715,6 +716,7 @@ def test_hot_sectors_켜진_날_미달이어도_구간_안에서_통과하면_�
     first_on_after = min(i for i in on_days if i >= pass_i)
     h = nl.hot_sectors(bars, {t: 'OPT' for t in bars}, idx[-1])['OPT']
     assert h['alignedPassDate'] == idx[pass_i] and h['alignedAtPass'] == 1.0
+    assert h['latePass'] is True                            # 거래량(60)이 먼저, 정배열 통과는 나중 = 늦은 통과
     assert h['since'] == idx[first_on_after] and h['last'] == idx[first_on_after]
     assert not h['startedBefore'] and h['fires'] == [idx[first_on_after]]
     assert h['daysAgo'] == len(idx) - 1 - first_on_after     # 마지막 켜짐은 84~88, 기준일(89)은 꺼짐

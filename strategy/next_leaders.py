@@ -385,15 +385,16 @@ def _aligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple
     """🔥 구간(시작 ~ 다음 시작 전날)마다 정배열 비율이 처음 min_aligned 이상이 된 날(통과일)을 찾아,
     그 전의 켜짐은 지우고 통과일부터의 켜짐만 🔥로 인정한다. 한 번도 통과 못 한 구간은 통째로 지운다.
     이력 처음부터 이어진 구간(시작일 모름)도 같은 방식 — 첫 켜짐 날 바로 통과했을 때만 '시작일 모름'으로 남는다.
-    반환 (on, 인정된 🔥 시작 위치[통과 뒤 첫 켜짐], 시작일 모름 구간이 인정됐나, {인정된 시작 위치: 통과일 위치})."""
+    반환 (on, 인정된 🔥 시작 위치[통과 뒤 첫 켜짐], 시작일 모름 구간이 인정됐나, {인정된 시작 위치: 통과일 위치},
+    {인정된 시작 위치: 그 구간이 처음 켜진 위치}). 처음 켜진 위치 < 통과일이면 '늦은 통과'(거래량이 먼저, 정배열은 나중)."""
     on = np.asarray(on, dtype=bool).copy()
     if not on.any():
-        return on, [], False, {}
+        return on, [], False, {}, {}
     ok = np.asarray(aligned_share) >= min_aligned
     first_on = int(np.argmax(on))
     lead = not starts or first_on < starts[0]
     seg = ([first_on] if lead else []) + list(starts)
-    kept, lead_unknown, pass_of = [], False, {}
+    kept, lead_unknown, pass_of, seg_of = [], False, {}, {}
     for k, (a, b) in enumerate(zip(seg, seg[1:] + [len(on)])):
         hit = np.flatnonzero(ok[a:b])
         if not len(hit):
@@ -407,11 +408,11 @@ def _aligned_fires(on, starts: list, aligned_share, min_aligned: float) -> tuple
         q = p + int(later[0])
         if lead and k == 0 and q == a:
             lead_unknown = True             # 시작일 모름 구간이 첫 켜짐부터 통과
-            pass_of[None] = p
+            pass_of[None], seg_of[None] = p, a
         else:
             kept.append(q)
-            pass_of[q] = p
-    return on, kept, lead_unknown, pass_of
+            pass_of[q], seg_of[q] = p, a
+    return on, kept, lead_unknown, pass_of, seg_of
 
 
 def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
@@ -464,7 +465,7 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         # (#41 M8 — 예전엔 기준일 하루 비율로 6주 이력·10EMA 배지를 통째로 지웠다), 바닥에서 튄 뒤 정배열을 회복한
         # 섹터는 회복한 날부터 들어온다(시작일 하루로 보면 HOT_GAP 재점화로 이어진 긴 구간이 영구히 빠졌다).
         # 지난날 값만 쓰므로 point-in-time — 통과일·편입일은 뒤 데이터가 들어와도 바뀌지 않는다.
-        on, starts, lead_unknown, pass_of = _aligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
+        on, starts, lead_unknown, pass_of, seg_of = _aligned_fires(on, fire_starts(on), al.to_numpy(), min_al)
         w0 = max(len(on) - lookback, 0)          # 창 = 최근 lookback거래일 (이력 표시·지금 🔥·최고 비율)
         if not on[w0:].any():
             continue
@@ -477,10 +478,14 @@ def hot_sectors(bars: dict, theme_of: dict, asof, lookback: int = HOT_LOOKBACK,
         last = f.index[starts[-1]] if starts else None      # None = 이력 처음부터 이어진 🔥 (시작일 모름)
         since = last if last is not None else f.index[int(np.argmax(on))]   # 모르면 알 수 있는 첫 켜짐
         p_i = pass_of[starts[-1]] if starts else pass_of[None]
+        a_i = seg_of[starts[-1]] if starts else seg_of[None]
+        # 늦은 통과 = 거래량 조건(①)으로 먼저 켜졌고 정배열 20%(②)는 며칠 뒤 충족 — 바닥에서 올라온 섹터.
+        # 2026-01~11 검증(#65): 늦은 통과로만 들어온 섹터의 종목당 30일 안 기준봉 14.1% vs 바로 통과 24.4%(평소 13.3%)
         out[th] = {'now': bool(on[-1]), 'share': float(sh.iloc[-1]), 'n': len(ts),
                    'fires': fires, 'last': last, 'peakShare': float(sh.iloc[w0:].max()),
                    'since': since, 'startedBefore': last is None, 'alignedShare': float(al.iloc[-1]),
                    'alignedPassDate': f.index[p_i], 'alignedAtPass': float(al.iloc[p_i]),
+                   'latePass': bool(a_i < p_i),
                    'daysAgo': (len(on) - 1 - starts[-1]) if starts else lookback,
                    'tickers': [t for t in ts if f[t].iloc[-1] == 1]}
     return out
