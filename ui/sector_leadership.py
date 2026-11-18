@@ -406,7 +406,7 @@ def _hot_block(res: dict, labels: dict, names: dict, records: dict):
 
 
 def _hot_legend():
-    """🔥 급부상 섹터 표 아래 '읽는 법' — 🔥 조건과 상태·늦은 통과의 뜻을 표 하나로."""
+    """🔥 급부상 섹터 표 아래 '🔥 기준과 표시 설명' — 🔥 조건과 상태·늦은 통과의 뜻을 표 하나로."""
     cond = (f'두 조건을 <b>모두</b> 만족한 날부터 🔥입니다.<br>'
             f'① 섹터 종목({nl.MIN_SECTOR_N}개 이상)의 <b>{100 * nl.HOT_SHARE:.0f}% 이상</b>이 최근 5일 안에 '
             f'거래량 {nl.HOT_RVOL:g}배↑ 양봉<br>'
@@ -418,11 +418,10 @@ def _hot_legend():
          f'🔥였다가 지금은 쉬는 중 — PP 기준봉을 기다릴 구간. 눌림으로 정배열이 풀려도 약 6주({nl.HOT_LOOKBACK}거래일) 표시'),
         ('<span class="sl-badge sl-C">꺼짐 · 6주보다 전에 시작</span>', '6주보다 오래전에 시작된 🔥 — 시작일을 알 수 없고 지금은 꺼짐'),
         ('<span class="two" style="display:inline">늦은 통과 (MM/DD)</span>',
-         '①이 먼저 오고 ②는 MM/DD에 충족 — 바닥에서 올라온 섹터. 두 조건을 같은 날 만족한 섹터보다 '
-         '이후 PP 기준봉이 덜 나왔습니다(종목당 14% vs 24%). 우선순위를 낮춰서 보세요'),
+         '① 거래량이 먼저 터지고, ② 정배열 20%는 MM/DD에 뒤늦게 충족된 섹터 — 바닥에서 올라온 경우'),
     ]
     body = ''.join(f'<tr><td style="white-space:nowrap">{k}</td><td>{v}</td></tr>' for k, v in rows)
-    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">읽는 법</div>'
+    st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">🔥 기준과 표시 설명</div>'
                 '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
                 f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
     st.caption(f'{nl.HOT_GAP}거래일 안에 다시 켜지면 같은 🔥로 봅니다.')
