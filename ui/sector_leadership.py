@@ -263,6 +263,9 @@ _CSS = """<style>
 /* 표와 그 아래 다른 표(설명·배점표) 사이 구분선 — 급부상 종목 표의 설명 띠 아래 선과 같은 모양 */
 .sl-sep{border-bottom:1px solid rgba(128,128,128,.25);margin-top:10px}
 .sl-t{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+/* Streamlit 마크다운이 표에 자동으로 붙이는 아래 여백(marginBottom lg) 제거 — 있으면 표와 설명 띠 사이가 뜬다.
+   표 사이 간격은 .sl-wrap의 margin이 맡는다 */
+div.sl-wrap table.sl-t{margin:0 !important}
 .sl-t th{font-size:.74rem;font-weight:600;letter-spacing:.02em;opacity:.6;text-align:left;
   padding:8px 14px;border-bottom:1px solid rgba(128,128,128,.25);white-space:nowrap}
 .sl-t td{padding:11px 14px;border-bottom:1px solid rgba(128,128,128,.12);vertical-align:middle;white-space:nowrap}
