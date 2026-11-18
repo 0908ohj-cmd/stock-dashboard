@@ -433,9 +433,8 @@ def _hot_legend():
     ]
     body = ''.join(f'<tr><td style="white-space:nowrap">{k}</td><td>{v}</td></tr>' for k, v in rows)
     st.markdown('<div style="margin-top:10px;font-weight:700;font-size:.9rem">🔥 기준과 표시 설명</div>'
-                '<div class="sl-wrap has-note"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
-                f'<tbody>{body}</tbody></table></div>'
-                + _note(f'{nl.HOT_GAP}거래일 안에 다시 켜지면 같은 🔥로 봅니다.'), unsafe_allow_html=True)
+                '<div class="sl-wrap"><table class="sl-t"><thead><tr><th>표시</th><th>뜻</th></tr></thead>'
+                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
 
 
 def _rotation_stocks(m: Market, res: dict, labels: dict, names: dict, records: dict):
