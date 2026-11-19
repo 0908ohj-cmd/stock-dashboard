@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-18T17:34:18+09:00",
+ "updatedAt": "2026-11-19T18:21:23+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -160,6 +160,27 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:54:42+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "001450": {
+   "companyName": "현대해상화재보험주식회사",
+   "primaryTheme": "FINANCE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "손해보험·자동차보험",
+   "businessSummary": "국내 대형 손해보험사로, 자동차보험·장기보험(어린이·실손 포함)·일반보험(화재·해상·공학·배상책임 등)을 주력으로 한다. 자동차보험 비중이 높다는 보도가 있다.",
+   "confidence": "medium",
+   "why": "보험사라 금융 테마에 해당한다. 자동차·장기·일반보험이 수익 구조의 대부분이며 지주·제조 사업은 없다. 다만 DART 사업보고서의 부문별 보험료 비중은 확인하지 못해 보도 기반 판단이다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/quote/krx/001450/company",
+    "https://en.wikipedia.com/wiki/Hyundai_Marine_%26_Fire_Insurance"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-19T18:21:23+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -1327,6 +1348,28 @@
    "overrideReason": "",
    "history": []
   },
+  "011200": {
+   "companyName": "HMM Co., Ltd.",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "컨테이너 해운·물류",
+   "businessSummary": "국내외 컨테이너 정기선(라이너) 해운과 벌크 사업, 종합 물류 서비스를 제공하는 해운사. 라이너(컨테이너) 부문이 매출의 대부분을 차지한다.",
+   "confidence": "medium",
+   "why": "종목코드 011200이 HMM(구 현대상선)으로 확인됐고, 업종은 컨테이너 해운이다. Zawya와 Morningstar 자료 모두 라이너(컨테이너) 부문이 매출 대부분이라고 한다. 사업보고서 세그먼트 원문은 열어 보지 못해 신뢰도는 medium이다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/quote/krx/011200/company/",
+    "https://www.zawya.com/company/4295881575/hmm",
+    "https://container-news.com/hmm-maintains-solid-profitability-in-2025-despite-market-weakness"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-19T18:21:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "011690": {
    "companyName": "㈜와이투솔루션",
    "primaryTheme": "ENERGY_TRANSITION",
@@ -1906,6 +1949,52 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T15:57:07+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "032820": {
+   "companyName": "우리기술",
+   "primaryTheme": "NUCLEAR",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DEFENSE"
+   ],
+   "detail": "원전 계측제어 MMIS",
+   "businessSummary": "원전 계측제어시스템(MMIS)의 핵심인 DCS를 자체 개발해 국내 원전 제어계측을 공급하며, 원전 부문이 매출 비중이 가장 크다. 방산(함정 전력·통합제어), 철도 신호제어, SMR용 MMIS 개발도 함께 영위한다.",
+   "confidence": "medium",
+   "why": "증권 리포트 기준 매출 비중은 원전 38%, 철도·SOC 23%, 방산 33%로 원전이 가장 크다. 원전 MMIS용 DCS 자체 개발과 신한울 3·4호기 제어시스템 수주가 확인된다. 다만 비중은 리포트 작성 시점 수치이고 DART 사업보고서 원문은 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://alphadistill.com/report/109",
+    "https://thevc.kr/wooritechnology"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-19T18:21:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "032830": {
+   "companyName": "삼성생명보험주식회사",
+   "primaryTheme": "FINANCE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "생명보험·자산운용",
+   "businessSummary": "국내 1위 생명보험사로 사망·생존·생사혼합·단체보험 등 보장성 보험과 연금·저축성 상품을 판매하며, 퇴직연금과 자산운용을 함께 영위한다.",
+   "confidence": "medium",
+   "why": "생명보험 영업이 핵심 사업이고 금융(보험) 테마에 해당한다. 다만 확인한 자료가 위키·리서치 요약 수준이고 사업보고서 원문 매출 구성은 열어보지 못했다. butler.works는 투자서비스 86%·보험서비스 14%로 표시하지만 정의와 원문 대조가 되지 않아 근거로 쓰지 않았다.",
+   "evidenceUrls": [
+    "https://itwiki.kr/w/%EC%82%BC%EC%84%B1%EC%83%9D%EB%AA%85%EB%B3%B4%ED%97%98",
+    "https://alphadistill.com/report/453",
+    "https://stockanalysis.com/quote/krx/032830/company",
+    "https://www.butler.works/ko/companies/00126256"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-19T18:21:19+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
