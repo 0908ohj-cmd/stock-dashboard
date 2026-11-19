@@ -1,0 +1,22 @@
+name: 진단-락경합
+on:
+  push:
+    branches: [debug/lock-race]
+permissions:
+  contents: read
+jobs:
+  race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: bash --version | head -1; nproc; stat --version | head -1
+      - name: 셸 단독 반복 400회
+        run: ./debug_lock_race.sh "$PWD/scripts/lib_batch_guard.sh" 400
+      - name: pytest 동시성 테스트 반복 60회
+        run: |
+          pip install -q pytest
+          f=0; for i in $(seq 1 60); do python -m pytest "tests/test_lib_batch_guard.py::test_동시에_기동해도_하나만_락을_잡는다" -q -p no:cacheprovider > out.log 2>&1 || { f=$((f+1)); grep -E "^E +AssertionError" out.log | head -1; }; done; echo "RESULT pytest fail=$f/60"
