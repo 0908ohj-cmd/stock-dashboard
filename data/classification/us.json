@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-19T08:15:38+09:00",
+ "updatedAt": "2026-11-20T08:19:08+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -1174,6 +1174,30 @@
    "overrideReason": "",
    "history": []
   },
+  "AZTA": {
+   "companyName": "Azenta, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "바이오 시료 보관·생명과학",
+   "businessSummary": "나스닥 상장 AZTA(2022년 반도체 자동화 사업 매각 후 생명과학 전문 기업). 극저온·초저온 바이오 시료 보관 장비와 시료 관리 솔루션, 바이오리포지토리 서비스가 주력이며, 유전체 시퀀싱·유전자 합성 등 멀티오믹스 서비스를 함께 한다.",
+   "confidence": "medium",
+   "why": "FY2025 매출 기준 주력은 Sample Management Solutions(약 3.25억 달러, 전년 대비 +2%)로 제약·바이오 고객의 시료 보관 장비·서비스이며, 멀티오믹스(유전자 시퀀싱·합성)가 보조 사업이다. 반도체 사업은 2022년 2월 THL에 매각돼 현재 사업이 아니다. 다만 근거는 2차 자료(Umbrex 프로필, StockAnalysis 기업 설명, 실적 보도)에 의존했고 10-K 원문은 열어 보지 못했다.",
+   "evidenceUrls": [
+    "https://umbrex.com/resources/company-profiles/azenta/",
+    "https://stockanalysis.com/stocks/azta/company",
+    "https://quantisnow.com/insight/azenta-reports-fourth-quarter-and-full-year-fiscal-2025-results-6289596",
+    "https://www.sec.gov/Archives/edgar/data/933974/000155837022000686/azta-20220201xex99d1.htm",
+    "https://www.prnewswire.com/news-releases/azenta-life-sciences-completes-sale-of-semiconductor-solutions-group-business-to-thomas-h-lee-partners-301473007.html"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:18:46+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "BBAI": {
    "companyName": "BigBear.ai Holdings, Inc.",
    "primaryTheme": "SOFTWARE_AI_DATA",
@@ -1352,6 +1376,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:46:55+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "BL": {
+   "companyName": "BlackLine, Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "기업용 재무 SaaS",
+   "businessSummary": "클라우드 기반 재무·회계 소프트웨어를 제공하는 회사로, 재무 마감·연결, 회사 간 회계, 주문-현금(invoice-to-cash) 자동화 플랫폼을 판매한다. 2025년 매출의 약 95%가 클라우드 구독에서 나온다.",
+   "confidence": "high",
+   "why": "10-K 기준 사업 설명이 클라우드 재무 소프트웨어이고, 2025년 매출의 약 95%가 클라우드 플랫폼 구독이다. 하드웨어·반도체·방산과 무관한 순수 엔터프라이즈 SaaS라 소프트웨어·AI·데이터 테마에 넣는다.",
+   "evidenceUrls": [
+    "https://www.boardroomalpha.com/sec/bl-10-k-2026-02-26-0001628280-26-011915",
+    "https://app.edgar.tools/companies/BL",
+    "https://www.barchart.com/story/news/142492/blackline-nasdaqbl-posts-q4-cy2025-sales-in-line-with-estimates-growth-to-accelerate-next-year"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:19:08+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4238,6 +4284,28 @@
     }
    ]
   },
+  "KLAC": {
+   "companyName": "KLA Corporation",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "반도체 공정제어 장비",
+   "businessSummary": "반도체 웨이퍼·레티클 제조 공정의 결함 검사, 계측, 데이터 분석 장비를 공급하는 공정제어(process control) 장비 회사다. 매출의 대부분은 반도체 공정제어 부문에서 나온다.",
+   "confidence": "high",
+   "why": "FY2026(6월 결산) 기준 반도체 공정제어(Semiconductor Process Control) 부문이 매출의 약 90%를 차지한다는 2차 요약이 있고, 제품은 검사·계측 장비로 SEMI_EQUIPMENT 정의에 정확히 맞는다. 부문별 수치는 출처마다 달라 정확한 비중은 10-K로 한 번 더 확인이 필요하다.",
+   "evidenceUrls": [
+    "https://ir.kla.com/sec-filings/annual-reports/xbrl_doc_only/5437",
+    "https://stockanalysis.com/stocks/klac/company",
+    "https://sectally.pages.dev/reports/klac"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:19:02+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "KLIC": {
    "companyName": "Kulicke and Soffa Industries, Inc.",
    "primaryTheme": "SEMI_EQUIPMENT",
@@ -4487,6 +4555,30 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:36:07+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "LICN": {
+   "companyName": "Lichen International Limited",
+   "primaryTheme": "UNCLASSIFIED",
+   "suggestedTheme": "CONSUMER_OTHER",
+   "secondaryThemes": [
+    "SOFTWARE_AI_DATA"
+   ],
+   "detail": "재무·세무 컨설팅",
+   "businessSummary": "중국 샤먼 기반 투자지주 성격의 회사로, 중국 내 재무·세무 컨설팅, 교육 지원, 소프트웨어 및 유지보수 서비스를 제공한다. 고객은 상장사, 국유기업, 정부기관, 중소기업 등이다.",
+   "confidence": "low",
+   "why": "주력 사업이 재무·세무 컨설팅과 교육 지원 서비스로, 고정 테마 중 맞는 기술 테마가 없어 위 테마에 해당하지 않는 사업으로 분류했다. 소프트웨어 유지보수는 매출 비중이 확인되지 않아 보조 태그로만 뒀다. 근거는 StockAnalysis 회사 설명 한 곳뿐이고, 20-F 사업보고서와 세그먼트 매출은 열어 보지 못했다. 한 출처는 화학 소재 회사로 설명하지만 다른 출처와 충돌해 배제했다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/licn/company"
+   ],
+   "gateReasons": [
+    "신뢰도 low"
+   ],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:18:46+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -6087,6 +6179,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:33:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "PPTA": {
+   "companyName": "Perpetua Resources Corp.",
+   "primaryTheme": "PRECIOUS_METALS_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "금·안티모니 광산 개발",
+   "businessSummary": "아이다호주 Stibnite-Yellow Pine 지구에서 금·안티모니·은 광산을 개발하는 회사다. 아직 매출이 없는 개발 단계이며, 미국 내 유일한 안티모니 생산원이 되는 것을 목표로 한다.",
+   "confidence": "high",
+   "why": "사업 본체가 광산 탐사·개발이고 주 생산물이 금과 안티모니(원자재)다. 10-K 기준 매출은 없고 Stibnite 프로젝트의 금·안티모니 매장량과 공급계약이 핵심 자산이다. 방산·AI 등과 연관된 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1526243/000110465926037403/ppta-20251231xex96d1.htm",
+    "https://redchip.com/stocks_page/PPTA/filings/7",
+    "https://perpetuaresources.com/perpetua-resources-announces-full-year-2024-and-recent-highlights/",
+    "https://quantisnow.com/insight/perpetua-resources-announces-full-year-2024-and-recent-highlights-5953392"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:18:52+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -8215,6 +8330,30 @@
    "overrideReason": "",
    "history": []
   },
+  "UPBD": {
+   "companyName": "Upbound Group, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DIGITAL_ASSETS_FINTECH"
+   ],
+   "detail": "렌트투오운·소비자 리스",
+   "businessSummary": "미국 렌트투오운(lease-to-own) 리스형 소비자 금융 플랫폼으로, Acima·Rent-A-Center 매장 리스와 멕시코 사업을 운영하며 소비자 금융앱 Brigit을 인수해 핀테크 사업을 함께 한다.",
+   "confidence": "medium",
+   "why": "FY2025 10-K 기준 주력은 Acima·Rent-A-Center·Mexico의 리스형 소비재 매출로 소비·리테일에 해당하고, Brigit은 소비자 핀테크 보조 사업이다. 세그먼트별 매출 비중은 10-K 원문을 열어 확인하지 못했고 검색 요약과 집계 사이트 정보에 의존했다.",
+   "evidenceUrls": [
+    "https://app.edgar.tools/companies/UPBD/disclosures/segments",
+    "https://stockanalysis.com/stocks/upbd/financials/",
+    "https://www.tradingview.com/symbols/UPBD"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:19:04+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "UPST": {
    "companyName": "Upstart Holdings, Inc.",
    "primaryTheme": "DIGITAL_ASSETS_FINTECH",
@@ -8881,6 +9020,27 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:34:52+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "XP": {
+   "companyName": "XP Inc.",
+   "primaryTheme": "DIGITAL_ASSETS_FINTECH",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "온라인 증권·핀테크",
+   "businessSummary": "브라질 중심의 온라인 금융 플랫폼으로, 증권 중개, 자산관리, 은행·대출, 보험, 투자상품을 제공한다. 2026-11-20 기준 나스닥에서 XP 티커로 거래된다.",
+   "confidence": "high",
+   "why": "주력 사업이 온라인 증권 중개·자산관리·은행 등 금융 플랫폼이라 온라인 증권·핀테크 테마에 해당한다. 2025년 실적 발표에서 매출 구성은 리테일(고정수익 포함)·기관·자본시장 서비스로 나뉘며, 반도체·AI·방산 등 다른 테마 사업은 확인되지 않았다. 세그먼트별 정확한 매출 비중은 20-F로 한 번 더 확인할 필요가 있다.",
+   "evidenceUrls": [
+    "https://secure.businesswire.com/news/home/20260212416895/en/XP-Inc.-Reports-Fourth-Quarter-2025-Results",
+    "https://stockanalysis.com/stocks/xp/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-20T08:18:51+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
