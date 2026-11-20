@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-20T08:19:08+09:00",
+ "updatedAt": "2026-11-21T08:18:59+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -66,6 +66,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:51:17+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ABVX": {
+   "companyName": "Abivax S.A.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "신약 개발 바이오",
+   "businessSummary": "경구용 저분자 약물 오베파지모드(obefazimod, miR-124 인핸서)를 중등도~중증 궤양성 대장염 치료제로 개발하는 임상 단계 바이오텍. 크론병 임상 2a도 계획 중이며 매출 기반 상업 제품은 없다.",
+   "confidence": "high",
+   "why": "단일 파이프라인(오베파지모드)을 가진 임상 단계 제약사로, 회사 사업 전체가 신약 개발이라 바이오·헬스케어가 주력이다. 다른 테마에 해당하는 사업이 없다.",
+   "evidenceUrls": [
+    "https://www.abivax.com/?p=3706",
+    "https://www.Wikipedia.org/wiki/Abivax",
+    "https://www.nasdaq.com/articles/abivax-sees-significant-opportunity-ahead-2026-key-uc-and-crohns-milestones"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-21T08:18:54+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2750,6 +2772,31 @@
    "overrideReason": "",
    "history": []
   },
+  "ECHO": {
+   "companyName": "EchoStar Corporation",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SPACE_LAUNCH_SATELLITES"
+   ],
+   "detail": "위성방송·통신 복합",
+   "businessSummary": "EchoStar는 2026년 6월 24일부터 나스닥 티커 ECHO로 거래되는 위성·통신 회사다(이전 SATS). 2026년 2분기 매출은 유료방송(Pay-TV) 약 63%, 무선(Boost Mobile) 약 26%, 위성 브로드밴드(Hughes) 약 9% 순이다.",
+   "confidence": "medium",
+   "why": "2026년 2분기 세그먼트 매출은 Pay-TV 약 22.5억 달러, 무선 약 9.3억 달러, Hughes 위성 브로드밴드 약 3.2억 달러로 매출 기준 주력은 Pay-TV다. 고정 테마에 유료방송·통신 항목이 없어 소비·기타로 두었다. 우주·위성은 Hughes 매출 비중이 약 9%뿐이지만 회사가 티커 변경으로 우주 사업을 전면에 내세우고 있어 보조 태그로 뒀다. 매출 비율은 보도 수치를 바탕으로 직접 계산한 값이라 10-Q 확인이 필요하다.",
+   "evidenceUrls": [
+    "https://ir.echostar.com/news-releases/news-release-details/echostar-announces-financial-results-three-and-six-months-8",
+    "https://www.nasdaq.com/press-release/echostar-changing-stocker-ticker-sats-echo-marking-companys-next-era-earth-and-space",
+    "https://simplywall.st/stocks/us/media/nasdaq-sats/echostar/news/echostar-sats-changes-its-ticker-to-echo-on-june-24-2026",
+    "https://www.echostar.com/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-21T08:18:59+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "ELF": {
    "companyName": "e.l.f. Beauty, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -3364,6 +3411,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:57:06+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "FSLR": {
+   "companyName": "First Solar, Inc.",
+   "primaryTheme": "POWER_AI_INFRA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "태양광 모듈 제조",
+   "businessSummary": "카드뮴텔루라이드(CdTe) 박막 태양광 모듈을 설계·제조해 주로 유틸리티급 발전사업자, 시스템 개발사, 독립발전사(IPP)에 판매하는 회사. 2025년 순매출은 약 52억 달러이며 매출 대부분이 미국 시장이다.",
+   "confidence": "medium",
+   "why": "매출 대부분이 유틸리티급 발전 설비인 CdTe 태양광 모듈 판매에서 나온다(2025 순매출 약 52억 달러, 판매량 17.5GW). 발전 설비이므로 전력 인프라 테마로 보며, AI·데이터센터 전력 수요와의 연관은 시장 서사에 기반한 해석이라 신뢰도는 medium으로 둔다. 10-K 원문 본문은 직접 열어 확인하지 못했고 검색 결과 요약으로 확인했다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1274494/000127449426000021/fslr-20251231.htm",
+    "https://www.businesswire.com/news/home/20260224923840/en/First-Solar-Inc.-Announces-Fourth-Quarter-and-Full-Year-2025-Financial-Results-and-2026-Guidance",
+    "https://www.firstsolar.com/About-Us/Overview"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-21T08:18:42+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4152,6 +4221,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:55:05+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "IRTC": {
+   "companyName": "iRhythm Holdings, Inc. (구 iRhythm Technologies, Inc.)",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SOFTWARE_AI_DATA"
+   ],
+   "detail": "웨어러블 심장 모니터링",
+   "businessSummary": "패치형 웨어러블 심전도 바이오센서(Zio)와 클라우드 분석 플랫폼(ZEUS)으로 부정맥을 진단하는 장기 심장 모니터링 서비스를 미국 중심으로 제공한다. 2025년 매출 7억 4,710만 달러 중 대부분이 Zio 서비스다.",
+   "confidence": "high",
+   "why": "의료기기 기반 진단 서비스가 매출의 대부분이다. 2025년 매출은 7억 4,710만 달러(전년 대비 26.2% 증가)이며 Zio 서비스 물량 증가가 원인이다. ZEUS 분석 플랫폼은 보조 태그로만 둔다.",
+   "evidenceUrls": [
+    "https://investors.irhythmtech.com/news/news-details/2026/iRhythm-Holdings-Announces-Fourth-Quarter-and-Full-Year-2025-Financial-Results/default.aspx",
+    "https://stockanalysis.com/stocks/irtc/company",
+    "https://irhythmtech.com/company/about-us",
+    "https://investors.irhythmtech.com/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-21T08:18:39+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -7870,6 +7964,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:41:32+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "TEAM": {
+   "companyName": "Atlassian Corporation",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "협업 SaaS·업무 소프트웨어",
+   "businessSummary": "팀 협업·업무 관리 소프트웨어를 클라우드 구독으로 판매하는 회사로, Jira·Confluence·Loom·Rovo로 구성된 Teamwork Collection이 주력이다. 구독 ARR이 매출의 대부분을 차지하며 AI 기능을 제품에 통합하고 있다.",
+   "confidence": "high",
+   "why": "FY2026 실적 발표에서 구독 ARR 66억 달러(전년 대비 23% 증가)를 보고했고, 회사 스스로 AI 기반 협업·팀 생산성 소프트웨어 공급사로 소개한다. 제품군(Jira, Confluence, Loom, Rovo) 전부가 SaaS 협업 도구라 소프트웨어·AI 테마로 분류했다. 사이버보안 등 다른 테마 비중은 확인되지 않아 보조 테마는 비웠다.",
+   "evidenceUrls": [
+    "https://investors.atlassian.com/news/news-details/2026/Atlassian-Announces-Fourth-Quarter-and-Fiscal-Year-2026-Results/default.aspx",
+    "https://s206.q4cdn.com/270053503/files/doc_financials/2026/ar/Atlassian-FY26-Annual-Report.pdf",
+    "https://s206.q4cdn.com/270053503/files/doc_financials/2025/ar/TEAM-2025-Annual-Report.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-21T08:18:41+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
