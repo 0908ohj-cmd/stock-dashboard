@@ -1,7 +1,7 @@
 {
   "market": "US",
-  "synced_at": "2026-11-22T07:01:31",
-  "source_updated_at": "2026-11-22T07:01:30",
+  "synced_at": "2026-11-23T07:02:15",
+  "source_updated_at": "2026-11-23T07:02:12",
   "count": 20,
   "items": [
     {
@@ -299,7 +299,7 @@
       "perf_12m": 14.1,
       "dist_from_52w_high": -15.3,
       "avg_dollar_vol": 494956498,
-      "theme": "AI 광고 플랫폼",
+      "theme": "3D 엔진·광고 플랫폼",
       "sector": "소프트웨어"
     },
     {
@@ -362,7 +362,7 @@
       "perf_12m": 51.5,
       "dist_from_52w_high": -12.0,
       "avg_dollar_vol": 171585116,
-      "theme": "클라우드 HCM 플랫폼",
+      "theme": "클라우드 인사급여",
       "sector": "소프트웨어"
     },
     {
