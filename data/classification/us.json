@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-21T08:18:59+09:00",
+ "updatedAt": "2026-11-24T08:20:18+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -202,6 +202,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:46:15+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ADMA": {
+   "companyName": "ADMA Biologics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "혈장유래 면역글로불린",
+   "businessSummary": "혈장(플라스마)을 원료로 면역글로불린(IVIG) 바이오의약품을 개발·생산·판매하는 회사다. 주력 제품은 원발성 면역결핍증 치료제 ASCENIV이며, 2026년 상반기 매출의 대부분을 ASCENIV가 차지한다.",
+   "confidence": "high",
+   "why": "FY2025 총매출 5억 1,020만 달러 중 ASCENIV가 3억 6,300만 달러(약 71%)로 주력이다. 2026년 상반기도 ASCENIV 2억 40만 달러, BIVIGAM 3,480만 달러로 의약품 매출 구조다. 신약·면역치료제 회사이므로 바이오·헬스케어로 분류한다.",
+   "evidenceUrls": [
+    "https://admabiologics.gcs-web.com/news-releases/news-release-details/adma-biologics-reports-second-quarter-2026-financial-results-and",
+    "https://admabiologics.gcs-web.com/news-releases/news-release-details/adma-biologics-reports-record-fourth-quarter-and-full-year-2025",
+    "https://www.sec.gov/Archives/edgar/data/1368514/000114036124010147/ef20015264_10k.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:20:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3415,6 +3437,53 @@
    "overrideReason": "",
    "history": []
   },
+  "FRSH": {
+   "companyName": "Freshworks Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "기업용 SaaS·CX·ITSM",
+   "businessSummary": "클라우드 SaaS 기업으로 고객경험 솔루션(Freshdesk, Freshchat 등)과 직원경험·ITSM 솔루션(Freshservice, Device42)이 주력이며, Freshsales 등 CRM도 제공한다. 구독 매출 중심이고 AI 기능 Freddy AI를 붙여 판매한다.",
+   "confidence": "high",
+   "why": "매출 기반 구독형 소프트웨어(고객지원·ITSM·CRM)가 주력이고 하드웨어·보안·광고 사업은 확인되지 않았다. 2025년 Q4 실적 발표에서 ESM·Device42가 각 4천만 달러 ARR, Freddy AI가 2,500만 달러 ARR을 넘었다고 밝혔고, 2026년 Q3 기준 ARR은 10억 달러를 넘었다. 티커 FRSH가 현재도 Freshworks로 거래됨을 2026년 Q3 실적 발표로 확인했다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1544522/000154452223000016/frsh-20221231.htm",
+    "https://ir.freshworks.com/files/doc_earnings/2025/q4/earnings-result/Earnings-Release-Q4-2025.pdf",
+    "https://stockanalysis.com/stocks/frsh/company",
+    "https://www.barchart.com/story/news/141228/freshworks-reports-fourth-quarter-and-full-year-2025-results",
+    "https://www.financialcontent.com/article/gnwcq-2026-11-3-freshworks-reports-record-third-quarter-2026-results"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:20:18+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "FRVO": {
+   "companyName": "Fervo Energy Company",
+   "primaryTheme": "POWER_AI_INFRA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "지열 발전·데이터센터 전력",
+   "businessSummary": "미국 Nasdaq 상장(FRVO)의 향상형 지열(EGS) 독립 발전사업자로, 유타주 Cape Station에서 지열 전력을 생산해 전력회사와 기업에 장기 PPA로 판매한다. 2026년 3월 말 기준 658MW 구속력 있는 PPA와 약 72억 달러 잠재 매출 백로그를 보유하며, Google과 3GW 프레임워크 계약을 맺어 AI 데이터센터 전력 수요와 직접 연결된다.",
+   "confidence": "high",
+   "why": "매출 구조가 발전 설비 운영과 장기 전력 판매(PPA)이며, 2025년 매출은 약 13.8만 달러로 아직 작지만 계약 백로그 대부분이 전력 판매에서 나온다. 데이터센터 수요 연관은 Google 3GW 프레임워크 계약으로 확인된다. 반도체·광통신 등 다른 테마에 해당하는 사업은 없어 보조 테마는 두지 않는다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/0001853868/000162828026044799/frvo-20260331.htm",
+    "https://www.sec.gov/Archives/edgar/data/0001853868/000162828026072482/frvo-20260930.htm",
+    "https://www.sec.gov/Archives/edgar/data/0001853868/000162828026029515/fervoenergy-sx1a.htm",
+    "https://www.fervoenergy.com/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "FSLR": {
    "companyName": "First Solar, Inc.",
    "primaryTheme": "POWER_AI_INFRA",
@@ -3574,6 +3643,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:54:50+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "GGAL": {
+   "companyName": "Grupo Financiero Galicia S.A.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DIGITAL_ASSETS_FINTECH"
+   ],
+   "detail": "아르헨티나 금융지주",
+   "businessSummary": "아르헨티나 최대 금융그룹 중 하나로, 핵심 자회사 Banco Galicia의 상업은행 영업이 주력이다. 신용카드·소비자금융·디지털뱅킹 자회사 Naranja X와 보험 사업도 함께 한다.",
+   "confidence": "medium",
+   "why": "사업 부문은 은행(Banco Galicia), Ecosistema Naranja X(카드·소비자금융·디지털뱅킹), 보험, 기타투자, 연결조정 5개이고 은행 부문이 가장 큰 비중이다. 고정 목록에 상업은행 테마가 없어 가장 가까운 CONSUMER_OTHER를 주력으로 두었고, Naranja X 핀테크는 보조 태그로 뒀다. 다만 세그먼트별 매출 비중은 20-F 원문으로 직접 확인하지 못했고 검색 결과 요약에 의존했다. 티커 GGAL은 현재도 이 회사로 거래된다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/ggal/company",
+    "https://www.plunkettresearch.com/company-profile/grupo-financiero-galicia-sa/",
+    "https://gfgsa-stag.s3.amazonaws.com/app/uploads/2026/03/04222949/PressRelease_GrupoGalicia_4Q2025_EN.pdf",
+    "https://app.edgar.tools/companies/GGAL"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:56+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4052,6 +4146,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:45:02+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "INSM": {
+   "companyName": "Insmed Incorporated",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "바이오 신약 (폐질환)",
+   "businessSummary": "희귀·중증 질환 치료제를 개발·상업화하는 바이오의약품 회사로, 주력 제품은 폐질환 치료제 ARIKAYCE(Arikayce)와 브린수피(Brinsupri)이다. 파이프라인은 기관지확장증 치료 후보 brensocatib(3상)과 폐동맥고혈압 치료 후보 TPIP(3상)를 포함한다.",
+   "confidence": "high",
+   "why": "회사의 매출과 파이프라인이 모두 호흡기·면역염증·희귀질환 신약에 집중된 단일 제약 사업이며, 방산·AI·반도체 등 다른 테마에 해당하는 사업은 확인되지 않았다. 검색으로 확인한 회사 IR 소개와 기업 개요 페이지 모두 바이오의약품 회사로 기술한다.",
+   "evidenceUrls": [
+    "https://investor.insmed.com/",
+    "https://insmed.com/?p=21",
+    "https://stockanalysis.com/stocks/insm/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:31+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -4564,6 +4680,29 @@
    "overrideReason": "",
    "history": []
   },
+  "KYMR": {
+   "companyName": "Kymera Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "단백질 분해 신약",
+   "businessSummary": "경구용 저분자 단백질 분해제(targeted protein degrader)를 면역·염증 질환용으로 개발하는 임상 단계 바이오텍이다. 주력 파이프라인은 STAT6 분해제 KT-621이며 아토피피부염·천식 2b상을 진행 중이다.",
+   "confidence": "high",
+   "why": "매출이 없는 임상 단계 신약 개발 회사로, 파이프라인(KT-621 STAT6 분해제, KT-579 IRF5)과 FY2025 10-K 재무 요약이 모두 신약 개발 사업을 가리킨다. 확인된 현재 KYMR 티커의 회사명은 Kymera Therapeutics이다.",
+   "evidenceUrls": [
+    "https://www.kymeratx.com/pipeline/",
+    "https://www.kymeratx.com/about-us/our-company",
+    "https://www.barchart.com/story/news/34043550/kymera-therapeutics-announces-second-quarter-2025-financial-results-and-provides-a-business-update",
+    "https://www.biospace.com/press-releases/kymera-therapeutics-announces-fourth-quarter-and-full-year-2025-financial-results-and-provides-a-business-update"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:16+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "LASR": {
    "companyName": "nLIGHT, Inc.",
    "primaryTheme": "DEFENSE_DIRECTED_ENERGY",
@@ -4627,6 +4766,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:54:21+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "LFST": {
+   "companyName": "LifeStance Health Group, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "정신건강 진료",
+   "businessSummary": "미국 최대 규모의 외래 정신건강 진료 기관으로, 아동·청소년·성인을 대상으로 정신과 진료, 심리검사, 개인·가족·집단 치료를 온라인과 전국 센터(33개주, 550곳 이상)에서 제공한다.",
+   "confidence": "high",
+   "why": "2025 회계연도 매출 14억 2,430만 달러 전액이 외래 정신건강 진료 서비스에서 나온다(IR 실적 발표 기준). 헬스케어 서비스이므로 BIOTECH_HEALTHCARE로 분류했다. 티커 LFST는 현재 LifeStance Health Group이 Nasdaq에서 거래하는 것으로 확인했다.",
+   "evidenceUrls": [
+    "https://lifestancehealth.gcs-web.com/news-releases/news-release-details/lifestance-reports-fourth-quarter-and-full-year-2025-results",
+    "https://stockanalysis.com/stocks/lfst/company",
+    "https://www.sec.gov/Archives/edgar/data/1845257/000095017023006541/lfst-ex99_2.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:56+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -5778,6 +5939,31 @@
    "overrideReason": "",
    "history": []
   },
+  "NXPI": {
+   "companyName": "NXP Semiconductors N.V.",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS_AUTONOMY"
+   ],
+   "detail": "차량용 반도체",
+   "businessSummary": "차량용 마이크로컨트롤러·프로세서·레이더·네트워크 반도체를 주력으로 하며, 산업·IoT와 통신 인프라용 반도체도 공급한다. 2025년 매출 약 122.7억 달러 중 자동차 부문이 약 71억 달러로 가장 크다.",
+   "confidence": "high",
+   "why": "2025년 매출 122.7억 달러 중 자동차가 약 71억 달러(58%)로 가장 크고, 산업·IoT는 약 23억 달러다. 제품은 MCU·프로세서·아날로그·전력 반도체 중심의 팹리스 반도체다. 자율주행 관련 레이더 포트폴리오는 자율주행 센서 부품이므로 보조 태그로 뒀다.",
+   "evidenceUrls": [
+    "https://autotechinsight.spglobal.com/news/5286457/nxp-reports-fy-2025-revenue-at-1227-billion-down-3-yoy",
+    "https://www.nxp.com/docs/en/supporting-information/NXP202510K.pdf",
+    "https://media.nxp.com/news-releases/news-release-details/nxp-semiconductors-reports-fourth-quarter-and-full-year-2025",
+    "https://www.nxp.com/applications/automotive/safe-automation:ADAS-AND-AUTONOMOUS-DRIVING"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:43+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "NXT": {
    "companyName": "Nextpower Inc. (구 Nextracker Inc., Nasdaq: NXT)",
    "primaryTheme": "POWER_AI_INFRA",
@@ -6326,6 +6512,31 @@
    "overrideReason": "",
    "history": []
   },
+  "PRCT": {
+   "companyName": "PROCEPT BioRobotics Corporation",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS_AUTONOMY"
+   ],
+   "detail": "의료 수술로봇",
+   "businessSummary": "미국 캘리포니아 산호세 기반 수술 로봇 기업으로, 워터젯 절제 로봇 시스템 AquaBeam(HYDROS)으로 양성 전립선 비대증(BPH)을 치료한다. 주력 매출은 비뇨기과 수술 로봇 장비와 소모품이다.",
+   "confidence": "high",
+   "why": "매출 전부가 비뇨기과용 수술 로봇 장비와 소모품인 의료기기 사업이다. 로봇 기술을 쓰지만 산업자동화나 자율주행이 아니라 의료기기로 분류하므로, 로봇은 보조 태그로만 둔다. 주력 테마 판단은 검색으로 확인한 회사 소개(urology 수술 로봇, AquaBeam BPH 치료)에 근거했고, 세그먼트별 매출 비중은 직접 열어 확인하지 않았다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1588978/000158897825000007/0001588978-25-000007-index.html",
+    "https://stockanalysis.com/stocks/prct/company/",
+    "https://finance.yahoo.com/quote/PRCT/profile/",
+    "https://www.tradingview.com/symbols/NASDAQ-PRCT"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:15+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "PRM": {
    "companyName": "Perimeter Solutions, Inc.",
    "primaryTheme": "CONSUMER_OTHER",
@@ -6437,6 +6648,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:51:42+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "QCOM": {
+   "companyName": "Qualcomm Incorporated",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "AI_DC_HARDWARE",
+    "ROBOTICS_AUTONOMY"
+   ],
+   "detail": "모바일 반도체·팹리스",
+   "businessSummary": "스마트폰용 모뎀·SoC(Snapdragon)를 설계하는 팹리스 반도체 회사로, QCT(칩 사업)가 매출의 대부분을 차지한다. 자동차·IoT 칩과 라이선스(QTL) 사업을 함께 하며, 최근에는 AI 추론 가속기와 랙 단위 데이터센터 제품(Dragonfly)을 추가하고 있다.",
+   "confidence": "high",
+   "why": "FY2025 매출 약 443억 달러 중 QCT 칩 사업이 대부분이고, 그중 핸드셋이 약 278억 달러로 전체의 60%대를 차지한다(2차 보도 기준). 자동차·IoT 칩과 데이터센터 AI 가속기(AI200·AI250, Dragonfly)는 성장 중인 보조 사업이라 보조 테마로 둔다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/804328/000080432825000085/qcom-20250928.htm",
+    "https://www.qualcomm.com/our-businesses",
+    "https://www.qualcomm.com/content/dam/qcomm-martech/dm-assets/documents/Investor-Day-2026_APalkhiwala_Business-Update.pdf"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:35+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -7669,6 +7905,28 @@
    "overrideReason": "",
    "history": []
   },
+  "SONO": {
+   "companyName": "Sonos, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "홈오디오·스마트스피커",
+   "businessSummary": "무선 스피커·사운드바·홈 오디오 시스템을 설계·판매하는 소비자 가전 회사다. 제품 기반 설치 가구 수를 늘리고 소프트웨어 업데이트로 가치를 높이는 구조다.",
+   "confidence": "medium",
+   "why": "Nasdaq의 SONO는 현재 Sonos, Inc.로 거래되며 주력은 스피커(매출의 대부분)와 사운드바 등 가정용 오디오 하드웨어다. 공식 10-K 세그먼트 주석은 직접 열어 확인하지 못했고, 검색 요약의 제품 비중 정보로 판단했다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/0001314727/000131472726000113/sono-20261003.htm",
+    "https://www.businesswire.com/news/home/20260729559143/en/",
+    "https://stockanalysis.com/quote/fra/8SO/financials/metrics"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:34+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "SOUN": {
    "companyName": "SoundHound AI, Inc.",
    "primaryTheme": "SOFTWARE_AI_DATA",
@@ -7874,6 +8132,52 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:43:58+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "SUPN": {
+   "companyName": "Supernus Pharmaceuticals, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "CNS 신약 바이오",
+   "businessSummary": "중추신경계(CNS) 질환 치료제를 개발·판매하는 바이오제약사로, 주력 제품은 Qelbree, GOCOVRI, Oxtellar XR, APOKYN, Trokendi XR, XADAGO, MYOBLOC, ONAPGO 등이다. 2025년 매출은 7억 1,900만 달러이며 Sage 인수로 ZURZUVAE도 보유한다.",
+   "confidence": "high",
+   "why": "회사가 스스로 CNS 질환 중심 바이오제약사로 규정하고, 2025년 매출이 전부 의약품 판매와 신약 파이프라인에서 나온다. 반도체·AI·기타 테마와 연결되는 사업 근거는 확인되지 않아 보조 테마도 두지 않았다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1356576/000135657625000017/0001356576-25-000017-index.html",
+    "https://www.barchart.com/story/news/397983/supernus-announces-record-fourth-quarter-and-full-year-2025-financial-results",
+    "https://seekingalpha.com/pr/20501872",
+    "https://ir.supernus.com/node/16101"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:20:15+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "SWKS": {
+   "companyName": "Skyworks Solutions, Inc.",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "RF·혼합신호 반도체",
+   "businessSummary": "모바일 기기용 고성능 RF 프론트엔드 반도체와 IoT·자동차·인프라용 아날로그·혼합신호 칩을 설계·판매하는 팹리스 반도체 회사다. 2026년 Qorvo와 합병해 고성능 RF 기업으로 재편됐다.",
+   "confidence": "high",
+   "why": "매출의 대부분이 모바일 RF 프론트엔드·혼합신호 칩에서 나온다. FY2025 10-K 기준 Apple 간접 비중이 67%이고, 나머지는 자동차·산업·인프라 등 Broad Markets다. 2026-10-05 Qorvo 합병 완료 보도가 있으나 다른 보도와 상충해 완료 여부는 SEC 공시로 재확인이 필요하다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/4127/000000412725000085/swks-20251003.htm",
+    "https://www.morningstar.com/news/globe-newswire/9839525/skyworks-completes-combination-with-qorvo",
+    "https://capital.com/en-eu/news/skyworks-completes-combination-with-qorvo",
+    "https://finviz.com/news/414663/skyworks-begins-new-chapter-following-qorvo-combination-reports-fourth-quarter-and-fiscal-2026-results"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:20:00+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -8331,6 +8635,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:39:44+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "TTWO": {
+   "companyName": "Take-Two Interactive Software, Inc.",
+   "primaryTheme": "CONSUMER_OTHER",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "비디오게임·엔터테인먼트",
+   "businessSummary": "테이크투 인터랙티브는 비디오게임을 개발·퍼블리싱하는 회사로, GTA·NBA 2K·보더랜드 등 콘솔·PC 게임과 Zynga 모바일 게임을 운영한다. 매출의 대부분은 게임 판매와 게임 내 반복 소비에서 나온다.",
+   "confidence": "high",
+   "why": "FY2026(3월 말 결산) 순예약매출 약 67.2억 달러 중 모바일(Zynga 포함)이 약 절반이고, 반복 소비가 78%를 차지한다. 게임은 목록의 어떤 기술 테마보다 소비·엔터테인먼트 사업에 가깝다. 10-K 요약에서 GTA는 순매출의 12.4%를 차지한다고 확인된다.",
+   "evidenceUrls": [
+    "https://www.businesswire.com/news/home/20260521450562/en/Take-Two-Interactive-Software-Inc.-Reports-Results-for-Fourth-Quarter-and-Fiscal-Year-2026",
+    "https://ae.marketscreener.com/news/take-two-interactive-software-annual-report-for-fiscal-year-ending-march-31-2026-form-10-k-ce7f5adfdc8df321",
+    "https://taketwointeractivesoftwareinc.gcs-web.com/",
+    "https://www.take2games.com/en/ir"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:19:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -9229,6 +9556,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:53:41+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ZYME": {
+   "companyName": "Zymeworks Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "항암 신약 바이오",
+   "businessSummary": "HER2 표적 이중특이성 항체 자니다투맙(Ziihera)을 개발한 임상단계 바이오테크 회사이다. 현재 제품은 파트너사(Jazz, BeOne)가 상업화하며, 회사는 로열티와 마일스톤 수익을 받는다.",
+   "confidence": "high",
+   "why": "Ziihera(자니다투맙)는 파트너가 판매하는 HER2 항암제이고, 2025년 매출 1.06억 달러는 파트너 로열티·마일스톤 중심이다. 신약 개발 회사이므로 바이오·헬스케어로 분류한다. 2025 실적 발표와 FY2025 10-K 표지에서 회사 정체를 확인했다. 10-K 사업 섹션 본문은 검색에서 열지 못했다.",
+   "evidenceUrls": [
+    "https://www.biospace.com/press-releases/zymeworks-provides-corporate-update-and-reports-fourth-quarter-and-full-year-2025-financial-results",
+    "https://last10k.com/sec-filings/zyme/0001937653-26-000013.htm",
+    "https://ycharts.com/companies/ZYME"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-24T08:20:14+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
