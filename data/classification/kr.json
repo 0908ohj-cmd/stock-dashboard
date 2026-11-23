@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-19T18:21:23+09:00",
+ "updatedAt": "2026-11-23T17:34:29+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -3827,6 +3827,29 @@
    "overrideReason": "",
    "history": []
   },
+  "089590": {
+   "companyName": "제주항공주식회사",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "저비용항공사(LCC)",
+   "businessSummary": "국내 대표 저비용항공사(LCC)로 한국·일본·중국·대만·동남아 등 국제선과 국내선 여객 운송이 주력이다. 항공운송 매출이 대부분이며 호텔·지상조업 등 부대사업을 함께 운영한다.",
+   "confidence": "high",
+   "why": "매출 세그먼트상 항공운송이 2026년 2분기 기준 약 92%를 차지하고(기타 8%), 사업 구조가 항공 여객 운송 중심이다. 해운·항공·물류는 INDUSTRIAL_MACHINERY(기계·운송) 정의에 해당한다. 다만 DART 사업보고서 원문은 직접 열어 확인하지 못했고, 세그먼트 비중은 종목 정보 사이트 집계 수치다.",
+   "evidenceUrls": [
+    "https://www.mydailybyte.com/littlebit/stock/089590/fundamental",
+    "https://stockanalysis.com/quote/krx/089590/company",
+    "https://newstomato.com/ReadNews.aspx?no=1239585",
+    "https://www.fnnews.com/news/202608041752069816"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-23T17:34:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "089890": {
    "companyName": "코세스(KOSES Co., Ltd.)",
    "primaryTheme": "SEMI_EQUIPMENT",
@@ -5582,6 +5605,32 @@
    "overrideReason": "",
    "history": []
   },
+  "232680": {
+   "companyName": "라온로보틱스",
+   "primaryTheme": "SEMI_EQUIPMENT",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS",
+    "DISPLAY"
+   ],
+   "detail": "반도체 웨이퍼 이송로봇",
+   "businessSummary": "반도체 웨이퍼를 진공 환경에서 옮기는 이송 로봇(벡트라 시리즈)을 만든다. 디스플레이 라인용 이송 로봇과 제약·바이오 검사자동화도 함께 한다.",
+   "confidence": "medium",
+   "why": "웨이퍼 핸들링 로봇은 반도체 전공정 장비에 속하며, 보도에 따르면 반도체 로봇 사업이 매출의 약 90%를 차지한다. 로봇 제조 기술이 바탕이지만 고객과 용도가 반도체 장비라서 장비로 분류했다. 매출 비중은 기사 기준이고 사업보고서로는 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://m.irgo.co.kr/IR-COMP/232680/",
+    "https://zdnet.co.kr/view/?no=20260213133403",
+    "https://www.etoday.co.kr/news/view/2611413",
+    "https://thevc.kr/raonrobotics/products"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-23T17:34:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "240810": {
    "companyName": "원익IPS",
    "primaryTheme": "SEMI_EQUIPMENT",
@@ -6252,6 +6301,32 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:08:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "319400": {
+   "companyName": "현대무벡스",
+   "primaryTheme": "INDUSTRIAL_MACHINERY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ROBOTICS"
+   ],
+   "detail": "스마트물류 자동화",
+   "businessSummary": "물류자동화 설비(AGV·AMR·갠트리·소팅 등 스마트물류 시스템)가 주력이며, 승강장안전문(PSD)과 IT서비스 사업을 함께 한다. 2024 사업보고서 기준 물류자동화 매출 비중은 약 69%로 보도됐다.",
+   "confidence": "medium",
+   "why": "물류자동화가 전체 매출의 대부분(2024 사업보고서 기준 약 69%, 언론 보도 인용)을 차지하고, 설비 제작·설치형 사업이라 기계·운송 테마에 넣었다. AGV·AMR 등 로봇 제품과 로보틱스 사업부 확대는 보조 테마 ROBOTICS로 둔다. PSD(약 23%)·IT서비스(약 8%)는 주력 테마 근거에서 제외했다. 비중 수치는 DART 사업보고서를 직접 열어 확인하지 못했다.",
+   "evidenceUrls": [
+    "https://www.fnnews.com/news/202504061439355018",
+    "https://www.fnnews.com/news/202602270736445363",
+    "https://www.hyundaigroup.com/eng/product/subsidiary.asp",
+    "https://view.asiae.co.kr/article/2025122210071473324",
+    "https://alphadistill.com/report/746"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-23T17:34:29+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
