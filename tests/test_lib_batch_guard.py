@@ -231,7 +231,8 @@ def _race_lock(tmp_path, n=8, pre=''):
 def test_pid_기록이_늦어도_하나만_락을_잡는다(tmp_path):
     """mkdir과 pid 기록 사이 틈을 0.3초로 벌려 그 틈에 들어온 배치를 확실히 만든다 — 빈 pid 락을
     '잡는 중'(LOCK_PID_GRACE_SEC)으로 보지 않고 회수하면 여기서 rc=0이 둘 이상 나온다."""
-    slow = '_write_lock_pid() { sleep 0.3; echo "$$" > "$1/pid.tmp.$$" && mv -f "$1/pid.tmp.$$" "$1/pid"; };'
+    slow = ('eval "_orig_$(declare -f _write_lock_pid)"; '      # 실제 pid 기록 함수 앞에 지연만 끼운다
+            '_write_lock_pid() { sleep 0.3; _orig__write_lock_pid "$@"; };')
     rcs = _race_lock(tmp_path, pre=slow)
     assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7, rcs
 
@@ -240,11 +241,39 @@ def test_동시에_기동해도_하나만_락을_잡는다(tmp_path):
     """예전엔 mkdir 직후 pid 기록 전의 빈 pid를 다른 배치가 '죽은 락'으로 회수해 둘이 같이 돌 수 있었다.
 
     8개가 출발 신호(go)를 기다렸다 한꺼번에 락을 시도하고, 락을 잡은 쪽은 8개가 모두 결과를 남길 때까지
-    살아 있는다. 예전 테스트는 주인이 1초 뒤 락을 쥔 채 끝나서, 느린 CI에서 늦게 검사한 프로세스가
-    '주인이 죽은 락'을 정상 회수해 rc=0이 둘 나왔다(2026-11-18 Linux CI 1회) — 락 버그가 아니라 테스트
-    설계 문제라 주인 수명을 검사 완료까지로 묶는다. 이 조건에서도 둘이 잡으면 그건 진짜 경합이다."""
+    살아 있는다. CI(Ubuntu 26.04)의 uutils mkdir 0.10은 동시에 실행하면 둘 다 0을 돌려줘 주인이 둘
+    나왔다(2026-11-23 측정 600회 중 122회) — pid 파일의 O_EXCL 생성이 주인을 하나로 가른다."""
     rcs = _race_lock(tmp_path)
     assert rcs.count('rc=0') == 1 and rcs.count('rc=1') == 7, rcs
+
+
+def _non_exclusive_mkdir(tmp_path):
+    """이미 있는 디렉터리에도 0을 돌려주는 mkdir — uutils mkdir 0.10이 동시 실행 때 보이는 동작을 결정적으로
+    재현한다. 새로 만들 때는 경쟁 배치(이 테스트 프로세스)가 그 사이 pid까지 먼저 쓴 상황으로 만든다."""
+    bin_dir = tmp_path / 'fake-bin'
+    bin_dir.mkdir()
+    fake = bin_dir / 'mkdir'
+    fake.write_text('#!/bin/bash\n'
+                    '[ -e "$1" ] && exit 0\n'
+                    f'/bin/mkdir "$1" && echo {os.getpid()} > "$1/pid"\n')
+    fake.chmod(0o755)
+    return {'PATH': f'{bin_dir}:{os.environ["PATH"]}'}
+
+
+def test_mkdir가_이미_있는_락에_성공을_돌려줘도_주인을_빼앗지_않는다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, os.getpid())
+    rc, msg, _ = _acquire(lock, _non_exclusive_mkdir(tmp_path))
+    assert rc == 1 and '실행 중' in msg
+    assert (lock / 'pid').read_text().strip() == str(os.getpid())
+
+
+def test_죽은_락_회수_직후_다른_배치가_pid를_먼저_쓰면_건너뛴다(tmp_path):
+    lock = tmp_path / 'batch.lock'
+    _hold(lock, _dead_pid())
+    rc, msg, _ = _acquire(lock, _non_exclusive_mkdir(tmp_path))
+    assert rc == 1 and '먼저 잡음' in msg
+    assert (lock / 'pid').read_text().strip() == str(os.getpid())
 
 
 def test_래퍼의_락_분기를_실행하면_건너뛸_때_LOCK_BUSY_EXIT로_끝난다(tmp_path):

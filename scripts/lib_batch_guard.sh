@@ -17,12 +17,14 @@ plist_drift() {
 }
 
 # ── 배치 락 (#39 L3) ────────────────────────────────────────
-# macOS에는 flock이 없어 mkdir 원자성을 쓴다. 예전 구현의 구멍:
+# macOS에는 flock이 없어 락 디렉터리 + pid 파일의 배타적 생성(noclobber = O_EXCL)을 쓴다. 예전 구현의 구멍:
 #   ① 건너뛸 때 알림이 없었다 (호출부가 LOCK_MSG를 notify한다)
 #   ② mkdir과 pid 기록 사이에 다른 배치가 빈 pid를 '죽은 락'으로 보고 회수해 둘이 같이 돌았다
-#      → pid는 임시 파일에 쓴 뒤 rename, pid 없는 락은 LOCK_PID_GRACE_SEC 동안 '잡는 중'으로 본다
+#      → pid 없는(또는 아직 빈) 락은 LOCK_PID_GRACE_SEC 동안 '잡는 중'으로 본다
 #   ③ 늦게 끝난 배치의 trap이 그 사이 다른 배치가 잡은 락을 지웠다 → release_lock은 내 pid일 때만
 #   ④ pid가 재사용되거나 배치가 멈추면 락이 영원히 '살아 있음' → 락 나이 상한
+#   ⑤ mkdir 명령의 성공만 믿었다 — Ubuntu 26.04 기본 uutils mkdir 0.10은 동시에 실행하면 둘 다 0을
+#      돌려준다(2026-11-23 CI 측정 600회 중 122회, 맥 /bin/mkdir은 0회) → pid 파일을 먼저 만든 쪽만 주인
 LOCK_PID_GRACE_SEC="${LOCK_PID_GRACE_SEC:-60}"
 
 _lock_age() {   # 락 디렉터리 나이(초). 못 읽으면 0 — 젊은 락으로 보아 회수하지 않는 쪽으로 기운다
@@ -32,9 +34,8 @@ _lock_age() {   # 락 디렉터리 나이(초). 못 읽으면 0 — 젊은 락�
     echo $(( $(date +%s) - m ))
 }
 
-_write_lock_pid() {   # 읽는 쪽이 반쯤 쓴 pid를 보지 않게 임시 파일에 쓰고 rename
-    local tmp="$1/pid.tmp.$$"
-    echo "$$" > "$tmp" && mv -f "$tmp" "$1/pid"
+_write_lock_pid() {   # noclobber(O_EXCL)로 pid 파일을 만든 쪽만 성공한다. 생성~기록 사이의 빈 파일은 '잡는 중'
+    ( set -C; echo "$$" > "$1/pid" ) 2>/dev/null
 }
 
 # acquire_lock <락 디렉터리> <락 나이 상한(초)>
@@ -44,8 +45,8 @@ acquire_lock() {
     local dir="$1" max_age="$2" pid age reason stale
     LOCK_MSG=""
     if mkdir "$dir" 2>/dev/null; then
-        _write_lock_pid "$dir" || return 2
-        return 0
+        _write_lock_pid "$dir" && return 0
+        [ -e "$dir/pid" ] || return 2   # pid가 있으면 경합에 진 것 — 아래에서 주인을 판정한다
     fi
     pid="$(cat "$dir/pid" 2>/dev/null || true)"
     age="$(_lock_age "$dir")"
@@ -83,7 +84,11 @@ acquire_lock() {
         LOCK_MSG="죽은 락 회수 직후 다른 배치가 먼저 잡음 — 건너뜀"
         return 1
     fi
-    _write_lock_pid "$dir" || return 2
+    if ! _write_lock_pid "$dir"; then
+        [ -e "$dir/pid" ] || return 2
+        LOCK_MSG="죽은 락 회수 직후 다른 배치가 먼저 잡음 — 건너뜀"
+        return 1
+    fi
     LOCK_MSG="락 회수($reason)"
     return 0
 }
