@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-23T17:34:29+09:00",
+ "updatedAt": "2026-11-24T17:35:21+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -4492,6 +4492,32 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T20:17:04+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "109610": {
+   "companyName": "에스와이(주)",
+   "primaryTheme": "CONSTRUCTION_MATERIALS",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "ENERGY_TRANSITION"
+   ],
+   "detail": "샌드위치패널 건축자재",
+   "businessSummary": "샌드위치패널(EPS·글라스울·우레탄 패널)과 데크플레이트 등 건축 외장·구조 자재를 제조·판매하는 건축자재 기업이다. 매출은 패널·데크플레이트 계열이 대부분이다.",
+   "confidence": "medium",
+   "why": "사업보고서 원문은 확인하지 못했다. 증권 리서치 자료와 정보 사이트 요약에서 샌드위치패널·데크플레이트가 핵심 제품으로 일관되게 나온다. butler.works의 2026년 2분기 매출 구성은 데크플레이트 24%, G/W 패널 22%, 우레탄 단열재 8%, 우레탄 패널 5%, 기타 36%다. 태양광은 신사업으로만 언급돼 보조 태그로 뒀다.",
+   "evidenceUrls": [
+    "https://www.butler.works/ko/companies/00535481",
+    "https://stock.pstatic.net/stock-research/company/75/20260626_company_20448000.pdf",
+    "https://ibtomato.com/View.aspx?no=16024&type=1",
+    "https://thewiki.kr/w/SY",
+    "https://etfshopping.com/stock/109610/company"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-24T17:35:21+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
