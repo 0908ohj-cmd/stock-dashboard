@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 import time
@@ -472,13 +473,29 @@ def _patch_kr_index_volume(df: pd.DataFrame, yf_ticker: str) -> pd.DataFrame:
     return df
 
 
+# KRX 계정이 있는데 pyKRX 지수 조회가 실패해 yfinance로 넘어간 지수 — 배치가 알림에 쓴다.
+# 넘어가도 배치는 성공으로 끝나 2026-11-23 KRX 비밀번호 만료가 조용히 지나갔다.
+_krx_fallbacks: set = set()
+
+
+def pop_krx_fallbacks() -> list:
+    """pyKRX 대신 yfinance로 받은 지수 목록을 돌려주고 비운다."""
+    out = sorted(_krx_fallbacks)
+    _krx_fallbacks.clear()
+    return out
+
+
 def fetch_index_daily(name: str, days: int = 300) -> pd.DataFrame:
     ticker = INDICES[name]
     end = datetime.today() + timedelta(days=1)   # KST 자정 이슈 방지
     start = end - timedelta(days=days + 1)
     if name in ('KOSPI', 'KOSDAQ'):
         df = _fetch_kr_index_pykrx(_KR_INDEX_PYKRX[ticker], start, end)
-        if df.empty:   # KRX_ID/PW 없음 또는 요청 실패 — yfinance로 폴백
+        if not df.empty:
+            _krx_fallbacks.discard(name)      # 재수집에서 pyKRX가 살아났으면 이상이 아니다
+        else:   # KRX_ID/PW 없음 또는 요청 실패 — yfinance로 폴백
+            if os.environ.get('KRX_ID') and os.environ.get('KRX_PW'):   # 계정 없는 Cloud는 정상 경로
+                _krx_fallbacks.add(name)
             df = _download(ticker, start, end)
             # yfinance KR 지수 거래량은 천 주 단위 — pykrx(1순위)와 같은 주 단위로 맞춘다 (#39 M2).
             # 아래 보정 패치(pykrx·FDR)도 주 단위로 채우므로 반드시 그 전에 바꾼다

@@ -111,6 +111,9 @@ jobs:
         env:
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
+          # 수집 이상(pyKRX 실패·미확정 봉) 알림 — 시크릿이 없으면 보내지 않는다
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scripts/fetch_snapshot.py --markets ${{ steps.target.outputs.markets }}
 
       # 수집하는 몇 분 사이 로컬이 늦게라도 올렸을 수 있다. 원격을 다시 보고,
@@ -134,3 +137,13 @@ jobs:
           git commit -m "data: ${{ steps.target.outputs.markets }} 스냅샷 $(date -u -d '+9 hours' +%F) (${{ steps.target.outputs.label }})"
           . scripts/lib_git_push.sh
           sync_and_push
+
+      # 표준 라이브러리만 쓰는 스크립트라 의존성 설치가 실패해도 보낼 수 있다
+      - name: 실패 알림
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TARGET: ${{ steps.target.outputs.markets }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 scripts/notify_telegram.py "[${TARGET:-?}] 실패 — $RUN_URL"

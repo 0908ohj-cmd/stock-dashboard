@@ -79,6 +79,33 @@ def _price_scale_changed(old_df: pd.DataFrame, new_df: pd.DataFrame) -> bool:
     return bool(abs(float((n[valid] / o[valid]).median()) - 1) > _RESCALE_TOL)
 
 
+def _provisional_mask(df: pd.DataFrame) -> pd.Series:
+    """거래량이 있는데 시가·고가·저가 중 하나가 0 이하인 행 — 소스의 확정 전 임시 봉.
+
+    2026-11-23 KR 배치: yfinance가 전 종목·지수의 시가를 0(일부는 고가·저가도 0)으로 줘 전 종목이
+    INVALID_DATA('산출 불가')가 됐고, 시가 0은 그날 봉을 전부 양봉으로 만들어 🔥 판정까지 오염시켰다.
+    거래량이 0인 행은 거래정지일 수 있어 건드리지 않는다.
+    """
+    if not {'Open', 'High', 'Low', 'Volume'} <= set(df.columns):
+        return pd.Series(False, index=df.index)
+    return (df[['Open', 'High', 'Low']].astype(float) <= 0).any(axis=1) & (df['Volume'].astype(float) > 0)
+
+
+def _unresolved_provisional(new_df: pd.DataFrame, merged: pd.DataFrame) -> str | None:
+    """이번 응답의 미확정 봉 중 저장본에도 없는 가장 늦은 날짜. 기존 정상 행이 지켰으면 None."""
+    dates = _tz_naive(new_df.index[_provisional_mask(new_df).to_numpy()])
+    missing = dates.difference(merged.index)
+    return missing.max().strftime('%Y-%m-%d') if len(missing) else None
+
+
+def _old_frame(old_rec: dict) -> pd.DataFrame:
+    """기존 레코드 → 프레임. 이미 저장된 미확정 행은 '결손 보존' 대상이 아니라 뺀다."""
+    old_df = _records_to_df(old_rec)
+    old_df.index = _tz_naive(old_df.index)
+    old_df = old_df[~old_df.index.duplicated(keep='last')]
+    return old_df[~_provisional_mask(old_df)]
+
+
 def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
                    label: str | None = None) -> pd.DataFrame:
     """새 수집분에 빠진 거래일을 기존 레코드에서 보존 (일시 결손 방어).
@@ -91,6 +118,8 @@ def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
     - 마지막 날짜 기준 window_days(캘린더) 롤링 윈도우로 트림 (무한 증식 방지)
     - label 지정 시 이상 결손만 로그. 수집 윈도우가 앞으로 밀리며 빠지는 선두
       rolloff는 정상이므로 제외한다 (휴일 클러스터 뒤엔 여러 날이 한꺼번에 밀린다)
+    - 미확정 봉(_provisional_mask)은 새 수집분·기존 레코드 어느 쪽에서도 저장하지 않는다.
+      새 응답이 미확정이면 그날의 기존 정상 행이 살아남고, 없으면 그날은 비어 재수집·폴백 대상이 된다
 
     컬럼이 빠진 수집분은 병합으로 메우지 않고 KeyError를 낸다 — 옛 컬럼으로 채우면
     NaN 거래량이 스냅샷에 굳고, 벌크 경로가 개별 폴백으로 강등되지 못한다.
@@ -104,15 +133,16 @@ def _merge_history(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
     new_df = new_df[~new_df.index.duplicated(keep='last')]
     if new_df.empty:
         return new_df
+    new_df = new_df[~_provisional_mask(new_df)]
+    if new_df.empty:                    # 응답 전체가 미확정 — 있던 이력만 돌려준다
+        return _old_frame(old_rec) if old_rec else new_df
 
     fetch_min, fetch_max = new_df.index.min(), new_df.index.max()
     fetch_rows = len(new_df)
     preserved  = new_df.index[:0]       # 같은 dtype의 빈 인덱스 (비교 시 dtype 충돌 방지)
     old_rows   = 0
     if old_rec:
-        old_df = _records_to_df(old_rec)
-        old_df.index = _tz_naive(old_df.index)
-        old_df = old_df[~old_df.index.duplicated(keep='last')]
+        old_df = _old_frame(old_rec)
         if _price_scale_changed(old_df, new_df):
             if label:
                 print(f'[{label}] 시세 재조정 감지 — 병합 생략(수집분으로 전체 교체)')
@@ -153,7 +183,8 @@ def _safe_merge(new_df: pd.DataFrame, old_rec: dict | None, window_days: int,
         # 반환해 전략 계층이 크래시한다
         new_df = new_df.copy()
         new_df.index = _tz_naive(new_df.index)
-        return new_df[~new_df.index.duplicated(keep='last')]
+        new_df = new_df[~new_df.index.duplicated(keep='last')]
+        return new_df[~_provisional_mask(new_df)]
 
 
 # market → (mtime_ns, snap) — 티커별 반복 로드 시 수 MB JSON 재파싱(O(N²)) 방지.
@@ -297,6 +328,16 @@ def stocks_behind(snap: dict, index_last: str | None) -> bool:
     return reached / len(data) < MIN_REACHED_RATIO
 
 
+def provisional_behind(snap: dict) -> bool:
+    """미확정 봉으로 최신 날짜를 못 채운 종목이 많은가(도달 비율 < MIN_REACHED_RATIO).
+    종목과 지수가 같이 그날을 못 받으면 서로 날짜가 같아 stocks_behind로는 보이지 않는다."""
+    data = snap.get('data') or {}
+    if not data:
+        return False
+    left = sum(1 for t in (snap.get('provisional') or {}) if t in data)
+    return (len(data) - left) / len(data) < MIN_REACHED_RATIO
+
+
 def _short_list(items: list, n: int = 3) -> str:
     return ', '.join(items[:n]) + (f' 외 {len(items) - n}' if len(items) > n else '')
 
@@ -428,19 +469,29 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
     tickers = list(dict.fromkeys(tickers))   # 순서 보존 dedupe — 파일 중복 라인 방어
     fetch = fetch_fn or fetch_daily
     data, last_date = {}, None
+    provisional = {}                                   # {티커: 미확정 봉으로 못 채운 가장 늦은 날짜}
     old_data = load_snapshot(market).get('data', {})   # 날짜 병합용 (일시 결손 방어)
 
-    def _try(t) -> bool:
+    def _keep(t, df) -> None:
+        """수집분을 기존 이력과 병합해 담는다. 남는 행이 없으면 IndexError — 호출부가 실패로 처리."""
         nonlocal last_date
+        merged = _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}')
+        # 병합 후 프레임 기준 — 꼬리 절단을 보존으로 살린 날짜가 반영돼야 한다
+        d = merged.index[-1].strftime('%Y-%m-%d')
+        data[t] = _df_to_records(merged)
+        last_date = max(last_date, d) if last_date else d
+        gone = _unresolved_provisional(df, merged)
+        if gone:
+            provisional[t] = gone
+        else:
+            provisional.pop(t, None)
+
+    def _try(t) -> bool:
         try:
             df = fetch(t, market=market, days=STOCK_DAYS)
             if df.empty:
                 return False
-            merged = _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}')
-            data[t] = _df_to_records(merged)
-            # 병합 후 프레임 기준 — 꼬리 절단을 보존으로 살린 날짜가 반영돼야 한다
-            d = merged.index[-1].strftime('%Y-%m-%d')
-            last_date = max(last_date, d) if last_date else d
+            _keep(t, df)
             return True
         except Exception:
             return False
@@ -454,10 +505,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
             df = bulk.get(t)
             if df is not None and not df.empty:
                 try:
-                    merged = _safe_merge(df, old_data.get(t), STOCK_DAYS, f'{market}:{t}')
-                    data[t] = _df_to_records(merged)
-                    d = merged.index[-1].strftime('%Y-%m-%d')
-                    last_date = max(last_date, d) if last_date else d
+                    _keep(t, df)
                 except Exception:
                     misses.append(t)
             else:
@@ -513,6 +561,7 @@ def build_market_snapshot(market: str, tickers: list, fetch_fn=None,
         'last_trading_date': last_date,
         'ticker_count': fresh_count,
         'failed': failed,
+        'provisional': provisional,
         'data': data,
     }
 
@@ -607,6 +656,8 @@ def refetch_indices(markets: str = 'all') -> dict:
     # 보인다(2026-11-11·12 US 배치: ^IXIC rate limit → NASDAQ이 하루 묵은 채 저장, #24).
     # fetch_snapshot이 이 값으로 지수 재수집 성공 여부와 종료 코드 3(지수 실패)을 정한다.
     failed = []
+    # 미확정 봉으로 못 채운 날짜 — 이번에 안 받은 지수(KR 배치의 NASDAQ 등)의 기록은 그대로 둔다
+    provisional = dict(existing.get('provisional') or {})
     for name in to_update:
         try:
             df = fetch_index_daily(name, days=INDEX_DAYS)
@@ -619,8 +670,17 @@ def refetch_indices(markets: str = 'all') -> dict:
             failed.append(name)
             continue
         try:
-            merged[name] = _df_to_records(
-                _safe_merge(df, merged.get(name), INDEX_DAYS, name))
+            kept = _safe_merge(df, merged.get(name), INDEX_DAYS, name)
+            gone = _unresolved_provisional(df, kept)
+            if gone:
+                provisional[name] = gone
+            else:
+                provisional.pop(name, None)
+            if kept.empty:       # 응답이 미확정 봉뿐이고 기존 이력도 없다 — 빈 레코드를 저장하지 않는다
+                print(f'[{name}] 지수 수집 실패(미확정 봉뿐) — 저장 안 함')
+                failed.append(name)
+                continue
+            merged[name] = _df_to_records(kept)
         except Exception as e:   # 지수 1개의 변환 실패가 나머지 지수까지 미저장시키면 안 된다
             print(f'[{name}] 레코드 변환 실패({type(e).__name__}: {e}) — 기존 값 유지')
             failed.append(name)
@@ -637,6 +697,7 @@ def refetch_indices(markets: str = 'all') -> dict:
         'last_trading_date': last_date,
         'ticker_count': len(merged),
         'failed': failed,
+        'provisional': provisional,
         'data': merged,
     }
     if not merged:                    # 전량 실패 — 기존 indices.json 보존

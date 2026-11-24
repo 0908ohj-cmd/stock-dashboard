@@ -151,6 +151,29 @@ def index_behind(name: str, snap_text: str | None, idx_last: dict) -> str | None
     return stock if have and stock and have < stock else None
 
 
+def stocks_provisional(snap_text: str | None) -> bool:
+    """미확정 봉(거래량은 있는데 시가·고가·저가가 0)으로 최신 날짜를 못 채운 종목이 많은가.
+    2026-11-23처럼 종목·지수가 같은 소스에서 함께 빠지면 서로 날짜가 같아 위 두 판정으로는 안 보인다.
+    data/store.py provisional_behind와 같은 기준 — 이 스크립트는 pandas 없이 돌아 import하지 않는다."""
+    try:
+        snap = json.loads(snap_text) if snap_text else {}
+        data = snap.get('data') or {}
+        if not data:
+            return False
+        left = sum(1 for t in (snap.get('provisional') or {}) if t in data)
+        return (len(data) - left) / len(data) < MIN_REACHED_RATIO
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
+def _index_provisional(text: str | None) -> set:
+    """indices.json에서 미확정 봉으로 최신 날짜를 못 채운 지수 이름. 못 읽으면 빈 집합."""
+    try:
+        return set(json.loads(text).get('provisional') or {}) if text else set()
+    except (ValueError, TypeError, AttributeError):
+        return set()
+
+
 def is_fresh(markets: str, now: datetime | None = None,
              ohlcv_dir: pathlib.Path | None = None, ref: str | None = None) -> bool:
     """해당 시장의 스냅샷이 모두 가장 최근 로컬 회차 이후에 수집됐고, 종목 마지막 거래일과
@@ -162,7 +185,9 @@ def is_fresh(markets: str, now: datetime | None = None,
     """
     now = now or datetime.now(KST)
     directory = ohlcv_dir or OHLCV_DIR
-    idx_last = _index_last_dates(_read('indices.json', directory, ref))
+    idx_text = _read('indices.json', directory, ref)
+    idx_last = _index_last_dates(idx_text)
+    idx_provisional = _index_provisional(idx_text)
     for market in (['kr', 'us'] if markets == 'all' else [markets]):
         slot = last_local_slot(market, now)
         for name in MARKET_FILES[market]:
@@ -171,6 +196,8 @@ def is_fresh(markets: str, now: datetime | None = None,
             if fetched is None or fetched < slot or fetched > now + FUTURE_TOLERANCE:
                 return False
             if behind_index(name, text, idx_last) or index_behind(name, text, idx_last):
+                return False
+            if SNAPSHOT_INDEX.get(name) in idx_provisional or stocks_provisional(text):
                 return False
     return True
 
