@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-24T08:20:18+09:00",
+ "updatedAt": "2026-11-25T08:14:29+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -1098,6 +1098,32 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:36:10+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "AVGO": {
+   "companyName": "Broadcom Inc.",
+   "primaryTheme": "SEMI_CHIPS_MEMORY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "AI_DC_HARDWARE",
+    "OPTICAL_INTERCONNECT",
+    "SOFTWARE_AI_DATA"
+   ],
+   "detail": "AI 커스텀 반도체",
+   "businessSummary": "커스텀 AI 가속기(XPU)와 AI 네트워킹 반도체를 설계·공급하는 팹리스 반도체 회사다. 이 외에 VMware 등 인프라 소프트웨어 사업도 운영한다.",
+   "confidence": "high",
+   "why": "FY2026 3분기 매출 296억 달러 중 반도체 솔루션이 70%(208억 달러)이고 AI 반도체 매출 167억 달러가 그 중심이며, XPU가 AI 매출의 73%다. AI 서버·랙 완제품이 아니라 칩 공급사라 AI_DC_HARDWARE는 보조로 둔다. 네트워킹은 스위치 칩(Tomahawk) 중심이라 광통신은 보조로만 본다.",
+   "evidenceUrls": [
+    "https://investors.broadcom.com/news-releases/news-release-details/broadcom-inc-announces-third-quarter-fiscal-year-2026-financial",
+    "https://www.nasdaq.com/articles/broadcom-q3-earnings-call-highlights",
+    "https://www.datacenterdynamics.com/en/news/broadcom-slams-ai-silicon-fueled-q3-promises-double-double-on-the-way/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-25T08:14:15+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -2296,6 +2322,26 @@
    "overrideReason": "",
    "history": []
   },
+  "CRGY": {
+   "companyName": "Crescent Energy Company",
+   "primaryTheme": "OIL_GAS_ENERGY",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "석유·가스 생산",
+   "businessSummary": "미국 텍사스 등에서 원유·천연가스·천연가스액(NGL)을 탐사·생산하는 독립 석유가스 생산업체다. 이글포드·퍼미안·유타 분지에 집중하고 광물·로열티 지분도 보유한다.",
+   "confidence": "medium",
+   "why": "StockAnalysis 회사 프로필(S&P Global 산업 설명 인용)에서 원유·가스·NGL 탐사생산 업체, 산업 분류 Oil & Gas Exploration & Production으로 확인했다. 회사 공식 사이트(403)와 10-K 본문은 열람하지 못해 매출 세그먼트 비중은 확인하지 못했다. 전력·AI 관련 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://stockanalysis.com/stocks/crgy/company/"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-25T08:14:20+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "CRSP": {
    "companyName": "CRISPR Therapeutics AG",
    "primaryTheme": "BIOTECH_HEALTHCARE",
@@ -2837,6 +2883,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-19T08:14:29+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "ELVN": {
+   "companyName": "Enliven Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "항암 신약 임상개발",
+   "businessSummary": "보스턴이 아닌 콜로라도 볼더에 본사를 둔 임상 단계 바이오제약사로, 백혈병(CML) 치료제 ELVN-001과 HER2 변이 종양 치료제 ELVN-002 등 저분자 키나아제 억제제를 개발한다. 두 후보물질 모두 임상 1상 단계다.",
+   "confidence": "high",
+   "why": "매출이 없는 임상 단계 신약 개발사로, 자사 10-K와 IR이 사업을 저분자 키나아제 억제제 신약 개발로 명시한다. 2023년 Imara와의 합병으로 ELVN 티커를 이어받은 현재 회사이며, 방산·AI·반도체 등 다른 테마에 해당하는 사업은 없다.",
+   "evidenceUrls": [
+    "https://sec.gov/Archives/edgar/data/1672619/000095017024031495/elvn-20231231.htm",
+    "https://enliventherapeutics.gcs-web.com/news-releases/news-release-details/enliven-therapeutics-reports-fourth-quarter-and-full-year-2025",
+    "https://www.placera.se/pressmeddelanden/enliven-therapeutics-enliven-therapeutics-announces-updated-positive-data-from-phase-1-clinical-trial-of-elvn-001-in-cml-at-eha-2025-congress-20250613"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-25T08:14:29+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -3709,6 +3777,33 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:48:19+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "GLBE": {
+   "companyName": "Global-E Online Ltd.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DIGITAL_ASSETS_FINTECH",
+    "CONSUMER_OTHER"
+   ],
+   "detail": "국경간 이커머스 플랫폼",
+   "businessSummary": "이스라엘 기반 국경 간 D2C 이커머스 플랫폼으로, 해외 소비자가 해외 가맹점에서 직접 구매할 때 현지화 가격·결제·관세/세금·국제 배송·반품을 처리한다. 매출은 서비스 수수료(약 47%)와 풀필먼트 서비스(약 53%)로 나뉜다.",
+   "confidence": "medium",
+   "why": "2025년 매출 9억 6,220만 달러 중 서비스 수수료 4억 5,120만 달러(약 47%), 풀필먼트 5억 1,100만 달러(약 53%)로, 회사는 자사를 플랫폼으로 설명하고 Shopify Managed Markets 같은 플랫폼 통합 수익이 핵심이라 주력을 인터넷 플랫폼 쪽으로 봤다. 다만 매출의 절반 이상이 물류 재판매라 SaaS로 단정하기 어렵고, 결제 수수료 성격 때문에 DIGITAL_ASSETS_FINTECH·CONSUMER_OTHER도 보조로 남겼다.",
+   "evidenceUrls": [
+    "https://finviz.com/news/313922/global-e-reports-record-fourth-quarter-and-full-year-results-for-2025",
+    "https://www.finanznachrichten.de/nachrichten-2026-02/67729222-global-e-online-ltd-global-e-reports-record-fourth-quarter-and-full-year-results-for-2025-399.htm",
+    "https://www.stocktitan.net/sec-filings/GLBE/20-f-global-e-online-ltd-files-annual-report-foreign-issuer-bf27131fb469.html",
+    "https://www.nasdaq.com/press-release/global-e-reports-third-quarter-2025-results-2025-11-19",
+    "https://grafa.com/en/company/global-e-online/us/glbe"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-25T08:14:21+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -9300,6 +9395,28 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:53:35+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "WIX": {
+   "companyName": "Wix.com Ltd.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "웹사이트 빌더 SaaS",
+   "businessSummary": "웹사이트 빌더·클라우드 SaaS 플랫폼으로, 개인·소상공인 대상 프리미엄 구독(Creative Subscriptions)과 결제·커머스 등 비즈니스 솔루션(Business Solutions) 매출을 낸다. 에이전시·프리랜서 파트너 채널도 키우고 있으며 AI 앱 빌더 Base44를 인수해 운영한다.",
+   "confidence": "high",
+   "why": "2024년 총매출 17.6억 달러 중 Creative Subscriptions가 12.65억 달러, Business Solutions가 4.96억 달러로 모두 구독·SaaS 매출이다. 제품은 웹사이트 빌더 소프트웨어이므로 소프트웨어·AI 테마에 해당한다. 하드웨어·광고 중심 사업이 아니다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1576789/000162828025006216/fourthquarterandfullyear20.htm",
+    "https://seekingalpha.com/pr/20006171-wix-reports-fourth-quarter-and-full-year-2024-results",
+    "https://en.globes.co.il/en/article-wix-provides-cautious-2025-guidance-after-strong-2024-1001502603"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-25T08:14:13+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
