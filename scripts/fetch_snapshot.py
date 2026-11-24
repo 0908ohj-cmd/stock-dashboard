@@ -11,7 +11,8 @@ import time
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from data import store
+from data import fetcher, store
+from scripts.notify_telegram import send as send_telegram
 
 # 시장별 종목 = 티커 파일 합집합. 정의는 data/store.py 한 곳 — 앱 사이드바 🔄 데이터 재수집도
 # 같은 목록으로 전 종목을 다시 받는다 (scripts를 앱이 import하지 않도록 data/ 계층에 둔다)
@@ -33,6 +34,8 @@ LAG_RETRY_WAITS_SEC = (300, 900)
 # 기준은 '이번 배치에서 한 번도 못 받은 지수' — 첫 수집이 실패해도 run_market의 지수 재수집(#24)이
 # 성공하면 실패가 아니다.
 INDEX_FAILED_EXIT = 3
+# 이 수 이상 수집에 실패하면 알린다. 과거 배치의 상시 실패는 최대 2종목 — 매일 울리면 진짜 이상이 묻힌다
+FAILED_ALERT_MIN = 3
 
 
 load_tickers = store.snapshot_tickers
@@ -43,12 +46,20 @@ def _index_last(market: str) -> str | None:
     return rec['dates'][-1] if rec and rec.get('dates') else None
 
 
+def _index_provisional(markets: str) -> dict:
+    """이번 시장 지수 중 미확정 봉으로 최신 날짜를 못 채운 것 {지수: 날짜}."""
+    left = store.load_snapshot('indices').get('provisional') or {}
+    names = {MARKET_INDEX[m] for m in MARKET_GROUPS[markets]}
+    return {k: v for k, v in left.items() if k in names}
+
+
 def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
-               index_failed: set | None = None) -> bool:
+               index_failed: set | None = None, report: list | None = None) -> bool:
     """수집 → 성공률 게이트 통과 시에만 전체 교체 저장. 통과 여부 반환.
-    종목과 시장 지수의 마지막 날짜가 어긋나면 waits 간격으로 늦은 쪽을 다시 받는다
+    종목과 시장 지수의 마지막 날짜가 어긋나거나 미확정 봉이 많으면 waits 간격으로 다시 받는다
     (종목이 늦으면 종목, 지수가 늦으면 지수). 그래도 어긋나면 경고 후 저장 — 폴백 게이트가 잡는다.
-    index_failed: 아직 못 받은 지수 집합(main 소유). 지수 재수집에 성공한 지수는 여기서 뺀다."""
+    index_failed: 아직 못 받은 지수 집합(main 소유). 지수 재수집에 성공한 지수는 여기서 뺀다.
+    report: 텔레그램으로 알릴 수집 이상을 담는 목록(main 소유)."""
     tickers = load_tickers(market)
     if not tickers:
         print(f'[{market}] 티커 파일 없음 — 건너뜀')
@@ -65,6 +76,11 @@ def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
         if store.stocks_behind(snap, want):
             lag = store.lagging_tickers(snap, want)
             print(f'[{market}] {len(lag)}종목이 {idx_name} {want}에 못 미침(최신 {have}) — '
+                  f'{wait}초 뒤 종목 재수집')
+            sleep(wait)
+            snap = store.build_market_snapshot(market, tickers)
+        elif store.provisional_behind(snap):
+            print(f"[{market}] {len(snap['provisional'])}종목이 미확정 봉(시가·고가·저가 0) — "
                   f'{wait}초 뒤 종목 재수집')
             sleep(wait)
             snap = store.build_market_snapshot(market, tickers)
@@ -85,6 +101,14 @@ def run_market(market: str, waits=LAG_RETRY_WAITS_SEC, sleep=time.sleep,
     elif want and have and want < have:
         print(f'[{market}] ⚠️ 재시도 후에도 {idx_name} {want} < 종목 {have} — '
               '폴백 배치가 다시 받는다 (check_snapshot_fresh)')
+    left = snap.get('provisional') or {}
+    if left:
+        print(f'[{market}] ⚠️ 재시도 후에도 미확정 봉 {len(left)}종목 — 그날 행은 저장하지 않았다')
+    if report is not None:
+        if left:
+            report.append(f'{market}: yfinance 미확정 봉 {len(left)}종목 저장 제외 ({max(left.values())})')
+        if len(snap['failed']) >= FAILED_ALERT_MIN:
+            report.append(f"{market}: 수집 실패 {len(snap['failed'])}종목 {snap['failed'][:5]}")
     # 분모는 실제 시도 수(성공+실패) — 티커 파일 중복 라인에 왜곡되지 않는다
     attempted = snap['ticker_count'] + len(snap['failed'])
     rate = snap['ticker_count'] / attempted if attempted else 1.0
@@ -111,8 +135,20 @@ def main() -> int:
               '기존 값 유지, 종목보다 늦으면 재수집')
     else:
         print(f'[indices] {args.markets} 지수 갱신')
-    results = [run_market(m, index_failed=index_failed)
+    issues: list = []
+    results = [run_market(m, index_failed=index_failed, report=issues)
                for m in MARKET_GROUPS[args.markets]]  # all() 단락 방지
+    # 배치가 성공으로 끝나도 수집 도구의 실패는 알린다 — 2026-11-23 KRX 비밀번호 만료가 조용히 지나갔다
+    krx = fetcher.pop_krx_fallbacks()
+    if krx:
+        issues.insert(0, f"pyKRX 지수 조회 실패({', '.join(krx)}) → yfinance로 대체. "
+                         'KRX 로그인·비밀번호 만료를 확인하세요')
+    index_left = _index_provisional(args.markets)
+    if index_left:
+        issues.append('지수 미확정 봉 저장 제외: ' + ', '.join(f'{k} {v}' for k, v in sorted(index_left.items())))
+    if issues:
+        print('[수집 이상] ' + ' / '.join(issues))
+        send_telegram(f'[{args.markets}] 수집 이상\n- ' + '\n- '.join(issues))
     if not all(results):
         return 1
     if index_failed:

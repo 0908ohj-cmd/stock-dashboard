@@ -193,7 +193,7 @@ def test_main_index_failure_recovered_by_retry_is_success(monkeypatch, capsys):
     monkeypatch.setattr('sys.argv', ['fetch_snapshot.py', '--markets', 'us'])
     monkeypatch.setattr(fs.store, 'refetch_indices', lambda m: {'failed': ['NASDAQ'], 'data': {}})
 
-    def run_market(m, index_failed):
+    def run_market(m, index_failed, report=None):
         index_failed.discard('NASDAQ')
         return True
     monkeypatch.setattr(fs, 'run_market', run_market)
