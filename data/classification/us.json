@@ -1,7 +1,7 @@
 {
  "market": "us",
  "taxonomyVersion": "us-v1",
- "updatedAt": "2026-11-25T08:14:29+09:00",
+ "updatedAt": "2026-11-26T08:19:01+09:00",
  "records": {
   "AAOI": {
    "companyName": "Applied Optoelectronics, Inc.",
@@ -1927,6 +1927,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-17T08:14:17+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "CGNX": {
+   "companyName": "Cognex Corporation",
+   "primaryTheme": "ROBOTICS_AUTONOMY",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "SEMI_EQUIPMENT"
+   ],
+   "detail": "산업용 머신비전",
+   "businessSummary": "산업용 머신비전 시스템 전문 기업으로, 비전 카메라·센서·비전 소프트웨어(VisionPro, ViDi 딥러닝)와 산업용 바코드 리더(DataMan)를 제조·물류 자동화 현장에 공급한다. 주요 고객 산업은 자동차, 물류, 소비자 전자, 반도체, 포장 등이다.",
+   "confidence": "medium",
+   "why": "10-K 기준 회사 주력 사업은 산업용 머신비전 시스템과 바코드 리더이며, 이는 로봇·산업자동화 검사·가이드 영역에 속한다. 반도체는 주요 고객 산업 중 하나로 보조 태그로만 두었고, 제품군별 정확한 매출 비중은 확인하지 못해 신뢰도는 medium으로 낮춘다.",
+   "evidenceUrls": [
+    "https://s2.q4cdn.com/773500753/files/doc_financials/2025/ar/Cognex-2025-Form-10-K.pdf",
+    "https://investor.cognex.com/",
+    "https://stockanalysis.com/stocks/cgnx/company",
+    "https://finviz.com/news/308123/cognex-reports-fourth-quarter-2025-results"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-26T08:18:57+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -7958,6 +7983,29 @@
    "overrideReason": "",
    "history": []
   },
+  "SNEX": {
+   "companyName": "StoneX Group Inc.",
+   "primaryTheme": "DIGITAL_ASSETS_FINTECH",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "PRECIOUS_METALS_MATERIALS"
+   ],
+   "detail": "온라인 증권·금융서비스",
+   "businessSummary": "글로벌 금융서비스 회사로, 기관 고객 대상 프라임 브로커리지·청산·외환·증권 중개, 상업 고객의 실물 원자재(금속·농산물 등) 헤지 거래, 개인 고객 대상 온라인 자기주도 증권, 글로벌 결제 사업을 운영한다.",
+   "confidence": "medium",
+   "why": "FY2025(9월 결산) 세그먼트 매출은 기관 약 25억달러, 상업 약 10억달러, 자기주도(개인) 약 4억달러이며 결제 부문은 세그먼트 이익(약 1.2억달러)만 확인됐다. 기관 중개가 가장 크지만 목록에 전통 금융 테마가 없어 온라인 증권·결제 핀테크로 분류했고, 기술·AI 테마와는 무관하다.",
+   "evidenceUrls": [
+    "https://sec.gov/Archives/edgar/data/913760/000091376025000191/snex2025er_exhq4roll.htm",
+    "https://www.sec.gov/Archives/edgar/data/913760/000091376025000196/intl-20250930.htm"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-26T08:19:01+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
   "SNOW": {
    "companyName": "Snowflake Inc.",
    "primaryTheme": "SOFTWARE_AI_DATA",
@@ -8156,6 +8204,29 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:47:42+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "STOK": {
+   "companyName": "Stoke Therapeutics, Inc.",
+   "primaryTheme": "BIOTECH_HEALTHCARE",
+   "suggestedTheme": null,
+   "secondaryThemes": [],
+   "detail": "희귀질환 RNA 신약",
+   "businessSummary": "RNA 기반 신약을 개발하는 바이오텍으로, TANGO 플랫폼의 안티센스 올리고뉴클레오타이드(ASO)로 유전 원인 희귀질환의 단백질 발현을 높이는 것이 주력이다. 1호 후보물질 zorevunersen은 Dravet 증후군 임상 중이다.",
+   "confidence": "high",
+   "why": "회사 10-K와 IR 자료에 따르면 사업 전체가 ASO 신약 파이프라인(zorevunersen, STK-002)이고, 매출도 Biogen·Acadia 등과의 신약 라이선스·협업 수익이다. 반도체·AI 등 다른 사업은 확인되지 않았다.",
+   "evidenceUrls": [
+    "https://stoketherapeutics.gcs-web.com/",
+    "https://www.sec.gov/Archives/edgar/data/1623526/000095017024035912/0000950170-24-035912-index.html",
+    "https://markets.financialcontent.com/stocks/quote/nq:stok",
+    "https://www.stocktitan.net/overview/STOK"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-26T08:18:56+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
@@ -8682,6 +8753,31 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "us-v1",
    "reviewedAt": "2026-11-08T15:47:23+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "TTAN": {
+   "companyName": "ServiceTitan, Inc.",
+   "primaryTheme": "SOFTWARE_AI_DATA",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DIGITAL_ASSETS_FINTECH"
+   ],
+   "detail": "현장서비스 관리 SaaS",
+   "businessSummary": "설비·HVAC·배관 등 트레이드(현장 서비스) 사업자를 위한 클라우드 SaaS 플랫폼으로, CRM·현장서비스 관리·일정/배차·견적·원가 관리·결제 기능을 제공한다.",
+   "confidence": "high",
+   "why": "회사가 스스로 'trades 사업자를 위한 end-to-end 클라우드 소프트웨어 플랫폼'으로 규정하고, FY2026(2026.1 종료) 매출 약 9억6,100만 달러 중 플랫폼 매출이 약 9억2,540만 달러로 대부분이다. 결제·소비자 금융은 매출의 일부라 보조 태그로만 둔다.",
+   "evidenceUrls": [
+    "https://www.sec.gov/Archives/edgar/data/1638826/000163882626000028/ttan-20260131.htm",
+    "https://www.boardroomalpha.com/sec/ttan-10-k-2026-03-25-0001638826-26-000028",
+    "https://finviz.com/news/337029/servicetitan-announces-fiscal-fourth-quarter-and-full-fiscal-year-2026-financial-results",
+    "https://investors.servicetitan.com/news-releases/news-release-details/servicetitan-announces-fiscal-fourth-quarter-and-full-fiscal"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "us-v1",
+   "reviewedAt": "2026-11-26T08:18:57+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
