@@ -1,7 +1,7 @@
 {
  "market": "kr",
  "taxonomyVersion": "kr-v1",
- "updatedAt": "2026-11-24T17:35:21+09:00",
+ "updatedAt": "2026-11-25T17:35:22+09:00",
  "records": {
   "000500": {
    "companyName": "가온전선",
@@ -7810,6 +7810,34 @@
    "method": "llm:claude-haiku-5-5+websearch",
    "taxonomyVersion": "kr-v1",
    "reviewedAt": "2026-11-08T16:07:46+09:00",
+   "overrideByUser": false,
+   "overrideReason": "",
+   "history": []
+  },
+  "477850": {
+   "companyName": "마키나락스",
+   "primaryTheme": "SOFTWARE_AI_PLATFORM",
+   "suggestedTheme": null,
+   "secondaryThemes": [
+    "DEFENSE"
+   ],
+   "detail": "산업용 AI 플랫폼",
+   "businessSummary": "산업 현장용 AI 운영체계 '런웨이(Runway)'를 핵심 제품으로 하는 AI 소프트웨어 기업이다. 제조·국방 등에 맞춘 산업 특화 AI 모델 개발(AI 프로젝트)과 기업이 직접 AI를 개발·배포·운영하도록 돕는 MLOps 플랫폼(AI 프로덕트)을 함께 제공한다.",
+   "confidence": "medium",
+   "why": "매출의 중심은 런웨이 같은 AI 플랫폼·소프트웨어와 산업별 AI 모델 구축이고, 하드웨어 제조가 아니다. 국방은 AX 레퍼런스로 강조되지만 고객별 매출 비중 수치는 확인되지 않아 보조 태그로만 둔다. 사업보고서·IR 원문은 열람하지 못하고 언론 보도(회사 발언 인용)로만 확인했다.",
+   "evidenceUrls": [
+    "https://www.ddaily.co.kr/page/view/2026040316450381136",
+    "https://www.ddaily.co.kr/page/view/2026050614472502762",
+    "https://dealsite.co.kr/articles/161335",
+    "https://www.cio.com/article/4167643/%EC%A0%9C%EC%A1%B0%C2%B7%EA%B5%BD%EB%B0%A9-%ED%98%84%EC%9E%A5-%EB%B2%94%EC%9A%A9-ai%EB%A1%9C%EB%8A%94-%EB%B6%80%EC%A1%B1-%EC%9C%A4%EC%84%B1%ED%98%B8-%EB%A7%88%ED%82%A4.html",
+    "https://www.ajunews.com/view/20260428101559033",
+    "https://zdnet.co.kr/view?no=20261113115246",
+    "https://alphasquare.co.kr/home/stock-summary?code=477850"
+   ],
+   "gateReasons": [],
+   "method": "llm:claude-haiku-5-5+websearch",
+   "taxonomyVersion": "kr-v1",
+   "reviewedAt": "2026-11-25T17:35:22+09:00",
    "overrideByUser": false,
    "overrideReason": "",
    "history": []
